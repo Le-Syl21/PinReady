@@ -1,4 +1,6 @@
 use eframe::egui;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use crate::audio::{self, AudioCommand, AudioConfig, Sound3DMode};
 use crate::config::VpxConfig;
@@ -92,6 +94,9 @@ pub struct App {
     config: VpxConfig,
     db: Database,
 
+    // VPinballX executable path
+    vpx_exe_path: String,
+
     // Page 1 — Screens
     displays: Vec<DisplayInfo>,
     screen_count: usize,
@@ -140,17 +145,19 @@ pub struct App {
     // Page 5 — Tables dir
     tables_dir: String,
 
-    // Assets directory path
-    #[allow(dead_code)]
-    assets_dir: String,
-
     // Launcher
     tables: Vec<TableEntry>,
     table_filter: String,
+    table_filter_lower: String, // cached lowercase version of table_filter
     selected_table: usize,
+    scroll_to_selected: bool, // set by joystick navigation to trigger scroll
+    launcher_cols: usize, // number of columns in the grid (computed in render)
     images_preloaded: bool,
     bg_viewport_last: usize, // last table index sent to BG viewport
     bg_rx: Option<crossbeam_channel::Receiver<(usize, std::path::PathBuf)>>,
+
+    // VPX process running — disables launcher while true
+    vpx_running: Arc<AtomicBool>,
 
     // Quit timer (set after finalize_wizard)
     quit_after_ms: Option<std::time::Instant>,
@@ -232,39 +239,27 @@ impl App {
         audio.load_from_config(&config);
         audio.available_devices = AudioConfig::enumerate_devices();
 
+        // Load VPinballX executable path
+        let vpx_exe_path = db
+            .get_config("vpx_exe_path")
+            .unwrap_or_else(|| "/home/pincab/VPinballX/VPinballX_BGFX".to_string());
+
         // Load tables directory
         let tables_dir = db
             .get_tables_dir()
             .unwrap_or_default();
 
-        // Determine assets directory (next to the binary or in project root)
-        let assets_dir = {
-            let exe_dir = std::env::current_exe()
-                .ok()
-                .and_then(|p| p.parent().map(|p| p.to_path_buf()))
-                .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
-            let candidate = exe_dir.join("assets").join("audio");
-            if candidate.is_dir() {
-                candidate.to_string_lossy().into_owned()
-            } else {
-                // Fallback: current working directory
-                let cwd = std::env::current_dir().unwrap_or_default();
-                cwd.join("assets").join("audio").to_string_lossy().into_owned()
-            }
-        };
-
         // Start joystick thread (keyboard captured via egui)
         let joystick_rx = inputs::spawn_joystick_thread();
 
-        // Open audio stream on main thread (required by some platforms)
-        let audio_stream = audio::open_audio_stream();
-        let audio_cmd_tx = audio::spawn_audio_thread(audio_stream, assets_dir.clone());
+        let audio_cmd_tx = audio::spawn_audio_thread();
 
         let mut s = Self {
             mode: if start_in_wizard { AppMode::Wizard } else { AppMode::Launcher },
             page: WizardPage::Screens,
             config,
             db,
+            vpx_exe_path,
             displays,
             screen_count,
             view_mode,
@@ -297,13 +292,16 @@ impl App {
             audio,
             audio_cmd_tx: Some(audio_cmd_tx),
             tables_dir,
-            assets_dir,
             tables: Vec::new(),
             table_filter: String::new(),
+            table_filter_lower: String::new(),
             selected_table: 0,
+            scroll_to_selected: false,
+            launcher_cols: 1,
             images_preloaded: false,
             bg_viewport_last: usize::MAX,
             bg_rx: None,
+            vpx_running: Arc::new(AtomicBool::new(false)),
             quit_after_ms: None,
         };
         // Pre-scan tables if starting in launcher mode
@@ -381,6 +379,11 @@ impl App {
     }
 
     fn save_screens(&mut self) {
+        // Save VPinballX executable path
+        if let Err(e) = self.db.set_config("vpx_exe_path", &self.vpx_exe_path) {
+            log::error!("Failed to save VPX exe path: {e}");
+        }
+
         self.config.set_view_mode(self.view_mode);
 
         if self.disable_touch {
@@ -422,12 +425,10 @@ impl App {
             self.config.set_i32("Player", "PlayfieldFullScreen", 1);
         }
 
-        let placements = screens::compute_placement(&self.displays);
-        for (i, display) in self.displays.iter().enumerate() {
-            let (px, py) = placements[i];
+        for display in self.displays.iter() {
             match display.role {
                 DisplayRole::Playfield => {
-                    self.config.set_playfield_display(&display.name, px, py, display.width, display.height);
+                    self.config.set_display("Player", "Playfield", &display.name, display.width, display.height, false);
                     // Write exact refresh rate — VPX crashes if value doesn't match exactly
                     self.config.set_f32("Player", "PlayfieldRefreshRate", display.refresh_rate);
                     self.config.set_f32("Player", "MaxFramerate", display.refresh_rate);
@@ -442,13 +443,13 @@ impl App {
                     }
                 }
                 DisplayRole::Backglass => {
-                    self.config.set_backglass_display(&display.name, px, py, display.width, display.height);
+                    self.config.set_display("Backglass", "Backglass", &display.name, display.width, display.height, true);
                 }
                 DisplayRole::Dmd => {
-                    self.config.set_dmd_display(&display.name, px, py, display.width, display.height);
+                    self.config.set_display("ScoreView", "ScoreView", &display.name, display.width, display.height, true);
                 }
                 DisplayRole::Topper => {
-                    self.config.set_topper_display(&display.name, px, py, display.width, display.height);
+                    self.config.set_display("Topper", "Topper", &display.name, display.width, display.height, true);
                 }
                 DisplayRole::Unused => {}
             }
@@ -658,17 +659,36 @@ impl App {
         self.bg_rx = Some(rx);
     }
 
-    fn launch_table(&self, table: &TableEntry) {
-        let vpx_exe = "/home/pincab/VPinballX/VPinballX_BGFX";
-        log::info!("Launching: {} -Play {}", vpx_exe, table.path.display());
-        match std::process::Command::new(vpx_exe)
-            .arg("-Play")
-            .arg(&table.path)
-            .spawn()
-        {
-            Ok(_) => log::info!("VPinballX launched"),
-            Err(e) => log::error!("Failed to launch VPinballX: {e}"),
+    fn launch_table(&mut self, table_path: &std::path::Path) {
+        if self.vpx_running.load(Ordering::Relaxed) {
+            return;
         }
+        if self.vpx_exe_path.is_empty() || !std::path::Path::new(&self.vpx_exe_path).is_file() {
+            log::error!("VPinballX executable not found: {}", self.vpx_exe_path);
+            return;
+        }
+        log::info!("Launching: {} -Play {}", self.vpx_exe_path, table_path.display());
+        let exe = self.vpx_exe_path.clone();
+        let path = table_path.to_path_buf();
+        let running = self.vpx_running.clone();
+        running.store(true, Ordering::Relaxed);
+        std::thread::spawn(move || {
+            match std::process::Command::new(&exe)
+                .arg("-Play")
+                .arg(&path)
+                .spawn()
+            {
+                Ok(mut child) => {
+                    log::info!("VPinballX launched, waiting for exit...");
+                    match child.wait() {
+                        Ok(status) => log::info!("VPinballX exited with status: {status}"),
+                        Err(e) => log::error!("Failed to wait for VPinballX: {e}"),
+                    }
+                }
+                Err(e) => log::error!("Failed to launch VPinballX: {e}"),
+            }
+            running.store(false, Ordering::Relaxed);
+        });
     }
 
     fn process_bg_extraction(&mut self, ctx: &egui::Context) {
@@ -678,7 +698,7 @@ impl App {
                     if let Ok(bytes) = std::fs::read(&path) {
                         let arc: std::sync::Arc<[u8]> = std::sync::Arc::from(bytes.into_boxed_slice());
                         let uri = format!("bytes://bg/{idx}");
-                        ctx.include_bytes(uri, arc.to_vec());
+                        ctx.include_bytes(uri, arc.clone());
                         self.tables[idx].bg_bytes = Some(arc);
                     }
                     self.tables[idx].bg_path = Some(path);
@@ -702,40 +722,68 @@ impl App {
     }
 
     fn handle_launcher_joystick(&mut self) {
-        // Process joystick buttons for pincab navigation
-        if let Some(rx) = &self.joystick_rx {
-            while let Ok(event) = rx.try_recv() {
-                match &event {
-                    JoystickEvent::ButtonDown { button, .. } => {
-                        if self.tables.is_empty() { continue; }
-                        match *button {
-                            // Left flipper (button 7) = previous table
-                            7 => {
-                                if self.selected_table > 0 {
-                                    self.selected_table -= 1;
-                                } else {
-                                    self.selected_table = self.tables.len() - 1;
-                                }
+        let vpx_running = self.vpx_running.load(Ordering::Relaxed);
+        // Drain joystick events into a local vec to avoid borrow conflict
+        let events: Vec<JoystickEvent> = self.joystick_rx.as_ref()
+            .map(|rx| rx.try_iter().collect())
+            .unwrap_or_default();
+
+        if vpx_running || self.tables.is_empty() {
+            return;
+        }
+
+        let len = self.tables.len();
+        let cols = self.launcher_cols.max(1);
+        for event in events {
+            match &event {
+                JoystickEvent::ButtonDown { button, .. } => {
+                    match *button {
+                        // Left flipper (button 7) = previous table
+                        7 => {
+                            if self.selected_table > 0 {
+                                self.selected_table -= 1;
+                            } else {
+                                self.selected_table = len - 1;
                             }
-                            // Right flipper (button 8) = next table
-                            8 => {
-                                self.selected_table = (self.selected_table + 1) % self.tables.len();
-                            }
-                            // Start (button 0) = launch table
-                            0 => {
-                                let table = self.tables[self.selected_table].clone();
-                                self.launch_table(&table);
-                            }
-                            // Launch ball (button 4) = switch to config
-                            4 => {
-                                self.mode = AppMode::Wizard;
-                            }
-                            _ => {}
+                            self.scroll_to_selected = true;
                         }
+                        // Right flipper (button 8) = next table
+                        8 => {
+                            self.selected_table = (self.selected_table + 1) % len;
+                            self.scroll_to_selected = true;
+                        }
+                        // Left staged flipper (button 9) = previous row
+                        9 => {
+                            if self.selected_table >= cols {
+                                self.selected_table -= cols;
+                            } else {
+                                self.selected_table = (len - 1).min(self.selected_table + len - cols);
+                            }
+                            self.scroll_to_selected = true;
+                        }
+                        // Right staged flipper (button 10) = next row
+                        10 => {
+                            if self.selected_table + cols < len {
+                                self.selected_table += cols;
+                            } else {
+                                self.selected_table = self.selected_table % cols;
+                            }
+                            self.scroll_to_selected = true;
+                        }
+                        // Start (button 0) = launch table
+                        0 => {
+                            let path = self.tables[self.selected_table].path.clone();
+                            self.launch_table(&path);
+                        }
+                        // Launch ball (button 4) = switch to config
+                        4 => {
+                            self.mode = AppMode::Wizard;
+                        }
+                        _ => {}
                     }
-                    JoystickEvent::AccelUpdate { .. } => {}
-                    _ => {}
                 }
+                JoystickEvent::AccelUpdate { .. } => {}
+                _ => {}
             }
         }
     }
@@ -748,7 +796,45 @@ impl App {
         self.process_bg_extraction(ui.ctx());
         self.preload_images(ui.ctx());
         self.handle_launcher_joystick();
-        ui.ctx().request_repaint(); // keep refreshing for bg extraction + joystick
+        // Only repaint when needed: bg extraction in progress, VPX running, or joystick connected
+        if self.bg_rx.is_some() || self.vpx_running.load(Ordering::Relaxed) || self.joystick_rx.is_some() {
+            ui.ctx().request_repaint();
+        }
+
+        // Keyboard navigation in launcher
+        if !self.tables.is_empty() && !self.vpx_running.load(Ordering::Relaxed) {
+            let len = self.tables.len();
+            let cols = self.launcher_cols.max(1);
+            ui.input(|i| {
+                for event in &i.events {
+                    if let egui::Event::Key { key, pressed: true, .. } = event {
+                        match key {
+                            egui::Key::ArrowLeft => {
+                                self.selected_table = if self.selected_table > 0 { self.selected_table - 1 } else { len - 1 };
+                                self.scroll_to_selected = true;
+                            }
+                            egui::Key::ArrowRight => {
+                                self.selected_table = (self.selected_table + 1) % len;
+                                self.scroll_to_selected = true;
+                            }
+                            egui::Key::ArrowUp => {
+                                self.selected_table = if self.selected_table >= cols { self.selected_table - cols } else { self.selected_table };
+                                self.scroll_to_selected = true;
+                            }
+                            egui::Key::ArrowDown => {
+                                self.selected_table = if self.selected_table + cols < len { self.selected_table + cols } else { self.selected_table };
+                                self.scroll_to_selected = true;
+                            }
+                            egui::Key::Enter => {
+                                let path = self.tables[self.selected_table].path.clone();
+                                self.launch_table(&path);
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            });
+        }
 
         // In pincab mode (multi-screen), position main window on DMD
         let has_dmd = self.displays.iter().any(|d| d.role == DisplayRole::Dmd);
@@ -781,7 +867,9 @@ impl App {
         // Search filter
         ui.horizontal(|ui| {
             ui.label("Rechercher :");
-            ui.text_edit_singleline(&mut self.table_filter);
+            if ui.text_edit_singleline(&mut self.table_filter).changed() {
+                self.table_filter_lower = self.table_filter.to_lowercase();
+            }
             ui.label(format!("{} table(s)", self.tables.len()));
         });
         ui.add_space(8.0);
@@ -792,19 +880,32 @@ impl App {
         }
 
         // Table grid with backglass images
-        let filter = self.table_filter.to_lowercase();
+        let filter = &self.table_filter_lower;
         let mut launch_idx: Option<usize> = None;
         let card_width = 400.0;
         let card_height = 520.0;
         let img_height = 400.0;
+        let card_spacing = 8.0;
         let available_width = ui.available_width();
-        let cols = ((available_width / (card_width + 8.0)) as usize).max(1);
+        let cols = ((available_width / (card_width + card_spacing)) as usize).max(1);
+        self.launcher_cols = cols;
+        let row_height = card_height + card_spacing;
 
-        egui::ScrollArea::vertical()
-            .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
-            .show(ui, |ui| {
+        let mut scroll_area = egui::ScrollArea::vertical()
+            .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible);
+
+        // Auto-scroll to selected table when navigating with joystick
+        if self.scroll_to_selected {
+            self.scroll_to_selected = false;
+            // Compute the row of the selected table and scroll to it
+            let selected_row = self.selected_table / cols;
+            let target_y = selected_row as f32 * row_height;
+            scroll_area = scroll_area.vertical_scroll_offset(target_y);
+        }
+
+        scroll_area.show(ui, |ui| {
             let filtered: Vec<usize> = (0..self.tables.len())
-                .filter(|&i| filter.is_empty() || self.tables[i].name.to_lowercase().contains(&filter))
+                .filter(|&i| filter.is_empty() || self.tables[i].name.to_lowercase().contains(filter.as_str()))
                 .collect();
 
             for row_start in (0..filtered.len()).step_by(cols) {
@@ -846,9 +947,9 @@ impl App {
                         };
                         painter.rect_filled(rect, 6.0, bg_color);
 
-                        // Selection border
+                        // Selection border (inside to avoid clipping by painter_at)
                         if is_selected {
-                            painter.rect_stroke(rect, 6.0, egui::Stroke::new(3.0, egui::Color32::from_rgb(255, 200, 0)), egui::StrokeKind::Outside);
+                            painter.rect_stroke(rect, 6.0, egui::Stroke::new(4.0, egui::Color32::from_rgb(255, 200, 0)), egui::StrokeKind::Inside);
                         }
 
                         // Backglass image (centered in image area)
@@ -903,8 +1004,8 @@ impl App {
 
         if let Some(idx) = launch_idx {
             self.selected_table = idx;
-            let table = self.tables[idx].clone();
-            self.launch_table(&table);
+            let path = self.tables[idx].path.clone();
+            self.launch_table(&path);
         }
 
         // If multi-screen, show backglass on BG display via secondary viewport
@@ -942,7 +1043,7 @@ impl App {
                             // Register new bytes only when selection changed
                             if let Some(ref bytes) = bg_bytes {
                                 let uri = format!("bytes://viewport_bg/{selected}");
-                                ctx.include_bytes(uri, bytes.to_vec());
+                                ctx.include_bytes(uri, bytes.clone());
                             }
                             if has_bg {
                                 let uri = format!("bytes://viewport_bg/{selected}");
@@ -967,6 +1068,27 @@ impl App {
 
     fn render_screens_page(&mut self, ui: &mut egui::Ui) {
         ui.heading("Configuration des écrans");
+        ui.add_space(8.0);
+
+        // VPinballX executable path
+        ui.label("Chemin vers l'exécutable VPinballX :");
+        ui.horizontal(|ui| {
+            ui.add(egui::TextEdit::singleline(&mut self.vpx_exe_path).desired_width(400.0));
+            if ui.button("Parcourir...").clicked() {
+                if let Some(path) = rfd::FileDialog::new()
+                    .set_title("Sélectionner l'exécutable VPinballX")
+                    .pick_file()
+                {
+                    self.vpx_exe_path = path.display().to_string();
+                }
+            }
+        });
+        let vpx_exists = std::path::Path::new(&self.vpx_exe_path).is_file();
+        if !vpx_exists && !self.vpx_exe_path.is_empty() {
+            ui.colored_label(egui::Color32::from_rgb(255, 100, 100), "⚠ Fichier introuvable");
+        }
+        ui.add_space(12.0);
+        ui.separator();
         ui.add_space(8.0);
 
         // Screen count selection
@@ -1155,7 +1277,7 @@ impl App {
                     egui::Stroke::new(4.0, col_screen.linear_multiply(0.6)),
                 );
                 painter.text(egui::pos2(screen_end_x + 8.0, screen_end_y - bg_height / 2.0),
-                    egui::Align2::LEFT_CENTER, "BG", font_label.clone(), col_screen);
+                    egui::Align2::LEFT_CENTER, "BG", font_label, col_screen);
 
                 // Player (stick figure, side view — facing right toward cabinet)
                 let player_base_x = cab_x - (-self.player_y) * scale;
@@ -1234,7 +1356,7 @@ impl App {
                 if self.screen_inclination.abs() > 0.5 {
                     painter.text(egui::pos2(cab_x + 30.0, lockbar_y - 12.0),
                         egui::Align2::LEFT_CENTER, &format!("{:.0} deg", self.screen_inclination),
-                        font_dim.clone(), col_screen);
+                        font_dim, col_screen);
                 }
 
                 // === Drag handles ===
@@ -1494,15 +1616,19 @@ impl App {
             let mut captured = false;
 
             // Check key events
-            let events: Vec<egui::Event> = ui.input(|i| i.events.clone());
-            for event in &events {
-                if let egui::Event::Key { key, pressed: true, .. } = event {
-                    if *key == egui::Key::Escape {
+            let key_events: Vec<(egui::Key, bool)> = ui.input(|i| {
+                i.events.iter().filter_map(|e| {
+                    if let egui::Event::Key { key, pressed, .. } = e { Some((*key, *pressed)) } else { None }
+                }).collect()
+            });
+            for &(key, pressed) in &key_events {
+                if pressed {
+                    if key == egui::Key::Escape {
                         self.capture_state = CaptureState::Idle;
                         captured = true;
                         break;
                     }
-                    if let Some(sc) = inputs::egui_key_to_scancode(*key) {
+                    if let Some(sc) = inputs::egui_key_to_scancode(key) {
                         if idx < self.actions.len() {
                             self.actions[idx].mapping = Some(CapturedInput::Keyboard {
                                 scancode: sc,
@@ -1520,7 +1646,7 @@ impl App {
             if !captured && (modifiers.shift || modifiers.ctrl || modifiers.alt) {
                 // Wait for a key event to pair with the modifier, or capture modifier alone
                 // We only capture modifier alone if no other key event came through
-                if events.is_empty() {
+                if key_events.is_empty() {
                     if let Some(sc) = inputs::egui_modifiers_to_scancode(&modifiers) {
                         if idx < self.actions.len() {
                             self.actions[idx].mapping = Some(CapturedInput::Keyboard {
@@ -2031,9 +2157,9 @@ impl eframe::App for App {
                         log::info!("Pinscape detected in UI: {}", vpx_id);
                         self.pinscape_id = Some(vpx_id.clone());
                         let brain_defaults: &[(&str, u8)] = &[
-                            ("CoinDoor", 13), ("ExitGame", 14),
-                            ("Service1", 15), ("Service2", 16), ("Service3", 17), ("Service4", 18),
-                            ("VolumeDown", 19), ("VolumeUp", 20),
+                            ("CoinDoor", 13),
+                            ("Service1", 14), ("Service2", 15), ("Service3", 16), ("Service4", 17),
+                            ("VolumeDown", 18), ("VolumeUp", 19),
                         ];
                         for (action_id, button) in brain_defaults {
                             if let Some(action) = self.actions.iter_mut().find(|a| a.setting_id == *action_id) {

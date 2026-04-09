@@ -63,39 +63,18 @@ impl VpxConfig {
 
     // --- Screen configuration ---
 
-    pub fn set_playfield_display(&mut self, name: &str, _x: i32, _y: i32, w: i32, h: i32) {
-        self.set("Player", "PlayfieldDisplay", name);
-        self.set("Player", "PlayfieldWndX", "");
-        self.set("Player", "PlayfieldWndY", "");
-        self.set_i32("Player", "PlayfieldWidth", w);
-        self.set_i32("Player", "PlayfieldHeight", h);
-    }
-
-    pub fn set_backglass_display(&mut self, name: &str, _x: i32, _y: i32, w: i32, h: i32) {
-        self.set_i32("Backglass", "BackglassOutput", 1);
-        self.set("Backglass", "BackglassDisplay", name);
-        self.set("Backglass", "BackglassWndX", "");
-        self.set("Backglass", "BackglassWndY", "");
-        self.set_i32("Backglass", "BackglassWidth", w);
-        self.set_i32("Backglass", "BackglassHeight", h);
-    }
-
-    pub fn set_dmd_display(&mut self, name: &str, _x: i32, _y: i32, w: i32, h: i32) {
-        self.set_i32("ScoreView", "ScoreViewOutput", 1);
-        self.set("ScoreView", "ScoreViewDisplay", name);
-        self.set("ScoreView", "ScoreViewWndX", "");
-        self.set("ScoreView", "ScoreViewWndY", "");
-        self.set_i32("ScoreView", "ScoreViewWidth", w);
-        self.set_i32("ScoreView", "ScoreViewHeight", h);
-    }
-
-    pub fn set_topper_display(&mut self, name: &str, _x: i32, _y: i32, w: i32, h: i32) {
-        self.set_i32("Topper", "TopperOutput", 1);
-        self.set("Topper", "TopperDisplay", name);
-        self.set("Topper", "TopperWndX", "");
-        self.set("Topper", "TopperWndY", "");
-        self.set_i32("Topper", "TopperWidth", w);
-        self.set_i32("Topper", "TopperHeight", h);
+    /// Generic display configuration. `section` and `prefix` vary per role:
+    /// Playfield: ("Player", "Playfield"), Backglass: ("Backglass", "Backglass"),
+    /// DMD: ("ScoreView", "ScoreView"), Topper: ("Topper", "Topper").
+    pub fn set_display(&mut self, section: &str, prefix: &str, name: &str, w: i32, h: i32, enable_output: bool) {
+        if enable_output {
+            self.set_i32(section, &format!("{prefix}Output"), 1);
+        }
+        self.set(section, &format!("{prefix}Display"), name);
+        self.set(section, &format!("{prefix}WndX"), "");
+        self.set(section, &format!("{prefix}WndY"), "");
+        self.set_i32(section, &format!("{prefix}Width"), w);
+        self.set_i32(section, &format!("{prefix}Height"), h);
     }
 
     pub fn set_view_mode(&mut self, mode: i32) {

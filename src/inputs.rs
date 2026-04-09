@@ -268,6 +268,10 @@ struct OpenedJoystick {
     num_buttons: i32,
     num_axes: i32,
     prev_buttons: Vec<bool>,
+    /// Pre-built button names to avoid format!() in the 100Hz polling loop
+    button_names: Vec<String>,
+    /// Pre-built axis names
+    axis_names: Vec<String>,
 }
 
 /// Spawn the SDL3 joystick polling thread (keyboard is handled via egui).
@@ -286,9 +290,9 @@ pub fn spawn_joystick_thread() -> crossbeam_channel::Receiver<JoystickEvent> {
             }
 
             // Open all connected joysticks
-            let mut joysticks: Vec<OpenedJoystick> = Vec::new();
             let mut joy_count: i32 = 0;
             let joy_ids = SDL_GetJoysticks(&mut joy_count);
+            let mut joysticks: Vec<OpenedJoystick> = Vec::with_capacity(joy_count as usize);
             if !joy_ids.is_null() {
                 for i in 0..joy_count as usize {
                     let jid = *joy_ids.add(i);
@@ -313,12 +317,21 @@ pub fn spawn_joystick_thread() -> crossbeam_channel::Receiver<JoystickEvent> {
                             log::info!("Gamepad detected: {} ({})", name, dev_id);
                             let _ = evt_tx.send(JoystickEvent::GamepadDetected { vpx_id: dev_id.clone(), name: name.clone() });
                         }
+                        // Pre-build names to avoid format!() in the hot polling loop
+                        let button_names: Vec<String> = (0..num_buttons)
+                            .map(|b| format!("{} Button {}", dev_id, b))
+                            .collect();
+                        let axis_names: Vec<String> = (0..num_axes)
+                            .map(|a| format!("{} Axis {}", dev_id, a))
+                            .collect();
                         joysticks.push(OpenedJoystick {
                             handle: joy,
                             vpx_id: dev_id,
                             num_buttons,
                             num_axes,
                             prev_buttons: vec![false; num_buttons as usize],
+                            button_names,
+                            axis_names,
                         });
                     }
                 }
@@ -331,18 +344,19 @@ pub fn spawn_joystick_thread() -> crossbeam_channel::Receiver<JoystickEvent> {
                 SDL_UpdateJoysticks();
 
                 for js in &mut joysticks {
-                    // Poll buttons — detect newly pressed
+                    // Poll buttons — detect newly pressed (only allocate on actual press)
                     for b in 0..js.num_buttons {
                         let pressed = SDL_GetJoystickButton(js.handle, b);
-                        let was_pressed = js.prev_buttons[b as usize];
+                        let idx = b as usize;
+                        let was_pressed = js.prev_buttons[idx];
                         if pressed && !was_pressed {
                             let _ = evt_tx.send(JoystickEvent::ButtonDown {
                                 device_id: js.vpx_id.clone(),
                                 button: b as u8,
-                                name: format!("{} Button {}", js.vpx_id, b),
+                                name: js.button_names[idx].clone(),
                             });
                         }
-                        js.prev_buttons[b as usize] = pressed;
+                        js.prev_buttons[idx] = pressed;
                     }
 
                     // Poll axes — capture big movements for input binding
@@ -352,13 +366,12 @@ pub fn spawn_joystick_thread() -> crossbeam_channel::Receiver<JoystickEvent> {
                             let _ = evt_tx.send(JoystickEvent::AxisMotion {
                                 device_id: js.vpx_id.clone(),
                                 axis: a as u8,
-                                name: format!("{} Axis {}", js.vpx_id, a),
+                                name: js.axis_names[a as usize].clone(),
                             });
                         }
                     }
 
                     // Send raw normalized accel data for tilt visualization (axes 0+1)
-                    // Scale is applied in the UI based on user's nudge_scale setting
                     if js.num_axes >= 2 {
                         let ax = SDL_GetJoystickAxis(js.handle, 0) as f32 / 32767.0;
                         let ay = SDL_GetJoystickAxis(js.handle, 1) as f32 / 32767.0;

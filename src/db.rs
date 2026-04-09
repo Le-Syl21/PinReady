@@ -50,14 +50,6 @@ impl Database {
         Ok(())
     }
 
-    /// Check if the wizard has been completed (first-run detection).
-    #[allow(dead_code)]
-    pub fn is_configured(&self) -> bool {
-        self.get_config("wizard_completed")
-            .map(|v| v == "true")
-            .unwrap_or(false)
-    }
-
     /// Mark the wizard as completed.
     pub fn set_configured(&self) -> Result<()> {
         self.set_config("wizard_completed", "true")

@@ -22,7 +22,7 @@ ini-preserve = "0.1.1"
 rusqlite = { version = "0.39", features = ["bundled"] }
 
 # File dialog
-rfd = "0.15"
+rfd = "0.17"
 
 # File scan
 walkdir = "2.5"

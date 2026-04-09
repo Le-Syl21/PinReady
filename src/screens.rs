@@ -172,33 +172,3 @@ fn auto_assign_roles(displays: &mut [DisplayInfo]) {
     }
 }
 
-/// Compute screen placement using absolute desktop coordinates (left-to-right).
-/// Order: Playfield, Backglass, DMD, Topper
-pub fn compute_placement(displays: &[DisplayInfo]) -> Vec<(i32, i32)> {
-    let role_order = [
-        DisplayRole::Playfield,
-        DisplayRole::Backglass,
-        DisplayRole::Dmd,
-        DisplayRole::Topper,
-    ];
-
-    // Compute X positions left-to-right by role order
-    let mut role_positions: Vec<(DisplayRole, i32, i32)> = Vec::new();
-    let mut x_offset = 0;
-    for role in &role_order {
-        if let Some(d) = displays.iter().find(|d| d.role == *role) {
-            role_positions.push((*role, x_offset, 0));
-            x_offset += d.width;
-        }
-    }
-
-    // Map back to original display order
-    let mut result = vec![(0, 0); displays.len()];
-    for (role, x, y) in &role_positions {
-        if let Some(pos) = displays.iter().position(|d| d.role == *role) {
-            result[pos] = (*x, *y);
-        }
-    }
-
-    result
-}

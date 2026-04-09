@@ -41,9 +41,8 @@ impl Sound3DMode {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)]
 pub enum AudioTestPhase {
-    Idle, MusicPlaying, BallTopBottom, BallLeftRight, Knocker,
+    Idle,
 }
 
 /// Which speaker(s) to play on in 7.1 layout
@@ -71,7 +70,6 @@ pub enum SpeakerTarget {
     RightBoth,
 }
 
-#[allow(dead_code)]
 pub enum AudioCommand {
     /// Play on specific speaker target
     PlayOnSpeaker { path: String, target: SpeakerTarget },
@@ -84,7 +82,9 @@ pub enum AudioCommand {
     StartMusic { path: String },
     SetMusicPan { pan: f32 },
     StopMusic,
+    #[allow(dead_code)]
     StopAll,
+    #[allow(dead_code)]
     Quit,
 }
 
@@ -152,6 +152,8 @@ impl AudioConfig {
     }
 }
 
+const SAMPLE_RATE: usize = 44100;
+
 // Embedded audio assets
 const KNOCKER_OGG: &[u8] = include_bytes!("../assets/audio/knocker.ogg");
 const BALL_ROLL_OGG: &[u8] = include_bytes!("../assets/audio/ball_roll.ogg");
@@ -211,7 +213,7 @@ fn decode_to_mono_pcm(name: &str) -> Option<Vec<i16>> {
         }
     }
 
-    log::info!("Decoded {} (mono): {} samples ({:.1}s)", name, samples.len(), samples.len() as f32 / 44100.0);
+    log::info!("Decoded {} (mono): {} samples ({:.1}s)", name, samples.len(), samples.len() as f32 / SAMPLE_RATE as f32);
     if samples.is_empty() { None } else { Some(samples) }
 }
 
@@ -290,11 +292,8 @@ fn stereo_to_71_front(stereo: &[i16], pan: f32) -> Vec<i16> {
     out
 }
 
-/// No longer used - kept for API compat
-pub fn open_audio_stream() -> *mut SDL_AudioStream { std::ptr::null_mut() }
-
 /// Spawn audio thread with 8-channel (7.1) output
-pub fn spawn_audio_thread(_: *mut SDL_AudioStream, _assets_dir: String) -> Sender<AudioCommand> {
+pub fn spawn_audio_thread() -> Sender<AudioCommand> {
     let (cmd_tx, cmd_rx) = crossbeam_channel::unbounded::<AudioCommand>();
 
     thread::spawn(move || {
@@ -336,7 +335,7 @@ pub fn spawn_audio_thread(_: *mut SDL_AudioStream, _assets_dir: String) -> Sende
                         if let Some(mono) = decode_to_mono_pcm(&path) {
                             SDL_ClearAudioStream(stream);
 
-                            let samples_per_ms = 44100 / 1000;
+                            let samples_per_ms = SAMPLE_RATE / 1000;
                             let hold_start_samples = hold_start_ms as usize * samples_per_ms;
                             let fade_samples = fade_ms as usize * samples_per_ms;
                             let hold_end_samples = hold_end_ms as usize * samples_per_ms;
@@ -388,8 +387,8 @@ pub fn spawn_audio_thread(_: *mut SDL_AudioStream, _assets_dir: String) -> Sende
                     Ok(AudioCommand::StartMusic { path }) => {
                         log::info!("Audio: StartMusic {}", path);
                         if let Some(stereo) = decode_to_stereo_pcm(&path) {
-                            music_pcm = Some(stereo.clone());
                             let data = stereo_to_71_front(&stereo, 0.0);
+                            music_pcm = Some(stereo);
                             SDL_ClearAudioStream(stream);
                             SDL_PutAudioStreamData(stream, data.as_ptr() as *const _, (data.len() * 2) as i32);
                             SDL_FlushAudioStream(stream);
