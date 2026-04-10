@@ -155,6 +155,10 @@ pub fn enumerate_displays() -> Vec<DisplayInfo> {
     // Auto-assign roles by size
     auto_assign_roles(&mut displays);
 
+    for d in &displays {
+        log::info!("Display: {} | {}x{} @ ({},{}) | {:?}", d.name, d.width, d.height, d.x, d.y, d.role);
+    }
+
     displays
 }
 

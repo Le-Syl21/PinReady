@@ -16,8 +16,28 @@ pub enum AppMode {
     Launcher,
 }
 
+/// VPX process status messages sent from the launch thread
+enum VpxStatus {
+    /// Loading progress message (e.g. "Initializing Visuals... 10%")
+    Loading(String),
+    /// VPX has finished loading ("Startup done")
+    Started,
+    /// VPX exited normally
+    ExitOk,
+    /// VPX exited with error — contains captured stderr/stdout log
+    ExitError(String),
+    /// Failed to launch VPX
+    LaunchError(String),
+}
+
 /// Viewport ID for the backglass window
 const BG_VIEWPORT: &str = "backglass_viewport";
+/// Viewport ID for the playfield cover window
+const PF_VIEWPORT: &str = "playfield_viewport";
+/// Viewport ID for the topper cover window
+const TOPPER_VIEWPORT: &str = "topper_viewport";
+/// VPX logo bytes (embedded at compile time)
+const VPX_LOGO: &[u8] = include_bytes!("../assets/vpinball_logo.png");
 
 /// A discovered table
 #[derive(Debug, Clone)]
@@ -153,14 +173,22 @@ pub struct App {
     scroll_to_selected: bool, // set by joystick navigation to trigger scroll
     launcher_cols: usize, // number of columns in the grid (computed in render)
     images_preloaded: bool,
-    bg_viewport_last: usize, // last table index sent to BG viewport
     bg_rx: Option<crossbeam_channel::Receiver<(usize, std::path::PathBuf)>>,
 
     // VPX process running — disables launcher while true
     vpx_running: Arc<AtomicBool>,
+    // VPX launch status received from the VPX process thread
+    vpx_status_rx: Option<crossbeam_channel::Receiver<VpxStatus>>,
+    vpx_loading_msg: String,
+    vpx_hide_covers: bool, // VPX windows are up, hide covers
+    vpx_error_log: Option<String>, // set on unexpected exit, shown as popup
 
     // Quit timer (set after finalize_wizard)
     quit_after_ms: Option<std::time::Instant>,
+
+    // Rescan button: long-press (3s) = full regeneration, short click = incremental
+    rescan_press_start: Option<std::time::Instant>,
+
 }
 
 impl App {
@@ -299,10 +327,14 @@ impl App {
             scroll_to_selected: false,
             launcher_cols: 1,
             images_preloaded: false,
-            bg_viewport_last: usize::MAX,
             bg_rx: None,
             vpx_running: Arc::new(AtomicBool::new(false)),
+            vpx_status_rx: None,
+            vpx_loading_msg: String::new(),
+            vpx_hide_covers: false,
+            vpx_error_log: None,
             quit_after_ms: None,
+            rescan_press_start: None,
         };
         // Pre-scan tables if starting in launcher mode
         if !start_in_wizard {
@@ -672,20 +704,75 @@ impl App {
         let path = table_path.to_path_buf();
         let running = self.vpx_running.clone();
         running.store(true, Ordering::Relaxed);
+        self.vpx_loading_msg = "Lancement de VPinballX...".to_string();
+        self.vpx_error_log = None;
+
+        let (tx, rx) = crossbeam_channel::unbounded();
+        self.vpx_status_rx = Some(rx);
+
         std::thread::spawn(move || {
-            match std::process::Command::new(&exe)
+            use std::io::BufRead;
+            let child = std::process::Command::new(&exe)
                 .arg("-Play")
                 .arg(&path)
-                .spawn()
-            {
+                .stdout(std::process::Stdio::piped())
+                .spawn();
+            match child {
                 Ok(mut child) => {
-                    log::info!("VPinballX launched, waiting for exit...");
+                    log::info!("VPinballX launched, reading stdout...");
+                    let stdout = child.stdout.take();
+                    let mut log_lines: Vec<String> = Vec::new();
+                    let mut startup_done = false;
+
+                    // Read stdout — parse progress and startup markers
+                    if let Some(so) = stdout {
+                        let reader = std::io::BufReader::new(so);
+                        for line in reader.lines().map_while(Result::ok) {
+                            log::info!("[VPX] {}", line);
+                            if line.contains("SetProgress") {
+                                if let Some(start) = line.find("] ") {
+                                    let msg = &line[start + 2..];
+                                    let _ = tx.send(VpxStatus::Loading(msg.to_string()));
+                                }
+                            } else if line.contains("RenderStaticPrepass") && line.contains("Reflection Probe") {
+                                let _ = tx.send(VpxStatus::Loading("Reflection Probe...".to_string()));
+                            } else if line.contains("PluginLog") {
+                                // Extract plugin name from "B2SLegacy: ..." or "VNI: ..."
+                                if let Some(start) = line.rfind("] ") {
+                                    let msg = &line[start + 2..];
+                                    if let Some(colon) = msg.find(':') {
+                                        let plugin = &msg[..colon];
+                                        let _ = tx.send(VpxStatus::Loading(format!("Plugin {plugin}...")));
+                                    }
+                                }
+                            } else if line.contains("Startup done") {
+                                startup_done = true;
+                                let _ = tx.send(VpxStatus::Started);
+                            }
+                            log_lines.push(line);
+                        }
+                    }
+
                     match child.wait() {
-                        Ok(status) => log::info!("VPinballX exited with status: {status}"),
-                        Err(e) => log::error!("Failed to wait for VPinballX: {e}"),
+                        Ok(status) => {
+                            log::info!("VPinballX exited with status: {status}");
+                            if status.success() || startup_done {
+                                let _ = tx.send(VpxStatus::ExitOk);
+                            } else {
+                                let tail: Vec<String> = log_lines.iter().rev().take(50).rev().cloned().collect();
+                                let _ = tx.send(VpxStatus::ExitError(tail.join("\n")));
+                            }
+                        }
+                        Err(e) => {
+                            log::error!("Failed to wait for VPinballX: {e}");
+                            let _ = tx.send(VpxStatus::ExitError(format!("Process error: {e}")));
+                        }
                     }
                 }
-                Err(e) => log::error!("Failed to launch VPinballX: {e}"),
+                Err(e) => {
+                    log::error!("Failed to launch VPinballX: {e}");
+                    let _ = tx.send(VpxStatus::LaunchError(format!("{e}")));
+                }
             }
             running.store(false, Ordering::Relaxed);
         });
@@ -721,7 +808,19 @@ impl App {
         log::info!("Preloaded {} images into RAM", self.tables.iter().filter(|t| t.bg_path.is_some()).count());
     }
 
-    fn handle_launcher_joystick(&mut self) {
+    /// Find which action is mapped to a given joystick button number.
+    fn action_for_button(&self, button: u8) -> Option<String> {
+        for action in &self.actions {
+            if let Some(inputs::CapturedInput::JoystickButton { button: b, .. }) = &action.mapping {
+                if *b == button {
+                    return Some(action.setting_id.to_string());
+                }
+            }
+        }
+        None
+    }
+
+    fn handle_launcher_joystick(&mut self, ui: &mut egui::Ui) {
         let vpx_running = self.vpx_running.load(Ordering::Relaxed);
         // Drain joystick events into a local vec to avoid borrow conflict
         let events: Vec<JoystickEvent> = self.joystick_rx.as_ref()
@@ -737,9 +836,9 @@ impl App {
         for event in events {
             match &event {
                 JoystickEvent::ButtonDown { button, .. } => {
-                    match *button {
-                        // Left flipper (button 7) = previous table
-                        7 => {
+                    let action = self.action_for_button(*button);
+                    match action.as_deref() {
+                        Some("LeftFlipper") => {
                             if self.selected_table > 0 {
                                 self.selected_table -= 1;
                             } else {
@@ -747,13 +846,11 @@ impl App {
                             }
                             self.scroll_to_selected = true;
                         }
-                        // Right flipper (button 8) = next table
-                        8 => {
+                        Some("RightFlipper") => {
                             self.selected_table = (self.selected_table + 1) % len;
                             self.scroll_to_selected = true;
                         }
-                        // Left staged flipper (button 9) = previous row
-                        9 => {
+                        Some("LeftStagedFlipper") => {
                             if self.selected_table >= cols {
                                 self.selected_table -= cols;
                             } else {
@@ -761,8 +858,7 @@ impl App {
                             }
                             self.scroll_to_selected = true;
                         }
-                        // Right staged flipper (button 10) = next row
-                        10 => {
+                        Some("RightStagedFlipper") => {
                             if self.selected_table + cols < len {
                                 self.selected_table += cols;
                             } else {
@@ -770,20 +866,57 @@ impl App {
                             }
                             self.scroll_to_selected = true;
                         }
-                        // Start (button 0) = launch table
-                        0 => {
+                        Some("Start") => {
                             let path = self.tables[self.selected_table].path.clone();
                             self.launch_table(&path);
                         }
-                        // Launch ball (button 4) = switch to config
-                        4 => {
+                        Some("LaunchBall") => {
                             self.mode = AppMode::Wizard;
+                        }
+                        Some("ExitGame") => {
+                            ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                         }
                         _ => {}
                     }
                 }
                 JoystickEvent::AccelUpdate { .. } => {}
                 _ => {}
+            }
+        }
+    }
+
+    fn process_vpx_status(&mut self) {
+        if let Some(rx) = &self.vpx_status_rx {
+            while let Ok(status) = rx.try_recv() {
+                match status {
+                    VpxStatus::Loading(msg) => {
+                        self.vpx_loading_msg = msg;
+                    }
+                    VpxStatus::Started => {
+                        self.vpx_loading_msg = "Startup done".to_string();
+                        self.vpx_hide_covers = true;
+                    }
+                    VpxStatus::ExitOk => {
+                        self.vpx_loading_msg.clear();
+                        self.vpx_hide_covers = false;
+                        self.vpx_status_rx = None;
+                        return;
+                    }
+                    VpxStatus::ExitError(log) => {
+                        self.vpx_loading_msg.clear();
+                        self.vpx_hide_covers = false;
+                        self.vpx_error_log = Some(log);
+                        self.vpx_status_rx = None;
+                        return;
+                    }
+                    VpxStatus::LaunchError(msg) => {
+                        self.vpx_loading_msg.clear();
+                        self.vpx_hide_covers = false;
+                        self.vpx_error_log = Some(msg);
+                        self.vpx_status_rx = None;
+                        return;
+                    }
+                }
             }
         }
     }
@@ -795,7 +928,8 @@ impl App {
 
         self.process_bg_extraction(ui.ctx());
         self.preload_images(ui.ctx());
-        self.handle_launcher_joystick();
+        self.handle_launcher_joystick(ui);
+        self.process_vpx_status();
         // Only repaint when needed: bg extraction in progress, VPX running, or joystick connected
         if self.bg_rx.is_some() || self.vpx_running.load(Ordering::Relaxed) || self.joystick_rx.is_some() {
             ui.ctx().request_repaint();
@@ -829,6 +963,9 @@ impl App {
                                 let path = self.tables[self.selected_table].path.clone();
                                 self.launch_table(&path);
                             }
+                            egui::Key::Escape => {
+                                ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+                            }
                             _ => {}
                         }
                     }
@@ -836,14 +973,27 @@ impl App {
             });
         }
 
-        // In pincab mode (multi-screen), position main window on DMD
+        // Multi-screen: position main window (table selector) on the right display
+        // 2 screens: selector on Playfield, BG viewport on Backglass
+        // 3+ screens: selector on DMD, BG viewport on Backglass, cover on Playfield (+Topper)
         let has_dmd = self.displays.iter().any(|d| d.role == DisplayRole::Dmd);
+        let has_bg = self.displays.iter().any(|d| d.role == DisplayRole::Backglass);
         if has_dmd {
+            // 3+ screens: main window on DMD
             if let Some(dmd) = self.displays.iter().find(|d| d.role == DisplayRole::Dmd) {
                 ui.ctx().send_viewport_cmd(egui::ViewportCommand::OuterPosition(
                     egui::pos2(dmd.x as f32, dmd.y as f32)));
                 ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(
                     egui::vec2(dmd.width as f32, dmd.height as f32)));
+                ui.ctx().send_viewport_cmd(egui::ViewportCommand::Decorations(false));
+            }
+        } else if has_bg {
+            // 2 screens (PF + BG): main window on Playfield
+            if let Some(pf) = self.displays.iter().find(|d| d.role == DisplayRole::Playfield) {
+                ui.ctx().send_viewport_cmd(egui::ViewportCommand::OuterPosition(
+                    egui::pos2(pf.x as f32, pf.y as f32)));
+                ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(
+                    egui::vec2(pf.width as f32, pf.height as f32)));
                 ui.ctx().send_viewport_cmd(egui::ViewportCommand::Decorations(false));
             }
         }
@@ -857,12 +1007,86 @@ impl App {
                 if ui.button("Configuration").clicked() {
                     self.mode = AppMode::Wizard;
                 }
-                if ui.button("Rescanner").clicked() {
-                    self.scan_tables();
+                let rescan_label = if let Some(start) = self.rescan_press_start {
+                    let held = start.elapsed().as_secs_f32();
+                    let pct = ((held / 3.0) * 100.0).min(100.0) as u32;
+                    format!("Reset... {}%", pct)
+                } else {
+                    "Rescanner".to_string()
+                };
+                let rescan_btn = ui.button(&rescan_label);
+                if rescan_btn.is_pointer_button_down_on() {
+                    if self.rescan_press_start.is_none() {
+                        self.rescan_press_start = Some(std::time::Instant::now());
+                    }
+                    if let Some(start) = self.rescan_press_start {
+                        if start.elapsed().as_secs_f32() >= 3.0 {
+                            // Long press: delete all caches and full rescan
+                            log::info!("Long press: full backglass regeneration");
+                            self.rescan_press_start = None;
+                            let dir = std::path::Path::new(&self.tables_dir);
+                            if dir.is_dir() {
+                                for entry in walkdir::WalkDir::new(dir).max_depth(2).into_iter().flatten() {
+                                    let p = entry.path();
+                                    if p.file_name().and_then(|f| f.to_str())
+                                        .map_or(false, |f| f.starts_with(".pinready_bg_v"))
+                                    {
+                                        let _ = std::fs::remove_file(p);
+                                    }
+                                }
+                            }
+                            self.scan_tables();
+                        } else {
+                            ui.ctx().request_repaint();
+                        }
+                    }
+                } else {
+                    if self.rescan_press_start.is_some() {
+                        // Released before 3s: incremental rescan
+                        self.rescan_press_start = None;
+                        self.scan_tables();
+                    }
                 }
             });
         });
         ui.add_space(8.0);
+
+        // VPX loading overlay — show spinner but don't return, viewports need to render below
+        let vpx_loading = self.vpx_running.load(Ordering::Relaxed) && !self.vpx_loading_msg.is_empty();
+        if vpx_loading {
+            ui.vertical_centered(|ui| {
+                ui.add_space(40.0);
+                ui.spinner();
+                ui.add_space(8.0);
+                ui.label(egui::RichText::new(&self.vpx_loading_msg).size(18.0).strong());
+            });
+        }
+
+        // VPX error popup
+        if self.vpx_error_log.is_some() {
+            let mut close = false;
+            egui::Window::new("VPinballX — Erreur")
+                .collapsible(false)
+                .resizable(true)
+                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+                .default_size([600.0, 400.0])
+                .show(ui.ctx(), |ui| {
+                    ui.label(egui::RichText::new("VPinballX a quitte de maniere inattendue.").size(16.0).strong().color(egui::Color32::RED));
+                    ui.add_space(8.0);
+                    if let Some(ref log) = self.vpx_error_log {
+                        egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
+                            ui.monospace(log);
+                        });
+                    }
+                    ui.add_space(8.0);
+                    if ui.button("Fermer").clicked() {
+                        close = true;
+                    }
+                });
+            if close {
+                self.vpx_error_log = None;
+            }
+        }
 
         // Search filter
         ui.horizontal(|ui| {
@@ -1008,19 +1232,52 @@ impl App {
             self.launch_table(&path);
         }
 
+        // 3+ screens: cover Playfield with grey metal background + VPX logo
+        // (with 2 screens, Playfield hosts the table selector — no cover needed)
+        let has_pf_display = self.displays.iter().any(|d| d.role == DisplayRole::Playfield);
+        if has_pf_display && has_dmd && !self.vpx_hide_covers {
+            let pf_display = self.displays.iter().find(|d| d.role == DisplayRole::Playfield);
+            let (pf_x, pf_y, pf_w, pf_h) = pf_display
+                .map(|d| (d.x as f32, d.y as f32, d.width as f32, d.height as f32))
+                .unwrap_or((0.0, 0.0, 1920.0, 1080.0));
+
+            let pf_viewport_id = egui::ViewportId::from_hash_of(PF_VIEWPORT);
+            ui.ctx().show_viewport_deferred(
+                pf_viewport_id,
+                egui::ViewportBuilder::default()
+                    .with_title("PinReady — Playfield")
+                    .with_position(egui::pos2(pf_x, pf_y))
+                    .with_inner_size(egui::vec2(pf_w, pf_h))
+                    .with_decorations(false)
+                    .with_override_redirect(true),
+                move |ctx, _class| {
+                    // Force position every frame — WM may ignore initial with_position
+                    ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(
+                        egui::pos2(pf_x, pf_y)));
+                    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(
+                        egui::vec2(pf_w, pf_h)));
+                    egui_extras::install_image_loaders(ctx);
+                    ctx.include_bytes("bytes://vpx_logo", VPX_LOGO);
+                    egui::CentralPanel::default()
+                        .frame(egui::Frame::NONE.fill(egui::Color32::from_rgb(80, 80, 85)))
+                        .show(ctx, |ui| {
+                            ui.centered_and_justified(|ui| {
+                                ui.add(egui::Image::new("bytes://vpx_logo")
+                                    .max_size(egui::vec2(512.0, 512.0))
+                                    .rotate(270.0_f32.to_radians(), egui::vec2(0.5, 0.5))
+                                    .tint(egui::Color32::from_rgba_premultiplied(180, 180, 190, 200)));
+                            });
+                        });
+                },
+            );
+        }
+
         // If multi-screen, show backglass on BG display via secondary viewport
         let has_bg_display = self.displays.iter().any(|d| d.role == DisplayRole::Backglass);
-        if has_bg_display && !self.tables.is_empty() {
+        if has_bg_display && !self.tables.is_empty() && !self.vpx_hide_covers {
             let selected = self.selected_table.min(self.tables.len() - 1);
             let table_name = self.tables[selected].name.clone();
-            let bg_changed = selected != self.bg_viewport_last;
-            let bg_bytes = if bg_changed {
-                self.bg_viewport_last = selected;
-                self.tables[selected].bg_bytes.clone()
-            } else {
-                None // already loaded, don't re-send
-            };
-            let has_bg = self.tables[selected].bg_path.is_some();
+            let bg_bytes = self.tables[selected].bg_bytes.clone();
             let bg_display = self.displays.iter().find(|d| d.role == DisplayRole::Backglass);
             let (bg_x, bg_y, bg_w, bg_h) = bg_display
                 .map(|d| (d.x as f32, d.y as f32, d.width as f32, d.height as f32))
@@ -1034,19 +1291,20 @@ impl App {
                     .with_title("PinReady — Backglass")
                     .with_position(egui::pos2(bg_x, bg_y))
                     .with_inner_size(egui::vec2(bg_w, bg_h))
-                    .with_decorations(false),
+                    .with_decorations(false)
+                    .with_override_redirect(true),
                 move |ctx, _class| {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(
+                        egui::pos2(bg_x, bg_y)));
+                    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(
+                        egui::vec2(bg_w, bg_h)));
                     egui_extras::install_image_loaders(ctx);
                     egui::CentralPanel::default()
                         .frame(egui::Frame::NONE.fill(egui::Color32::BLACK))
                         .show(ctx, |ui| {
-                            // Register new bytes only when selection changed
                             if let Some(ref bytes) = bg_bytes {
                                 let uri = format!("bytes://viewport_bg/{selected}");
-                                ctx.include_bytes(uri, bytes.clone());
-                            }
-                            if has_bg {
-                                let uri = format!("bytes://viewport_bg/{selected}");
+                                ctx.include_bytes(uri.clone(), bytes.clone());
                                 ui.centered_and_justified(|ui| {
                                     ui.add(egui::Image::new(uri).shrink_to_fit());
                                 });
@@ -1058,6 +1316,44 @@ impl App {
                                     );
                                 });
                             }
+                        });
+                },
+            );
+        }
+
+        // 3+ screens: cover Topper with grey metal background + VPX logo
+        let has_topper_display = self.displays.iter().any(|d| d.role == DisplayRole::Topper);
+        if has_topper_display && has_dmd && !self.vpx_hide_covers {
+            let topper_display = self.displays.iter().find(|d| d.role == DisplayRole::Topper);
+            let (tp_x, tp_y, tp_w, tp_h) = topper_display
+                .map(|d| (d.x as f32, d.y as f32, d.width as f32, d.height as f32))
+                .unwrap_or((0.0, 0.0, 1920.0, 1080.0));
+
+            let tp_viewport_id = egui::ViewportId::from_hash_of(TOPPER_VIEWPORT);
+            ui.ctx().show_viewport_deferred(
+                tp_viewport_id,
+                egui::ViewportBuilder::default()
+                    .with_title("PinReady — Topper")
+                    .with_position(egui::pos2(tp_x, tp_y))
+                    .with_inner_size(egui::vec2(tp_w, tp_h))
+                    .with_decorations(false)
+                    .with_override_redirect(true),
+                move |ctx, _class| {
+                    // Force position every frame — WM may ignore initial with_position
+                    ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(
+                        egui::pos2(tp_x, tp_y)));
+                    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(
+                        egui::vec2(tp_w, tp_h)));
+                    egui_extras::install_image_loaders(ctx);
+                    ctx.include_bytes("bytes://vpx_logo", VPX_LOGO);
+                    egui::CentralPanel::default()
+                        .frame(egui::Frame::NONE.fill(egui::Color32::from_rgb(80, 80, 85)))
+                        .show(ctx, |ui| {
+                            ui.centered_and_justified(|ui| {
+                                ui.add(egui::Image::new("bytes://vpx_logo")
+                                    .max_size(egui::vec2(512.0, 512.0))
+                                    .tint(egui::Color32::from_rgba_premultiplied(180, 180, 190, 200)));
+                            });
                         });
                 },
             );
@@ -2156,9 +2452,19 @@ impl eframe::App for App {
                     JoystickEvent::PinscapeDetected { vpx_id } => {
                         log::info!("Pinscape detected in UI: {}", vpx_id);
                         self.pinscape_id = Some(vpx_id.clone());
+                        // KL Shield V5 default mapping (Pinscape KL25Z)
                         let brain_defaults: &[(&str, u8)] = &[
-                            ("CoinDoor", 13),
+                            // Flippers
+                            ("LeftFlipper", 7), ("RightFlipper", 8),
+                            // Upper flippers: mapped to both Magna and Staged (same physical button)
+                            ("LeftMagna", 2), ("RightMagna", 3),
+                            ("LeftStagedFlipper", 2), ("RightStagedFlipper", 3),
+                            // Game controls
+                            ("Start", 0), ("LaunchBall", 4), ("ExitGame", 5), ("ExtraBall", 6),
+                            // Coin & service
+                            ("Credit1", 12), ("CoinDoor", 13),
                             ("Service1", 14), ("Service2", 15), ("Service3", 16), ("Service4", 17),
+                            // Volume
                             ("VolumeDown", 18), ("VolumeUp", 19),
                         ];
                         for (action_id, button) in brain_defaults {
@@ -2231,9 +2537,15 @@ impl eframe::App for App {
             ui.add_space(4.0);
         });
 
-        // Main content
-        egui::CentralPanel::default().show_inside(ui, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
+        // Main content — no inner margin so scrollbar sticks to window edge
+        egui::CentralPanel::default()
+            .frame(egui::Frame::central_panel(ui.style()).inner_margin(egui::Margin { left: 8, right: 0, top: 8, bottom: 8 }))
+            .show_inside(ui, |ui| {
+            egui::ScrollArea::vertical()
+                .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
+                .show(ui, |ui| {
+                    ui.add_space(0.0); // ensure full width
+                    let _ = ui.available_width(); // force layout to use full width
                 match self.page {
                     WizardPage::Screens => self.render_screens_page(ui),
                     WizardPage::Rendering => self.render_rendering_page(ui),
