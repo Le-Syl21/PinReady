@@ -47,7 +47,7 @@ jobs:
             libxkbcommon-dev libssl-dev \
             libasound2-dev libpulse-dev \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
-            libxss-dev libwayland-dev libwayland-protocols \
+            libxss-dev libwayland-dev wayland-protocols \
             libdbus-1-dev libdrm-dev libgbm-dev \
             libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev
 
