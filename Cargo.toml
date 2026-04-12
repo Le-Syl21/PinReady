@@ -1,6 +1,6 @@
 [package]
 name = "pinready"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Cross-platform configurator and launcher for VPinballX standalone"
 license = "GPL-3.0-or-later"
@@ -64,7 +64,7 @@ log = "0.4"
 env_logger = "0.11"
 
 # Internationalization
-rust-i18n = "3"
+rust-i18n = "4"
 
 # Fonts for non-Latin scripts (Arabic, CJK, Devanagari, Thai, etc.)
 noto-fonts-dl = { version = "0.1.2", features = ["ar", "hi", "bn", "zh", "zh_tw", "ja", "ko", "th", "ur"] }

@@ -113,8 +113,3 @@ fn match_language_code(raw: &str) -> usize {
 pub fn set_locale(lang: &str) {
     rust_i18n::set_locale(lang);
 }
-
-/// Get the active locale code.
-pub fn current_locale() -> String {
-    rust_i18n::locale().to_string()
-}

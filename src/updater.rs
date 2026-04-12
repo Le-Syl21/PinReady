@@ -31,22 +31,6 @@ pub enum UpdateProgress {
 // Platform detection
 // ---------------------------------------------------------------------------
 
-/// Determine the artifact name pattern for the current platform.
-/// The tag is stripped of the leading "v" if present (assets use bare version).
-/// Linux/SBC → .tar.gz, Windows → .zip, macOS → .dmg
-pub fn artifact_name(tag: &str) -> String {
-    let version = tag.strip_prefix('v').unwrap_or(tag);
-    let (platform, arch) = platform_arch();
-    let ext = if cfg!(target_os = "windows") {
-        "zip"
-    } else if cfg!(target_os = "macos") {
-        "dmg"
-    } else {
-        "tar.gz"
-    };
-    format!("VPinballX_BGFX-{version}-{platform}-{arch}-Release.{ext}")
-}
-
 /// File extension of the artifact for the current platform.
 fn artifact_extension() -> &'static str {
     if cfg!(target_os = "windows") {
