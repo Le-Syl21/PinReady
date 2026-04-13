@@ -114,7 +114,9 @@ fn detect_arm_board() -> &'static str {
 /// Check the latest release on a GitHub repository.
 /// This is a blocking call — run it from a background thread.
 pub fn check_latest_release(repo: &str) -> Result<ReleaseInfo> {
-    let url = format!("https://api.github.com/repos/{repo}/releases/latest");
+    // Use /releases (not /releases/latest) because the latest release may be
+    // marked as a pre-release, which /releases/latest silently skips.
+    let url = format!("https://api.github.com/repos/{repo}/releases?per_page=1");
 
     let response = ureq::get(&url)
         .header("User-Agent", "PinReady")
@@ -123,8 +125,13 @@ pub fn check_latest_release(repo: &str) -> Result<ReleaseInfo> {
         .context("Failed to query GitHub releases")?;
 
     let body = response.into_body().read_to_string()?;
-    let json: serde_json::Value =
+    let releases: serde_json::Value =
         serde_json::from_str(&body).context("Failed to parse GitHub release JSON")?;
+
+    let json = releases
+        .as_array()
+        .and_then(|arr| arr.first())
+        .context("No releases found")?;
 
     let tag = json["tag_name"]
         .as_str()
