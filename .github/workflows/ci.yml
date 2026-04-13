@@ -2,13 +2,47 @@ name: CI
 
 on:
   push:
+    branches: [main]
     tags: ['v*']
+  pull_request:
 
 env:
   CARGO_TERM_COLOR: always
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake pkg-config \
+            libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
+            libxkbcommon-dev libssl-dev \
+            libasound2-dev libpulse-dev \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
+            libxtst-dev libxss-dev libwayland-dev wayland-protocols \
+            libdbus-1-dev libdrm-dev libgbm-dev \
+            libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --release -- -D warnings
+
   build:
+    needs: lint
     strategy:
       fail-fast: false
       matrix:
@@ -40,6 +74,8 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      - uses: Swatinem/rust-cache@v2
+
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -49,7 +85,7 @@ jobs:
             libxkbcommon-dev libssl-dev \
             libasound2-dev libpulse-dev \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
-            libxss-dev libwayland-dev wayland-protocols \
+            libxtst-dev libxss-dev libwayland-dev wayland-protocols \
             libdbus-1-dev libdrm-dev libgbm-dev \
             libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev
 
@@ -66,16 +102,6 @@ jobs:
       - name: Run tests
         if: matrix.target != 'x86_64-apple-darwin'
         run: cargo test
-
-      - name: Check 0 warnings
-        if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: |
-          output=$(cargo build --release --target ${{ matrix.target }} 2>&1)
-          if echo "$output" | grep -q "^warning:"; then
-            echo "::error::Build has warnings"
-            echo "$output" | grep "^warning:"
-            exit 1
-          fi
 
       # --- Apple signing & notarization ---
       - name: Import Apple Developer ID certificate
@@ -110,7 +136,7 @@ jobs:
             --timestamp \
             target/${{ matrix.target }}/release/pinready
 
-      - name: Notarize binary (macOS)
+      - name: Notarize binary (macOS, tags only)
         if: runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/v')
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -120,11 +146,64 @@ jobs:
           ditto -c -k --keepParent \
             target/${{ matrix.target }}/release/pinready \
             $RUNNER_TEMP/pinready.zip
-          xcrun notarytool submit $RUNNER_TEMP/pinready.zip \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_ID_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait
+
+          # Submit and poll with timeout + retry (3 attempts, 5/15/45 min backoff)
+          notarize_once() {
+            local zip="$1" label="$2" timeout="$3"
+
+            local output
+            output=$(xcrun notarytool submit "$zip" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_ID_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" \
+              --verbose 2>&1)
+            echo "$output"
+            local sub_id
+            sub_id=$(echo "$output" | awk '/id:/{print $2; exit}')
+            [ -n "$sub_id" ] || { echo "$label: failed to get submission ID"; return 1; }
+            echo "$label: submitted (id: $sub_id)"
+
+            local deadline=$((SECONDS + timeout))
+            while [ $SECONDS -lt $deadline ]; do
+              sleep 30
+              local info
+              info=$(xcrun notarytool info "$sub_id" \
+                --apple-id "$APPLE_ID" \
+                --password "$APPLE_ID_PASSWORD" \
+                --team-id "$APPLE_TEAM_ID" 2>&1) || { echo "$label: network error, retrying poll..."; continue; }
+
+              local status
+              status=$(echo "$info" | awk '/status:/{print $2; exit}')
+              echo "$label: $status"
+
+              case "$status" in
+                Accepted) return 0 ;;
+                Invalid|Rejected)
+                  xcrun notarytool log "$sub_id" \
+                    --apple-id "$APPLE_ID" \
+                    --password "$APPLE_ID_PASSWORD" \
+                    --team-id "$APPLE_TEAM_ID" 2>&1 || true
+                  return 1 ;;
+              esac
+            done
+            echo "$label: timed out after $((timeout / 60)) minutes"
+            return 2  # timeout, retryable
+          }
+
+          notarize() {
+            local zip="$1" label="$2"
+            local backoffs=(300 900 2700)  # 5 / 15 / 45 minutes
+            for i in 0 1 2; do
+              echo "$label: attempt $((i + 1))/3"
+              notarize_once "$zip" "$label" "${backoffs[$i]}" && return 0
+              local rc=$?
+              [ $rc -eq 2 ] || return $rc  # only retry on timeout (rc=2)
+              [ $i -lt 2 ] && echo "$label: retrying after timeout..."
+            done
+            return 1
+          }
+
+          notarize "$RUNNER_TEMP/pinready.zip" "PinReady"
 
       # --- Package ---
       - name: Package (Unix)

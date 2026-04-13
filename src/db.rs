@@ -5,8 +5,7 @@ use std::path::{Path, PathBuf};
 /// Default database location
 fn default_db_path() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-    PathBuf::from(home)
-        .join(".local/share/pinready/pinready.db")
+    PathBuf::from(home).join(".local/share/pinready/pinready.db")
 }
 
 pub struct Database {
@@ -31,8 +30,9 @@ impl Database {
     }
 
     fn init_schema(&self) -> Result<()> {
-        self.conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS config (
+        self.conn
+            .execute_batch(
+                "CREATE TABLE IF NOT EXISTS config (
                 key   TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );
@@ -45,8 +45,9 @@ impl Database {
                 year         INTEGER,
                 rom_name     TEXT,
                 last_scanned TEXT NOT NULL
-            );"
-        ).context("Failed to initialize database schema")?;
+            );",
+            )
+            .context("Failed to initialize database schema")?;
         Ok(())
     }
 
@@ -58,11 +59,9 @@ impl Database {
     /// Get a config value by key.
     pub fn get_config(&self, key: &str) -> Option<String> {
         self.conn
-            .query_row(
-                "SELECT value FROM config WHERE key = ?1",
-                [key],
-                |row| row.get(0),
-            )
+            .query_row("SELECT value FROM config WHERE key = ?1", [key], |row| {
+                row.get(0)
+            })
             .ok()
     }
 

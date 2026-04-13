@@ -101,11 +101,11 @@ fn detect_arm_board() -> &'static str {
 // name is embedded differently. Override artifact_name for SBC builds.
 // ---------------------------------------------------------------------------
 
-/// On aarch64 Linux, the artifact name includes the board type:
-/// `VPinballX_BGFX-{tag}-rpi-linux-aarch64-Release.zip`
-/// On other platforms, the standard format is used.
-/// This function handles both cases correctly because `platform_arch()`
-/// already returns the full board-platform-arch triple for SBCs.
+// On aarch64 Linux, the artifact name includes the board type:
+// `VPinballX_BGFX-{tag}-rpi-linux-aarch64-Release.zip`
+// On other platforms, the standard format is used.
+// This function handles both cases correctly because `platform_arch()`
+// already returns the full board-platform-arch triple for SBCs.
 
 // ---------------------------------------------------------------------------
 // GitHub API
@@ -266,9 +266,7 @@ fn download_and_install_inner(
         extract_zip(tmp_path, install_dir)?;
     } else {
         // dmg — just copy the file, user will mount manually
-        let dest = install_dir.join(
-            tmp_path.file_name().unwrap_or_default(),
-        );
+        let dest = install_dir.join(tmp_path.file_name().unwrap_or_default());
         std::fs::copy(tmp_path, &dest)?;
     }
 

@@ -63,12 +63,16 @@ fn parse_inches_from_name(name: &str) -> Option<u32> {
 fn get_display_physical(x: i32, y: i32, width: i32, height: i32) -> (i32, i32, Option<u32>) {
     if let Ok(displays) = display_info::DisplayInfo::all() {
         for d in &displays {
-            if d.x == x && d.y == y && d.width as i32 == width && d.height as i32 == height {
-                if d.width_mm > 0 && d.height_mm > 0 {
-                    let diag_mm = ((d.width_mm as f64).powi(2) + (d.height_mm as f64).powi(2)).sqrt();
-                    let inches = (diag_mm / 25.4).round() as u32;
-                    return (d.width_mm, d.height_mm, Some(inches));
-                }
+            if d.x == x
+                && d.y == y
+                && d.width as i32 == width
+                && d.height as i32 == height
+                && d.width_mm > 0
+                && d.height_mm > 0
+            {
+                let diag_mm = ((d.width_mm as f64).powi(2) + (d.height_mm as f64).powi(2)).sqrt();
+                let inches = (diag_mm / 25.4).round() as u32;
+                return (d.width_mm, d.height_mm, Some(inches));
             }
         }
     }
@@ -87,7 +91,6 @@ pub fn enumerate_displays() -> Vec<DisplayInfo> {
         let display_ids = SDL_GetDisplays(&mut count);
         if display_ids.is_null() || count == 0 {
             log::warn!("No displays found");
-            SDL_QuitSubSystem(SDL_INIT_VIDEO);
             return displays;
         }
 
@@ -126,7 +129,8 @@ pub fn enumerate_displays() -> Vec<DisplayInfo> {
             let total_pixels = bounds.w as u64 * bounds.h as u64;
 
             // Get physical size: display-info crate, fallback to parsing SDL3 name
-            let (width_mm, height_mm, inches) = get_display_physical(bounds.x, bounds.y, bounds.w, bounds.h);
+            let (width_mm, height_mm, inches) =
+                get_display_physical(bounds.x, bounds.y, bounds.w, bounds.h);
             let size_inches = inches.or_else(|| parse_inches_from_name(&name));
 
             displays.push(DisplayInfo {
@@ -156,7 +160,15 @@ pub fn enumerate_displays() -> Vec<DisplayInfo> {
     auto_assign_roles(&mut displays);
 
     for d in &displays {
-        log::info!("Display: {} | {}x{} @ ({},{}) | {:?}", d.name, d.width, d.height, d.x, d.y, d.role);
+        log::info!(
+            "Display: {} | {}x{} @ ({},{}) | {:?}",
+            d.name,
+            d.width,
+            d.height,
+            d.x,
+            d.y,
+            d.role
+        );
     }
 
     displays
@@ -175,4 +187,3 @@ fn auto_assign_roles(displays: &mut [DisplayInfo]) {
         display.role = roles.get(i).copied().unwrap_or(DisplayRole::Unused);
     }
 }
-

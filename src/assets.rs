@@ -24,7 +24,9 @@ pub fn cached_bg_path(table_dir: &Path) -> PathBuf {
 /// Decode base64 image data (with whitespace stripping) to a DynamicImage.
 fn decode_b64_image(b64: &str) -> Option<image::DynamicImage> {
     let clean: String = b64.chars().filter(|c| !c.is_whitespace()).collect();
-    let bytes = base64::engine::general_purpose::STANDARD.decode(&clean).ok()?;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(&clean)
+        .ok()?;
     image::load_from_memory(&bytes).ok()
 }
 
@@ -95,12 +97,18 @@ fn composite_bulb(base: &mut image::RgbaImage, bulb: &directb2s::Bulb) {
                 continue;
             }
             let dst = base.get_pixel(dx, dy);
-            let blend =
-                |s: u8, d: u8| -> u8 { ((s as f32 * alpha) + (d as f32 * (1.0 - alpha))).min(255.0) as u8 };
+            let blend = |s: u8, d: u8| -> u8 {
+                ((s as f32 * alpha) + (d as f32 * (1.0 - alpha))).min(255.0) as u8
+            };
             base.put_pixel(
                 dx,
                 dy,
-                image::Rgba([blend(src[0], dst[0]), blend(src[1], dst[1]), blend(src[2], dst[2]), 255]),
+                image::Rgba([
+                    blend(src[0], dst[0]),
+                    blend(src[1], dst[1]),
+                    blend(src[2], dst[2]),
+                    255,
+                ]),
             );
         }
     }
@@ -164,10 +172,18 @@ pub fn extract_backglass(directb2s_path: &Path, table_dir: &Path) -> Option<Path
     let bulb_count = if let Some(ref bulbs) = data.illumination.bulb {
         let bg_bulbs: Vec<_> = bulbs
             .iter()
-            .filter(|b| b.parent.as_deref() == Some("Backglass") && !b.image.is_empty() && b.image != "[stripped]")
+            .filter(|b| {
+                b.parent.as_deref() == Some("Backglass")
+                    && !b.image.is_empty()
+                    && b.image != "[stripped]"
+            })
             .collect();
         let count = bg_bulbs.len();
-        log::info!("Compositing {} Backglass bulbs at {}% opacity", count, (BULB_OPACITY * 100.0) as u32);
+        log::info!(
+            "Compositing {} Backglass bulbs at {}% opacity",
+            count,
+            (BULB_OPACITY * 100.0) as u32
+        );
         for bulb in bulbs {
             composite_bulb(&mut rgba, bulb);
         }
@@ -180,7 +196,8 @@ pub fn extract_backglass(directb2s_path: &Path, table_dir: &Path) -> Option<Path
     let mut rgb = image::DynamicImage::ImageRgba8(rgba).into_rgb8();
     let median = median_luminosity(&rgb);
     if median > 1.0 {
-        let factor = (TARGET_MEDIAN_LUM / median).clamp(MIN_BRIGHTNESS_FACTOR, MAX_BRIGHTNESS_FACTOR);
+        let factor =
+            (TARGET_MEDIAN_LUM / median).clamp(MIN_BRIGHTNESS_FACTOR, MAX_BRIGHTNESS_FACTOR);
         log::info!(
             "Brightness normalization: median {:.0} -> {:.0} (x{:.2})",
             median,
@@ -189,7 +206,10 @@ pub fn extract_backglass(directb2s_path: &Path, table_dir: &Path) -> Option<Path
         );
         adjust_brightness(&mut rgb, factor);
     } else {
-        log::warn!("Very dark image (median={:.0}), skipping normalization", median);
+        log::warn!(
+            "Very dark image (median={:.0}), skipping normalization",
+            median
+        );
     }
 
     // Step 5: Resize and save

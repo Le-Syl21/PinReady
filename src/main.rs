@@ -91,19 +91,21 @@ fn main() -> Result<()> {
             // Load Noto fonts for non-Latin scripts (Arabic, CJK, Devanagari, Thai, etc.)
             let noto_fonts = noto_fonts_dl::load_fonts();
             if !noto_fonts.is_empty() {
+                let font_count = noto_fonts.len();
                 let mut font_defs = egui::FontDefinitions::default();
                 for (name, data) in noto_fonts {
+                    font_defs
+                        .families
+                        .entry(egui::FontFamily::Proportional)
+                        .or_default()
+                        .push(name.clone());
                     font_defs.font_data.insert(
                         name.clone(),
                         std::sync::Arc::new(egui::FontData::from_owned(data.clone())),
                     );
-                    font_defs.families
-                        .entry(egui::FontFamily::Proportional)
-                        .or_default()
-                        .push(name.clone());
                 }
                 cc.egui_ctx.set_fonts(font_defs);
-                log::info!("Loaded {} Noto font(s) for non-Latin scripts", noto_fonts.len());
+                log::info!("Loaded {} Noto font(s) for non-Latin scripts", font_count);
             }
             Ok(Box::new(app))
         }),

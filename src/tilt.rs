@@ -24,9 +24,15 @@ impl Default for TiltConfig {
 
 impl TiltConfig {
     pub fn load_from_config(&mut self, config: &crate::config::VpxConfig) {
-        if let Some(v) = config.get_f32("Player", "PlumbThresholdAngle") { self.plumb_threshold_angle = v; }
-        if let Some(v) = config.get_f32("Player", "PlumbInertia") { self.plumb_inertia = v; }
-        if let Some(v) = config.get_i32("Player", "NudgeFilter0") { self.nudge_filter = v != 0; }
+        if let Some(v) = config.get_f32("Player", "PlumbThresholdAngle") {
+            self.plumb_threshold_angle = v;
+        }
+        if let Some(v) = config.get_f32("Player", "PlumbInertia") {
+            self.plumb_inertia = v;
+        }
+        if let Some(v) = config.get_i32("Player", "NudgeFilter0") {
+            self.nudge_filter = v != 0;
+        }
         // Parse scale from NudgeX1 mapping: "device;axis;type;deadZone;scale;limit"
         if let Some(mapping) = config.get("Input", "Mapping.NudgeX1") {
             let parts: Vec<&str> = mapping.split(';').collect();

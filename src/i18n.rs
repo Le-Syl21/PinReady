@@ -35,6 +35,7 @@ pub const LANGUAGE_OPTIONS: &[(&str, &str)] = &[
 /// - Linux: reads LANG / LC_ALL / LC_MESSAGES env vars
 /// - macOS: reads AppleLocale / AppleLanguages via `defaults read`
 /// - Windows: reads GetUserDefaultUILanguage via PowerShell
+///
 /// Returns the index into LANGUAGE_OPTIONS (default: 0 = English).
 pub fn detect_system_language() -> usize {
     let lang_raw = detect_system_language_string();
@@ -61,7 +62,9 @@ fn detect_system_language_string() -> String {
             .output()
         {
             if output.status.success() {
-                let locale = String::from_utf8_lossy(&output.stdout).trim().to_lowercase();
+                let locale = String::from_utf8_lossy(&output.stdout)
+                    .trim()
+                    .to_lowercase();
                 if !locale.is_empty() {
                     return locale;
                 }
@@ -73,11 +76,17 @@ fn detect_system_language_string() -> String {
     #[cfg(target_os = "windows")]
     {
         if let Ok(output) = std::process::Command::new("powershell")
-            .args(["-NoProfile", "-Command", "(Get-Culture).TwoLetterISOLanguageName"])
+            .args([
+                "-NoProfile",
+                "-Command",
+                "(Get-Culture).TwoLetterISOLanguageName",
+            ])
             .output()
         {
             if output.status.success() {
-                let lang = String::from_utf8_lossy(&output.stdout).trim().to_lowercase();
+                let lang = String::from_utf8_lossy(&output.stdout)
+                    .trim()
+                    .to_lowercase();
                 if !lang.is_empty() {
                     return lang;
                 }
@@ -94,8 +103,8 @@ fn match_language_code(raw: &str) -> usize {
     // Normalize: replace hyphens with underscores
     let normalized = raw.replace('-', "_");
 
-    // Check zh_tw first (5 chars) before falling back to 2-letter code
-    if normalized.len() >= 5 && &normalized[..5] == "zh_tw" {
+    // Check zh_tw first before falling back to 2-letter code
+    if normalized.starts_with("zh_tw") {
         return LANGUAGE_OPTIONS
             .iter()
             .position(|(c, _)| *c == "zh_tw")

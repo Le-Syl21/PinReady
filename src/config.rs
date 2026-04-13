@@ -28,13 +28,21 @@ impl VpxConfig {
     pub fn save(&self) -> Result<()> {
         // Create parent directory if it doesn't exist
         if let Some(parent) = self.path.parent() {
-            std::fs::create_dir_all(parent)
-                .with_context(|| format!("Failed to create config directory: {}", parent.display()))?;
+            std::fs::create_dir_all(parent).with_context(|| {
+                format!("Failed to create config directory: {}", parent.display())
+            })?;
         }
         let content = self.ini.to_string();
         let line_count = content.split('\n').count();
-        log::info!("Saving ini: {} bytes, {} lines to {}", content.len(), line_count, self.path.display());
-        self.ini.save(&self.path).map_err(|e| anyhow::anyhow!("{e}"))
+        log::info!(
+            "Saving ini: {} bytes, {} lines to {}",
+            content.len(),
+            line_count,
+            self.path.display()
+        );
+        self.ini
+            .save(&self.path)
+            .map_err(|e| anyhow::anyhow!("{e}"))
     }
 
     pub fn get(&self, section: &str, key: &str) -> Option<String> {
@@ -66,7 +74,15 @@ impl VpxConfig {
     /// Generic display configuration. `section` and `prefix` vary per role:
     /// Playfield: ("Player", "Playfield"), Backglass: ("Backglass", "Backglass"),
     /// DMD: ("ScoreView", "ScoreView"), Topper: ("Topper", "Topper").
-    pub fn set_display(&mut self, section: &str, prefix: &str, name: &str, w: i32, h: i32, enable_output: bool) {
+    pub fn set_display(
+        &mut self,
+        section: &str,
+        prefix: &str,
+        name: &str,
+        w: i32,
+        h: i32,
+        enable_output: bool,
+    ) {
         if enable_output {
             self.set_i32(section, &format!("{prefix}Output"), 1);
         }
@@ -105,7 +121,7 @@ impl VpxConfig {
 
     pub fn set_nudge_filter(&mut self, sensor: u8, enabled: bool) {
         let key = format!("NudgeFilter{sensor}");
-        self.set_i32("Player", &key, if enabled { 1 } else { 0 });
+        self.set_i32("Player", &key, i32::from(enabled));
     }
 
     // --- Audio ---

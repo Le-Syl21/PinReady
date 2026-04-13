@@ -72,7 +72,8 @@ impl WizardPage {
             Self::Tilt => t!("page_tilt"),
             Self::Audio => t!("page_audio"),
             Self::TablesDir => t!("page_tables"),
-        }.to_string()
+        }
+        .to_string()
     }
 
     fn index(&self) -> usize {
@@ -136,23 +137,23 @@ pub struct App {
     disable_touch: bool,
 
     // Cabinet physical dimensions (cm) for Window projection mode
-    screen_inclination: f32,  // Playfield screen angle, 0 = horizontal
-    lockbar_width: f32,       // Lockbar width in cm
-    lockbar_height: f32,      // Lockbar height from ground in cm
-    player_x: f32,            // Player X offset from center in cm
-    player_y: f32,            // Player Y distance from lockbar in cm (negative = behind)
-    player_z: f32,            // Player Z height (eyes) from playfield in cm
-    player_height: f32,       // Player total height in cm (used to compute Z)
+    screen_inclination: f32, // Playfield screen angle, 0 = horizontal
+    lockbar_width: f32,      // Lockbar width in cm
+    lockbar_height: f32,     // Lockbar height from ground in cm
+    player_x: f32,           // Player X offset from center in cm
+    player_y: f32,           // Player Y distance from lockbar in cm (negative = behind)
+    player_z: f32,           // Player Z height (eyes) from playfield in cm
+    player_height: f32,      // Player total height in cm (used to compute Z)
 
     // Page 2 — Rendering
-    aa_factor: f32,        // Supersampling 0.5–2.0 (default 1.0)
-    msaa: i32,             // 0=Off, 1=4x, 2=6x, 3=8x
-    fxaa: i32,             // 0=Off, 1–7 various modes
-    sharpen: i32,          // 0=Off, 1=CAS, 2=Bilateral CAS
-    pf_reflection: i32,    // 0–5 reflection quality
-    max_tex_dim: i32,      // 512–16384
-    sync_mode: i32,        // 0=No sync, 1=VSync
-    max_framerate: f32,    // -1=display, 0=unlimited, else value
+    aa_factor: f32,     // Supersampling 0.5–2.0 (default 1.0)
+    msaa: i32,          // 0=Off, 1=4x, 2=6x, 3=8x
+    fxaa: i32,          // 0=Off, 1–7 various modes
+    sharpen: i32,       // 0=Off, 1=CAS, 2=Bilateral CAS
+    pf_reflection: i32, // 0–5 reflection quality
+    max_tex_dim: i32,   // 512–16384
+    sync_mode: i32,     // 0=No sync, 1=VSync
+    max_framerate: f32, // -1=display, 0=unlimited, else value
 
     // Live accelerometer data from joystick thread
     accel_x: f32,
@@ -163,9 +164,9 @@ pub struct App {
     capture_state: CaptureState,
     show_advanced_inputs: bool,
     joystick_rx: Option<crossbeam_channel::Receiver<JoystickEvent>>,
-    pinscape_id: Option<String>,  // VPX device ID if Pinscape detected
-    gamepad_id: Option<String>,   // VPX device ID if generic gamepad detected
-    use_gamepad: bool,            // User toggle: use gamepad axes for flippers/nudge/plunger
+    pinscape_id: Option<String>, // VPX device ID if Pinscape detected
+    gamepad_id: Option<String>,  // VPX device ID if generic gamepad detected
+    use_gamepad: bool,           // User toggle: use gamepad axes for flippers/nudge/plunger
 
     // Page 3 — Tilt
     tilt: TiltConfig,
@@ -183,7 +184,7 @@ pub struct App {
     table_filter_lower: String, // cached lowercase version of table_filter
     selected_table: usize,
     scroll_to_selected: bool, // set by joystick navigation to trigger scroll
-    launcher_cols: usize, // number of columns in the grid (computed in render)
+    launcher_cols: usize,     // number of columns in the grid (computed in render)
     images_preloaded: bool,
     bg_rx: Option<crossbeam_channel::Receiver<(usize, std::path::PathBuf)>>,
 
@@ -192,7 +193,7 @@ pub struct App {
     // VPX launch status received from the VPX process thread
     vpx_status_rx: Option<crossbeam_channel::Receiver<VpxStatus>>,
     vpx_loading_msg: String,
-    vpx_hide_covers: bool, // VPX windows are up, hide covers
+    vpx_hide_covers: bool,         // VPX windows are up, hide covers
     vpx_error_log: Option<String>, // set on unexpected exit, shown as popup
 
     // Autostart on boot
@@ -227,7 +228,10 @@ impl App {
 
         // Auto-set cabinet mode for 2+ screens
         let view_mode = if screen_count >= 2 { 1 } else { 0 };
-        let disable_touch = config.get_i32("Player", "NumberOfTimesToShowTouchMessage").unwrap_or(10) == 0;
+        let disable_touch = config
+            .get_i32("Player", "NumberOfTimesToShowTouchMessage")
+            .unwrap_or(10)
+            == 0;
 
         // Cabinet physical dimensions
         let screen_inclination = config.get_f32("Player", "ScreenInclination").unwrap_or(0.0);
@@ -260,7 +264,14 @@ impl App {
                 }
                 log::info!("  {} = {}", action.setting_id, mapping_str);
                 // Take first alternative (before |), first combo part (before &)
-                let first = mapping_str.split('|').next().unwrap_or("").split('&').next().unwrap_or("").trim();
+                let first = mapping_str
+                    .split('|')
+                    .next()
+                    .unwrap_or("")
+                    .split('&')
+                    .next()
+                    .unwrap_or("")
+                    .trim();
                 if let Some(sc_str) = first.strip_prefix("Key;") {
                     // Keyboard mapping: "Key;<scancode>"
                     if let Ok(sc_val) = sc_str.parse::<i32>() {
@@ -296,15 +307,11 @@ impl App {
         audio.available_devices = AudioConfig::enumerate_devices();
 
         // Load VPinballX executable path and updater config
-        let vpx_exe_path = db
-            .get_config("vpx_exe_path")
-            .unwrap_or_default();
+        let vpx_exe_path = db.get_config("vpx_exe_path").unwrap_or_default();
         let vpx_fork_repo = db
             .get_config("vpx_fork_repo")
             .unwrap_or_else(|| updater::DEFAULT_FORK_REPO.to_string());
-        let vpx_installed_tag = db
-            .get_config("vpx_installed_tag")
-            .unwrap_or_default();
+        let vpx_installed_tag = db.get_config("vpx_installed_tag").unwrap_or_default();
         let vpx_install_mode = if db.get_config("vpx_install_mode").as_deref() == Some("manual") {
             VpxInstallMode::Manual
         } else {
@@ -312,9 +319,7 @@ impl App {
         };
 
         // Load tables directory
-        let tables_dir = db
-            .get_tables_dir()
-            .unwrap_or_default();
+        let tables_dir = db.get_tables_dir().unwrap_or_default();
 
         // Start joystick thread (keyboard captured via egui)
         let joystick_rx = inputs::spawn_joystick_thread();
@@ -323,13 +328,20 @@ impl App {
 
         // Language detection: from DB, or system, or default English
         let selected_language = if let Some(saved_lang) = db.get_config("language") {
-            LANGUAGE_OPTIONS.iter().position(|(c, _)| *c == saved_lang).unwrap_or_else(i18n::detect_system_language)
+            LANGUAGE_OPTIONS
+                .iter()
+                .position(|(c, _)| *c == saved_lang)
+                .unwrap_or_else(i18n::detect_system_language)
         } else {
             i18n::detect_system_language()
         };
         let (lang_code, _) = LANGUAGE_OPTIONS[selected_language];
         i18n::set_locale(lang_code);
-        log::info!("Language: {} ({})", lang_code, LANGUAGE_OPTIONS[selected_language].1);
+        log::info!(
+            "Language: {} ({})",
+            lang_code,
+            LANGUAGE_OPTIONS[selected_language].1
+        );
 
         // Spawn background update check (throttled to once per hour)
         let update_check_rx = {
@@ -356,7 +368,11 @@ impl App {
         };
 
         let mut s = Self {
-            mode: if start_in_wizard { AppMode::Wizard } else { AppMode::Launcher },
+            mode: if start_in_wizard {
+                AppMode::Wizard
+            } else {
+                AppMode::Launcher
+            },
             page: WizardPage::Screens,
             config,
             db,
@@ -510,11 +526,15 @@ impl App {
 
         if self.disable_touch {
             self.config.set_i32("Player", "TouchOverlay", 0);
-            self.config.set_i32("Player", "NumberOfTimesToShowTouchMessage", 0);
+            self.config
+                .set_i32("Player", "NumberOfTimesToShowTouchMessage", 0);
         }
 
         // Disable outputs that are not used based on screen count
-        let has_backglass = self.displays.iter().any(|d| d.role == DisplayRole::Backglass);
+        let has_backglass = self
+            .displays
+            .iter()
+            .any(|d| d.role == DisplayRole::Backglass);
         let has_dmd = self.displays.iter().any(|d| d.role == DisplayRole::Dmd);
         let has_topper = self.displays.iter().any(|d| d.role == DisplayRole::Topper);
 
@@ -523,19 +543,25 @@ impl App {
         }
         if !has_dmd {
             self.config.set_i32("ScoreView", "ScoreViewOutput", 0); // Disabled
-            // DMD overlaid on backglass with auto-position
+                                                                    // DMD overlaid on backglass with auto-position
             if has_backglass {
-                self.config.set_i32("Plugin.B2SLegacy", "BackglassDMDOverlay", 1);
-                self.config.set_i32("Plugin.B2SLegacy", "BackglassDMDAutoPos", 1);
+                self.config
+                    .set_i32("Plugin.B2SLegacy", "BackglassDMDOverlay", 1);
+                self.config
+                    .set_i32("Plugin.B2SLegacy", "BackglassDMDAutoPos", 1);
             }
         } else {
             // DMD has its own screen — hide grill from backglass, enable DMD overlay on ScoreView
             self.config.set_i32("Plugin.B2SLegacy", "B2SHideGrill", 1);
-            self.config.set_i32("Plugin.B2SLegacy", "ScoreViewDMDOverlay", 1);
-            self.config.set_i32("Plugin.B2SLegacy", "ScoreViewDMDAutoPos", 1);
-            self.config.set_i32("Plugin.B2SLegacy", "BackglassDMDOverlay", 0);
+            self.config
+                .set_i32("Plugin.B2SLegacy", "ScoreViewDMDOverlay", 1);
+            self.config
+                .set_i32("Plugin.B2SLegacy", "ScoreViewDMDAutoPos", 1);
+            self.config
+                .set_i32("Plugin.B2SLegacy", "BackglassDMDOverlay", 0);
             // B2SLegacyDMD must win over ScoreView to keep the B2S frame around the DMD
-            self.config.set_i32("ScoreView", "Priority.B2SLegacyDMD", 10);
+            self.config
+                .set_i32("ScoreView", "Priority.B2SLegacyDMD", 10);
             self.config.set_i32("ScoreView", "Priority.ScoreView", 1);
         }
         if !has_topper {
@@ -550,40 +576,80 @@ impl App {
         for display in self.displays.iter() {
             match display.role {
                 DisplayRole::Playfield => {
-                    self.config.set_display("Player", "Playfield", &display.name, display.width, display.height, false);
+                    self.config.set_display(
+                        "Player",
+                        "Playfield",
+                        &display.name,
+                        display.width,
+                        display.height,
+                        false,
+                    );
                     // Write exact refresh rate — VPX crashes if value doesn't match exactly
-                    self.config.set_f32("Player", "PlayfieldRefreshRate", display.refresh_rate);
-                    self.config.set_f32("Player", "MaxFramerate", display.refresh_rate);
+                    self.config
+                        .set_f32("Player", "PlayfieldRefreshRate", display.refresh_rate);
+                    self.config
+                        .set_f32("Player", "MaxFramerate", display.refresh_rate);
                     // Physical screen size in cm for Window projection (mm -> cm, width > height)
                     let w_cm = display.width_mm as f32 / 10.0;
                     let h_cm = display.height_mm as f32 / 10.0;
                     if w_cm > 0.0 && h_cm > 0.0 {
                         // VPX expects width > height (landscape dimensions)
-                        let (screen_w, screen_h) = if w_cm >= h_cm { (w_cm, h_cm) } else { (h_cm, w_cm) };
+                        let (screen_w, screen_h) = if w_cm >= h_cm {
+                            (w_cm, h_cm)
+                        } else {
+                            (h_cm, w_cm)
+                        };
                         self.config.set_f32("Player", "ScreenWidth", screen_w);
                         self.config.set_f32("Player", "ScreenHeight", screen_h);
                     }
                 }
                 DisplayRole::Backglass => {
-                    self.config.set_display("Backglass", "Backglass", &display.name, display.width, display.height, true);
+                    self.config.set_display(
+                        "Backglass",
+                        "Backglass",
+                        &display.name,
+                        display.width,
+                        display.height,
+                        true,
+                    );
                 }
                 DisplayRole::Dmd => {
-                    self.config.set_display("ScoreView", "ScoreView", &display.name, display.width, display.height, true);
+                    self.config.set_display(
+                        "ScoreView",
+                        "ScoreView",
+                        &display.name,
+                        display.width,
+                        display.height,
+                        true,
+                    );
                 }
                 DisplayRole::Topper => {
-                    self.config.set_display("Topper", "Topper", &display.name, display.width, display.height, true);
+                    self.config.set_display(
+                        "Topper",
+                        "Topper",
+                        &display.name,
+                        display.width,
+                        display.height,
+                        true,
+                    );
                 }
                 DisplayRole::Unused => {}
             }
         }
 
         // Cabinet physical dimensions
-        self.config.set_f32("Player", "ScreenInclination", self.screen_inclination);
-        self.config.set_f32("Player", "LockbarWidth", self.lockbar_width);
-        self.config.set_f32("Player", "LockbarHeight", self.lockbar_height);
-        self.config.set_f32("Player", "ScreenPlayerX", self.player_x);
-        self.config.set_f32("Player", "ScreenPlayerY", self.player_y);
-        self.config.set_f32("Player", "ScreenPlayerZ", self.player_z);
+        self.config
+            .set_f32("Player", "ScreenInclination", self.screen_inclination);
+        self.config
+            .set_f32("Player", "LockbarWidth", self.lockbar_width);
+        self.config
+            .set_f32("Player", "LockbarHeight", self.lockbar_height);
+        self.config
+            .set_f32("Player", "ScreenPlayerX", self.player_x);
+        self.config
+            .set_f32("Player", "ScreenPlayerY", self.player_y);
+        self.config
+            .set_f32("Player", "ScreenPlayerZ", self.player_z);
 
         if let Err(e) = self.config.save() {
             log::error!("Failed to save config: {e}");
@@ -595,10 +661,13 @@ impl App {
         self.config.set_i32("Player", "MSAASamples", self.msaa);
         self.config.set_i32("Player", "FXAA", self.fxaa);
         self.config.set_i32("Player", "Sharpen", self.sharpen);
-        self.config.set_i32("Player", "PFReflection", self.pf_reflection);
-        self.config.set_i32("Player", "MaxTexDimension", self.max_tex_dim);
+        self.config
+            .set_i32("Player", "PFReflection", self.pf_reflection);
+        self.config
+            .set_i32("Player", "MaxTexDimension", self.max_tex_dim);
         self.config.set_i32("Player", "SyncMode", self.sync_mode);
-        self.config.set_f32("Player", "MaxFramerate", self.max_framerate);
+        self.config
+            .set_f32("Player", "MaxFramerate", self.max_framerate);
         if let Err(e) = self.config.save() {
             log::error!("Failed to save config: {e}");
         }
@@ -615,30 +684,52 @@ impl App {
             self.config.set("Input", "Device.Key.Name", "");
             self.config.set("Input", "Device.Mouse.Type", "");
             self.config.set("Input", "Device.Mouse.NoAutoLayout", "");
-            self.config.set("Input", &format!("Device.{psc_id}.Type"), "");
-            self.config.set("Input", &format!("Device.{psc_id}.NoAutoLayout"), "1");
-            self.config.set("Input", &format!("Device.{psc_id}.Name"), "");
+            self.config
+                .set("Input", &format!("Device.{psc_id}.Type"), "");
+            self.config
+                .set("Input", &format!("Device.{psc_id}.NoAutoLayout"), "1");
+            self.config
+                .set("Input", &format!("Device.{psc_id}.Name"), "");
             // Plunger: axis 0x0202=514, Position mode
-            self.config.set("Input", "Mapping.PlungerPos",
-                &format!("{psc_id};514;P;0.000000;1.000000;1.000000"));
+            self.config.set(
+                "Input",
+                "Mapping.PlungerPos",
+                &format!("{psc_id};514;P;0.000000;1.000000;1.000000"),
+            );
             // Nudge: axes 0x0200=512 / 0x0201=513, Acceleration mode
-            self.config.set("Input", "Mapping.NudgeX1",
-                &format!("{psc_id};512;A;0.100000;{:.6};1.000000", self.tilt.nudge_scale));
-            self.config.set("Input", "Mapping.NudgeY1",
-                &format!("{psc_id};513;A;0.100000;{:.6};1.000000", self.tilt.nudge_scale));
+            self.config.set(
+                "Input",
+                "Mapping.NudgeX1",
+                &format!(
+                    "{psc_id};512;A;0.100000;{:.6};1.000000",
+                    self.tilt.nudge_scale
+                ),
+            );
+            self.config.set(
+                "Input",
+                "Mapping.NudgeY1",
+                &format!(
+                    "{psc_id};513;A;0.100000;{:.6};1.000000",
+                    self.tilt.nudge_scale
+                ),
+            );
         }
 
         // If gamepad detected, control whether VPX should auto-configure it
         if let Some(gp_id) = &self.gamepad_id {
             let gp_id = gp_id.clone();
-            self.config.set("Input", &format!("Device.{gp_id}.Type"), "");
-            self.config.set("Input", &format!("Device.{gp_id}.Name"), "");
+            self.config
+                .set("Input", &format!("Device.{gp_id}.Type"), "");
+            self.config
+                .set("Input", &format!("Device.{gp_id}.Name"), "");
             if self.use_gamepad {
                 // NoAutoLayout absent or 0 → VPX will propose its gamepad layout on first launch
-                self.config.set("Input", &format!("Device.{gp_id}.NoAutoLayout"), "");
+                self.config
+                    .set("Input", &format!("Device.{gp_id}.NoAutoLayout"), "");
             } else {
                 // NoAutoLayout = 1 → VPX won't ask to apply gamepad layout
-                self.config.set("Input", &format!("Device.{gp_id}.NoAutoLayout"), "1");
+                self.config
+                    .set("Input", &format!("Device.{gp_id}.NoAutoLayout"), "1");
             }
         }
 
@@ -716,7 +807,11 @@ impl App {
 
     fn scan_tables(&mut self) {
         self.tables.clear();
-        let dir = if self.tables_dir.is_empty() { return } else { &self.tables_dir };
+        let dir = if self.tables_dir.is_empty() {
+            return;
+        } else {
+            &self.tables_dir
+        };
         let dir_path = std::path::Path::new(dir);
         if !dir_path.is_dir() {
             log::warn!("Tables directory does not exist: {}", dir);
@@ -726,13 +821,16 @@ impl App {
         if let Ok(entries) = std::fs::read_dir(dir_path) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if !path.is_dir() { continue; }
+                if !path.is_dir() {
+                    continue;
+                }
                 // Look for .vpx file inside this folder
                 if let Ok(files) = std::fs::read_dir(&path) {
                     for file in files.flatten() {
                         let fp = file.path();
                         if fp.extension().and_then(|e| e.to_str()) == Some("vpx") {
-                            let name = path.file_name()
+                            let name = path
+                                .file_name()
                                 .unwrap_or_default()
                                 .to_string_lossy()
                                 .replace('_', " ");
@@ -740,7 +838,8 @@ impl App {
                             let has_directb2s = b2s_path.exists();
                             let cached = crate::assets::cached_bg_path(&path);
                             let (bg_path, bg_bytes) = if cached.exists() {
-                                let bytes = std::fs::read(&cached).ok()
+                                let bytes = std::fs::read(&cached)
+                                    .ok()
                                     .map(|b| std::sync::Arc::from(b.into_boxed_slice()));
                                 (Some(cached), bytes)
                             } else {
@@ -759,21 +858,32 @@ impl App {
                 }
             }
         }
-        self.tables.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        self.tables
+            .sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
         log::info!("Scanned {} tables in {}", self.tables.len(), dir);
 
         // Spawn background thread to extract missing backglass images
         let (tx, rx) = crossbeam_channel::unbounded();
-        let jobs: Vec<(usize, std::path::PathBuf, std::path::PathBuf)> = self.tables.iter().enumerate()
+        let jobs: Vec<(usize, std::path::PathBuf, std::path::PathBuf)> = self
+            .tables
+            .iter()
+            .enumerate()
             .filter(|(_, t)| t.bg_path.is_none() && t.has_directb2s)
             .map(|(i, t)| {
                 let b2s = t.path.with_extension("directb2s");
-                let table_dir = t.path.parent().unwrap_or(std::path::Path::new(".")).to_path_buf();
+                let table_dir = t
+                    .path
+                    .parent()
+                    .unwrap_or(std::path::Path::new("."))
+                    .to_path_buf();
                 (i, b2s, table_dir)
             })
             .collect();
         if !jobs.is_empty() {
-            log::info!("Extracting {} backglass images in background...", jobs.len());
+            log::info!(
+                "Extracting {} backglass images in background...",
+                jobs.len()
+            );
             std::thread::spawn(move || {
                 for (idx, b2s_path, table_dir) in jobs {
                     if let Some(cached) = crate::assets::extract_backglass(&b2s_path, &table_dir) {
@@ -794,7 +904,11 @@ impl App {
             log::error!("VPinballX executable not found: {}", self.vpx_exe_path);
             return;
         }
-        log::info!("Launching: {} -Play {}", self.vpx_exe_path, table_path.display());
+        log::info!(
+            "Launching: {} -Play {}",
+            self.vpx_exe_path,
+            table_path.display()
+        );
         let exe = self.vpx_exe_path.clone();
         let path = table_path.to_path_buf();
         let running = self.vpx_running.clone();
@@ -829,15 +943,20 @@ impl App {
                                     let msg = &line[start + 2..];
                                     let _ = tx.send(VpxStatus::Loading(msg.to_string()));
                                 }
-                            } else if line.contains("RenderStaticPrepass") && line.contains("Reflection Probe") {
-                                let _ = tx.send(VpxStatus::Loading("Reflection Probe...".to_string()));
+                            } else if line.contains("RenderStaticPrepass")
+                                && line.contains("Reflection Probe")
+                            {
+                                let _ =
+                                    tx.send(VpxStatus::Loading("Reflection Probe...".to_string()));
                             } else if line.contains("PluginLog") {
                                 // Extract plugin name from "B2SLegacy: ..." or "VNI: ..."
                                 if let Some(start) = line.rfind("] ") {
                                     let msg = &line[start + 2..];
                                     if let Some(colon) = msg.find(':') {
                                         let plugin = &msg[..colon];
-                                        let _ = tx.send(VpxStatus::Loading(format!("Plugin {plugin}...")));
+                                        let _ = tx.send(VpxStatus::Loading(format!(
+                                            "Plugin {plugin}..."
+                                        )));
                                     }
                                 }
                             } else if line.contains("Startup done") {
@@ -854,7 +973,8 @@ impl App {
                             if status.success() || startup_done {
                                 let _ = tx.send(VpxStatus::ExitOk);
                             } else {
-                                let tail: Vec<String> = log_lines.iter().rev().take(50).rev().cloned().collect();
+                                let tail: Vec<String> =
+                                    log_lines.iter().rev().take(50).rev().cloned().collect();
                                 let _ = tx.send(VpxStatus::ExitError(tail.join("\n")));
                             }
                         }
@@ -878,7 +998,8 @@ impl App {
             while let Ok((idx, path)) = rx.try_recv() {
                 if idx < self.tables.len() {
                     if let Ok(bytes) = std::fs::read(&path) {
-                        let arc: std::sync::Arc<[u8]> = std::sync::Arc::from(bytes.into_boxed_slice());
+                        let arc: std::sync::Arc<[u8]> =
+                            std::sync::Arc::from(bytes.into_boxed_slice());
                         let uri = format!("bytes://bg/{idx}");
                         ctx.include_bytes(uri, arc.clone());
                         self.tables[idx].bg_bytes = Some(arc);
@@ -890,7 +1011,9 @@ impl App {
     }
 
     fn preload_images(&mut self, ctx: &egui::Context) {
-        if self.images_preloaded { return; }
+        if self.images_preloaded {
+            return;
+        }
         self.images_preloaded = true;
         for (idx, table) in self.tables.iter().enumerate() {
             if let Some(ref path) = table.bg_path {
@@ -900,7 +1023,10 @@ impl App {
                 }
             }
         }
-        log::info!("Preloaded {} images into RAM", self.tables.iter().filter(|t| t.bg_path.is_some()).count());
+        log::info!(
+            "Preloaded {} images into RAM",
+            self.tables.iter().filter(|t| t.bg_path.is_some()).count()
+        );
     }
 
     /// Find which action is mapped to a given joystick button number.
@@ -918,7 +1044,9 @@ impl App {
     fn handle_launcher_joystick(&mut self, ui: &mut egui::Ui) {
         let vpx_running = self.vpx_running.load(Ordering::Relaxed);
         // Drain joystick events into a local vec to avoid borrow conflict
-        let events: Vec<JoystickEvent> = self.joystick_rx.as_ref()
+        let events: Vec<JoystickEvent> = self
+            .joystick_rx
+            .as_ref()
             .map(|rx| rx.try_iter().collect())
             .unwrap_or_default();
 
@@ -949,7 +1077,8 @@ impl App {
                             if self.selected_table >= cols {
                                 self.selected_table -= cols;
                             } else {
-                                self.selected_table = (len - 1).min(self.selected_table + len - cols);
+                                self.selected_table =
+                                    (len - 1).min(self.selected_table + len - cols);
                             }
                             self.scroll_to_selected = true;
                         }
@@ -957,7 +1086,7 @@ impl App {
                             if self.selected_table + cols < len {
                                 self.selected_table += cols;
                             } else {
-                                self.selected_table = self.selected_table % cols;
+                                self.selected_table %= cols;
                             }
                             self.scroll_to_selected = true;
                         }
@@ -1022,7 +1151,11 @@ impl App {
             if let Ok(result) = rx.try_recv() {
                 match result {
                     Ok(release) => {
-                        log::info!("Latest release: {} (installed: {})", release.tag, self.vpx_installed_tag);
+                        log::info!(
+                            "Latest release: {} (installed: {})",
+                            release.tag,
+                            self.vpx_installed_tag
+                        );
                         // Update last check timestamp
                         let now = std::time::SystemTime::now()
                             .duration_since(std::time::UNIX_EPOCH)
@@ -1104,8 +1237,10 @@ impl App {
         self.process_vpx_status();
         self.process_update_check();
         // Only repaint when needed: bg extraction in progress, VPX running, joystick connected, or update in progress
-        if self.bg_rx.is_some() || self.vpx_running.load(Ordering::Relaxed)
-            || self.joystick_rx.is_some() || self.update_downloading
+        if self.bg_rx.is_some()
+            || self.vpx_running.load(Ordering::Relaxed)
+            || self.joystick_rx.is_some()
+            || self.update_downloading
             || self.update_check_rx.is_some()
         {
             ui.ctx().request_repaint();
@@ -1117,10 +1252,17 @@ impl App {
             let cols = self.launcher_cols.max(1);
             ui.input(|i| {
                 for event in &i.events {
-                    if let egui::Event::Key { key, pressed: true, .. } = event {
+                    if let egui::Event::Key {
+                        key, pressed: true, ..
+                    } = event
+                    {
                         match key {
                             egui::Key::ArrowLeft => {
-                                self.selected_table = if self.selected_table > 0 { self.selected_table - 1 } else { len - 1 };
+                                self.selected_table = if self.selected_table > 0 {
+                                    self.selected_table - 1
+                                } else {
+                                    len - 1
+                                };
                                 self.scroll_to_selected = true;
                             }
                             egui::Key::ArrowRight => {
@@ -1128,11 +1270,19 @@ impl App {
                                 self.scroll_to_selected = true;
                             }
                             egui::Key::ArrowUp => {
-                                self.selected_table = if self.selected_table >= cols { self.selected_table - cols } else { self.selected_table };
+                                self.selected_table = if self.selected_table >= cols {
+                                    self.selected_table - cols
+                                } else {
+                                    self.selected_table
+                                };
                                 self.scroll_to_selected = true;
                             }
                             egui::Key::ArrowDown => {
-                                self.selected_table = if self.selected_table + cols < len { self.selected_table + cols } else { self.selected_table };
+                                self.selected_table = if self.selected_table + cols < len {
+                                    self.selected_table + cols
+                                } else {
+                                    self.selected_table
+                                };
                                 self.scroll_to_selected = true;
                             }
                             egui::Key::Enter => {
@@ -1153,29 +1303,54 @@ impl App {
         // 2 screens: selector on Playfield, BG viewport on Backglass
         // 3+ screens: selector on DMD, BG viewport on Backglass, cover on Playfield (+Topper)
         let has_dmd = self.displays.iter().any(|d| d.role == DisplayRole::Dmd);
-        let has_bg = self.displays.iter().any(|d| d.role == DisplayRole::Backglass);
+        let has_bg = self
+            .displays
+            .iter()
+            .any(|d| d.role == DisplayRole::Backglass);
         if has_dmd {
             // 3+ screens: main window on DMD
             if let Some(dmd) = self.displays.iter().find(|d| d.role == DisplayRole::Dmd) {
-                ui.ctx().send_viewport_cmd(egui::ViewportCommand::OuterPosition(
-                    egui::pos2(dmd.x as f32, dmd.y as f32)));
-                ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(
-                    egui::vec2(dmd.width as f32, dmd.height as f32)));
-                ui.ctx().send_viewport_cmd(egui::ViewportCommand::Decorations(false));
+                ui.ctx()
+                    .send_viewport_cmd(egui::ViewportCommand::OuterPosition(egui::pos2(
+                        dmd.x as f32,
+                        dmd.y as f32,
+                    )));
+                ui.ctx()
+                    .send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
+                        dmd.width as f32,
+                        dmd.height as f32,
+                    )));
+                ui.ctx()
+                    .send_viewport_cmd(egui::ViewportCommand::Decorations(false));
             }
         } else if has_bg {
             // 2 screens (PF + BG): main window on Playfield
-            if let Some(pf) = self.displays.iter().find(|d| d.role == DisplayRole::Playfield) {
-                ui.ctx().send_viewport_cmd(egui::ViewportCommand::OuterPosition(
-                    egui::pos2(pf.x as f32, pf.y as f32)));
-                ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(
-                    egui::vec2(pf.width as f32, pf.height as f32)));
-                ui.ctx().send_viewport_cmd(egui::ViewportCommand::Decorations(false));
+            if let Some(pf) = self
+                .displays
+                .iter()
+                .find(|d| d.role == DisplayRole::Playfield)
+            {
+                ui.ctx()
+                    .send_viewport_cmd(egui::ViewportCommand::OuterPosition(egui::pos2(
+                        pf.x as f32,
+                        pf.y as f32,
+                    )));
+                ui.ctx()
+                    .send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
+                        pf.width as f32,
+                        pf.height as f32,
+                    )));
+                ui.ctx()
+                    .send_viewport_cmd(egui::ViewportCommand::Decorations(false));
             }
         }
 
         ui.horizontal(|ui| {
-            ui.label(egui::RichText::new(t!("launcher_title")).size(24.0).strong());
+            ui.label(
+                egui::RichText::new(t!("launcher_title"))
+                    .size(24.0)
+                    .strong(),
+            );
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui.button(t!("launcher_quit")).clicked() {
                     ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
@@ -1190,13 +1365,19 @@ impl App {
                         let pct = (current as f32 / total as f32 * 100.0) as u32;
                         let mb = current / (1024 * 1024);
                         let total_mb = total / (1024 * 1024);
-                        ui.add(egui::ProgressBar::new(current as f32 / total as f32)
-                            .text(t!("update_progress", mb = mb, total = total_mb, pct = pct)));
+                        ui.add(
+                            egui::ProgressBar::new(current as f32 / total as f32).text(t!(
+                                "update_progress",
+                                mb = mb,
+                                total = total_mb,
+                                pct = pct
+                            )),
+                        );
                     } else {
                         ui.spinner();
                         ui.label(t!("update_extracting"));
                     }
-                } else if let Some(ref release) = self.vpx_latest_release.clone() {
+                } else if let Some(release) = self.vpx_latest_release.clone() {
                     let btn = ui.button(
                         egui::RichText::new(t!("update_button", tag = release.tag.as_str()))
                             .color(egui::Color32::from_rgb(100, 200, 100)),
@@ -1206,8 +1387,10 @@ impl App {
                     }
                 }
                 if let Some(ref err) = self.update_error {
-                    ui.colored_label(egui::Color32::from_rgb(255, 100, 100),
-                        t!("update_error", msg = err.as_str()));
+                    ui.colored_label(
+                        egui::Color32::from_rgb(255, 100, 100),
+                        t!("update_error", msg = err.as_str()),
+                    );
                 }
                 let rescan_label = if let Some(start) = self.rescan_press_start {
                     let held = start.elapsed().as_secs_f32();
@@ -1228,10 +1411,15 @@ impl App {
                             self.rescan_press_start = None;
                             let dir = std::path::Path::new(&self.tables_dir);
                             if dir.is_dir() {
-                                for entry in walkdir::WalkDir::new(dir).max_depth(2).into_iter().flatten() {
+                                for entry in walkdir::WalkDir::new(dir)
+                                    .max_depth(2)
+                                    .into_iter()
+                                    .flatten()
+                                {
                                     let p = entry.path();
-                                    if p.file_name().and_then(|f| f.to_str())
-                                        .map_or(false, |f| f.starts_with(".pinready_bg_v"))
+                                    if p.file_name()
+                                        .and_then(|f| f.to_str())
+                                        .is_some_and(|f| f.starts_with(".pinready_bg_v"))
                                     {
                                         let _ = std::fs::remove_file(p);
                                     }
@@ -1242,25 +1430,28 @@ impl App {
                             ui.ctx().request_repaint();
                         }
                     }
-                } else {
-                    if self.rescan_press_start.is_some() {
-                        // Released before 3s: incremental rescan
-                        self.rescan_press_start = None;
-                        self.scan_tables();
-                    }
+                } else if self.rescan_press_start.is_some() {
+                    // Released before 3s: incremental rescan
+                    self.rescan_press_start = None;
+                    self.scan_tables();
                 }
             });
         });
         ui.add_space(8.0);
 
         // VPX loading overlay — show spinner but don't return, viewports need to render below
-        let vpx_loading = self.vpx_running.load(Ordering::Relaxed) && !self.vpx_loading_msg.is_empty();
+        let vpx_loading =
+            self.vpx_running.load(Ordering::Relaxed) && !self.vpx_loading_msg.is_empty();
         if vpx_loading {
             ui.vertical_centered(|ui| {
                 ui.add_space(40.0);
                 ui.spinner();
                 ui.add_space(8.0);
-                ui.label(egui::RichText::new(&self.vpx_loading_msg).size(18.0).strong());
+                ui.label(
+                    egui::RichText::new(&self.vpx_loading_msg)
+                        .size(18.0)
+                        .strong(),
+                );
             });
         }
 
@@ -1273,12 +1464,19 @@ impl App {
                 .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                 .default_size([600.0, 400.0])
                 .show(ui.ctx(), |ui| {
-                    ui.label(egui::RichText::new(t!("launcher_vpx_crashed").to_string()).size(16.0).strong().color(egui::Color32::RED));
+                    ui.label(
+                        egui::RichText::new(t!("launcher_vpx_crashed").to_string())
+                            .size(16.0)
+                            .strong()
+                            .color(egui::Color32::RED),
+                    );
                     ui.add_space(8.0);
                     if let Some(ref log) = self.vpx_error_log {
-                        egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
-                            ui.monospace(log);
-                        });
+                        egui::ScrollArea::vertical()
+                            .max_height(300.0)
+                            .show(ui, |ui| {
+                                ui.monospace(log);
+                            });
                     }
                     ui.add_space(8.0);
                     if ui.button(t!("launcher_close").to_string()).clicked() {
@@ -1331,7 +1529,10 @@ impl App {
 
         scroll_area.show(ui, |ui| {
             let filtered: Vec<usize> = (0..self.tables.len())
-                .filter(|&i| filter.is_empty() || self.tables[i].name.to_lowercase().contains(filter.as_str()))
+                .filter(|&i| {
+                    filter.is_empty()
+                        || self.tables[i].name.to_lowercase().contains(filter.as_str())
+                })
                 .collect();
 
             for row_start in (0..filtered.len()).step_by(cols) {
@@ -1344,7 +1545,9 @@ impl App {
                     ui.add_space(left_pad);
                     for col in 0..cols {
                         let fi = row_start + col;
-                        if fi >= filtered.len() { break; }
+                        if fi >= filtered.len() {
+                            break;
+                        }
                         let idx = filtered[fi];
                         let table = &self.tables[idx];
 
@@ -1375,7 +1578,12 @@ impl App {
 
                         // Selection border (inside to avoid clipping by painter_at)
                         if is_selected {
-                            painter.rect_stroke(rect, 6.0, egui::Stroke::new(4.0, egui::Color32::from_rgb(255, 200, 0)), egui::StrokeKind::Inside);
+                            painter.rect_stroke(
+                                rect,
+                                6.0,
+                                egui::Stroke::new(4.0, egui::Color32::from_rgb(255, 200, 0)),
+                                egui::StrokeKind::Inside,
+                            );
                         }
 
                         // Backglass image (centered in image area)
@@ -1402,18 +1610,26 @@ impl App {
                         }
 
                         // Table name (centered, bigger, bold)
-                        let text_center = egui::pos2(rect.center().x, rect.min.y + img_height + (card_height - img_height) / 2.0);
+                        let text_center = egui::pos2(
+                            rect.center().x,
+                            rect.min.y + img_height + (card_height - img_height) / 2.0,
+                        );
                         painter.text(
                             text_center,
                             egui::Align2::CENTER_CENTER,
                             &table.name,
                             egui::FontId::new(24.0, egui::FontFamily::Proportional),
-                            if is_selected { egui::Color32::from_rgb(255, 200, 0) } else { egui::Color32::WHITE },
+                            if is_selected {
+                                egui::Color32::from_rgb(255, 200, 0)
+                            } else {
+                                egui::Color32::WHITE
+                            },
                         );
 
                         // B2S badge
                         if !table.has_directb2s {
-                            let badge_pos = egui::pos2(rect.max.x - 12.0, rect.min.y + img_height + 6.0);
+                            let badge_pos =
+                                egui::pos2(rect.max.x - 12.0, rect.min.y + img_height + 6.0);
                             painter.text(
                                 badge_pos,
                                 egui::Align2::RIGHT_TOP,
@@ -1436,9 +1652,15 @@ impl App {
 
         // 3+ screens: cover Playfield with grey metal background + VPX logo
         // (with 2 screens, Playfield hosts the table selector — no cover needed)
-        let has_pf_display = self.displays.iter().any(|d| d.role == DisplayRole::Playfield);
+        let has_pf_display = self
+            .displays
+            .iter()
+            .any(|d| d.role == DisplayRole::Playfield);
         if has_pf_display && has_dmd && !self.vpx_hide_covers {
-            let pf_display = self.displays.iter().find(|d| d.role == DisplayRole::Playfield);
+            let pf_display = self
+                .displays
+                .iter()
+                .find(|d| d.role == DisplayRole::Playfield);
             let (pf_x, pf_y, pf_w, pf_h) = pf_display
                 .map(|d| (d.x as f32, d.y as f32, d.width as f32, d.height as f32))
                 .unwrap_or((0.0, 0.0, 1920.0, 1080.0));
@@ -1454,20 +1676,24 @@ impl App {
                     .with_override_redirect(true),
                 move |ctx, _class| {
                     // Force position every frame — WM may ignore initial with_position
-                    ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(
-                        egui::pos2(pf_x, pf_y)));
-                    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(
-                        egui::vec2(pf_w, pf_h)));
+                    ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(egui::pos2(
+                        pf_x, pf_y,
+                    )));
+                    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(pf_w, pf_h)));
                     egui_extras::install_image_loaders(ctx);
                     ctx.include_bytes("bytes://vpx_logo", VPX_LOGO);
                     egui::CentralPanel::default()
                         .frame(egui::Frame::NONE.fill(egui::Color32::from_rgb(80, 80, 85)))
                         .show(ctx, |ui| {
                             ui.centered_and_justified(|ui| {
-                                ui.add(egui::Image::new("bytes://vpx_logo")
-                                    .max_size(egui::vec2(512.0, 512.0))
-                                    .rotate(270.0_f32.to_radians(), egui::vec2(0.5, 0.5))
-                                    .tint(egui::Color32::from_rgba_premultiplied(180, 180, 190, 200)));
+                                ui.add(
+                                    egui::Image::new("bytes://vpx_logo")
+                                        .max_size(egui::vec2(512.0, 512.0))
+                                        .rotate(270.0_f32.to_radians(), egui::vec2(0.5, 0.5))
+                                        .tint(egui::Color32::from_rgba_premultiplied(
+                                            180, 180, 190, 200,
+                                        )),
+                                );
                             });
                         });
                 },
@@ -1475,12 +1701,18 @@ impl App {
         }
 
         // If multi-screen, show backglass on BG display via secondary viewport
-        let has_bg_display = self.displays.iter().any(|d| d.role == DisplayRole::Backglass);
+        let has_bg_display = self
+            .displays
+            .iter()
+            .any(|d| d.role == DisplayRole::Backglass);
         if has_bg_display && !self.tables.is_empty() && !self.vpx_hide_covers {
             let selected = self.selected_table.min(self.tables.len() - 1);
             let table_name = self.tables[selected].name.clone();
             let bg_bytes = self.tables[selected].bg_bytes.clone();
-            let bg_display = self.displays.iter().find(|d| d.role == DisplayRole::Backglass);
+            let bg_display = self
+                .displays
+                .iter()
+                .find(|d| d.role == DisplayRole::Backglass);
             let (bg_x, bg_y, bg_w, bg_h) = bg_display
                 .map(|d| (d.x as f32, d.y as f32, d.width as f32, d.height as f32))
                 .unwrap_or((0.0, 0.0, 1280.0, 1024.0));
@@ -1496,10 +1728,10 @@ impl App {
                     .with_decorations(false)
                     .with_override_redirect(true),
                 move |ctx, _class| {
-                    ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(
-                        egui::pos2(bg_x, bg_y)));
-                    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(
-                        egui::vec2(bg_w, bg_h)));
+                    ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(egui::pos2(
+                        bg_x, bg_y,
+                    )));
+                    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(bg_w, bg_h)));
                     egui_extras::install_image_loaders(ctx);
                     egui::CentralPanel::default()
                         .frame(egui::Frame::NONE.fill(egui::Color32::BLACK))
@@ -1542,19 +1774,23 @@ impl App {
                     .with_override_redirect(true),
                 move |ctx, _class| {
                     // Force position every frame — WM may ignore initial with_position
-                    ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(
-                        egui::pos2(tp_x, tp_y)));
-                    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(
-                        egui::vec2(tp_w, tp_h)));
+                    ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(egui::pos2(
+                        tp_x, tp_y,
+                    )));
+                    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(tp_w, tp_h)));
                     egui_extras::install_image_loaders(ctx);
                     ctx.include_bytes("bytes://vpx_logo", VPX_LOGO);
                     egui::CentralPanel::default()
                         .frame(egui::Frame::NONE.fill(egui::Color32::from_rgb(80, 80, 85)))
                         .show(ctx, |ui| {
                             ui.centered_and_justified(|ui| {
-                                ui.add(egui::Image::new("bytes://vpx_logo")
-                                    .max_size(egui::vec2(512.0, 512.0))
-                                    .tint(egui::Color32::from_rgba_premultiplied(180, 180, 190, 200)));
+                                ui.add(
+                                    egui::Image::new("bytes://vpx_logo")
+                                        .max_size(egui::vec2(512.0, 512.0))
+                                        .tint(egui::Color32::from_rgba_premultiplied(
+                                            180, 180, 190, 200,
+                                        )),
+                                );
                             });
                         });
                 },
@@ -1599,14 +1835,21 @@ impl App {
         ui.label(egui::RichText::new(t!("vpx_install_title")).strong());
         ui.add_space(4.0);
 
-        ui.radio_value(&mut self.vpx_install_mode, VpxInstallMode::Auto,
-            t!("vpx_auto_install"));
+        ui.radio_value(
+            &mut self.vpx_install_mode,
+            VpxInstallMode::Auto,
+            t!("vpx_auto_install"),
+        );
         if self.vpx_install_mode == VpxInstallMode::Auto {
             ui.indent("auto_install", |ui| {
                 if let Some(ref release) = self.vpx_latest_release {
                     ui.label(t!("vpx_version_available", tag = release.tag.as_str()));
                     let size_mb = release.asset_size / (1024 * 1024);
-                    ui.label(t!("vpx_artifact_info", name = release.asset_name.as_str(), size = size_mb));
+                    ui.label(t!(
+                        "vpx_artifact_info",
+                        name = release.asset_name.as_str(),
+                        size = size_mb
+                    ));
                 } else if self.update_check_rx.is_some() {
                     ui.horizontal(|ui| {
                         ui.spinner();
@@ -1614,7 +1857,10 @@ impl App {
                     });
                     ui.ctx().request_repaint();
                 } else if !self.vpx_installed_tag.is_empty() {
-                    ui.label(t!("vpx_version_installed", tag = self.vpx_installed_tag.as_str()));
+                    ui.label(t!(
+                        "vpx_version_installed",
+                        tag = self.vpx_installed_tag.as_str()
+                    ));
                 } else {
                     ui.label(t!("vpx_no_version"));
                 }
@@ -1625,8 +1871,7 @@ impl App {
                         let pct = current as f32 / total as f32;
                         let mb = current / (1024 * 1024);
                         let total_mb = total / (1024 * 1024);
-                        ui.add(egui::ProgressBar::new(pct)
-                            .text(format!("{mb}/{total_mb} Mo")));
+                        ui.add(egui::ProgressBar::new(pct).text(format!("{mb}/{total_mb} Mo")));
                     } else {
                         ui.horizontal(|ui| {
                             ui.spinner();
@@ -1634,28 +1879,37 @@ impl App {
                         });
                     }
                     ui.ctx().request_repaint();
-                } else if let Some(ref release) = self.vpx_latest_release.clone() {
-                    if release.tag != self.vpx_installed_tag {
-                        if ui.button(t!("vpx_install_button")).clicked() {
-                            self.start_vpx_download(&release);
-                        }
+                } else if let Some(release) = self.vpx_latest_release.clone() {
+                    if release.tag != self.vpx_installed_tag
+                        && ui.button(t!("vpx_install_button")).clicked()
+                    {
+                        self.start_vpx_download(&release);
                     }
                 }
 
                 if let Some(ref err) = self.update_error {
-                    ui.colored_label(egui::Color32::from_rgb(255, 100, 100),
-                        t!("vpx_install_error", msg = err.as_str()));
+                    ui.colored_label(
+                        egui::Color32::from_rgb(255, 100, 100),
+                        t!("vpx_install_error", msg = err.as_str()),
+                    );
                 }
 
                 let install_dir = updater::default_install_dir();
-                ui.label(egui::RichText::new(
-                    t!("vpx_install_dir", path = install_dir.display().to_string()))
-                    .weak());
+                ui.label(
+                    egui::RichText::new(t!(
+                        "vpx_install_dir",
+                        path = install_dir.display().to_string()
+                    ))
+                    .weak(),
+                );
             });
         }
 
-        ui.radio_value(&mut self.vpx_install_mode, VpxInstallMode::Manual,
-            t!("vpx_manual_install"));
+        ui.radio_value(
+            &mut self.vpx_install_mode,
+            VpxInstallMode::Manual,
+            t!("vpx_manual_install"),
+        );
         if self.vpx_install_mode == VpxInstallMode::Manual {
             ui.indent("manual_install", |ui| {
                 ui.horizontal(|ui| {
@@ -1671,7 +1925,10 @@ impl App {
                 });
                 let vpx_exists = std::path::Path::new(&self.vpx_exe_path).is_file();
                 if !vpx_exists && !self.vpx_exe_path.is_empty() {
-                    ui.colored_label(egui::Color32::from_rgb(255, 100, 100), format!("⚠ {}", t!("vpx_file_not_found")));
+                    ui.colored_label(
+                        egui::Color32::from_rgb(255, 100, 100),
+                        format!("⚠ {}", t!("vpx_file_not_found")),
+                    );
                 }
             });
         }
@@ -1695,7 +1952,12 @@ impl App {
                 if ui.radio_value(&mut self.screen_count, n, label).changed() {
                     // Re-assign roles based on new screen count
                     for (i, display) in self.displays.iter_mut().enumerate() {
-                        let roles = [DisplayRole::Playfield, DisplayRole::Backglass, DisplayRole::Dmd, DisplayRole::Topper];
+                        let roles = [
+                            DisplayRole::Playfield,
+                            DisplayRole::Backglass,
+                            DisplayRole::Dmd,
+                            DisplayRole::Topper,
+                        ];
                         display.role = if i < self.screen_count {
                             roles.get(i).copied().unwrap_or(DisplayRole::Unused)
                         } else {
@@ -1743,16 +2005,14 @@ impl App {
                     .iter()
                     .copied()
                     .filter(|r| {
-                        *r == DisplayRole::Unused || {
-                            let needed = match r {
+                        *r == DisplayRole::Unused
+                            || match r {
                                 DisplayRole::Playfield => self.screen_count >= 1,
                                 DisplayRole::Backglass => self.screen_count >= 2,
                                 DisplayRole::Dmd => self.screen_count >= 3,
                                 DisplayRole::Topper => self.screen_count >= 4,
                                 DisplayRole::Unused => true,
-                            };
-                            needed
-                        }
+                            }
                     })
                     .collect();
 
@@ -1768,9 +2028,17 @@ impl App {
                     ui.label(format!("{:.0} Hz", display.refresh_rate));
                     // Physical size mm (editable)
                     ui.horizontal(|ui| {
-                        ui.add(egui::DragValue::new(&mut display.width_mm).speed(1).suffix(" mm"));
+                        ui.add(
+                            egui::DragValue::new(&mut display.width_mm)
+                                .speed(1)
+                                .suffix(" mm"),
+                        );
                         ui.label("x");
-                        ui.add(egui::DragValue::new(&mut display.height_mm).speed(1).suffix(" mm"));
+                        ui.add(
+                            egui::DragValue::new(&mut display.height_mm)
+                                .speed(1)
+                                .suffix(" mm"),
+                        );
                     });
 
                     egui::ComboBox::from_id_salt(format!("role_{}", display.name))
@@ -1796,7 +2064,8 @@ impl App {
             ui.horizontal(|ui| {
                 // === Interactive cabinet schema (side view) ===
                 let schema_size = egui::vec2(450.0, 500.0);
-                let (rect, response) = ui.allocate_exact_size(schema_size, egui::Sense::click_and_drag());
+                let (rect, response) =
+                    ui.allocate_exact_size(schema_size, egui::Sense::click_and_drag());
                 let painter = ui.painter_at(rect);
 
                 // Scale: 1cm = 2.0px
@@ -1816,11 +2085,19 @@ impl App {
 
                 // Ground
                 painter.line_segment(
-                    [egui::pos2(rect.left() + 10.0, ground_y), egui::pos2(rect.right() - 10.0, ground_y)],
+                    [
+                        egui::pos2(rect.left() + 10.0, ground_y),
+                        egui::pos2(rect.right() - 10.0, ground_y),
+                    ],
                     egui::Stroke::new(2.0, col_ground),
                 );
-                painter.text(egui::pos2(rect.right() - 30.0, ground_y + 8.0), egui::Align2::CENTER_CENTER,
-                    "Sol", egui::FontId::proportional(10.0), col_ground);
+                painter.text(
+                    egui::pos2(rect.right() - 30.0, ground_y + 8.0),
+                    egui::Align2::CENTER_CENTER,
+                    "Sol",
+                    egui::FontId::proportional(10.0),
+                    col_ground,
+                );
 
                 // Cabinet body (side view: front=lockbar side, back=backglass side)
                 let lockbar_y = ground_y - self.lockbar_height * scale;
@@ -1837,38 +2114,71 @@ impl App {
                 let front_leg_x = cab_x;
                 let back_leg_x = screen_end_x;
                 painter.line_segment(
-                    [egui::pos2(front_leg_x, ground_y), egui::pos2(front_leg_x, lockbar_y)],
+                    [
+                        egui::pos2(front_leg_x, ground_y),
+                        egui::pos2(front_leg_x, lockbar_y),
+                    ],
                     egui::Stroke::new(3.0, col_cab),
                 );
                 painter.line_segment(
-                    [egui::pos2(back_leg_x, ground_y), egui::pos2(back_leg_x, screen_end_y)],
+                    [
+                        egui::pos2(back_leg_x, ground_y),
+                        egui::pos2(back_leg_x, screen_end_y),
+                    ],
                     egui::Stroke::new(3.0, col_cab),
                 );
 
                 // Lockbar (horizontal bar at front)
                 painter.line_segment(
-                    [egui::pos2(cab_x - 15.0, lockbar_y), egui::pos2(cab_x + 15.0, lockbar_y)],
+                    [
+                        egui::pos2(cab_x - 15.0, lockbar_y),
+                        egui::pos2(cab_x + 15.0, lockbar_y),
+                    ],
                     egui::Stroke::new(5.0, col_cab),
                 );
-                painter.text(egui::pos2(cab_x, lockbar_y + 12.0), egui::Align2::CENTER_TOP,
-                    "Lockbar", font_label.clone(), col_cab);
+                painter.text(
+                    egui::pos2(cab_x, lockbar_y + 12.0),
+                    egui::Align2::CENTER_TOP,
+                    "Lockbar",
+                    font_label.clone(),
+                    col_cab,
+                );
 
                 // Playfield screen (on top of the cab frame)
                 painter.line_segment(
-                    [egui::pos2(cab_x, lockbar_y), egui::pos2(screen_end_x, screen_end_y)],
+                    [
+                        egui::pos2(cab_x, lockbar_y),
+                        egui::pos2(screen_end_x, screen_end_y),
+                    ],
                     egui::Stroke::new(6.0, col_screen),
                 );
-                painter.text(egui::pos2((cab_x + screen_end_x) / 2.0, (lockbar_y + screen_end_y) / 2.0 - 14.0),
-                    egui::Align2::CENTER_CENTER, "Playfield", font_label.clone(), col_screen);
+                painter.text(
+                    egui::pos2(
+                        (cab_x + screen_end_x) / 2.0,
+                        (lockbar_y + screen_end_y) / 2.0 - 14.0,
+                    ),
+                    egui::Align2::CENTER_CENTER,
+                    "Playfield",
+                    font_label.clone(),
+                    col_screen,
+                );
 
                 // Backglass (vertical from end of screen)
                 let bg_height = 80.0;
                 painter.line_segment(
-                    [egui::pos2(screen_end_x, screen_end_y), egui::pos2(screen_end_x, screen_end_y - bg_height)],
+                    [
+                        egui::pos2(screen_end_x, screen_end_y),
+                        egui::pos2(screen_end_x, screen_end_y - bg_height),
+                    ],
                     egui::Stroke::new(4.0, col_screen.linear_multiply(0.6)),
                 );
-                painter.text(egui::pos2(screen_end_x + 8.0, screen_end_y - bg_height / 2.0),
-                    egui::Align2::LEFT_CENTER, "BG", font_label, col_screen);
+                painter.text(
+                    egui::pos2(screen_end_x + 8.0, screen_end_y - bg_height / 2.0),
+                    egui::Align2::LEFT_CENTER,
+                    "BG",
+                    font_label,
+                    col_screen,
+                );
 
                 // Player (stick figure, side view — facing right toward cabinet)
                 let player_base_x = cab_x - (-self.player_y) * scale;
@@ -1887,28 +2197,48 @@ impl App {
                 let back_foot_x = player_base_x - leg_spread;
                 // Front leg
                 painter.line_segment(
-                    [egui::pos2(front_foot_x, player_feet_y), egui::pos2(player_base_x + 2.0, player_hip_y)],
+                    [
+                        egui::pos2(front_foot_x, player_feet_y),
+                        egui::pos2(player_base_x + 2.0, player_hip_y),
+                    ],
                     stroke,
                 );
                 // Back leg
                 painter.line_segment(
-                    [egui::pos2(back_foot_x, player_feet_y), egui::pos2(player_base_x - 2.0, player_hip_y)],
+                    [
+                        egui::pos2(back_foot_x, player_feet_y),
+                        egui::pos2(player_base_x - 2.0, player_hip_y),
+                    ],
                     stroke,
                 );
                 // Torso (hip to neck, slight lean forward)
                 painter.line_segment(
-                    [egui::pos2(player_base_x, player_hip_y), egui::pos2(player_base_x + 3.0, player_neck_y)],
+                    [
+                        egui::pos2(player_base_x, player_hip_y),
+                        egui::pos2(player_base_x + 3.0, player_neck_y),
+                    ],
                     stroke,
                 );
                 // Head
-                painter.circle_filled(egui::pos2(player_base_x + 3.0, head_center_y), head_radius, col_player);
+                painter.circle_filled(
+                    egui::pos2(player_base_x + 3.0, head_center_y),
+                    head_radius,
+                    col_player,
+                );
                 // Eye (facing right toward cab)
-                painter.circle_filled(egui::pos2(player_base_x + 7.0, head_center_y - 2.0), 2.0, egui::Color32::WHITE);
+                painter.circle_filled(
+                    egui::pos2(player_base_x + 7.0, head_center_y - 2.0),
+                    2.0,
+                    egui::Color32::WHITE,
+                );
                 // Arms (reaching toward lockbar)
                 let hand_x = player_base_x + 20.0; // hands forward toward cab
                 let hand_y = player_shoulder_y + 15.0; // hands at lockbar height-ish
                 painter.line_segment(
-                    [egui::pos2(player_base_x + 3.0, player_shoulder_y), egui::pos2(hand_x, hand_y)],
+                    [
+                        egui::pos2(player_base_x + 3.0, player_shoulder_y),
+                        egui::pos2(hand_x, hand_y),
+                    ],
                     stroke,
                 );
 
@@ -1917,37 +2247,62 @@ impl App {
                 // Lockbar height (sol -> lockbar)
                 let arrow_x = cab_x + 50.0;
                 painter.line_segment(
-                    [egui::pos2(arrow_x, ground_y), egui::pos2(arrow_x, lockbar_y)],
+                    [
+                        egui::pos2(arrow_x, ground_y),
+                        egui::pos2(arrow_x, lockbar_y),
+                    ],
                     egui::Stroke::new(1.5, col_dim),
                 );
-                painter.text(egui::pos2(arrow_x + 5.0, (ground_y + lockbar_y) / 2.0),
-                    egui::Align2::LEFT_CENTER, &format!("{:.0} cm", self.lockbar_height),
-                    font_dim.clone(), col_dim);
+                painter.text(
+                    egui::pos2(arrow_x + 5.0, (ground_y + lockbar_y) / 2.0),
+                    egui::Align2::LEFT_CENTER,
+                    format!("{:.0} cm", self.lockbar_height),
+                    font_dim.clone(),
+                    col_dim,
+                );
 
                 // Player height
                 let parrow_x = player_base_x - 25.0;
                 painter.line_segment(
-                    [egui::pos2(parrow_x, player_feet_y), egui::pos2(parrow_x, player_head_y)],
+                    [
+                        egui::pos2(parrow_x, player_feet_y),
+                        egui::pos2(parrow_x, player_head_y),
+                    ],
                     egui::Stroke::new(1.5, col_player),
                 );
-                painter.text(egui::pos2(parrow_x - 5.0, (player_feet_y + player_head_y) / 2.0),
-                    egui::Align2::RIGHT_CENTER, &format!("{:.0} cm", self.player_height),
-                    font_dim.clone(), col_player);
+                painter.text(
+                    egui::pos2(parrow_x - 5.0, (player_feet_y + player_head_y) / 2.0),
+                    egui::Align2::RIGHT_CENTER,
+                    format!("{:.0} cm", self.player_height),
+                    font_dim.clone(),
+                    col_player,
+                );
 
                 // Player Y distance
                 painter.line_segment(
-                    [egui::pos2(player_base_x, lockbar_y + 12.0), egui::pos2(cab_x, lockbar_y + 12.0)],
+                    [
+                        egui::pos2(player_base_x, lockbar_y + 12.0),
+                        egui::pos2(cab_x, lockbar_y + 12.0),
+                    ],
                     egui::Stroke::new(1.0, col_dim),
                 );
-                painter.text(egui::pos2((player_base_x + cab_x) / 2.0, lockbar_y + 24.0),
-                    egui::Align2::CENTER_CENTER, &format!("Y={:.0} cm", self.player_y),
-                    font_dim.clone(), col_dim);
+                painter.text(
+                    egui::pos2((player_base_x + cab_x) / 2.0, lockbar_y + 24.0),
+                    egui::Align2::CENTER_CENTER,
+                    format!("Y={:.0} cm", self.player_y),
+                    font_dim.clone(),
+                    col_dim,
+                );
 
                 // Screen inclination arc
                 if self.screen_inclination.abs() > 0.5 {
-                    painter.text(egui::pos2(cab_x + 30.0, lockbar_y - 12.0),
-                        egui::Align2::LEFT_CENTER, &format!("{:.0} deg", self.screen_inclination),
-                        font_dim, col_screen);
+                    painter.text(
+                        egui::pos2(cab_x + 30.0, lockbar_y - 12.0),
+                        egui::Align2::LEFT_CENTER,
+                        format!("{:.0} deg", self.screen_inclination),
+                        font_dim,
+                        col_screen,
+                    );
                 }
 
                 // === Drag handles ===
@@ -1972,7 +2327,8 @@ impl App {
                 // Handle dragging logic
                 if response.dragged() {
                     if let Some(pos) = response.interact_pointer_pos() {
-                        let dist = |p: egui::Pos2| ((pos.x - p.x).powi(2) + (pos.y - p.y).powi(2)).sqrt();
+                        let dist =
+                            |p: egui::Pos2| ((pos.x - p.x).powi(2) + (pos.y - p.y).powi(2)).sqrt();
 
                         if dist(h_lockbar) < 30.0 {
                             // Drag lockbar height
@@ -2006,31 +2362,64 @@ impl App {
                     ui.add_space(8.0);
 
                     ui.label(t!("cabinet_lockbar_width"));
-                    ui.add(egui::DragValue::new(&mut self.lockbar_width).range(10.0..=150.0).speed(1.0).suffix(" cm"));
+                    ui.add(
+                        egui::DragValue::new(&mut self.lockbar_width)
+                            .range(10.0..=150.0)
+                            .speed(1.0)
+                            .suffix(" cm"),
+                    );
                     ui.add_space(4.0);
 
                     ui.label(t!("cabinet_lockbar_height"));
-                    ui.add(egui::DragValue::new(&mut self.lockbar_height).range(0.0..=250.0).speed(1.0).suffix(" cm"));
+                    ui.add(
+                        egui::DragValue::new(&mut self.lockbar_height)
+                            .range(0.0..=250.0)
+                            .speed(1.0)
+                            .suffix(" cm"),
+                    );
                     ui.add_space(4.0);
 
                     ui.label(t!("cabinet_screen_inclination"));
-                    ui.add(egui::DragValue::new(&mut self.screen_inclination).range(-30.0..=30.0).speed(0.5).suffix(" deg"));
+                    ui.add(
+                        egui::DragValue::new(&mut self.screen_inclination)
+                            .range(-30.0..=30.0)
+                            .speed(0.5)
+                            .suffix(" deg"),
+                    );
                     ui.add_space(4.0);
 
                     ui.label(t!("cabinet_player_height"));
-                    ui.add(egui::DragValue::new(&mut self.player_height).range(75.0..=250.0).speed(1.0).suffix(" cm"));
+                    ui.add(
+                        egui::DragValue::new(&mut self.player_height)
+                            .range(75.0..=250.0)
+                            .speed(1.0)
+                            .suffix(" cm"),
+                    );
                     ui.add_space(4.0);
 
                     ui.label(t!("cabinet_player_distance"));
-                    ui.add(egui::DragValue::new(&mut self.player_y).range(-70.0..=30.0).speed(1.0).suffix(" cm"));
+                    ui.add(
+                        egui::DragValue::new(&mut self.player_y)
+                            .range(-70.0..=30.0)
+                            .speed(1.0)
+                            .suffix(" cm"),
+                    );
                     ui.add_space(4.0);
 
                     ui.label(t!("cabinet_player_offset"));
-                    ui.add(egui::DragValue::new(&mut self.player_x).range(-30.0..=30.0).speed(1.0).suffix(" cm"));
+                    ui.add(
+                        egui::DragValue::new(&mut self.player_x)
+                            .range(-30.0..=30.0)
+                            .speed(1.0)
+                            .suffix(" cm"),
+                    );
                     ui.add_space(12.0);
 
                     ui.separator();
-                    ui.label(t!("cabinet_eye_height", value = format!("{:.0}", self.player_z)));
+                    ui.label(t!(
+                        "cabinet_eye_height",
+                        value = format!("{:.0}", self.player_z)
+                    ));
                     ui.label(t!("cabinet_eye_formula"));
                 });
             });
@@ -2056,14 +2445,24 @@ impl App {
                         _ => t!("rendering_sync_vsync").to_string(),
                     })
                     .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut self.sync_mode, 0, t!("rendering_sync_none").to_string());
-                        ui.selectable_value(&mut self.sync_mode, 1, t!("rendering_sync_vsync_default").to_string());
+                        ui.selectable_value(
+                            &mut self.sync_mode,
+                            0,
+                            t!("rendering_sync_none").to_string(),
+                        );
+                        ui.selectable_value(
+                            &mut self.sync_mode,
+                            1,
+                            t!("rendering_sync_vsync_default").to_string(),
+                        );
                     });
                 ui.end_row();
 
                 // Max framerate — auto-set from playfield refresh rate
                 ui.label(t!("rendering_fps_limit"));
-                let pf_refresh = self.displays.iter()
+                let pf_refresh = self
+                    .displays
+                    .iter()
                     .find(|d| d.role == DisplayRole::Playfield)
                     .map(|d| d.refresh_rate)
                     .unwrap_or(60.0);
@@ -2099,7 +2498,11 @@ impl App {
                         _ => t!("rendering_msaa_off").to_string(),
                     })
                     .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut self.msaa, 0, t!("rendering_msaa_off_default").to_string());
+                        ui.selectable_value(
+                            &mut self.msaa,
+                            0,
+                            t!("rendering_msaa_off_default").to_string(),
+                        );
                         ui.selectable_value(&mut self.msaa, 1, t!("rendering_msaa_4").to_string());
                         ui.selectable_value(&mut self.msaa, 2, t!("rendering_msaa_6").to_string());
                         ui.selectable_value(&mut self.msaa, 3, t!("rendering_msaa_8").to_string());
@@ -2121,14 +2524,46 @@ impl App {
                         _ => t!("rendering_fxaa_off").to_string(),
                     })
                     .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut self.fxaa, 0, t!("rendering_fxaa_off").to_string());
-                        ui.selectable_value(&mut self.fxaa, 1, t!("rendering_fxaa_fast").to_string());
-                        ui.selectable_value(&mut self.fxaa, 2, t!("rendering_fxaa_standard").to_string());
-                        ui.selectable_value(&mut self.fxaa, 3, t!("rendering_fxaa_quality").to_string());
-                        ui.selectable_value(&mut self.fxaa, 4, t!("rendering_fxaa_nfaa").to_string());
-                        ui.selectable_value(&mut self.fxaa, 5, t!("rendering_fxaa_dlaa").to_string());
-                        ui.selectable_value(&mut self.fxaa, 6, t!("rendering_fxaa_smaa").to_string());
-                        ui.selectable_value(&mut self.fxaa, 7, t!("rendering_fxaa_faaa").to_string());
+                        ui.selectable_value(
+                            &mut self.fxaa,
+                            0,
+                            t!("rendering_fxaa_off").to_string(),
+                        );
+                        ui.selectable_value(
+                            &mut self.fxaa,
+                            1,
+                            t!("rendering_fxaa_fast").to_string(),
+                        );
+                        ui.selectable_value(
+                            &mut self.fxaa,
+                            2,
+                            t!("rendering_fxaa_standard").to_string(),
+                        );
+                        ui.selectable_value(
+                            &mut self.fxaa,
+                            3,
+                            t!("rendering_fxaa_quality").to_string(),
+                        );
+                        ui.selectable_value(
+                            &mut self.fxaa,
+                            4,
+                            t!("rendering_fxaa_nfaa").to_string(),
+                        );
+                        ui.selectable_value(
+                            &mut self.fxaa,
+                            5,
+                            t!("rendering_fxaa_dlaa").to_string(),
+                        );
+                        ui.selectable_value(
+                            &mut self.fxaa,
+                            6,
+                            t!("rendering_fxaa_smaa").to_string(),
+                        );
+                        ui.selectable_value(
+                            &mut self.fxaa,
+                            7,
+                            t!("rendering_fxaa_faaa").to_string(),
+                        );
                     });
                 ui.end_row();
 
@@ -2142,9 +2577,21 @@ impl App {
                         _ => t!("rendering_sharpen_off").to_string(),
                     })
                     .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut self.sharpen, 0, t!("rendering_sharpen_off").to_string());
-                        ui.selectable_value(&mut self.sharpen, 1, t!("rendering_sharpen_cas").to_string());
-                        ui.selectable_value(&mut self.sharpen, 2, t!("rendering_sharpen_bilateral").to_string());
+                        ui.selectable_value(
+                            &mut self.sharpen,
+                            0,
+                            t!("rendering_sharpen_off").to_string(),
+                        );
+                        ui.selectable_value(
+                            &mut self.sharpen,
+                            1,
+                            t!("rendering_sharpen_cas").to_string(),
+                        );
+                        ui.selectable_value(
+                            &mut self.sharpen,
+                            2,
+                            t!("rendering_sharpen_bilateral").to_string(),
+                        );
                     });
                 ui.end_row();
 
@@ -2161,22 +2608,50 @@ impl App {
                         _ => t!("rendering_reflect_dynamic").to_string(),
                     })
                     .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut self.pf_reflection, 0, t!("rendering_reflect_off_perf").to_string());
-                        ui.selectable_value(&mut self.pf_reflection, 1, t!("rendering_reflect_balls").to_string());
-                        ui.selectable_value(&mut self.pf_reflection, 2, t!("rendering_reflect_static_zero").to_string());
-                        ui.selectable_value(&mut self.pf_reflection, 3, t!("rendering_reflect_static_balls").to_string());
-                        ui.selectable_value(&mut self.pf_reflection, 4, t!("rendering_reflect_static_dynamic").to_string());
-                        ui.selectable_value(&mut self.pf_reflection, 5, t!("rendering_reflect_dynamic_default").to_string());
+                        ui.selectable_value(
+                            &mut self.pf_reflection,
+                            0,
+                            t!("rendering_reflect_off_perf").to_string(),
+                        );
+                        ui.selectable_value(
+                            &mut self.pf_reflection,
+                            1,
+                            t!("rendering_reflect_balls").to_string(),
+                        );
+                        ui.selectable_value(
+                            &mut self.pf_reflection,
+                            2,
+                            t!("rendering_reflect_static_zero").to_string(),
+                        );
+                        ui.selectable_value(
+                            &mut self.pf_reflection,
+                            3,
+                            t!("rendering_reflect_static_balls").to_string(),
+                        );
+                        ui.selectable_value(
+                            &mut self.pf_reflection,
+                            4,
+                            t!("rendering_reflect_static_dynamic").to_string(),
+                        );
+                        ui.selectable_value(
+                            &mut self.pf_reflection,
+                            5,
+                            t!("rendering_reflect_dynamic_default").to_string(),
+                        );
                     });
                 ui.end_row();
 
                 // Max texture dimension
                 ui.label(t!("rendering_tex_size"));
                 egui::ComboBox::from_id_salt("max_tex")
-                    .selected_text(format!("{}", self.max_tex_dim))
+                    .selected_text(self.max_tex_dim.to_string())
                     .show_ui(ui, |ui| {
                         for &size in &[512, 1024, 2048, 4096, 8192, 16384] {
-                            let label = if size == 16384 { t!("rendering_tex_default").to_string() } else { format!("{size}") };
+                            let label = if size == 16384 {
+                                t!("rendering_tex_default").to_string()
+                            } else {
+                                format!("{size}")
+                            };
                             ui.selectable_value(&mut self.max_tex_dim, size, label);
                         }
                     });
@@ -2208,9 +2683,16 @@ impl App {
 
             // Check key events
             let key_events: Vec<(egui::Key, bool)> = ui.input(|i| {
-                i.events.iter().filter_map(|e| {
-                    if let egui::Event::Key { key, pressed, .. } = e { Some((*key, *pressed)) } else { None }
-                }).collect()
+                i.events
+                    .iter()
+                    .filter_map(|e| {
+                        if let egui::Event::Key { key, pressed, .. } = e {
+                            Some((*key, *pressed))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
             });
             for &(key, pressed) in &key_events {
                 if pressed {
@@ -2264,7 +2746,10 @@ impl App {
         self.render_action_list(ui, true, &conflicts);
 
         ui.add_space(8.0);
-        ui.checkbox(&mut self.show_advanced_inputs, t!("inputs_show_advanced").to_string());
+        ui.checkbox(
+            &mut self.show_advanced_inputs,
+            t!("inputs_show_advanced").to_string(),
+        );
         if self.show_advanced_inputs {
             ui.add_space(4.0);
             ui.strong(t!("inputs_advanced").to_string());
@@ -2272,55 +2757,75 @@ impl App {
         }
     }
 
-    fn render_action_list(&mut self, ui: &mut egui::Ui, essential: bool, conflicts: &[(usize, usize)]) {
-        egui::Grid::new(if essential { "essential_inputs" } else { "advanced_inputs" })
-            .striped(true)
-            .min_col_width(120.0)
-            .show(ui, |ui| {
-                ui.strong(t!("inputs_col_action").to_string());
-                ui.strong(t!("inputs_col_binding").to_string());
-                ui.strong("");
-                ui.end_row();
+    fn render_action_list(
+        &mut self,
+        ui: &mut egui::Ui,
+        essential: bool,
+        conflicts: &[(usize, usize)],
+    ) {
+        egui::Grid::new(if essential {
+            "essential_inputs"
+        } else {
+            "advanced_inputs"
+        })
+        .striped(true)
+        .min_col_width(120.0)
+        .show(ui, |ui| {
+            ui.strong(t!("inputs_col_action").to_string());
+            ui.strong(t!("inputs_col_binding").to_string());
+            ui.strong("");
+            ui.end_row();
 
-                for (idx, action) in self.actions.iter().enumerate() {
-                    if action.essential != essential {
-                        continue;
-                    }
-
-                    ui.label(action.label);
-
-                    // Current binding display
-                    let is_capturing = self.capture_state == CaptureState::Capturing(idx);
-                    let binding_text = if is_capturing {
-                        t!("inputs_capturing").to_string()
-                    } else if let Some(captured) = &action.mapping {
-                        captured.display_name().to_string()
-                    } else if action.default_scancode != sdl3_sys::everything::SDL_SCANCODE_UNKNOWN {
-                        format!("{}{}", inputs::scancode_name(action.default_scancode), t!("inputs_default_suffix"))
-                    } else {
-                        t!("inputs_unassigned").to_string()
-                    };
-
-                    // Conflict warning
-                    let has_conflict = conflicts.iter().any(|(a, b)| *a == idx || *b == idx);
-                    if has_conflict {
-                        ui.colored_label(egui::Color32::from_rgb(255, 165, 0), format!("/!\\ {binding_text}"));
-                    } else {
-                        ui.label(&binding_text);
-                    }
-
-                    // Capture button
-                    let btn_label = if is_capturing { t!("inputs_cancel").to_string() } else { t!("inputs_map").to_string() };
-                    if ui.button(btn_label).clicked() {
-                        if is_capturing {
-                            self.capture_state = CaptureState::Idle;
-                        } else {
-                            self.capture_state = CaptureState::Capturing(idx);
-                        }
-                    }
-                    ui.end_row();
+            for (idx, action) in self.actions.iter().enumerate() {
+                if action.essential != essential {
+                    continue;
                 }
-            });
+
+                ui.label(action.label);
+
+                // Current binding display
+                let is_capturing = self.capture_state == CaptureState::Capturing(idx);
+                let binding_text = if is_capturing {
+                    t!("inputs_capturing").to_string()
+                } else if let Some(captured) = &action.mapping {
+                    captured.display_name().to_string()
+                } else if action.default_scancode != sdl3_sys::everything::SDL_SCANCODE_UNKNOWN {
+                    format!(
+                        "{}{}",
+                        inputs::scancode_name(action.default_scancode),
+                        t!("inputs_default_suffix")
+                    )
+                } else {
+                    t!("inputs_unassigned").to_string()
+                };
+
+                // Conflict warning
+                let has_conflict = conflicts.iter().any(|(a, b)| *a == idx || *b == idx);
+                if has_conflict {
+                    ui.colored_label(
+                        egui::Color32::from_rgb(255, 165, 0),
+                        format!("/!\\ {binding_text}"),
+                    );
+                } else {
+                    ui.label(&binding_text);
+                }
+
+                // Capture button
+                let btn_label = if is_capturing {
+                    t!("inputs_cancel").to_string()
+                } else {
+                    t!("inputs_map").to_string()
+                };
+                if ui.button(btn_label).clicked() {
+                    if is_capturing {
+                        self.capture_state = CaptureState::Idle;
+                    } else {
+                        self.capture_state = CaptureState::Capturing(idx);
+                    }
+                }
+                ui.end_row();
+            }
+        });
     }
 
     fn render_tilt_page(&mut self, ui: &mut egui::Ui) {
@@ -2341,9 +2846,11 @@ impl App {
         ui.add_space(4.0);
 
         ui.label(t!("tilt_sensitivity"));
-        ui.add_sized([ui.available_width(), 24.0],
+        ui.add_sized(
+            [ui.available_width(), 24.0],
             egui::Slider::new(&mut self.tilt.nudge_scale, 0.1..=2.0)
-                .custom_formatter(|v, _| format!("{:.1}x", v)));
+                .custom_formatter(|v, _| format!("{:.1}x", v)),
+        );
         ui.add_space(12.0);
 
         // --- Tilt section ---
@@ -2352,10 +2859,12 @@ impl App {
         ui.add_space(4.0);
 
         ui.label(t!("tilt_threshold"));
-        ui.add_sized([ui.available_width(), 24.0],
+        ui.add_sized(
+            [ui.available_width(), 24.0],
             egui::Slider::new(&mut self.tilt.plumb_threshold_angle, 5.0..=60.0)
                 .suffix("°")
-                .custom_formatter(|v, _| format!("{:.0}°", v)));
+                .custom_formatter(|v, _| format!("{:.0}°", v)),
+        );
         ui.add_space(8.0);
 
         // Single visualization circle: live accel dot + tilt threshold ring
@@ -2371,21 +2880,33 @@ impl App {
         painter.circle_stroke(center, radius, egui::Stroke::new(2.0, egui::Color32::GRAY));
         // Cross hairs
         painter.line_segment(
-            [center - egui::vec2(radius, 0.0), center + egui::vec2(radius, 0.0)],
+            [
+                center - egui::vec2(radius, 0.0),
+                center + egui::vec2(radius, 0.0),
+            ],
             egui::Stroke::new(1.0, egui::Color32::DARK_GRAY),
         );
         painter.line_segment(
-            [center - egui::vec2(0.0, radius), center + egui::vec2(0.0, radius)],
+            [
+                center - egui::vec2(0.0, radius),
+                center + egui::vec2(0.0, radius),
+            ],
             egui::Stroke::new(1.0, egui::Color32::DARK_GRAY),
         );
 
         // TILT threshold ring (red)
         let threshold_radius = radius * (self.tilt.plumb_threshold_angle / 60.0);
-        painter.circle_stroke(center, threshold_radius, egui::Stroke::new(2.0, egui::Color32::from_rgb(255, 80, 80)));
+        painter.circle_stroke(
+            center,
+            threshold_radius,
+            egui::Stroke::new(2.0, egui::Color32::from_rgb(255, 80, 80)),
+        );
         painter.text(
             center + egui::vec2(threshold_radius + 4.0, -10.0),
-            egui::Align2::LEFT_CENTER, "TILT",
-            egui::FontId::proportional(12.0), egui::Color32::from_rgb(255, 80, 80),
+            egui::Align2::LEFT_CENTER,
+            "TILT",
+            egui::FontId::proportional(12.0),
+            egui::Color32::from_rgb(255, 80, 80),
         );
 
         // Live accelerometer dot — apply nudge_scale so slider changes are visible live
@@ -2415,9 +2936,17 @@ impl App {
             .show(ui, |ui| {
                 ui.label(t!("audio_backglass"));
                 egui::ComboBox::from_id_salt("device_bg")
-                    .selected_text(if self.audio.device_bg.is_empty() { t!("audio_default_device").to_string() } else { self.audio.device_bg.clone() })
+                    .selected_text(if self.audio.device_bg.is_empty() {
+                        t!("audio_default_device").to_string()
+                    } else {
+                        self.audio.device_bg.clone()
+                    })
                     .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut self.audio.device_bg, String::new(), t!("audio_default_device"));
+                        ui.selectable_value(
+                            &mut self.audio.device_bg,
+                            String::new(),
+                            t!("audio_default_device"),
+                        );
                         for dev in &self.audio.available_devices {
                             ui.selectable_value(&mut self.audio.device_bg, dev.clone(), dev);
                         }
@@ -2426,9 +2955,17 @@ impl App {
 
                 ui.label(t!("audio_playfield"));
                 egui::ComboBox::from_id_salt("device_pf")
-                    .selected_text(if self.audio.device_pf.is_empty() { t!("audio_default_device").to_string() } else { self.audio.device_pf.clone() })
+                    .selected_text(if self.audio.device_pf.is_empty() {
+                        t!("audio_default_device").to_string()
+                    } else {
+                        self.audio.device_pf.clone()
+                    })
                     .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut self.audio.device_pf, String::new(), t!("audio_default_device"));
+                        ui.selectable_value(
+                            &mut self.audio.device_pf,
+                            String::new(),
+                            t!("audio_default_device"),
+                        );
                         for dev in &self.audio.available_devices {
                             ui.selectable_value(&mut self.audio.device_pf, dev.clone(), dev);
                         }
@@ -2532,13 +3069,19 @@ impl App {
         ui.strong(t!("audio_test_music"));
         ui.add_space(4.0);
         ui.horizontal(|ui| {
-            let music_label = if self.audio.music_looping { "[Stop]" } else { "[Play]" };
+            let music_label = if self.audio.music_looping {
+                "[Stop]"
+            } else {
+                "[Play]"
+            };
             if ui.button(music_label).clicked() {
                 self.audio.music_looping = !self.audio.music_looping;
                 if let Some(tx) = &self.audio_cmd_tx {
                     if self.audio.music_looping {
                         self.audio.music_pan = 0.0;
-                        let _ = tx.send(AudioCommand::StartMusic { path: "music.ogg".to_string() });
+                        let _ = tx.send(AudioCommand::StartMusic {
+                            path: "music.ogg".to_string(),
+                        });
                     } else {
                         let _ = tx.send(AudioCommand::StopMusic);
                     }
@@ -2548,14 +3091,20 @@ impl App {
                 ui.label(t!("audio_pan"));
                 let pan_slider = egui::Slider::new(&mut self.audio.music_pan, -1.0..=1.0)
                     .custom_formatter(|v, _| {
-                        if v < -0.8 { t!("audio_pan_left").to_string() }
-                        else if v <= 0.2 { t!("audio_pan_center").to_string() }
-                        else { t!("audio_pan_right").to_string() }
+                        if v < -0.8 {
+                            t!("audio_pan_left").to_string()
+                        } else if v <= 0.2 {
+                            t!("audio_pan_center").to_string()
+                        } else {
+                            t!("audio_pan_right").to_string()
+                        }
                     });
                 let response = ui.add_sized([ui.available_width(), 20.0], pan_slider);
                 if response.drag_stopped() || (response.changed() && !response.dragged()) {
                     if let Some(tx) = &self.audio_cmd_tx {
-                        let _ = tx.send(AudioCommand::SetMusicPan { pan: self.audio.music_pan });
+                        let _ = tx.send(AudioCommand::SetMusicPan {
+                            pan: self.audio.music_pan,
+                        });
                     }
                 }
             }
@@ -2575,18 +3124,32 @@ impl App {
         // Row 1: Top Left / Top Right
         ui.horizontal(|ui| {
             ui.add_space(gap);
-            if ui.add_sized([btn_w, btn_h], egui::Button::new(t!("audio_top_left").to_string())).clicked() {
+            if ui
+                .add_sized(
+                    [btn_w, btn_h],
+                    egui::Button::new(t!("audio_top_left").to_string()),
+                )
+                .clicked()
+            {
                 if let Some(tx) = &self.audio_cmd_tx {
                     let _ = tx.send(AudioCommand::PlayOnSpeaker {
-                        path: "ball_roll.ogg".to_string(), target: audio::SpeakerTarget::TopLeft,
+                        path: "ball_roll.ogg".to_string(),
+                        target: audio::SpeakerTarget::TopLeft,
                     });
                 }
             }
             ui.add_space(gap * 2.0);
-            if ui.add_sized([btn_w, btn_h], egui::Button::new(t!("audio_top_right").to_string())).clicked() {
+            if ui
+                .add_sized(
+                    [btn_w, btn_h],
+                    egui::Button::new(t!("audio_top_right").to_string()),
+                )
+                .clicked()
+            {
                 if let Some(tx) = &self.audio_cmd_tx {
                     let _ = tx.send(AudioCommand::PlayOnSpeaker {
-                        path: "ball_roll.ogg".to_string(), target: audio::SpeakerTarget::TopRight,
+                        path: "ball_roll.ogg".to_string(),
+                        target: audio::SpeakerTarget::TopRight,
                     });
                 }
             }
@@ -2596,7 +3159,13 @@ impl App {
         ui.add_space(4.0);
         ui.horizontal(|ui| {
             ui.add_space(gap + btn_w / 2.0);
-            if ui.add_sized([btn_w + gap, btn_h], egui::Button::new(t!("audio_ball_top_bottom").to_string())).clicked() {
+            if ui
+                .add_sized(
+                    [btn_w + gap, btn_h],
+                    egui::Button::new(t!("audio_ball_top_bottom").to_string()),
+                )
+                .clicked()
+            {
                 if let Some(tx) = &self.audio_cmd_tx {
                     let _ = tx.send(AudioCommand::PlayBallSequence {
                         path: "ball_roll.ogg".to_string(),
@@ -2611,7 +3180,13 @@ impl App {
         });
         ui.horizontal(|ui| {
             ui.add_space(gap + btn_w / 2.0);
-            if ui.add_sized([btn_w + gap, btn_h], egui::Button::new(t!("audio_ball_left_right").to_string())).clicked() {
+            if ui
+                .add_sized(
+                    [btn_w + gap, btn_h],
+                    egui::Button::new(t!("audio_ball_left_right").to_string()),
+                )
+                .clicked()
+            {
                 if let Some(tx) = &self.audio_cmd_tx {
                     let _ = tx.send(AudioCommand::PlayBallSequence {
                         path: "ball_roll.ogg".to_string(),
@@ -2629,18 +3204,32 @@ impl App {
         // Row 3: Bottom Left / Bottom Right
         ui.horizontal(|ui| {
             ui.add_space(gap);
-            if ui.add_sized([btn_w, btn_h], egui::Button::new(t!("audio_bottom_left").to_string())).clicked() {
+            if ui
+                .add_sized(
+                    [btn_w, btn_h],
+                    egui::Button::new(t!("audio_bottom_left").to_string()),
+                )
+                .clicked()
+            {
                 if let Some(tx) = &self.audio_cmd_tx {
                     let _ = tx.send(AudioCommand::PlayOnSpeaker {
-                        path: "ball_roll.ogg".to_string(), target: audio::SpeakerTarget::BottomLeft,
+                        path: "ball_roll.ogg".to_string(),
+                        target: audio::SpeakerTarget::BottomLeft,
                     });
                 }
             }
             ui.add_space(gap * 2.0);
-            if ui.add_sized([btn_w, btn_h], egui::Button::new(t!("audio_bottom_right").to_string())).clicked() {
+            if ui
+                .add_sized(
+                    [btn_w, btn_h],
+                    egui::Button::new(t!("audio_bottom_right").to_string()),
+                )
+                .clicked()
+            {
                 if let Some(tx) = &self.audio_cmd_tx {
                     let _ = tx.send(AudioCommand::PlayOnSpeaker {
-                        path: "ball_roll.ogg".to_string(), target: audio::SpeakerTarget::BottomRight,
+                        path: "ball_roll.ogg".to_string(),
+                        target: audio::SpeakerTarget::BottomRight,
                     });
                 }
             }
@@ -2656,7 +3245,7 @@ impl App {
         ui.label(t!("tables_structure"));
         ui.add_space(4.0);
         ui.code(
-"Tables/
+            "Tables/
   Table_Name/
     Table_Name.vpx               <- table (required)
     Table_Name.directb2s         <- backglass (same name as .vpx)
@@ -2665,7 +3254,7 @@ impl App {
       roms/rom_name.zip          <- PinMAME ROM
       nvram/rom_name.nv          <- save data
     altcolor/rom_name/            <- Serum/VNI colorization
-    medias/                       <- frontend images/videos"
+    medias/                       <- frontend images/videos",
         );
 
         ui.add_space(8.0);
@@ -2741,17 +3330,20 @@ fn autostart_path() -> Option<std::path::PathBuf> {
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 fn dirs_path(env_var: &str, suffix: &str) -> Option<std::path::PathBuf> {
-    std::env::var(env_var).ok().map(|home| std::path::PathBuf::from(home).join(suffix))
+    std::env::var(env_var)
+        .ok()
+        .map(|home| std::path::PathBuf::from(home).join(suffix))
 }
 
 /// Check if autostart is currently enabled.
 fn is_autostart_enabled() -> bool {
-    autostart_path().map_or(false, |p| p.exists())
+    autostart_path().is_some_and(|p| p.exists())
 }
 
 /// Enable or disable autostart.
 fn set_autostart(enabled: bool) -> anyhow::Result<()> {
-    let path = autostart_path().ok_or_else(|| anyhow::anyhow!("Autostart not supported on this platform"))?;
+    let path = autostart_path()
+        .ok_or_else(|| anyhow::anyhow!("Autostart not supported on this platform"))?;
 
     if !enabled {
         if path.exists() {
@@ -2851,7 +3443,11 @@ impl eframe::App for App {
                         self.accel_x = *x;
                         self.accel_y = *y;
                     }
-                    JoystickEvent::ButtonDown { device_id, button, name } => {
+                    JoystickEvent::ButtonDown {
+                        device_id,
+                        button,
+                        name,
+                    } => {
                         if let CaptureState::Capturing(idx) = self.capture_state {
                             if idx < self.actions.len() {
                                 self.actions[idx].mapping = Some(CapturedInput::JoystickButton {
@@ -2870,20 +3466,33 @@ impl eframe::App for App {
                         // KL Shield V5 default mapping (Pinscape KL25Z)
                         let brain_defaults: &[(&str, u8)] = &[
                             // Flippers
-                            ("LeftFlipper", 7), ("RightFlipper", 8),
+                            ("LeftFlipper", 7),
+                            ("RightFlipper", 8),
                             // Upper flippers: mapped to both Magna and Staged (same physical button)
-                            ("LeftMagna", 2), ("RightMagna", 3),
-                            ("LeftStagedFlipper", 2), ("RightStagedFlipper", 3),
+                            ("LeftMagna", 2),
+                            ("RightMagna", 3),
+                            ("LeftStagedFlipper", 2),
+                            ("RightStagedFlipper", 3),
                             // Game controls
-                            ("Start", 0), ("LaunchBall", 4), ("ExitGame", 5), ("ExtraBall", 6),
+                            ("Start", 0),
+                            ("LaunchBall", 4),
+                            ("ExitGame", 5),
+                            ("ExtraBall", 6),
                             // Coin & service
-                            ("Credit1", 12), ("CoinDoor", 13),
-                            ("Service1", 14), ("Service2", 15), ("Service3", 16), ("Service4", 17),
+                            ("Credit1", 12),
+                            ("CoinDoor", 13),
+                            ("Service1", 14),
+                            ("Service2", 15),
+                            ("Service3", 16),
+                            ("Service4", 17),
                             // Volume
-                            ("VolumeDown", 18), ("VolumeUp", 19),
+                            ("VolumeDown", 18),
+                            ("VolumeUp", 19),
                         ];
                         for (action_id, button) in brain_defaults {
-                            if let Some(action) = self.actions.iter_mut().find(|a| a.setting_id == *action_id) {
+                            if let Some(action) =
+                                self.actions.iter_mut().find(|a| a.setting_id == *action_id)
+                            {
                                 if action.mapping.is_none() {
                                     action.mapping = Some(CapturedInput::JoystickButton {
                                         device_id: vpx_id.clone(),
@@ -2910,7 +3519,7 @@ impl eframe::App for App {
                 ui.heading("PinReady");
                 ui.separator();
                 for i in 0..WizardPage::count() {
-                    let page = WizardPage::from_index(i).unwrap();
+                    let page = WizardPage::from_index(i).expect("WizardPage index within count()");
                     let is_current = page == self.page;
                     let label = format!("{}. {}", i + 1, page.title());
                     if is_current {
@@ -2929,10 +3538,8 @@ impl eframe::App for App {
         egui::Panel::bottom("wizard_nav").show_inside(ui, |ui| {
             ui.add_space(4.0);
             ui.horizontal(|ui| {
-                if self.page.index() > 0 {
-                    if ui.button(t!("wizard_previous")).clicked() {
-                        self.prev_page();
-                    }
+                if self.page.index() > 0 && ui.button(t!("wizard_previous")).clicked() {
+                    self.prev_page();
                 }
 
                 if ui.button(t!("wizard_reset")).clicked() {
@@ -2954,22 +3561,29 @@ impl eframe::App for App {
 
         // Main content — no inner margin so scrollbar sticks to window edge
         egui::CentralPanel::default()
-            .frame(egui::Frame::central_panel(ui.style()).inner_margin(egui::Margin { left: 8, right: 0, top: 8, bottom: 8 }))
+            .frame(
+                egui::Frame::central_panel(ui.style()).inner_margin(egui::Margin {
+                    left: 8,
+                    right: 0,
+                    top: 8,
+                    bottom: 8,
+                }),
+            )
             .show_inside(ui, |ui| {
-            egui::ScrollArea::vertical()
-                .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
-                .show(ui, |ui| {
-                    ui.add_space(0.0); // ensure full width
-                    let _ = ui.available_width(); // force layout to use full width
-                match self.page {
-                    WizardPage::Screens => self.render_screens_page(ui),
-                    WizardPage::Rendering => self.render_rendering_page(ui),
-                    WizardPage::Inputs => self.render_inputs_page(ui),
-                    WizardPage::Tilt => self.render_tilt_page(ui),
-                    WizardPage::Audio => self.render_audio_page(ui),
-                    WizardPage::TablesDir => self.render_tables_dir_page(ui),
-                }
+                egui::ScrollArea::vertical()
+                    .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
+                    .show(ui, |ui| {
+                        ui.add_space(0.0); // ensure full width
+                        let _ = ui.available_width(); // force layout to use full width
+                        match self.page {
+                            WizardPage::Screens => self.render_screens_page(ui),
+                            WizardPage::Rendering => self.render_rendering_page(ui),
+                            WizardPage::Inputs => self.render_inputs_page(ui),
+                            WizardPage::Tilt => self.render_tilt_page(ui),
+                            WizardPage::Audio => self.render_audio_page(ui),
+                            WizardPage::TablesDir => self.render_tables_dir_page(ui),
+                        }
+                    });
             });
-        });
     }
 }

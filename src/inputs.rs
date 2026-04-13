@@ -39,10 +39,14 @@ impl CapturedInput {
             Self::Keyboard { scancode, .. } => {
                 format!("Key;{}", scancode.0)
             }
-            Self::JoystickButton { device_id, button, .. } => {
+            Self::JoystickButton {
+                device_id, button, ..
+            } => {
                 format!("{device_id};{button}")
             }
-            Self::JoystickAxis { device_id, axis, .. } => {
+            Self::JoystickAxis {
+                device_id, axis, ..
+            } => {
                 format!("{device_id};{axis}")
             }
         }
@@ -50,9 +54,9 @@ impl CapturedInput {
 
     pub fn display_name(&self) -> &str {
         match self {
-            Self::Keyboard { name, .. } => name,
-            Self::JoystickButton { name, .. } => name,
-            Self::JoystickAxis { name, .. } => name,
+            Self::Keyboard { name, .. }
+            | Self::JoystickButton { name, .. }
+            | Self::JoystickAxis { name, .. } => name,
         }
     }
 }
@@ -60,9 +64,17 @@ impl CapturedInput {
 /// Joystick events sent from the SDL3 joystick thread to the UI.
 #[derive(Clone)]
 pub enum JoystickEvent {
-    ButtonDown { device_id: String, button: u8, name: String },
+    ButtonDown {
+        device_id: String,
+        button: u8,
+        name: String,
+    },
     #[allow(dead_code)]
-    AxisMotion { device_id: String, axis: u8, name: String },
+    AxisMotion {
+        device_id: String,
+        axis: u8,
+        name: String,
+    },
     /// Live accelerometer/axis data for visualization (axis_id, normalized value -1.0 to 1.0)
     AccelUpdate { x: f32, y: f32 },
     /// A Pinscape controller was detected with this VPX device ID
@@ -197,44 +209,266 @@ pub fn egui_modifiers_to_scancode(modifiers: &egui::Modifiers) -> Option<SDL_Sca
 pub fn default_actions() -> Vec<InputAction> {
     vec![
         // Essentiels — flippers, staged, magna, commandes de jeu
-        InputAction { setting_id: "LeftFlipper", label: "Flipper gauche", default_scancode: SDL_SCANCODE_LSHIFT, essential: true, mapping: None },
-        InputAction { setting_id: "RightFlipper", label: "Flipper droit", default_scancode: SDL_SCANCODE_RSHIFT, essential: true, mapping: None },
-        InputAction { setting_id: "LeftStagedFlipper", label: "Flipper staged gauche", default_scancode: SDL_SCANCODE_LSHIFT, essential: true, mapping: None },
-        InputAction { setting_id: "RightStagedFlipper", label: "Flipper staged droit", default_scancode: SDL_SCANCODE_RSHIFT, essential: true, mapping: None },
-        InputAction { setting_id: "LeftMagna", label: "MagnaSave gauche", default_scancode: SDL_SCANCODE_LCTRL, essential: true, mapping: None },
-        InputAction { setting_id: "RightMagna", label: "MagnaSave droit", default_scancode: SDL_SCANCODE_RCTRL, essential: true, mapping: None },
-        InputAction { setting_id: "Lockbar", label: "Lockbar", default_scancode: SDL_SCANCODE_LALT, essential: true, mapping: None },
-        InputAction { setting_id: "ExtraBall", label: "Extra Ball", default_scancode: SDL_SCANCODE_B, essential: true, mapping: None },
-        InputAction { setting_id: "LaunchBall", label: "Lance-bille", default_scancode: SDL_SCANCODE_RETURN, essential: true, mapping: None },
-        InputAction { setting_id: "Start", label: "Start", default_scancode: SDL_SCANCODE_1, essential: true, mapping: None },
-        InputAction { setting_id: "Credit1", label: "Ajouter credit", default_scancode: SDL_SCANCODE_5, essential: true, mapping: None },
-        InputAction { setting_id: "ExitGame", label: "Quitter le jeu", default_scancode: SDL_SCANCODE_ESCAPE, essential: true, mapping: None },
+        InputAction {
+            setting_id: "LeftFlipper",
+            label: "Flipper gauche",
+            default_scancode: SDL_SCANCODE_LSHIFT,
+            essential: true,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "RightFlipper",
+            label: "Flipper droit",
+            default_scancode: SDL_SCANCODE_RSHIFT,
+            essential: true,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "LeftStagedFlipper",
+            label: "Flipper staged gauche",
+            default_scancode: SDL_SCANCODE_LSHIFT,
+            essential: true,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "RightStagedFlipper",
+            label: "Flipper staged droit",
+            default_scancode: SDL_SCANCODE_RSHIFT,
+            essential: true,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "LeftMagna",
+            label: "MagnaSave gauche",
+            default_scancode: SDL_SCANCODE_LCTRL,
+            essential: true,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "RightMagna",
+            label: "MagnaSave droit",
+            default_scancode: SDL_SCANCODE_RCTRL,
+            essential: true,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "Lockbar",
+            label: "Lockbar",
+            default_scancode: SDL_SCANCODE_LALT,
+            essential: true,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "ExtraBall",
+            label: "Extra Ball",
+            default_scancode: SDL_SCANCODE_B,
+            essential: true,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "LaunchBall",
+            label: "Lance-bille",
+            default_scancode: SDL_SCANCODE_RETURN,
+            essential: true,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "Start",
+            label: "Start",
+            default_scancode: SDL_SCANCODE_1,
+            essential: true,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "Credit1",
+            label: "Ajouter credit",
+            default_scancode: SDL_SCANCODE_5,
+            essential: true,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "ExitGame",
+            label: "Quitter le jeu",
+            default_scancode: SDL_SCANCODE_ESCAPE,
+            essential: true,
+            mapping: None,
+        },
         // Avances — coin door, services, nudge clavier, etc.
-        InputAction { setting_id: "Credit2", label: "Credit (2)", default_scancode: SDL_SCANCODE_4, essential: false, mapping: None },
-        InputAction { setting_id: "Credit3", label: "Credit (3)", default_scancode: SDL_SCANCODE_3, essential: false, mapping: None },
-        InputAction { setting_id: "Credit4", label: "Credit (4)", default_scancode: SDL_SCANCODE_6, essential: false, mapping: None },
-        InputAction { setting_id: "CoinDoor", label: "Porte monnayeur", default_scancode: SDL_SCANCODE_END, essential: false, mapping: None },
-        InputAction { setting_id: "SlamTilt", label: "Slam Tilt", default_scancode: SDL_SCANCODE_HOME, essential: false, mapping: None },
-        InputAction { setting_id: "Reset", label: "Reset", default_scancode: SDL_SCANCODE_F3, essential: false, mapping: None },
-        InputAction { setting_id: "Service1", label: "Service Annuler/Quitter", default_scancode: SDL_SCANCODE_7, essential: false, mapping: None },
-        InputAction { setting_id: "Service2", label: "Service Bas (-)", default_scancode: SDL_SCANCODE_8, essential: false, mapping: None },
-        InputAction { setting_id: "Service3", label: "Service Haut (+)", default_scancode: SDL_SCANCODE_9, essential: false, mapping: None },
-        InputAction { setting_id: "Service4", label: "Service Entree/OK", default_scancode: SDL_SCANCODE_0, essential: false, mapping: None },
-        InputAction { setting_id: "Service5", label: "Service #5 (script table)", default_scancode: SDL_SCANCODE_6, essential: false, mapping: None },
-        InputAction { setting_id: "Service6", label: "Service #6 (script table)", default_scancode: SDL_SCANCODE_PAGEUP, essential: false, mapping: None },
-        InputAction { setting_id: "Service7", label: "Service #7 (script table)", default_scancode: SDL_SCANCODE_MINUS, essential: false, mapping: None },
-        InputAction { setting_id: "Service8", label: "Service #8 (script table)", default_scancode: SDL_SCANCODE_UNKNOWN, essential: false, mapping: None },
-        InputAction { setting_id: "LeftNudge", label: "Nudge gauche", default_scancode: SDL_SCANCODE_Z, essential: false, mapping: None },
-        InputAction { setting_id: "RightNudge", label: "Nudge droit", default_scancode: SDL_SCANCODE_SLASH, essential: false, mapping: None },
-        InputAction { setting_id: "CenterNudge", label: "Nudge centre", default_scancode: SDL_SCANCODE_SPACE, essential: false, mapping: None },
-        InputAction { setting_id: "Tilt", label: "Tilt", default_scancode: SDL_SCANCODE_T, essential: false, mapping: None },
-        InputAction { setting_id: "Pause", label: "Pause", default_scancode: SDL_SCANCODE_P, essential: false, mapping: None },
-        InputAction { setting_id: "VolumeDown", label: "Volume -", default_scancode: SDL_SCANCODE_MINUS, essential: false, mapping: None },
-        InputAction { setting_id: "VolumeUp", label: "Volume +", default_scancode: SDL_SCANCODE_EQUALS, essential: false, mapping: None },
-        InputAction { setting_id: "Custom1", label: "Custom #1 (mod table)", default_scancode: SDL_SCANCODE_UNKNOWN, essential: false, mapping: None },
-        InputAction { setting_id: "Custom2", label: "Custom #2 (mod table)", default_scancode: SDL_SCANCODE_UNKNOWN, essential: false, mapping: None },
-        InputAction { setting_id: "Custom3", label: "Custom #3 (mod table)", default_scancode: SDL_SCANCODE_UNKNOWN, essential: false, mapping: None },
-        InputAction { setting_id: "Custom4", label: "Custom #4 (mod table)", default_scancode: SDL_SCANCODE_UNKNOWN, essential: false, mapping: None },
+        InputAction {
+            setting_id: "Credit2",
+            label: "Credit (2)",
+            default_scancode: SDL_SCANCODE_4,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "Credit3",
+            label: "Credit (3)",
+            default_scancode: SDL_SCANCODE_3,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "Credit4",
+            label: "Credit (4)",
+            default_scancode: SDL_SCANCODE_6,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "CoinDoor",
+            label: "Porte monnayeur",
+            default_scancode: SDL_SCANCODE_END,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "SlamTilt",
+            label: "Slam Tilt",
+            default_scancode: SDL_SCANCODE_HOME,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "Reset",
+            label: "Reset",
+            default_scancode: SDL_SCANCODE_F3,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "Service1",
+            label: "Service Annuler/Quitter",
+            default_scancode: SDL_SCANCODE_7,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "Service2",
+            label: "Service Bas (-)",
+            default_scancode: SDL_SCANCODE_8,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "Service3",
+            label: "Service Haut (+)",
+            default_scancode: SDL_SCANCODE_9,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "Service4",
+            label: "Service Entree/OK",
+            default_scancode: SDL_SCANCODE_0,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "Service5",
+            label: "Service #5 (script table)",
+            default_scancode: SDL_SCANCODE_6,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "Service6",
+            label: "Service #6 (script table)",
+            default_scancode: SDL_SCANCODE_PAGEUP,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "Service7",
+            label: "Service #7 (script table)",
+            default_scancode: SDL_SCANCODE_MINUS,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "Service8",
+            label: "Service #8 (script table)",
+            default_scancode: SDL_SCANCODE_UNKNOWN,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "LeftNudge",
+            label: "Nudge gauche",
+            default_scancode: SDL_SCANCODE_Z,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "RightNudge",
+            label: "Nudge droit",
+            default_scancode: SDL_SCANCODE_SLASH,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "CenterNudge",
+            label: "Nudge centre",
+            default_scancode: SDL_SCANCODE_SPACE,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "Tilt",
+            label: "Tilt",
+            default_scancode: SDL_SCANCODE_T,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "Pause",
+            label: "Pause",
+            default_scancode: SDL_SCANCODE_P,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "VolumeDown",
+            label: "Volume -",
+            default_scancode: SDL_SCANCODE_MINUS,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "VolumeUp",
+            label: "Volume +",
+            default_scancode: SDL_SCANCODE_EQUALS,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "Custom1",
+            label: "Custom #1 (mod table)",
+            default_scancode: SDL_SCANCODE_UNKNOWN,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "Custom2",
+            label: "Custom #2 (mod table)",
+            default_scancode: SDL_SCANCODE_UNKNOWN,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "Custom3",
+            label: "Custom #3 (mod table)",
+            default_scancode: SDL_SCANCODE_UNKNOWN,
+            essential: false,
+            mapping: None,
+        },
+        InputAction {
+            setting_id: "Custom4",
+            label: "Custom #4 (mod table)",
+            default_scancode: SDL_SCANCODE_UNKNOWN,
+            essential: false,
+            mapping: None,
+        },
     ]
 }
 
@@ -285,7 +519,10 @@ pub fn spawn_joystick_thread() -> crossbeam_channel::Receiver<JoystickEvent> {
         unsafe {
             // Init joystick subsystem in this thread
             if !SDL_InitSubSystem(SDL_INIT_JOYSTICK) {
-                log::error!("Joystick thread: SDL_InitSubSystem failed: {:?}", CStr::from_ptr(SDL_GetError()));
+                log::error!(
+                    "Joystick thread: SDL_InitSubSystem failed: {:?}",
+                    CStr::from_ptr(SDL_GetError())
+                );
                 return;
             }
 
@@ -307,15 +544,26 @@ pub fn spawn_joystick_thread() -> crossbeam_channel::Receiver<JoystickEvent> {
                         let dev_id = vpx_device_id(joy);
                         let num_buttons = SDL_GetNumJoystickButtons(joy);
                         let num_axes = SDL_GetNumJoystickAxes(joy);
-                        log::info!("Opened joystick: {} (vpx_id={}, buttons={}, axes={})", name, dev_id, num_buttons, num_axes);
+                        log::info!(
+                            "Opened joystick: {} (vpx_id={}, buttons={}, axes={})",
+                            name,
+                            dev_id,
+                            num_buttons,
+                            num_axes
+                        );
                         // Detect Pinscape controller
                         if name.contains("Pinscape") || dev_id.contains("PSC") {
                             log::info!("Pinscape controller detected: {}", dev_id);
-                            let _ = evt_tx.send(JoystickEvent::PinscapeDetected { vpx_id: dev_id.clone() });
+                            let _ = evt_tx.send(JoystickEvent::PinscapeDetected {
+                                vpx_id: dev_id.clone(),
+                            });
                         } else if SDL_IsGamepad(jid) {
                             // Generic gamepad (Xbox, PS, etc.)
                             log::info!("Gamepad detected: {} ({})", name, dev_id);
-                            let _ = evt_tx.send(JoystickEvent::GamepadDetected { vpx_id: dev_id.clone(), name: name.clone() });
+                            let _ = evt_tx.send(JoystickEvent::GamepadDetected {
+                                vpx_id: dev_id.clone(),
+                                name: name.clone(),
+                            });
                         }
                         // Pre-build names to avoid format!() in the hot polling loop
                         let button_names: Vec<String> = (0..num_buttons)
@@ -337,7 +585,10 @@ pub fn spawn_joystick_thread() -> crossbeam_channel::Receiver<JoystickEvent> {
                 }
                 SDL_free(joy_ids as *mut _);
             }
-            log::info!("Joystick thread started, {} joystick(s) found", joysticks.len());
+            log::info!(
+                "Joystick thread started, {} joystick(s) found",
+                joysticks.len()
+            );
 
             loop {
                 // Update joystick state (required before reading)
