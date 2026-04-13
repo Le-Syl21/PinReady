@@ -11,38 +11,7 @@ env:
   LZMA_API_STATIC: 1
 
 jobs:
-  lint:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential cmake pkg-config \
-            libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
-            libxkbcommon-dev libssl-dev \
-            libasound2-dev libpulse-dev \
-            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
-            libxtst-dev libxss-dev libwayland-dev wayland-protocols \
-            libdbus-1-dev libdrm-dev libgbm-dev \
-            libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev
-
-      - name: Check formatting
-        run: cargo fmt --check
-
-      - name: Clippy
-        run: cargo clippy --release -- -D warnings
-
   build:
-    needs: lint
     strategy:
       fail-fast: false
       matrix:
@@ -50,6 +19,7 @@ jobs:
           - os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             label: linux-x86_64
+            lint: true
           - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             label: linux-aarch64
@@ -73,6 +43,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+          components: ${{ matrix.lint && 'rustfmt, clippy' || '' }}
 
       - uses: Swatinem/rust-cache@v2
 
@@ -89,14 +60,22 @@ jobs:
             libdbus-1-dev libdrm-dev libgbm-dev \
             libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev
 
+      # --- Lint (linux-x86_64 only) ---
+      - name: Check formatting
+        if: matrix.lint
+        run: cargo fmt --check
+
+      - name: Clippy
+        if: matrix.lint
+        run: cargo clippy --release --target ${{ matrix.target }} -- -D warnings
+
+      # --- Build ---
       - name: Set macOS deployment target
         if: runner.os == 'macOS'
         run: |
           echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> $GITHUB_ENV
           echo "CFLAGS=-mmacosx-version-min=11.0" >> $GITHUB_ENV
           echo "CXXFLAGS=-mmacosx-version-min=11.0" >> $GITHUB_ENV
-          # SDL3 Objective-C files use @available() which emits calls to
-          # ___isPlatformVersionAtLeast from libclang_rt. Find and link it.
           CLANG_RT_DIR=$(clang --print-search-dirs | grep libraries | sed 's/libraries: =//;s/:.*//')
           CLANG_RT_LIB=$(find "$CLANG_RT_DIR" -name 'libclang_rt.osx.a' 2>/dev/null | head -1)
           if [ -n "$CLANG_RT_LIB" ]; then
@@ -111,7 +90,7 @@ jobs:
 
       - name: Run tests
         if: matrix.target != 'x86_64-apple-darwin'
-        run: cargo test
+        run: cargo test --release --target ${{ matrix.target }}
 
       # --- Apple signing & notarization ---
       - name: Import Apple Developer ID certificate

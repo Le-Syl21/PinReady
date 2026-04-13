@@ -329,10 +329,9 @@ Default suggestion: scan common locations (`~/Documents`, `~/tables`, `~/Okay`, 
 
 *Phase 2 — not part of initial configuration wizard.*
 
-- Scan configurable root directory recursively for `.vpx` files
-- For each table: call `vpxtool info <table.vpx>` as subprocess to get metadata
-- **Cache in SQLite** — scan once, rescan on demand only
-- Display: scrollable grid with thumbnail or placeholder
+- Scan configurable root directory for folder-per-table `.vpx` files
+- Extract backglass thumbnails from `.directb2s` files (via `directb2s` crate, no external tool needed)
+- Display: scrollable grid with backglass thumbnail or placeholder
 - On table select → launch: `VPinballX_BGFX -play <table.vpx>`
 
 ---
@@ -407,7 +406,7 @@ Use `crossbeam_channel::unbounded()` for communication.
 
 - **Cross-platform only** — no Win32, no xrandr, no platform-specific APIs. SDL3 for everything.
 - **No system dependencies** — use bundled features for SDL3 and SQLite
-- **Subprocess for vpxtool and VPX** — use `std::process::Command`, no FFI linking
+- **Subprocess for VPX only** — use `std::process::Command` to launch tables, no FFI linking, no external tools required
 - **Unsafe SDL3 calls** — wrap in safe Rust functions in `screens.rs` and `inputs.rs`, never expose raw pointers to other modules
 - **Error handling** — use `anyhow` or explicit `Result` types, no `unwrap()` in production paths
 - **Config writes are atomic** — read full ini → modify → write back, never partial writes
@@ -433,8 +432,8 @@ cargo build --release
 
 ## External tools
 
-- **vpxtool** — must be in PATH. Used for: `vpxtool info <table.vpx>`
-- **VPinballX** — executable at `/home/pincab/VPinballX/VPinballX_BGFX`. Used for: `/home/pincab/VPinballX/VPinballX_BGFX -play <table.vpx>`
+- **VPinballX** — executable at `~/Visual_Pinball/VPinballX_BGFX` (auto-installed or user-configured). Used for: `VPinballX_BGFX -play <table.vpx>`
+- **vpxtool** — **NOT used**. Was previously considered for `vpxtool info <table.vpx>` to extract table metadata, but dropped: PinReady now scans table folders directly and extracts backglass thumbnails from `.directb2s` files using the `directb2s` crate. This keeps the project dependency-free (no external tools required in PATH).
 
 ---
 
