@@ -129,16 +129,17 @@ impl App {
         if self.vpx_running.load(Ordering::Relaxed) {
             return;
         }
-        if self.vpx_exe_path.is_empty() || !std::path::Path::new(&self.vpx_exe_path).is_file() {
+        let resolved = updater::resolve_vpx_exe(std::path::Path::new(&self.vpx_exe_path));
+        if self.vpx_exe_path.is_empty() || !resolved.is_file() {
             log::error!("VPinballX executable not found: {}", self.vpx_exe_path);
             return;
         }
         log::info!(
             "Launching: {} -Play {}",
-            self.vpx_exe_path,
+            resolved.display(),
             table_path.display()
         );
-        let exe = self.vpx_exe_path.clone();
+        let exe = resolved.display().to_string();
         let path = table_path.to_path_buf();
         let running = self.vpx_running.clone();
         running.store(true, Ordering::Relaxed);

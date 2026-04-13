@@ -191,6 +191,30 @@ pub fn default_install_dir() -> PathBuf {
     PathBuf::from(home).join("VPinballX")
 }
 
+/// Resolve the real executable path from a user-provided path.
+/// On macOS, if the path points to a `.app` bundle, look inside
+/// `Contents/MacOS/` for the actual binary.
+pub fn resolve_vpx_exe(path: &Path) -> PathBuf {
+    let p = PathBuf::from(path);
+    if cfg!(target_os = "macos") {
+        if let Some(ext) = p.extension() {
+            if ext == "app" && p.is_dir() {
+                let macos_dir = p.join("Contents/MacOS");
+                if let Ok(entries) = std::fs::read_dir(&macos_dir) {
+                    for entry in entries.flatten() {
+                        let name = entry.file_name();
+                        let name_str = name.to_string_lossy();
+                        if name_str.starts_with("VPinballX") {
+                            return entry.path();
+                        }
+                    }
+                }
+            }
+        }
+    }
+    p
+}
+
 /// Name of the main VPinballX executable for the current platform.
 pub fn vpx_executable_name() -> &'static str {
     if cfg!(target_os = "windows") {

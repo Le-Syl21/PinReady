@@ -116,15 +116,29 @@ impl App {
                 ui.horizontal(|ui| {
                     ui.add(egui::TextEdit::singleline(&mut self.vpx_exe_path).desired_width(400.0));
                     if ui.button(t!("vpx_browse")).clicked() {
-                        if let Some(path) = rfd::FileDialog::new()
-                            .set_title(t!("vpx_file_picker"))
-                            .pick_file()
-                        {
+                        // On macOS, .app bundles are directories — use pick_folder
+                        // as fallback so users can select them.
+                        let picked = if cfg!(target_os = "macos") {
+                            rfd::FileDialog::new()
+                                .set_title(t!("vpx_file_picker"))
+                                .pick_file()
+                                .or_else(|| {
+                                    rfd::FileDialog::new()
+                                        .set_title(t!("vpx_file_picker"))
+                                        .pick_folder()
+                                })
+                        } else {
+                            rfd::FileDialog::new()
+                                .set_title(t!("vpx_file_picker"))
+                                .pick_file()
+                        };
+                        if let Some(path) = picked {
                             self.vpx_exe_path = path.display().to_string();
                         }
                     }
                 });
-                let vpx_exists = std::path::Path::new(&self.vpx_exe_path).is_file();
+                let resolved = updater::resolve_vpx_exe(std::path::Path::new(&self.vpx_exe_path));
+                let vpx_exists = resolved.is_file();
                 if !vpx_exists && !self.vpx_exe_path.is_empty() {
                     ui.colored_label(
                         egui::Color32::from_rgb(255, 100, 100),
