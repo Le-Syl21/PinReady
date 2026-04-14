@@ -94,14 +94,23 @@ impl App {
                     );
                 }
 
-                let install_dir = updater::default_install_dir();
-                ui.label(
-                    egui::RichText::new(t!(
-                        "vpx_install_dir",
-                        path = install_dir.display().to_string()
-                    ))
-                    .weak(),
-                );
+                ui.add_space(4.0);
+                ui.label(t!("vpx_install_dir_label"));
+                ui.horizontal(|ui| {
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.vpx_install_dir).desired_width(400.0),
+                    );
+                    if ui.button(t!("vpx_browse")).clicked() {
+                        if let Some(path) = rfd::FileDialog::new()
+                            .set_title(t!("vpx_install_dir_picker"))
+                            .set_directory(&self.vpx_install_dir)
+                            .pick_folder()
+                        {
+                            self.vpx_install_dir = path.display().to_string();
+                        }
+                    }
+                });
+                ui.label(egui::RichText::new(t!("vpx_install_dir_hint")).weak());
             });
         }
 
@@ -196,6 +205,15 @@ impl App {
 
         ui.checkbox(&mut self.disable_touch, t!("screens_disable_touch"));
 
+        // External DMD checkbox — only relevant when no screen has DMD role
+        let has_dmd_screen = self.displays.iter().any(|d| d.role == DisplayRole::Dmd);
+        if !has_dmd_screen {
+            ui.checkbox(&mut self.external_dmd, t!("screens_external_dmd"));
+            ui.label(egui::RichText::new(t!("screens_external_dmd_hint")).weak());
+        } else {
+            self.external_dmd = false;
+        }
+
         ui.add_space(12.0);
 
         // Display table
@@ -266,377 +284,344 @@ impl App {
                 }
             });
 
-        // Only show cabinet dimensions in Cabinet mode
         if self.view_mode == 1 {
-            ui.add_space(16.0);
-            ui.strong(t!("cabinet_dimensions"));
-            ui.add_space(4.0);
-            ui.label(t!("cabinet_drag_hint"));
+            self.render_cabinet_diagram(ui);
+        }
+    }
+
+    /// Render the interactive side-view cabinet diagram with drag handles.
+    fn render_cabinet_diagram(&mut self, ui: &mut egui::Ui) {
+        ui.add_space(16.0);
+        ui.strong(t!("cabinet_dimensions"));
+        ui.add_space(4.0);
+        ui.label(t!("cabinet_drag_hint"));
+        ui.add_space(8.0);
+
+        ui.horizontal(|ui| {
+            self.render_cabinet_schema(ui);
+            self.render_cabinet_values(ui);
+        });
+    }
+
+    /// Draw the interactive side-view schema (cabinet, player, drag handles).
+    fn render_cabinet_schema(&mut self, ui: &mut egui::Ui) {
+        let schema_size = egui::vec2(450.0, 500.0);
+        let (rect, response) = ui.allocate_exact_size(schema_size, egui::Sense::click_and_drag());
+        let painter = ui.painter_at(rect);
+
+        let scale = 2.0_f32;
+        let ground_y = rect.bottom() - 25.0;
+        let cab_x = rect.left() + 220.0;
+
+        let col_cab = egui::Color32::from_rgb(120, 80, 50);
+        let col_screen = egui::Color32::from_rgb(60, 120, 200);
+        let col_player = egui::Color32::from_rgb(80, 180, 80);
+        let col_dim = egui::Color32::from_rgb(200, 60, 60);
+        let col_ground = egui::Color32::GRAY;
+        let col_handle = egui::Color32::from_rgb(255, 200, 0);
+
+        // Ground
+        painter.line_segment(
+            [
+                egui::pos2(rect.left() + 10.0, ground_y),
+                egui::pos2(rect.right() - 10.0, ground_y),
+            ],
+            egui::Stroke::new(2.0, col_ground),
+        );
+        painter.text(
+            egui::pos2(rect.right() - 30.0, ground_y + 8.0),
+            egui::Align2::CENTER_CENTER,
+            &t!("cabinet_ground"),
+            egui::FontId::proportional(10.0),
+            col_ground,
+        );
+
+        let lockbar_y = ground_y - self.lockbar_height * scale;
+        let font_label = egui::FontId::proportional(12.0);
+        let font_dim = egui::FontId::proportional(11.0);
+
+        // Screen
+        let screen_len_px = 150.0;
+        let incl_rad = self.screen_inclination.to_radians();
+        let screen_end_x = cab_x + screen_len_px * incl_rad.cos();
+        let screen_end_y = lockbar_y - screen_len_px * incl_rad.sin();
+
+        // Cabinet legs
+        painter.line_segment(
+            [egui::pos2(cab_x, ground_y), egui::pos2(cab_x, lockbar_y)],
+            egui::Stroke::new(3.0, col_cab),
+        );
+        painter.line_segment(
+            [
+                egui::pos2(screen_end_x, ground_y),
+                egui::pos2(screen_end_x, screen_end_y),
+            ],
+            egui::Stroke::new(3.0, col_cab),
+        );
+
+        // Lockbar
+        painter.line_segment(
+            [
+                egui::pos2(cab_x - 15.0, lockbar_y),
+                egui::pos2(cab_x + 15.0, lockbar_y),
+            ],
+            egui::Stroke::new(5.0, col_cab),
+        );
+        painter.text(
+            egui::pos2(cab_x, lockbar_y + 12.0),
+            egui::Align2::CENTER_TOP,
+            "Lockbar",
+            font_label.clone(),
+            col_cab,
+        );
+
+        // Playfield screen
+        painter.line_segment(
+            [
+                egui::pos2(cab_x, lockbar_y),
+                egui::pos2(screen_end_x, screen_end_y),
+            ],
+            egui::Stroke::new(6.0, col_screen),
+        );
+        painter.text(
+            egui::pos2(
+                (cab_x + screen_end_x) / 2.0,
+                (lockbar_y + screen_end_y) / 2.0 - 14.0,
+            ),
+            egui::Align2::CENTER_CENTER,
+            "Playfield",
+            font_label.clone(),
+            col_screen,
+        );
+
+        // Backglass
+        let bg_height = 80.0;
+        painter.line_segment(
+            [
+                egui::pos2(screen_end_x, screen_end_y),
+                egui::pos2(screen_end_x, screen_end_y - bg_height),
+            ],
+            egui::Stroke::new(4.0, col_screen.linear_multiply(0.6)),
+        );
+        painter.text(
+            egui::pos2(screen_end_x + 8.0, screen_end_y - bg_height / 2.0),
+            egui::Align2::LEFT_CENTER,
+            "BG",
+            font_label,
+            col_screen,
+        );
+
+        // Player stick figure
+        let player_base_x = cab_x - (-self.player_y) * scale;
+        let player_feet_y = ground_y;
+        let player_head_y = ground_y - self.player_height * scale;
+        let player_hip_y = ground_y - self.player_height * scale * 0.45;
+        let player_shoulder_y = ground_y - self.player_height * scale * 0.72;
+        let player_neck_y = ground_y - self.player_height * scale * 0.82;
+        let head_radius = 10.0;
+        let head_center_y = player_head_y + head_radius;
+        let leg_spread = 14.0;
+        let stroke = egui::Stroke::new(3.0, col_player);
+
+        // Legs
+        painter.line_segment(
+            [
+                egui::pos2(player_base_x + leg_spread, player_feet_y),
+                egui::pos2(player_base_x + 2.0, player_hip_y),
+            ],
+            stroke,
+        );
+        painter.line_segment(
+            [
+                egui::pos2(player_base_x - leg_spread, player_feet_y),
+                egui::pos2(player_base_x - 2.0, player_hip_y),
+            ],
+            stroke,
+        );
+        // Torso
+        painter.line_segment(
+            [
+                egui::pos2(player_base_x, player_hip_y),
+                egui::pos2(player_base_x + 3.0, player_neck_y),
+            ],
+            stroke,
+        );
+        // Head + eye
+        painter.circle_filled(
+            egui::pos2(player_base_x + 3.0, head_center_y),
+            head_radius,
+            col_player,
+        );
+        painter.circle_filled(
+            egui::pos2(player_base_x + 7.0, head_center_y - 2.0),
+            2.0,
+            egui::Color32::WHITE,
+        );
+        // Arms
+        painter.line_segment(
+            [
+                egui::pos2(player_base_x + 3.0, player_shoulder_y),
+                egui::pos2(player_base_x + 20.0, player_shoulder_y + 15.0),
+            ],
+            stroke,
+        );
+
+        // Dimension arrows
+        let arrow_x = cab_x + 50.0;
+        painter.line_segment(
+            [
+                egui::pos2(arrow_x, ground_y),
+                egui::pos2(arrow_x, lockbar_y),
+            ],
+            egui::Stroke::new(1.5, col_dim),
+        );
+        painter.text(
+            egui::pos2(arrow_x + 5.0, (ground_y + lockbar_y) / 2.0),
+            egui::Align2::LEFT_CENTER,
+            format!("{:.0} cm", self.lockbar_height),
+            font_dim.clone(),
+            col_dim,
+        );
+
+        let parrow_x = player_base_x - 25.0;
+        painter.line_segment(
+            [
+                egui::pos2(parrow_x, player_feet_y),
+                egui::pos2(parrow_x, player_head_y),
+            ],
+            egui::Stroke::new(1.5, col_player),
+        );
+        painter.text(
+            egui::pos2(parrow_x - 5.0, (player_feet_y + player_head_y) / 2.0),
+            egui::Align2::RIGHT_CENTER,
+            format!("{:.0} cm", self.player_height),
+            font_dim.clone(),
+            col_player,
+        );
+
+        painter.line_segment(
+            [
+                egui::pos2(player_base_x, lockbar_y + 12.0),
+                egui::pos2(cab_x, lockbar_y + 12.0),
+            ],
+            egui::Stroke::new(1.0, col_dim),
+        );
+        painter.text(
+            egui::pos2((player_base_x + cab_x) / 2.0, lockbar_y + 24.0),
+            egui::Align2::CENTER_CENTER,
+            format!("Y={:.0} cm", self.player_y),
+            font_dim.clone(),
+            col_dim,
+        );
+
+        if self.screen_inclination.abs() > 0.5 {
+            painter.text(
+                egui::pos2(cab_x + 30.0, lockbar_y - 12.0),
+                egui::Align2::LEFT_CENTER,
+                format!("{:.0} deg", self.screen_inclination),
+                font_dim,
+                col_screen,
+            );
+        }
+
+        // Drag handles
+        let handle_radius = 6.0;
+        let h_lockbar = egui::pos2(cab_x, lockbar_y);
+        let h_head = egui::pos2(player_base_x, player_head_y);
+        let h_waist = egui::pos2(player_base_x, player_hip_y);
+        let h_screen = egui::pos2(screen_end_x, screen_end_y);
+        painter.circle_filled(h_lockbar, handle_radius, col_handle);
+        painter.circle_filled(h_head, handle_radius, col_handle);
+        painter.circle_filled(h_waist, handle_radius, col_handle);
+        painter.circle_filled(h_screen, handle_radius, col_handle);
+
+        if response.dragged() {
+            if let Some(pos) = response.interact_pointer_pos() {
+                let dist = |p: egui::Pos2| ((pos.x - p.x).powi(2) + (pos.y - p.y).powi(2)).sqrt();
+                if dist(h_lockbar) < 30.0 {
+                    self.lockbar_height = ((ground_y - pos.y) / scale).clamp(0.0, 250.0);
+                } else if dist(h_head) < 30.0 {
+                    self.player_height = ((ground_y - pos.y) / scale).clamp(75.0, 250.0);
+                } else if dist(h_waist) < 30.0 {
+                    self.player_y = (-(cab_x - pos.x) / scale).clamp(-70.0, 30.0);
+                } else if dist(h_screen) < 30.0 {
+                    let dx = pos.x - cab_x;
+                    let dy = lockbar_y - pos.y;
+                    self.screen_inclination = dy.atan2(dx).to_degrees().clamp(-30.0, 30.0);
+                }
+            }
+        }
+
+        self.player_z = (self.player_height - 12.0 - self.lockbar_height).max(0.0);
+    }
+
+    /// Render the cabinet dimension values panel (right side of the diagram).
+    fn render_cabinet_values(&mut self, ui: &mut egui::Ui) {
+        ui.vertical(|ui| {
+            ui.add_space(8.0);
+            ui.strong(t!("cabinet_values"));
             ui.add_space(8.0);
 
-            // Layout: schema on the left, values on the right
-            ui.horizontal(|ui| {
-                // === Interactive cabinet schema (side view) ===
-                let schema_size = egui::vec2(450.0, 500.0);
-                let (rect, response) =
-                    ui.allocate_exact_size(schema_size, egui::Sense::click_and_drag());
-                let painter = ui.painter_at(rect);
+            ui.label(t!("cabinet_lockbar_width"));
+            ui.add(
+                egui::DragValue::new(&mut self.lockbar_width)
+                    .range(10.0..=150.0)
+                    .speed(1.0)
+                    .suffix(" cm"),
+            );
+            ui.add_space(4.0);
 
-                // Scale: 1cm = 2.0px
-                let scale = 2.0_f32;
-                // Ground line at bottom of the schema
-                let ground_y = rect.bottom() - 25.0;
-                // Cabinet front (lockbar) X position
-                let cab_x = rect.left() + 220.0;
+            ui.label(t!("cabinet_lockbar_height"));
+            ui.add(
+                egui::DragValue::new(&mut self.lockbar_height)
+                    .range(0.0..=250.0)
+                    .speed(1.0)
+                    .suffix(" cm"),
+            );
+            ui.add_space(4.0);
 
-                // Colors
-                let col_cab = egui::Color32::from_rgb(120, 80, 50); // brown cabinet
-                let col_screen = egui::Color32::from_rgb(60, 120, 200); // blue screen
-                let col_player = egui::Color32::from_rgb(80, 180, 80); // green player
-                let col_dim = egui::Color32::from_rgb(200, 60, 60); // red dimensions
-                let col_ground = egui::Color32::GRAY;
-                let col_handle = egui::Color32::from_rgb(255, 200, 0); // yellow handles
+            ui.label(t!("cabinet_screen_inclination"));
+            ui.add(
+                egui::DragValue::new(&mut self.screen_inclination)
+                    .range(-30.0..=30.0)
+                    .speed(0.5)
+                    .suffix(" deg"),
+            );
+            ui.add_space(4.0);
 
-                // Ground
-                painter.line_segment(
-                    [
-                        egui::pos2(rect.left() + 10.0, ground_y),
-                        egui::pos2(rect.right() - 10.0, ground_y),
-                    ],
-                    egui::Stroke::new(2.0, col_ground),
-                );
-                painter.text(
-                    egui::pos2(rect.right() - 30.0, ground_y + 8.0),
-                    egui::Align2::CENTER_CENTER,
-                    &t!("cabinet_ground"),
-                    egui::FontId::proportional(10.0),
-                    col_ground,
-                );
+            ui.label(t!("cabinet_player_height"));
+            ui.add(
+                egui::DragValue::new(&mut self.player_height)
+                    .range(75.0..=250.0)
+                    .speed(1.0)
+                    .suffix(" cm"),
+            );
+            ui.add_space(4.0);
 
-                // Cabinet body (side view: front=lockbar side, back=backglass side)
-                let lockbar_y = ground_y - self.lockbar_height * scale;
-                let font_label = egui::FontId::proportional(12.0);
-                let font_dim = egui::FontId::proportional(11.0);
+            ui.label(t!("cabinet_player_distance"));
+            ui.add(
+                egui::DragValue::new(&mut self.player_y)
+                    .range(-70.0..=30.0)
+                    .speed(1.0)
+                    .suffix(" cm"),
+            );
+            ui.add_space(4.0);
 
-                // Screen (inclined from lockbar toward backglass)
-                let screen_len_px = 150.0;
-                let incl_rad = self.screen_inclination.to_radians();
-                let screen_end_x = cab_x + screen_len_px * incl_rad.cos();
-                let screen_end_y = lockbar_y - screen_len_px * incl_rad.sin();
+            ui.label(t!("cabinet_player_offset"));
+            ui.add(
+                egui::DragValue::new(&mut self.player_x)
+                    .range(-30.0..=30.0)
+                    .speed(1.0)
+                    .suffix(" cm"),
+            );
+            ui.add_space(12.0);
 
-                // Cabinet legs: front leg under lockbar, back leg under screen end
-                let front_leg_x = cab_x;
-                let back_leg_x = screen_end_x;
-                painter.line_segment(
-                    [
-                        egui::pos2(front_leg_x, ground_y),
-                        egui::pos2(front_leg_x, lockbar_y),
-                    ],
-                    egui::Stroke::new(3.0, col_cab),
-                );
-                painter.line_segment(
-                    [
-                        egui::pos2(back_leg_x, ground_y),
-                        egui::pos2(back_leg_x, screen_end_y),
-                    ],
-                    egui::Stroke::new(3.0, col_cab),
-                );
-
-                // Lockbar (horizontal bar at front)
-                painter.line_segment(
-                    [
-                        egui::pos2(cab_x - 15.0, lockbar_y),
-                        egui::pos2(cab_x + 15.0, lockbar_y),
-                    ],
-                    egui::Stroke::new(5.0, col_cab),
-                );
-                painter.text(
-                    egui::pos2(cab_x, lockbar_y + 12.0),
-                    egui::Align2::CENTER_TOP,
-                    "Lockbar",
-                    font_label.clone(),
-                    col_cab,
-                );
-
-                // Playfield screen (on top of the cab frame)
-                painter.line_segment(
-                    [
-                        egui::pos2(cab_x, lockbar_y),
-                        egui::pos2(screen_end_x, screen_end_y),
-                    ],
-                    egui::Stroke::new(6.0, col_screen),
-                );
-                painter.text(
-                    egui::pos2(
-                        (cab_x + screen_end_x) / 2.0,
-                        (lockbar_y + screen_end_y) / 2.0 - 14.0,
-                    ),
-                    egui::Align2::CENTER_CENTER,
-                    "Playfield",
-                    font_label.clone(),
-                    col_screen,
-                );
-
-                // Backglass (vertical from end of screen)
-                let bg_height = 80.0;
-                painter.line_segment(
-                    [
-                        egui::pos2(screen_end_x, screen_end_y),
-                        egui::pos2(screen_end_x, screen_end_y - bg_height),
-                    ],
-                    egui::Stroke::new(4.0, col_screen.linear_multiply(0.6)),
-                );
-                painter.text(
-                    egui::pos2(screen_end_x + 8.0, screen_end_y - bg_height / 2.0),
-                    egui::Align2::LEFT_CENTER,
-                    "BG",
-                    font_label,
-                    col_screen,
-                );
-
-                // Player (stick figure, side view — facing right toward cabinet)
-                let player_base_x = cab_x - (-self.player_y) * scale;
-                let player_feet_y = ground_y;
-                let player_head_y = ground_y - self.player_height * scale;
-                let player_hip_y = ground_y - self.player_height * scale * 0.45;
-                let player_shoulder_y = ground_y - self.player_height * scale * 0.72;
-                let player_neck_y = ground_y - self.player_height * scale * 0.82;
-                let head_radius = 10.0;
-                let head_center_y = player_head_y + head_radius;
-                let leg_spread = 14.0; // feet spread front/back for side view
-                let stroke = egui::Stroke::new(3.0, col_player);
-
-                // Legs (spread front/back, side view)
-                let front_foot_x = player_base_x + leg_spread;
-                let back_foot_x = player_base_x - leg_spread;
-                // Front leg
-                painter.line_segment(
-                    [
-                        egui::pos2(front_foot_x, player_feet_y),
-                        egui::pos2(player_base_x + 2.0, player_hip_y),
-                    ],
-                    stroke,
-                );
-                // Back leg
-                painter.line_segment(
-                    [
-                        egui::pos2(back_foot_x, player_feet_y),
-                        egui::pos2(player_base_x - 2.0, player_hip_y),
-                    ],
-                    stroke,
-                );
-                // Torso (hip to neck, slight lean forward)
-                painter.line_segment(
-                    [
-                        egui::pos2(player_base_x, player_hip_y),
-                        egui::pos2(player_base_x + 3.0, player_neck_y),
-                    ],
-                    stroke,
-                );
-                // Head
-                painter.circle_filled(
-                    egui::pos2(player_base_x + 3.0, head_center_y),
-                    head_radius,
-                    col_player,
-                );
-                // Eye (facing right toward cab)
-                painter.circle_filled(
-                    egui::pos2(player_base_x + 7.0, head_center_y - 2.0),
-                    2.0,
-                    egui::Color32::WHITE,
-                );
-                // Arms (reaching toward lockbar)
-                let hand_x = player_base_x + 20.0; // hands forward toward cab
-                let hand_y = player_shoulder_y + 15.0; // hands at lockbar height-ish
-                painter.line_segment(
-                    [
-                        egui::pos2(player_base_x + 3.0, player_shoulder_y),
-                        egui::pos2(hand_x, hand_y),
-                    ],
-                    stroke,
-                );
-
-                // === Dimension arrows ===
-
-                // Lockbar height (sol -> lockbar)
-                let arrow_x = cab_x + 50.0;
-                painter.line_segment(
-                    [
-                        egui::pos2(arrow_x, ground_y),
-                        egui::pos2(arrow_x, lockbar_y),
-                    ],
-                    egui::Stroke::new(1.5, col_dim),
-                );
-                painter.text(
-                    egui::pos2(arrow_x + 5.0, (ground_y + lockbar_y) / 2.0),
-                    egui::Align2::LEFT_CENTER,
-                    format!("{:.0} cm", self.lockbar_height),
-                    font_dim.clone(),
-                    col_dim,
-                );
-
-                // Player height
-                let parrow_x = player_base_x - 25.0;
-                painter.line_segment(
-                    [
-                        egui::pos2(parrow_x, player_feet_y),
-                        egui::pos2(parrow_x, player_head_y),
-                    ],
-                    egui::Stroke::new(1.5, col_player),
-                );
-                painter.text(
-                    egui::pos2(parrow_x - 5.0, (player_feet_y + player_head_y) / 2.0),
-                    egui::Align2::RIGHT_CENTER,
-                    format!("{:.0} cm", self.player_height),
-                    font_dim.clone(),
-                    col_player,
-                );
-
-                // Player Y distance
-                painter.line_segment(
-                    [
-                        egui::pos2(player_base_x, lockbar_y + 12.0),
-                        egui::pos2(cab_x, lockbar_y + 12.0),
-                    ],
-                    egui::Stroke::new(1.0, col_dim),
-                );
-                painter.text(
-                    egui::pos2((player_base_x + cab_x) / 2.0, lockbar_y + 24.0),
-                    egui::Align2::CENTER_CENTER,
-                    format!("Y={:.0} cm", self.player_y),
-                    font_dim.clone(),
-                    col_dim,
-                );
-
-                // Screen inclination arc
-                if self.screen_inclination.abs() > 0.5 {
-                    painter.text(
-                        egui::pos2(cab_x + 30.0, lockbar_y - 12.0),
-                        egui::Align2::LEFT_CENTER,
-                        format!("{:.0} deg", self.screen_inclination),
-                        font_dim,
-                        col_screen,
-                    );
-                }
-
-                // === Drag handles ===
-                let handle_radius = 6.0;
-
-                // Handle: lockbar height (drag vertically on the lockbar)
-                let h_lockbar = egui::pos2(cab_x, lockbar_y);
-                painter.circle_filled(h_lockbar, handle_radius, col_handle);
-
-                // Handle: player height (drag on head)
-                let h_head = egui::pos2(player_base_x, player_head_y);
-                painter.circle_filled(h_head, handle_radius, col_handle);
-
-                // Handle: player Y (drag on waist)
-                let h_waist = egui::pos2(player_base_x, player_hip_y);
-                painter.circle_filled(h_waist, handle_radius, col_handle);
-
-                // Handle: screen inclination (drag on screen end)
-                let h_screen = egui::pos2(screen_end_x, screen_end_y);
-                painter.circle_filled(h_screen, handle_radius, col_handle);
-
-                // Handle dragging logic
-                if response.dragged() {
-                    if let Some(pos) = response.interact_pointer_pos() {
-                        let dist =
-                            |p: egui::Pos2| ((pos.x - p.x).powi(2) + (pos.y - p.y).powi(2)).sqrt();
-
-                        if dist(h_lockbar) < 30.0 {
-                            // Drag lockbar height
-                            let new_h = (ground_y - pos.y) / scale;
-                            self.lockbar_height = new_h.clamp(0.0, 250.0);
-                        } else if dist(h_head) < 30.0 {
-                            // Drag player height
-                            let new_h = (ground_y - pos.y) / scale;
-                            self.player_height = new_h.clamp(75.0, 250.0);
-                        } else if dist(h_waist) < 30.0 {
-                            // Drag player Y (horizontal movement)
-                            let new_y = -(cab_x - pos.x) / scale;
-                            self.player_y = new_y.clamp(-70.0, 30.0);
-                        } else if dist(h_screen) < 30.0 {
-                            // Drag screen inclination
-                            let dx = pos.x - cab_x;
-                            let dy = lockbar_y - pos.y;
-                            let angle = dy.atan2(dx).to_degrees();
-                            self.screen_inclination = angle.clamp(-30.0, 30.0);
-                        }
-                    }
-                }
-
-                // Recompute player_z from height
-                self.player_z = (self.player_height - 12.0 - self.lockbar_height).max(0.0);
-
-                // === Values panel on the right ===
-                ui.vertical(|ui| {
-                    ui.add_space(8.0);
-                    ui.strong(t!("cabinet_values"));
-                    ui.add_space(8.0);
-
-                    ui.label(t!("cabinet_lockbar_width"));
-                    ui.add(
-                        egui::DragValue::new(&mut self.lockbar_width)
-                            .range(10.0..=150.0)
-                            .speed(1.0)
-                            .suffix(" cm"),
-                    );
-                    ui.add_space(4.0);
-
-                    ui.label(t!("cabinet_lockbar_height"));
-                    ui.add(
-                        egui::DragValue::new(&mut self.lockbar_height)
-                            .range(0.0..=250.0)
-                            .speed(1.0)
-                            .suffix(" cm"),
-                    );
-                    ui.add_space(4.0);
-
-                    ui.label(t!("cabinet_screen_inclination"));
-                    ui.add(
-                        egui::DragValue::new(&mut self.screen_inclination)
-                            .range(-30.0..=30.0)
-                            .speed(0.5)
-                            .suffix(" deg"),
-                    );
-                    ui.add_space(4.0);
-
-                    ui.label(t!("cabinet_player_height"));
-                    ui.add(
-                        egui::DragValue::new(&mut self.player_height)
-                            .range(75.0..=250.0)
-                            .speed(1.0)
-                            .suffix(" cm"),
-                    );
-                    ui.add_space(4.0);
-
-                    ui.label(t!("cabinet_player_distance"));
-                    ui.add(
-                        egui::DragValue::new(&mut self.player_y)
-                            .range(-70.0..=30.0)
-                            .speed(1.0)
-                            .suffix(" cm"),
-                    );
-                    ui.add_space(4.0);
-
-                    ui.label(t!("cabinet_player_offset"));
-                    ui.add(
-                        egui::DragValue::new(&mut self.player_x)
-                            .range(-30.0..=30.0)
-                            .speed(1.0)
-                            .suffix(" cm"),
-                    );
-                    ui.add_space(12.0);
-
-                    ui.separator();
-                    ui.label(t!(
-                        "cabinet_eye_height",
-                        value = format!("{:.0}", self.player_z)
-                    ));
-                    ui.label(t!("cabinet_eye_formula"));
-                });
-            });
-        }
+            ui.separator();
+            ui.label(t!(
+                "cabinet_eye_height",
+                value = format!("{:.0}", self.player_z)
+            ));
+            ui.label(t!("cabinet_eye_formula"));
+        });
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "pinready"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "Cross-platform configurator and launcher for Visual Pinball standalone"
 license = "GPL-3.0-or-later"
@@ -74,6 +74,9 @@ anyhow = "1"
 
 [target.'cfg(windows)'.build-dependencies]
 winres = { version = "0.1", optional = true }
+
+[dev-dependencies]
+tempfile = "3"
 
 [profile.release]
 strip = true

@@ -61,6 +61,31 @@ medias/                       <- frontend images/videos",
         ui.add_space(16.0);
         ui.separator();
         ui.add_space(8.0);
+
+        // Rescan explanation
+        ui.label(egui::RichText::new(t!("tables_rescan_title")).strong());
+        ui.add_space(4.0);
+        ui.horizontal_wrapped(|ui| {
+            ui.label(
+                egui::RichText::new(t!("launcher_rescan"))
+                    .strong()
+                    .color(egui::Color32::from_rgb(80, 200, 80)),
+            );
+            ui.label(t!("tables_rescan_click"));
+        });
+        ui.add_space(2.0);
+        ui.horizontal_wrapped(|ui| {
+            ui.label(
+                egui::RichText::new(t!("launcher_reset_pct", pct = 100))
+                    .strong()
+                    .color(egui::Color32::from_rgb(255, 80, 80)),
+            );
+            ui.label(t!("tables_rescan_hold"));
+        });
+
+        ui.add_space(16.0);
+        ui.separator();
+        ui.add_space(8.0);
         ui.checkbox(&mut self.autostart, t!("autostart_label"));
         ui.label(egui::RichText::new(t!("autostart_hint")).weak());
     }

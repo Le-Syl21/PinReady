@@ -176,7 +176,7 @@ pub fn enumerate_displays() -> Vec<DisplayInfo> {
 
 /// Assign roles heuristically based on total pixel count (descending order).
 /// Largest → Playfield, 2nd → Backglass, 3rd → DMD, 4th → Topper
-fn auto_assign_roles(displays: &mut [DisplayInfo]) {
+pub(crate) fn auto_assign_roles(displays: &mut [DisplayInfo]) {
     let roles = [
         DisplayRole::Playfield,
         DisplayRole::Backglass,
@@ -185,5 +185,138 @@ fn auto_assign_roles(displays: &mut [DisplayInfo]) {
     ];
     for (i, display) in displays.iter_mut().enumerate() {
         display.role = roles.get(i).copied().unwrap_or(DisplayRole::Unused);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_display(name: &str, w: i32, h: i32) -> DisplayInfo {
+        DisplayInfo {
+            name: name.to_string(),
+            x: 0,
+            y: 0,
+            width: w,
+            height: h,
+            refresh_rate: 60.0,
+            is_primary: false,
+            total_pixels: w as u64 * h as u64,
+            size_inches: None,
+            width_mm: 0,
+            height_mm: 0,
+            role: DisplayRole::Unused,
+        }
+    }
+
+    // --- DisplayRole ---
+
+    #[test]
+    fn display_role_labels() {
+        assert_eq!(DisplayRole::Playfield.label(), "Playfield");
+        assert_eq!(DisplayRole::Backglass.label(), "Backglass");
+        assert_eq!(DisplayRole::Dmd.label(), "DMD");
+        assert_eq!(DisplayRole::Topper.label(), "Topper");
+        assert_eq!(DisplayRole::Unused.label(), "Non utilisé");
+    }
+
+    #[test]
+    fn display_role_all_has_5_entries() {
+        assert_eq!(DisplayRole::all().len(), 5);
+    }
+
+    // --- parse_inches_from_name ---
+
+    #[test]
+    fn parse_inches_standard() {
+        assert_eq!(parse_inches_from_name("PL4380UH 42\""), Some(42));
+    }
+
+    #[test]
+    fn parse_inches_with_trailing_quote() {
+        assert_eq!(parse_inches_from_name("Samsung U28E590 43\""), Some(43));
+    }
+
+    #[test]
+    fn parse_inches_no_size() {
+        assert_eq!(parse_inches_from_name("Generic Monitor"), None);
+    }
+
+    #[test]
+    fn parse_inches_empty() {
+        assert_eq!(parse_inches_from_name(""), None);
+    }
+
+    #[test]
+    fn parse_inches_only_number() {
+        assert_eq!(parse_inches_from_name("27\""), Some(27));
+    }
+
+    // --- auto_assign_roles ---
+
+    #[test]
+    fn auto_assign_single_display() {
+        let mut displays = vec![make_display("Main", 1920, 1080)];
+        auto_assign_roles(&mut displays);
+        assert_eq!(displays[0].role, DisplayRole::Playfield);
+    }
+
+    #[test]
+    fn auto_assign_two_displays() {
+        let mut displays = vec![
+            make_display("Big", 3840, 2160),
+            make_display("Small", 1920, 1080),
+        ];
+        auto_assign_roles(&mut displays);
+        assert_eq!(displays[0].role, DisplayRole::Playfield);
+        assert_eq!(displays[1].role, DisplayRole::Backglass);
+    }
+
+    #[test]
+    fn auto_assign_three_displays() {
+        let mut displays = vec![
+            make_display("4K", 3840, 2160),
+            make_display("QHD", 2560, 1440),
+            make_display("FHD", 1920, 1080),
+        ];
+        auto_assign_roles(&mut displays);
+        assert_eq!(displays[0].role, DisplayRole::Playfield);
+        assert_eq!(displays[1].role, DisplayRole::Backglass);
+        assert_eq!(displays[2].role, DisplayRole::Dmd);
+    }
+
+    #[test]
+    fn auto_assign_four_displays() {
+        let mut displays = vec![
+            make_display("4K", 3840, 2160),
+            make_display("QHD", 2560, 1440),
+            make_display("FHD", 1920, 1080),
+            make_display("HD", 1280, 720),
+        ];
+        auto_assign_roles(&mut displays);
+        assert_eq!(displays[0].role, DisplayRole::Playfield);
+        assert_eq!(displays[1].role, DisplayRole::Backglass);
+        assert_eq!(displays[2].role, DisplayRole::Dmd);
+        assert_eq!(displays[3].role, DisplayRole::Topper);
+    }
+
+    #[test]
+    fn auto_assign_five_displays_extra_is_unused() {
+        let mut displays = vec![
+            make_display("A", 3840, 2160),
+            make_display("B", 2560, 1440),
+            make_display("C", 1920, 1080),
+            make_display("D", 1280, 720),
+            make_display("E", 800, 600),
+        ];
+        auto_assign_roles(&mut displays);
+        assert_eq!(displays[4].role, DisplayRole::Unused);
+    }
+
+    #[test]
+    fn auto_assign_empty() {
+        let mut displays: Vec<DisplayInfo> = vec![];
+        auto_assign_roles(&mut displays);
+        assert!(displays.is_empty());
     }
 }

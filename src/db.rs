@@ -3,7 +3,7 @@ use rusqlite::Connection;
 use std::path::{Path, PathBuf};
 
 /// Default database location
-fn default_db_path() -> PathBuf {
+pub fn default_db_path() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
     PathBuf::from(home).join(".local/share/pinready/pinready.db")
 }
@@ -85,5 +85,72 @@ impl Database {
     /// Set the tables root directory.
     pub fn set_tables_dir(&self, path: &str) -> Result<()> {
         self.set_config("tables_dir", path)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_db() -> Database {
+        // Use in-memory-like temp file for isolation
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test.db");
+        let db = Database::open(Some(&path)).unwrap();
+        // Keep dir alive by leaking — tests are short-lived
+        std::mem::forget(dir);
+        db
+    }
+
+    #[test]
+    fn open_creates_schema() {
+        let db = temp_db();
+        // Tables should exist — insert should work
+        db.set_config("test_key", "test_value").unwrap();
+    }
+
+    #[test]
+    fn get_config_missing_returns_none() {
+        let db = temp_db();
+        assert_eq!(db.get_config("nonexistent"), None);
+    }
+
+    #[test]
+    fn set_and_get_config() {
+        let db = temp_db();
+        db.set_config("my_key", "my_value").unwrap();
+        assert_eq!(db.get_config("my_key"), Some("my_value".to_string()));
+    }
+
+    #[test]
+    fn set_config_upserts() {
+        let db = temp_db();
+        db.set_config("key", "v1").unwrap();
+        db.set_config("key", "v2").unwrap();
+        assert_eq!(db.get_config("key"), Some("v2".to_string()));
+    }
+
+    #[test]
+    fn set_configured() {
+        let db = temp_db();
+        db.set_configured().unwrap();
+        assert_eq!(db.get_config("wizard_completed"), Some("true".to_string()));
+    }
+
+    #[test]
+    fn tables_dir_roundtrip() {
+        let db = temp_db();
+        assert_eq!(db.get_tables_dir(), None);
+        db.set_tables_dir("/home/user/tables").unwrap();
+        assert_eq!(db.get_tables_dir(), Some("/home/user/tables".to_string()));
+    }
+
+    #[test]
+    fn multiple_config_keys_independent() {
+        let db = temp_db();
+        db.set_config("a", "1").unwrap();
+        db.set_config("b", "2").unwrap();
+        assert_eq!(db.get_config("a"), Some("1".to_string()));
+        assert_eq!(db.get_config("b"), Some("2".to_string()));
     }
 }

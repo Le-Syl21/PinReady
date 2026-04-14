@@ -355,3 +355,118 @@ fn extract_zip(archive_path: &Path, dest: &Path) -> Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn default_fork_repo_is_set() {
+        assert!(!DEFAULT_FORK_REPO.is_empty());
+        assert!(DEFAULT_FORK_REPO.contains('/'));
+    }
+
+    #[test]
+    fn artifact_extension_linux() {
+        // On Linux where tests run
+        let ext = artifact_extension();
+        assert!(
+            ext == "tar.gz" || ext == "zip" || ext == "dmg",
+            "unexpected extension: {ext}"
+        );
+    }
+
+    #[test]
+    fn platform_arch_returns_known_values() {
+        let (platform, arch) = platform_arch();
+        assert!(
+            ["linux", "windows", "macos", "unknown"].contains(&platform),
+            "unexpected platform: {platform}"
+        );
+        assert!(!arch.is_empty(), "arch should not be empty");
+    }
+
+    #[test]
+    fn vpx_executable_name_not_empty() {
+        let name = vpx_executable_name();
+        assert!(!name.is_empty());
+        assert!(
+            name.starts_with("VPinballX"),
+            "expected VPinballX prefix: {name}"
+        );
+    }
+
+    #[test]
+    fn default_install_dir_contains_visual_pinball() {
+        let dir = default_install_dir();
+        let s = dir.to_string_lossy();
+        assert!(
+            s.contains("Visual_Pinball"),
+            "expected Visual_Pinball in: {s}"
+        );
+    }
+
+    #[test]
+    fn resolve_vpx_exe_returns_same_on_linux() {
+        // On Linux, resolve_vpx_exe should return the path unchanged
+        let path = Path::new("/usr/local/bin/VPinballX_BGFX");
+        let resolved = resolve_vpx_exe(path);
+        assert_eq!(resolved, path.to_path_buf());
+    }
+
+    #[test]
+    fn resolve_vpx_exe_nonexistent_path() {
+        let path = Path::new("/nonexistent/path/VPinballX_BGFX");
+        let resolved = resolve_vpx_exe(path);
+        assert_eq!(resolved, path.to_path_buf());
+    }
+
+    #[test]
+    fn extract_tar_gz_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let archive_path = dir.path().join("test.tar.gz");
+        let dest = dir.path().join("extracted");
+
+        // Create a tar.gz with a test file
+        {
+            let file = std::fs::File::create(&archive_path).unwrap();
+            let gz = flate2::write::GzEncoder::new(file, flate2::Compression::default());
+            let mut tar = tar::Builder::new(gz);
+
+            let content = b"hello pinball";
+            let mut header = tar::Header::new_gnu();
+            header.set_size(content.len() as u64);
+            header.set_mode(0o644);
+            header.set_cksum();
+            tar.append_data(&mut header, "test.txt", &content[..])
+                .unwrap();
+            tar.finish().unwrap();
+        }
+
+        extract_tar_gz(&archive_path, &dest).unwrap();
+        let extracted = std::fs::read_to_string(dest.join("test.txt")).unwrap();
+        assert_eq!(extracted, "hello pinball");
+    }
+
+    #[test]
+    fn extract_zip_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let archive_path = dir.path().join("test.zip");
+        let dest = dir.path().join("extracted");
+
+        // Create a zip with a test file
+        {
+            let file = std::fs::File::create(&archive_path).unwrap();
+            let mut zip = zip::ZipWriter::new(file);
+            let options = zip::write::SimpleFileOptions::default();
+            zip.start_file("test.txt", options).unwrap();
+            zip.write_all(b"hello vpx").unwrap();
+            zip.finish().unwrap();
+        }
+
+        extract_zip(&archive_path, &dest).unwrap();
+        let extracted = std::fs::read_to_string(dest.join("test.txt")).unwrap();
+        assert_eq!(extracted, "hello vpx");
+    }
+}

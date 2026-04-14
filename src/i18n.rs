@@ -122,3 +122,116 @@ fn match_language_code(raw: &str) -> usize {
 pub fn set_locale(lang: &str) {
     rust_i18n::set_locale(lang);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- LANGUAGE_OPTIONS ---
+
+    #[test]
+    fn language_options_not_empty() {
+        assert!(!LANGUAGE_OPTIONS.is_empty());
+    }
+
+    #[test]
+    fn language_options_starts_with_english() {
+        assert_eq!(LANGUAGE_OPTIONS[0], ("en", "English"));
+    }
+
+    #[test]
+    fn language_options_codes_unique() {
+        let mut codes: Vec<&str> = LANGUAGE_OPTIONS.iter().map(|(c, _)| *c).collect();
+        let len_before = codes.len();
+        codes.sort();
+        codes.dedup();
+        assert_eq!(codes.len(), len_before, "duplicate language codes found");
+    }
+
+    // --- match_language_code ---
+
+    #[test]
+    fn match_english() {
+        assert_eq!(match_language_code("en"), 0);
+        assert_eq!(match_language_code("en_us.utf-8"), 0);
+        assert_eq!(match_language_code("en_GB"), 0);
+    }
+
+    #[test]
+    fn match_french() {
+        let idx = LANGUAGE_OPTIONS
+            .iter()
+            .position(|(c, _)| *c == "fr")
+            .unwrap();
+        assert_eq!(match_language_code("fr"), idx);
+        assert_eq!(match_language_code("fr_FR.UTF-8"), idx);
+        assert_eq!(match_language_code("fr_ca"), idx);
+    }
+
+    #[test]
+    fn match_chinese_simplified() {
+        let idx = LANGUAGE_OPTIONS
+            .iter()
+            .position(|(c, _)| *c == "zh")
+            .unwrap();
+        assert_eq!(match_language_code("zh_cn"), idx);
+        assert_eq!(match_language_code("zh"), idx);
+    }
+
+    #[test]
+    fn match_chinese_traditional() {
+        let idx = LANGUAGE_OPTIONS
+            .iter()
+            .position(|(c, _)| *c == "zh_tw")
+            .unwrap();
+        assert_eq!(match_language_code("zh_tw"), idx);
+        // detect_system_language_string() lowercases before calling match_language_code
+        assert_eq!(match_language_code("zh_tw.utf-8"), idx);
+    }
+
+    #[test]
+    fn match_hyphenated_locale() {
+        let idx = LANGUAGE_OPTIONS
+            .iter()
+            .position(|(c, _)| *c == "zh_tw")
+            .unwrap();
+        // Hyphens are replaced with underscores, but input must be lowercase
+        // (detect_system_language_string lowercases before calling match_language_code)
+        assert_eq!(match_language_code("zh-tw"), idx);
+    }
+
+    #[test]
+    fn match_unknown_defaults_to_english() {
+        assert_eq!(match_language_code("xx"), 0);
+        assert_eq!(match_language_code(""), 0);
+        assert_eq!(match_language_code("zz_ZZ"), 0);
+    }
+
+    #[test]
+    fn match_japanese() {
+        let idx = LANGUAGE_OPTIONS
+            .iter()
+            .position(|(c, _)| *c == "ja")
+            .unwrap();
+        assert_eq!(match_language_code("ja_JP.UTF-8"), idx);
+    }
+
+    #[test]
+    fn match_arabic() {
+        let idx = LANGUAGE_OPTIONS
+            .iter()
+            .position(|(c, _)| *c == "ar")
+            .unwrap();
+        assert_eq!(match_language_code("ar_SA"), idx);
+    }
+
+    #[test]
+    fn match_case_insensitive_input() {
+        // detect_system_language_string lowercases, so match_language_code receives lowercase
+        let fr_idx = LANGUAGE_OPTIONS
+            .iter()
+            .position(|(c, _)| *c == "fr")
+            .unwrap();
+        assert_eq!(match_language_code("fr_fr.utf-8"), fr_idx);
+    }
+}

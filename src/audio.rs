@@ -327,7 +327,7 @@ fn decode_to_stereo_pcm(name: &str) -> Option<Vec<i16>> {
 
 /// Route mono PCM to 8-channel (7.1) output on specific speakers
 /// Returns 8-channel interleaved i16 data
-fn mono_to_71(mono: &[i16], target: SpeakerTarget) -> Vec<i16> {
+pub(crate) fn mono_to_71(mono: &[i16], target: SpeakerTarget) -> Vec<i16> {
     // 7.1 layout: FL(0), FR(1), FC(2), LFE(3), BL(4), BR(5), SL(6), SR(7)
     // SSF pincab: BL/BR(4,5) = top playfield, SL/SR(6,7) = bottom/lockbar
     let mut out = vec![0i16; mono.len() * 8];
@@ -372,7 +372,7 @@ fn mono_to_71(mono: &[i16], target: SpeakerTarget) -> Vec<i16> {
 }
 
 /// Route stereo PCM to 8-channel with L/R pan on front speakers (for music)
-fn stereo_to_71_front(stereo: &[i16], pan: f32) -> Vec<i16> {
+pub(crate) fn stereo_to_71_front(stereo: &[i16], pan: f32) -> Vec<i16> {
     let lg = (1.0 - pan.max(0.0)).min(1.0);
     let rg = (1.0 + pan.min(0.0)).min(1.0);
     let stereo_frames = stereo.len() / 2;
@@ -569,4 +569,256 @@ pub fn spawn_audio_thread() -> Sender<AudioCommand> {
     });
 
     cmd_tx
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::VpxConfig;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    fn config_from_str(content: &str) -> VpxConfig {
+        let mut tmp = NamedTempFile::new().unwrap();
+        tmp.write_all(content.as_bytes()).unwrap();
+        VpxConfig::load(Some(tmp.path())).unwrap()
+    }
+
+    // --- Sound3DMode ---
+
+    #[test]
+    fn sound_3d_mode_from_i32_valid() {
+        assert_eq!(Sound3DMode::from_i32(0), Sound3DMode::FrontStereo);
+        assert_eq!(Sound3DMode::from_i32(1), Sound3DMode::RearStereo);
+        assert_eq!(Sound3DMode::from_i32(2), Sound3DMode::SurroundRearLockbar);
+        assert_eq!(Sound3DMode::from_i32(3), Sound3DMode::SurroundFrontLockbar);
+        assert_eq!(Sound3DMode::from_i32(4), Sound3DMode::SsfLegacy);
+        assert_eq!(Sound3DMode::from_i32(5), Sound3DMode::SsfNew);
+    }
+
+    #[test]
+    fn sound_3d_mode_from_i32_invalid_defaults() {
+        assert_eq!(Sound3DMode::from_i32(-1), Sound3DMode::FrontStereo);
+        assert_eq!(Sound3DMode::from_i32(6), Sound3DMode::FrontStereo);
+        assert_eq!(Sound3DMode::from_i32(999), Sound3DMode::FrontStereo);
+    }
+
+    #[test]
+    fn sound_3d_mode_all_has_6_entries() {
+        assert_eq!(Sound3DMode::all().len(), 6);
+    }
+
+    #[test]
+    fn sound_3d_mode_roundtrip_i32() {
+        for mode in Sound3DMode::all() {
+            assert_eq!(Sound3DMode::from_i32(*mode as i32), *mode);
+        }
+    }
+
+    #[test]
+    fn sound_3d_mode_labels_not_empty() {
+        for mode in Sound3DMode::all() {
+            assert!(!mode.label().is_empty());
+        }
+    }
+
+    // --- AudioConfig default ---
+
+    #[test]
+    fn audio_config_default() {
+        let cfg = AudioConfig::default();
+        assert!(cfg.available_devices.is_empty());
+        assert!(cfg.device_bg.is_empty());
+        assert!(cfg.device_pf.is_empty());
+        assert_eq!(cfg.sound_3d_mode, Sound3DMode::FrontStereo);
+        assert_eq!(cfg.music_volume, 100);
+        assert_eq!(cfg.sound_volume, 100);
+        assert!(!cfg.music_looping);
+        assert!((cfg.music_pan - 0.0).abs() < f32::EPSILON);
+    }
+
+    // --- AudioConfig load/save ---
+
+    #[test]
+    fn audio_config_load_from_config() {
+        let cfg = config_from_str(
+            "[Player]\nSoundDeviceBG = HD Audio\nSoundDevice = USB\n\
+             Sound3D = 4\nMusicVolume = 75\nSoundVolume = 50\n",
+        );
+        let mut audio = AudioConfig::default();
+        audio.load_from_config(&cfg);
+        assert_eq!(audio.device_bg, "HD Audio");
+        assert_eq!(audio.device_pf, "USB");
+        assert_eq!(audio.sound_3d_mode, Sound3DMode::SsfLegacy);
+        assert_eq!(audio.music_volume, 75);
+        assert_eq!(audio.sound_volume, 50);
+    }
+
+    #[test]
+    fn audio_config_load_empty_keeps_defaults() {
+        let cfg = config_from_str("");
+        let mut audio = AudioConfig::default();
+        audio.load_from_config(&cfg);
+        assert_eq!(audio.music_volume, 100);
+        assert_eq!(audio.sound_3d_mode, Sound3DMode::FrontStereo);
+    }
+
+    #[test]
+    fn audio_config_save_to_config() {
+        let mut cfg = config_from_str("");
+        let audio = AudioConfig {
+            device_bg: "Speaker A".to_string(),
+            device_pf: "Speaker B".to_string(),
+            sound_3d_mode: Sound3DMode::SsfNew,
+            music_volume: 80,
+            sound_volume: 60,
+            ..Default::default()
+        };
+        audio.save_to_config(&mut cfg);
+        assert_eq!(
+            cfg.get("Player", "SoundDeviceBG"),
+            Some("Speaker A".to_string())
+        );
+        assert_eq!(
+            cfg.get("Player", "SoundDevice"),
+            Some("Speaker B".to_string())
+        );
+        assert_eq!(cfg.get_i32("Player", "Sound3D"), Some(5));
+        assert_eq!(cfg.get_i32("Player", "MusicVolume"), Some(80));
+        assert_eq!(cfg.get_i32("Player", "SoundVolume"), Some(60));
+    }
+
+    // --- mono_to_71 ---
+
+    #[test]
+    fn mono_to_71_front_both() {
+        let mono = vec![1000i16, 2000];
+        let out = mono_to_71(&mono, SpeakerTarget::FrontBoth);
+        assert_eq!(out.len(), 16); // 2 samples × 8 channels
+                                   // Frame 0: FL=1000, FR=1000, rest=0
+        assert_eq!(out[0], 1000);
+        assert_eq!(out[1], 1000);
+        assert_eq!(out[2], 0);
+        // Frame 1: FL=2000, FR=2000
+        assert_eq!(out[8], 2000);
+        assert_eq!(out[9], 2000);
+    }
+
+    #[test]
+    fn mono_to_71_top_left() {
+        let mono = vec![500i16];
+        let out = mono_to_71(&mono, SpeakerTarget::TopLeft);
+        // BL is channel 4
+        assert_eq!(out[4], 500);
+        assert_eq!(out[0], 0); // FL silent
+        assert_eq!(out[5], 0); // BR silent
+    }
+
+    #[test]
+    fn mono_to_71_bottom_both() {
+        let mono = vec![300i16];
+        let out = mono_to_71(&mono, SpeakerTarget::BottomBoth);
+        // SL(6) and SR(7)
+        assert_eq!(out[6], 300);
+        assert_eq!(out[7], 300);
+        assert_eq!(out[4], 0); // BL silent
+    }
+
+    #[test]
+    fn mono_to_71_left_both() {
+        let mono = vec![400i16];
+        let out = mono_to_71(&mono, SpeakerTarget::LeftBoth);
+        // BL(4) and SL(6)
+        assert_eq!(out[4], 400);
+        assert_eq!(out[6], 400);
+        assert_eq!(out[5], 0); // BR silent
+        assert_eq!(out[7], 0); // SR silent
+    }
+
+    #[test]
+    fn mono_to_71_empty_input() {
+        let out = mono_to_71(&[], SpeakerTarget::FrontBoth);
+        assert!(out.is_empty());
+    }
+
+    // --- stereo_to_71_front ---
+
+    #[test]
+    fn stereo_to_71_center_pan() {
+        let stereo = vec![1000i16, 2000]; // L=1000, R=2000
+        let out = stereo_to_71_front(&stereo, 0.0);
+        assert_eq!(out.len(), 8); // 1 frame × 8 channels
+        assert_eq!(out[0], 1000); // FL
+        assert_eq!(out[1], 2000); // FR
+        assert_eq!(out[2], 0); // FC
+    }
+
+    #[test]
+    fn stereo_to_71_full_left_pan() {
+        let stereo = vec![1000i16, 1000];
+        let out = stereo_to_71_front(&stereo, -1.0);
+        assert_eq!(out[0], 1000); // FL at full
+        assert_eq!(out[1], 0); // FR muted
+    }
+
+    #[test]
+    fn stereo_to_71_full_right_pan() {
+        let stereo = vec![1000i16, 1000];
+        let out = stereo_to_71_front(&stereo, 1.0);
+        assert_eq!(out[0], 0); // FL muted
+        assert_eq!(out[1], 1000); // FR at full
+    }
+
+    #[test]
+    fn stereo_to_71_empty() {
+        let out = stereo_to_71_front(&[], 0.0);
+        assert!(out.is_empty());
+    }
+
+    // --- Embedded audio ---
+
+    #[test]
+    fn embedded_audio_knocker_exists() {
+        assert!(get_embedded_audio("knocker.ogg").is_some());
+    }
+
+    #[test]
+    fn embedded_audio_ball_roll_exists() {
+        assert!(get_embedded_audio("ball_roll.ogg").is_some());
+    }
+
+    #[test]
+    fn embedded_audio_music_exists() {
+        assert!(get_embedded_audio("music.ogg").is_some());
+    }
+
+    #[test]
+    fn embedded_audio_unknown_returns_none() {
+        assert!(get_embedded_audio("nonexistent.ogg").is_none());
+    }
+
+    // --- Audio decoding ---
+
+    #[test]
+    fn decode_knocker_to_mono() {
+        let pcm = decode_to_mono_pcm("knocker.ogg");
+        assert!(pcm.is_some(), "knocker.ogg should decode to mono PCM");
+        let samples = pcm.unwrap();
+        assert!(!samples.is_empty());
+    }
+
+    #[test]
+    fn decode_music_to_stereo() {
+        let pcm = decode_to_stereo_pcm("music.ogg");
+        assert!(pcm.is_some(), "music.ogg should decode to stereo PCM");
+        let samples = pcm.unwrap();
+        assert!(!samples.is_empty());
+        // Stereo = even number of samples
+        assert_eq!(samples.len() % 2, 0);
+    }
+
+    #[test]
+    fn decode_nonexistent_returns_none() {
+        assert!(decode_to_mono_pcm("does_not_exist.ogg").is_none());
+    }
 }

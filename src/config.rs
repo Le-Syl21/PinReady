@@ -146,3 +146,182 @@ impl VpxConfig {
         self.set_i32("Player", "SoundVolume", volume);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    fn config_from_str(content: &str) -> VpxConfig {
+        let mut tmp = NamedTempFile::new().unwrap();
+        tmp.write_all(content.as_bytes()).unwrap();
+        VpxConfig::load(Some(tmp.path())).unwrap()
+    }
+
+    #[test]
+    fn load_nonexistent_creates_empty() {
+        let cfg = VpxConfig::load(Some(Path::new("/tmp/pinready_test_nonexistent.ini"))).unwrap();
+        assert!(cfg.get("Player", "BGSet").is_none());
+    }
+
+    #[test]
+    fn get_set_roundtrip() {
+        let mut cfg = config_from_str("");
+        cfg.set("Player", "BGSet", "2");
+        assert_eq!(cfg.get("Player", "BGSet"), Some("2".to_string()));
+    }
+
+    #[test]
+    fn get_i32_valid() {
+        let cfg = config_from_str("[Player]\nBGSet = 2\n");
+        assert_eq!(cfg.get_i32("Player", "BGSet"), Some(2));
+    }
+
+    #[test]
+    fn get_i32_invalid_returns_none() {
+        let cfg = config_from_str("[Player]\nBGSet = abc\n");
+        assert_eq!(cfg.get_i32("Player", "BGSet"), None);
+    }
+
+    #[test]
+    fn get_f32_valid() {
+        let cfg = config_from_str("[Player]\nAAFactor = 1.5\n");
+        assert!((cfg.get_f32("Player", "AAFactor").unwrap() - 1.5).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn get_f32_missing_returns_none() {
+        let cfg = config_from_str("");
+        assert_eq!(cfg.get_f32("Player", "AAFactor"), None);
+    }
+
+    #[test]
+    fn set_i32_and_read_back() {
+        let mut cfg = config_from_str("");
+        cfg.set_i32("Player", "Sound3D", 4);
+        assert_eq!(cfg.get_i32("Player", "Sound3D"), Some(4));
+    }
+
+    #[test]
+    fn set_f32_and_read_back() {
+        let mut cfg = config_from_str("");
+        cfg.set_f32("Player", "NudgeStrength", 0.02);
+        let val = cfg.get_f32("Player", "NudgeStrength").unwrap();
+        assert!((val - 0.02).abs() < 0.001);
+    }
+
+    #[test]
+    fn set_display_writes_all_keys() {
+        let mut cfg = config_from_str("");
+        cfg.set_display("Player", "Playfield", "Samsung U28E590", 3840, 2160, false);
+        assert_eq!(
+            cfg.get("Player", "PlayfieldDisplay"),
+            Some("Samsung U28E590".to_string())
+        );
+        assert_eq!(cfg.get_i32("Player", "PlayfieldWidth"), Some(3840));
+        assert_eq!(cfg.get_i32("Player", "PlayfieldHeight"), Some(2160));
+    }
+
+    #[test]
+    fn set_display_with_output_enabled() {
+        let mut cfg = config_from_str("");
+        cfg.set_display("Backglass", "Backglass", "LG 27", 2560, 1440, true);
+        assert_eq!(cfg.get_i32("Backglass", "BackglassOutput"), Some(1));
+    }
+
+    #[test]
+    fn set_display_without_output() {
+        let mut cfg = config_from_str("");
+        cfg.set_display("Player", "Playfield", "Test", 1920, 1080, false);
+        assert_eq!(cfg.get_i32("Player", "PlayfieldOutput"), None);
+    }
+
+    #[test]
+    fn set_view_mode() {
+        let mut cfg = config_from_str("");
+        cfg.set_view_mode(1);
+        assert_eq!(cfg.get_i32("Player", "BGSet"), Some(1));
+    }
+
+    #[test]
+    fn input_mapping_roundtrip() {
+        let mut cfg = config_from_str("");
+        cfg.set_input_mapping("LeftFlipper", "Key;42");
+        assert_eq!(
+            cfg.get_input_mapping("LeftFlipper"),
+            Some("Key;42".to_string())
+        );
+    }
+
+    #[test]
+    fn input_mapping_missing() {
+        let cfg = config_from_str("");
+        assert_eq!(cfg.get_input_mapping("NonExistent"), None);
+    }
+
+    #[test]
+    fn set_nudge_filter() {
+        let mut cfg = config_from_str("");
+        cfg.set_nudge_filter(0, true);
+        assert_eq!(cfg.get_i32("Player", "NudgeFilter0"), Some(1));
+        cfg.set_nudge_filter(0, false);
+        assert_eq!(cfg.get_i32("Player", "NudgeFilter0"), Some(0));
+    }
+
+    #[test]
+    fn audio_config_setters() {
+        let mut cfg = config_from_str("");
+        cfg.set_sound_device_bg("HD Audio");
+        cfg.set_sound_device_pf("USB Audio");
+        cfg.set_sound_3d_mode(5);
+        cfg.set_music_volume(80);
+        cfg.set_sound_volume(60);
+        assert_eq!(
+            cfg.get("Player", "SoundDeviceBG"),
+            Some("HD Audio".to_string())
+        );
+        assert_eq!(
+            cfg.get("Player", "SoundDevice"),
+            Some("USB Audio".to_string())
+        );
+        assert_eq!(cfg.get_i32("Player", "Sound3D"), Some(5));
+        assert_eq!(cfg.get_i32("Player", "MusicVolume"), Some(80));
+        assert_eq!(cfg.get_i32("Player", "SoundVolume"), Some(60));
+    }
+
+    #[test]
+    fn save_and_reload() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test.ini");
+        {
+            let mut cfg = VpxConfig::load(Some(&path)).unwrap();
+            cfg.set("Player", "BGSet", "2");
+            cfg.set_i32("Player", "Sound3D", 4);
+            cfg.save().unwrap();
+        }
+        let cfg = VpxConfig::load(Some(&path)).unwrap();
+        assert_eq!(cfg.get("Player", "BGSet"), Some("2".to_string()));
+        assert_eq!(cfg.get_i32("Player", "Sound3D"), Some(4));
+    }
+
+    #[test]
+    fn save_creates_parent_dirs() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sub/dir/test.ini");
+        let mut cfg = VpxConfig::load(Some(&path)).unwrap();
+        cfg.set("Test", "Key", "Value");
+        cfg.save().unwrap();
+        assert!(path.exists());
+    }
+
+    #[test]
+    fn preserves_existing_ini_content() {
+        let content = "[Player]\nBGSet = 0\nSound3D = 2\n";
+        let mut cfg = config_from_str(content);
+        cfg.set("Player", "BGSet", "1");
+        // Sound3D should remain untouched
+        assert_eq!(cfg.get_i32("Player", "Sound3D"), Some(2));
+        assert_eq!(cfg.get_i32("Player", "BGSet"), Some(1));
+    }
+}

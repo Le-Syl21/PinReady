@@ -31,7 +31,7 @@ fn decode_b64_image(b64: &str) -> Option<image::DynamicImage> {
 }
 
 /// Compute the median luminosity of an RGB image using its histogram.
-fn median_luminosity(img: &image::RgbImage) -> f32 {
+pub(crate) fn median_luminosity(img: &image::RgbImage) -> f32 {
     let gray = image::DynamicImage::ImageRgb8(img.clone()).into_luma8();
     let mut hist = [0u32; 256];
     for p in gray.pixels() {
@@ -50,7 +50,7 @@ fn median_luminosity(img: &image::RgbImage) -> f32 {
 }
 
 /// Apply brightness adjustment to an RGB image.
-fn adjust_brightness(img: &mut image::RgbImage, factor: f32) {
+pub(crate) fn adjust_brightness(img: &mut image::RgbImage, factor: f32) {
     for p in img.pixels_mut() {
         p[0] = (p[0] as f32 * factor).min(255.0) as u8;
         p[1] = (p[1] as f32 * factor).min(255.0) as u8;
@@ -228,4 +228,124 @@ pub fn extract_backglass(directb2s_path: &Path, table_dir: &Path) -> Option<Path
         bulb_count
     );
     Some(cache_path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{Rgb, RgbImage};
+    use std::path::Path;
+
+    // --- cached_bg_path ---
+
+    #[test]
+    fn cached_bg_path_appends_filename() {
+        let path = cached_bg_path(Path::new("/tables/My Table"));
+        assert_eq!(path, Path::new("/tables/My Table/.pinready_bg_v4.png"));
+    }
+
+    // --- median_luminosity ---
+
+    #[test]
+    fn median_luminosity_black_image() {
+        let img = RgbImage::from_pixel(10, 10, Rgb([0, 0, 0]));
+        assert!((median_luminosity(&img) - 0.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn median_luminosity_white_image() {
+        let img = RgbImage::from_pixel(10, 10, Rgb([255, 255, 255]));
+        assert!((median_luminosity(&img) - 255.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn median_luminosity_gray_image() {
+        let img = RgbImage::from_pixel(10, 10, Rgb([128, 128, 128]));
+        let median = median_luminosity(&img);
+        assert!((median - 128.0).abs() < 2.0, "expected ~128, got {median}");
+    }
+
+    #[test]
+    fn median_luminosity_mixed() {
+        // Half black, half white → median should be around 128–255 range
+        let mut img = RgbImage::new(10, 10);
+        for x in 0..10 {
+            for y in 0..10 {
+                let val = if y < 5 { 0 } else { 255 };
+                img.put_pixel(x, y, Rgb([val, val, val]));
+            }
+        }
+        let median = median_luminosity(&img);
+        // With 50 black and 50 white pixels, median is either 0 or 255
+        // depending on which side crosses the half mark
+        assert!(median == 0.0 || median == 255.0);
+    }
+
+    // --- adjust_brightness ---
+
+    #[test]
+    fn adjust_brightness_factor_1_unchanged() {
+        let mut img = RgbImage::from_pixel(2, 2, Rgb([100, 150, 200]));
+        adjust_brightness(&mut img, 1.0);
+        let p = img.get_pixel(0, 0);
+        assert_eq!(p, &Rgb([100, 150, 200]));
+    }
+
+    #[test]
+    fn adjust_brightness_factor_2() {
+        let mut img = RgbImage::from_pixel(1, 1, Rgb([50, 100, 200]));
+        adjust_brightness(&mut img, 2.0);
+        let p = img.get_pixel(0, 0);
+        assert_eq!(p[0], 100);
+        assert_eq!(p[1], 200);
+        assert_eq!(p[2], 255); // clamped from 400
+    }
+
+    #[test]
+    fn adjust_brightness_factor_half() {
+        let mut img = RgbImage::from_pixel(1, 1, Rgb([100, 200, 50]));
+        adjust_brightness(&mut img, 0.5);
+        let p = img.get_pixel(0, 0);
+        assert_eq!(p[0], 50);
+        assert_eq!(p[1], 100);
+        assert_eq!(p[2], 25);
+    }
+
+    #[test]
+    fn adjust_brightness_clamps_to_255() {
+        let mut img = RgbImage::from_pixel(1, 1, Rgb([255, 255, 255]));
+        adjust_brightness(&mut img, 3.0);
+        let p = img.get_pixel(0, 0);
+        assert_eq!(p, &Rgb([255, 255, 255]));
+    }
+
+    // --- decode_b64_image ---
+
+    #[test]
+    fn decode_b64_invalid_returns_none() {
+        assert!(decode_b64_image("not-valid-base64!!!").is_none());
+    }
+
+    #[test]
+    fn decode_b64_empty_returns_none() {
+        assert!(decode_b64_image("").is_none());
+    }
+
+    #[test]
+    fn decode_b64_valid_png() {
+        // Minimal 1x1 red PNG encoded in base64
+        let png_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
+        let img = decode_b64_image(png_b64);
+        assert!(img.is_some());
+        let img = img.unwrap();
+        assert_eq!(img.width(), 1);
+        assert_eq!(img.height(), 1);
+    }
+
+    #[test]
+    fn decode_b64_with_whitespace() {
+        // Same PNG with whitespace injected
+        let png_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAf\n FcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
+        assert!(decode_b64_image(png_b64).is_some());
+    }
 }

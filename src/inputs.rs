@@ -487,7 +487,7 @@ pub fn find_conflicts(actions: &[InputAction]) -> Vec<(usize, usize)> {
     conflicts
 }
 
-fn effective_scancode(action: &InputAction) -> SDL_Scancode {
+pub(crate) fn effective_scancode(action: &InputAction) -> SDL_Scancode {
     match &action.mapping {
         Some(CapturedInput::Keyboard { scancode, .. }) => *scancode,
         None => action.default_scancode,
@@ -636,4 +636,382 @@ pub fn spawn_joystick_thread() -> crossbeam_channel::Receiver<JoystickEvent> {
     });
 
     evt_rx
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- CapturedInput::to_mapping_string ---
+
+    #[test]
+    fn keyboard_mapping_string() {
+        let input = CapturedInput::Keyboard {
+            scancode: SDL_SCANCODE_LSHIFT,
+            name: "Left Shift".to_string(),
+        };
+        assert_eq!(
+            input.to_mapping_string(),
+            format!("Key;{}", SDL_SCANCODE_LSHIFT.0)
+        );
+    }
+
+    #[test]
+    fn joystick_button_mapping_string() {
+        let input = CapturedInput::JoystickButton {
+            device_id: "SDLJoy_PSC004".to_string(),
+            button: 7,
+            name: "Button 7".to_string(),
+        };
+        assert_eq!(input.to_mapping_string(), "SDLJoy_PSC004;7");
+    }
+
+    #[test]
+    fn joystick_axis_mapping_string() {
+        let input = CapturedInput::JoystickAxis {
+            device_id: "SDLJoy_ABC".to_string(),
+            axis: 2,
+            name: "Axis 2".to_string(),
+        };
+        assert_eq!(input.to_mapping_string(), "SDLJoy_ABC;2");
+    }
+
+    // --- CapturedInput::display_name ---
+
+    #[test]
+    fn display_name_keyboard() {
+        let input = CapturedInput::Keyboard {
+            scancode: SDL_SCANCODE_A,
+            name: "A".to_string(),
+        };
+        assert_eq!(input.display_name(), "A");
+    }
+
+    #[test]
+    fn display_name_joystick() {
+        let input = CapturedInput::JoystickButton {
+            device_id: "dev".to_string(),
+            button: 0,
+            name: "Start Button".to_string(),
+        };
+        assert_eq!(input.display_name(), "Start Button");
+    }
+
+    // --- default_actions ---
+
+    #[test]
+    fn default_actions_has_essential_and_advanced() {
+        let actions = default_actions();
+        assert!(!actions.is_empty());
+        let essential_count = actions.iter().filter(|a| a.essential).count();
+        let advanced_count = actions.iter().filter(|a| !a.essential).count();
+        assert!(
+            essential_count >= 10,
+            "expected >=10 essential actions, got {essential_count}"
+        );
+        assert!(
+            advanced_count >= 10,
+            "expected >=10 advanced actions, got {advanced_count}"
+        );
+    }
+
+    #[test]
+    fn default_actions_all_have_setting_id() {
+        for action in default_actions() {
+            assert!(!action.setting_id.is_empty(), "action has empty setting_id");
+        }
+    }
+
+    #[test]
+    fn default_actions_none_have_mapping() {
+        for action in default_actions() {
+            assert!(
+                action.mapping.is_none(),
+                "{} should have no mapping by default",
+                action.setting_id
+            );
+        }
+    }
+
+    // --- effective_scancode ---
+
+    #[test]
+    fn effective_scancode_default() {
+        let action = InputAction {
+            setting_id: "Test",
+            label: "test",
+            default_scancode: SDL_SCANCODE_A,
+            essential: true,
+            mapping: None,
+        };
+        assert!(effective_scancode(&action) == SDL_SCANCODE_A);
+    }
+
+    #[test]
+    fn effective_scancode_with_keyboard_mapping() {
+        let action = InputAction {
+            setting_id: "Test",
+            label: "test",
+            default_scancode: SDL_SCANCODE_A,
+            essential: true,
+            mapping: Some(CapturedInput::Keyboard {
+                scancode: SDL_SCANCODE_B,
+                name: "B".to_string(),
+            }),
+        };
+        assert!(effective_scancode(&action) == SDL_SCANCODE_B);
+    }
+
+    #[test]
+    fn effective_scancode_with_joystick_is_unknown() {
+        let action = InputAction {
+            setting_id: "Test",
+            label: "test",
+            default_scancode: SDL_SCANCODE_A,
+            essential: true,
+            mapping: Some(CapturedInput::JoystickButton {
+                device_id: "dev".to_string(),
+                button: 0,
+                name: "B0".to_string(),
+            }),
+        };
+        assert!(effective_scancode(&action) == SDL_SCANCODE_UNKNOWN);
+    }
+
+    // --- find_conflicts ---
+
+    #[test]
+    fn find_conflicts_no_conflicts() {
+        let actions = vec![
+            InputAction {
+                setting_id: "A",
+                label: "a",
+                default_scancode: SDL_SCANCODE_A,
+                essential: true,
+                mapping: None,
+            },
+            InputAction {
+                setting_id: "B",
+                label: "b",
+                default_scancode: SDL_SCANCODE_B,
+                essential: true,
+                mapping: None,
+            },
+        ];
+        assert!(find_conflicts(&actions).is_empty());
+    }
+
+    #[test]
+    fn find_conflicts_detects_default_conflict() {
+        let actions = vec![
+            InputAction {
+                setting_id: "A",
+                label: "a",
+                default_scancode: SDL_SCANCODE_LSHIFT,
+                essential: true,
+                mapping: None,
+            },
+            InputAction {
+                setting_id: "B",
+                label: "b",
+                default_scancode: SDL_SCANCODE_LSHIFT,
+                essential: true,
+                mapping: None,
+            },
+        ];
+        let conflicts = find_conflicts(&actions);
+        assert_eq!(conflicts.len(), 1);
+        assert_eq!(conflicts[0], (0, 1));
+    }
+
+    #[test]
+    fn find_conflicts_unknown_scancode_not_conflicting() {
+        let actions = vec![
+            InputAction {
+                setting_id: "A",
+                label: "a",
+                default_scancode: SDL_SCANCODE_UNKNOWN,
+                essential: false,
+                mapping: None,
+            },
+            InputAction {
+                setting_id: "B",
+                label: "b",
+                default_scancode: SDL_SCANCODE_UNKNOWN,
+                essential: false,
+                mapping: None,
+            },
+        ];
+        assert!(find_conflicts(&actions).is_empty());
+    }
+
+    #[test]
+    fn find_conflicts_with_mapped_override() {
+        let actions = vec![
+            InputAction {
+                setting_id: "A",
+                label: "a",
+                default_scancode: SDL_SCANCODE_A,
+                essential: true,
+                mapping: Some(CapturedInput::Keyboard {
+                    scancode: SDL_SCANCODE_Z,
+                    name: "Z".to_string(),
+                }),
+            },
+            InputAction {
+                setting_id: "B",
+                label: "b",
+                default_scancode: SDL_SCANCODE_Z,
+                essential: true,
+                mapping: None,
+            },
+        ];
+        let conflicts = find_conflicts(&actions);
+        assert_eq!(conflicts.len(), 1);
+    }
+
+    #[test]
+    fn find_conflicts_joystick_mapping_no_conflict_with_keyboard() {
+        let actions = vec![
+            InputAction {
+                setting_id: "A",
+                label: "a",
+                default_scancode: SDL_SCANCODE_A,
+                essential: true,
+                mapping: Some(CapturedInput::JoystickButton {
+                    device_id: "dev".to_string(),
+                    button: 0,
+                    name: "B0".to_string(),
+                }),
+            },
+            InputAction {
+                setting_id: "B",
+                label: "b",
+                default_scancode: SDL_SCANCODE_A,
+                essential: true,
+                mapping: None,
+            },
+        ];
+        // A uses joystick (effective = UNKNOWN), B uses keyboard A → no conflict
+        assert!(find_conflicts(&actions).is_empty());
+    }
+
+    // --- egui_key_to_scancode ---
+
+    #[test]
+    fn egui_key_letters() {
+        assert!(egui_key_to_scancode(egui::Key::A) == Some(SDL_SCANCODE_A));
+        assert!(egui_key_to_scancode(egui::Key::Z) == Some(SDL_SCANCODE_Z));
+    }
+
+    #[test]
+    fn egui_key_numbers() {
+        assert!(egui_key_to_scancode(egui::Key::Num0) == Some(SDL_SCANCODE_0));
+        assert!(egui_key_to_scancode(egui::Key::Num9) == Some(SDL_SCANCODE_9));
+    }
+
+    #[test]
+    fn egui_key_special() {
+        assert!(egui_key_to_scancode(egui::Key::Escape) == Some(SDL_SCANCODE_ESCAPE));
+        assert!(egui_key_to_scancode(egui::Key::Enter) == Some(SDL_SCANCODE_RETURN));
+        assert!(egui_key_to_scancode(egui::Key::Space) == Some(SDL_SCANCODE_SPACE));
+    }
+
+    #[test]
+    fn egui_key_function_keys() {
+        assert!(egui_key_to_scancode(egui::Key::F1) == Some(SDL_SCANCODE_F1));
+        assert!(egui_key_to_scancode(egui::Key::F12) == Some(SDL_SCANCODE_F12));
+    }
+
+    #[test]
+    fn egui_key_unmapped_returns_none() {
+        assert!(egui_key_to_scancode(egui::Key::Insert).is_none());
+    }
+
+    // --- egui_modifiers_to_scancode ---
+
+    #[test]
+    fn modifiers_shift_only() {
+        let m = egui::Modifiers {
+            shift: true,
+            ctrl: false,
+            alt: false,
+            ..Default::default()
+        };
+        assert!(egui_modifiers_to_scancode(&m) == Some(SDL_SCANCODE_LSHIFT));
+    }
+
+    #[test]
+    fn modifiers_ctrl_only() {
+        let m = egui::Modifiers {
+            ctrl: true,
+            shift: false,
+            alt: false,
+            ..Default::default()
+        };
+        assert!(egui_modifiers_to_scancode(&m) == Some(SDL_SCANCODE_LCTRL));
+    }
+
+    #[test]
+    fn modifiers_alt_only() {
+        let m = egui::Modifiers {
+            alt: true,
+            shift: false,
+            ctrl: false,
+            ..Default::default()
+        };
+        assert!(egui_modifiers_to_scancode(&m) == Some(SDL_SCANCODE_LALT));
+    }
+
+    #[test]
+    fn modifiers_multiple_returns_none() {
+        let m = egui::Modifiers {
+            shift: true,
+            ctrl: true,
+            alt: false,
+            ..Default::default()
+        };
+        assert!(egui_modifiers_to_scancode(&m).is_none());
+    }
+
+    #[test]
+    fn modifiers_none_returns_none() {
+        let m = egui::Modifiers::default();
+        assert!(egui_modifiers_to_scancode(&m).is_none());
+    }
+
+    // --- Known VPX default key conflicts ---
+
+    #[test]
+    fn default_actions_known_conflicts() {
+        // Per CLAUDE.md, LeftFlipper/LeftStagedFlipper share LSHIFT,
+        // RightFlipper/RightStagedFlipper share RSHIFT,
+        // VolumeDown/Service7 share MINUS, Credit4/Service5 share 6
+        let actions = default_actions();
+        let conflicts = find_conflicts(&actions);
+        assert!(
+            !conflicts.is_empty(),
+            "expected known default conflicts (LSHIFT, RSHIFT, MINUS, 6)"
+        );
+        // Verify specific known conflicts exist
+        let find_pair = |id_a: &str, id_b: &str| -> bool {
+            conflicts.iter().any(|&(i, j)| {
+                (actions[i].setting_id == id_a && actions[j].setting_id == id_b)
+                    || (actions[i].setting_id == id_b && actions[j].setting_id == id_a)
+            })
+        };
+        assert!(
+            find_pair("LeftFlipper", "LeftStagedFlipper"),
+            "LSHIFT conflict missing"
+        );
+        assert!(
+            find_pair("RightFlipper", "RightStagedFlipper"),
+            "RSHIFT conflict missing"
+        );
+        assert!(
+            find_pair("VolumeDown", "Service7"),
+            "MINUS conflict missing"
+        );
+        assert!(find_pair("Credit4", "Service5"), "6 key conflict missing");
+    }
 }

@@ -20,6 +20,11 @@ impl App {
         };
         let _ = self.db.set_config("vpx_install_mode", mode_str);
         let _ = self.db.set_config("vpx_fork_repo", &self.vpx_fork_repo);
+        let _ = self.db.set_config("vpx_install_dir", &self.vpx_install_dir);
+        let _ = self.db.set_config(
+            "external_dmd",
+            if self.external_dmd { "true" } else { "false" },
+        );
         if let Err(e) = self.db.set_config("vpx_exe_path", &self.vpx_exe_path) {
             log::error!("Failed to save VPX exe path: {e}");
         }
@@ -45,7 +50,13 @@ impl App {
         }
         if !has_dmd {
             self.config.set_i32("ScoreView", "ScoreViewOutput", 0);
-            if has_backglass {
+            if self.external_dmd {
+                // External DMD device (ZeDMD, PinDMD...) — no overlay needed,
+                // VPX auto-detects the device at runtime
+                self.config
+                    .set_i32("Plugin.B2SLegacy", "BackglassDMDOverlay", 0);
+            } else if has_backglass {
+                // No DMD screen, no external DMD — overlay DMD on backglass
                 self.config
                     .set_i32("Plugin.B2SLegacy", "BackglassDMDOverlay", 1);
                 self.config

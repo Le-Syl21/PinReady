@@ -167,23 +167,65 @@ impl App {
                         t!("update_error", msg = err.as_str()),
                     );
                 }
-                let rescan_label = if let Some(start) = self.rescan_press_start {
-                    let held = start.elapsed().as_secs_f32();
-                    let pct = ((held / 3.0) * 100.0).min(100.0) as u32;
+                // Rescan button with long-press detection and color feedback
+                // Track mouse button globally to avoid losing the press when cursor drifts
+                let primary_down = ui.input(|i| i.pointer.primary_down());
+                let held_secs = self
+                    .rescan_press_start
+                    .map(|s| s.elapsed().as_secs_f32())
+                    .unwrap_or(0.0);
+                let hold_ratio = (held_secs / 3.0).min(1.0);
+
+                // Button color: flash feedback after action, or hold progress
+                let btn_color = if let Some((flash_time, is_full)) = self.rescan_flash {
+                    let age = flash_time.elapsed().as_secs_f32();
+                    let alpha = ((1.0 - age / 1.0) * 255.0).clamp(0.0, 255.0) as u8;
+                    if alpha > 0 {
+                        ui.ctx().request_repaint();
+                        if is_full {
+                            Some(egui::Color32::from_rgba_unmultiplied(255, 80, 80, alpha))
+                        } else {
+                            Some(egui::Color32::from_rgba_unmultiplied(80, 200, 80, alpha))
+                        }
+                    } else {
+                        self.rescan_flash = None;
+                        None
+                    }
+                } else if self.rescan_press_start.is_some() {
+                    // Gradient from green (quick rescan) to red (full reset) as hold progresses
+                    let r = (80.0 + hold_ratio * 175.0) as u8;
+                    let g = (200.0 - hold_ratio * 120.0) as u8;
+                    Some(egui::Color32::from_rgb(r, g, 80))
+                } else {
+                    None
+                };
+
+                let label = if self.rescan_press_start.is_some() {
+                    let pct = (hold_ratio * 100.0) as u32;
                     t!("launcher_reset_pct", pct = pct).to_string()
                 } else {
                     t!("launcher_rescan").to_string()
                 };
-                let rescan_btn = ui.button(&rescan_label);
-                if rescan_btn.is_pointer_button_down_on() {
-                    if self.rescan_press_start.is_none() {
-                        self.rescan_press_start = Some(std::time::Instant::now());
-                    }
-                    if let Some(start) = self.rescan_press_start {
-                        if start.elapsed().as_secs_f32() >= 3.0 {
-                            // Long press: delete all caches and full rescan
+
+                let text = if let Some(color) = btn_color {
+                    egui::RichText::new(&label).color(color)
+                } else {
+                    egui::RichText::new(&label)
+                };
+                let rescan_btn = ui.button(text);
+
+                if rescan_btn.is_pointer_button_down_on() && self.rescan_press_start.is_none() {
+                    // Mouse down on button: start tracking
+                    self.rescan_press_start = Some(std::time::Instant::now());
+                }
+
+                if self.rescan_press_start.is_some() {
+                    if primary_down {
+                        // Still holding — check if 3s reached
+                        if hold_ratio >= 1.0 {
                             log::info!("Long press: full backglass regeneration");
                             self.rescan_press_start = None;
+                            self.rescan_flash = Some((std::time::Instant::now(), true));
                             let dir = std::path::Path::new(&self.tables_dir);
                             if dir.is_dir() {
                                 for entry in walkdir::WalkDir::new(dir)
@@ -204,29 +246,38 @@ impl App {
                         } else {
                             ui.ctx().request_repaint();
                         }
+                    } else {
+                        // Released before 3s: incremental rescan
+                        self.rescan_press_start = None;
+                        self.rescan_flash = Some((std::time::Instant::now(), false));
+                        self.scan_tables();
                     }
-                } else if self.rescan_press_start.is_some() {
-                    // Released before 3s: incremental rescan
-                    self.rescan_press_start = None;
-                    self.scan_tables();
                 }
             });
         });
         ui.add_space(8.0);
 
-        // VPX loading overlay — show spinner but don't return, viewports need to render below
+        // VPX loading overlay — show spinner/progress but don't return, viewports need to render below
         let vpx_loading =
             self.vpx_running.load(Ordering::Relaxed) && !self.vpx_loading_msg.is_empty();
         if vpx_loading {
             ui.vertical_centered(|ui| {
                 ui.add_space(40.0);
-                ui.spinner();
-                ui.add_space(8.0);
-                ui.label(
-                    egui::RichText::new(&self.vpx_loading_msg)
-                        .size(18.0)
-                        .strong(),
-                );
+                if let Some(pct) = self.vpx_loading_pct {
+                    ui.add(
+                        egui::ProgressBar::new(pct)
+                            .text(&self.vpx_loading_msg)
+                            .desired_width(400.0),
+                    );
+                } else {
+                    ui.spinner();
+                    ui.add_space(8.0);
+                    ui.label(
+                        egui::RichText::new(&self.vpx_loading_msg)
+                            .size(18.0)
+                            .strong(),
+                    );
+                }
             });
         }
 
@@ -425,151 +476,133 @@ impl App {
             self.launch_table(&path);
         }
 
-        // 3+ screens: cover Playfield with grey metal background + VPX logo
-        // (with 2 screens, Playfield hosts the table selector — no cover needed)
-        let has_pf_display = self
-            .displays
-            .iter()
-            .any(|d| d.role == DisplayRole::Playfield);
-        if has_pf_display && has_dmd && !self.vpx_hide_covers {
-            let pf_display = self
+        if !self.vpx_hide_covers {
+            self.render_cover_viewports(ui, has_dmd);
+        }
+    }
+
+    /// Show logo cover on Playfield/Topper and backglass preview on BG display.
+    #[allow(deprecated)] // CentralPanel::show() required in viewport callbacks (no Ui available)
+    fn render_cover_viewports(&self, ui: &mut egui::Ui, has_dmd: bool) {
+        // Playfield cover (3+ screens only — with 2 screens, PF hosts the table selector)
+        if has_dmd {
+            if let Some(pf) = self
                 .displays
                 .iter()
-                .find(|d| d.role == DisplayRole::Playfield);
-            let (pf_x, pf_y, pf_w, pf_h) = pf_display
-                .map(|d| (d.x as f32, d.y as f32, d.width as f32, d.height as f32))
-                .unwrap_or((0.0, 0.0, 1920.0, 1080.0));
-
-            let pf_viewport_id = egui::ViewportId::from_hash_of(PF_VIEWPORT);
-            ui.ctx().show_viewport_deferred(
-                pf_viewport_id,
-                egui::ViewportBuilder::default()
-                    .with_title("PinReady — Playfield")
-                    .with_position(egui::pos2(pf_x, pf_y))
-                    .with_inner_size(egui::vec2(pf_w, pf_h))
-                    .with_decorations(false)
-                    .with_override_redirect(true),
-                move |ctx, _class| {
-                    // Force position every frame — WM may ignore initial with_position
-                    ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(egui::pos2(
-                        pf_x, pf_y,
-                    )));
-                    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(pf_w, pf_h)));
-                    egui_extras::install_image_loaders(ctx);
-                    ctx.include_bytes("bytes://vpx_logo", VPX_LOGO);
-                    egui::CentralPanel::default()
-                        .frame(egui::Frame::NONE.fill(egui::Color32::from_rgb(80, 80, 85)))
-                        .show(ctx, |ui| {
-                            ui.centered_and_justified(|ui| {
-                                ui.add(
-                                    egui::Image::new("bytes://vpx_logo")
-                                        .max_size(egui::vec2(512.0, 512.0))
-                                        .rotate(270.0_f32.to_radians(), egui::vec2(0.5, 0.5))
-                                        .tint(egui::Color32::from_rgba_premultiplied(
-                                            180, 180, 190, 200,
-                                        )),
-                                );
-                            });
-                        });
-                },
-            );
+                .find(|d| d.role == DisplayRole::Playfield)
+            {
+                let bounds = (pf.x as f32, pf.y as f32, pf.width as f32, pf.height as f32);
+                Self::show_logo_viewport(
+                    ui,
+                    PF_VIEWPORT,
+                    "PinReady — Playfield",
+                    bounds,
+                    Some(270.0_f32.to_radians()),
+                );
+            }
         }
 
-        // If multi-screen, show backglass on BG display via secondary viewport
-        let has_bg_display = self
+        // Backglass preview
+        if let Some(bg) = self
             .displays
             .iter()
-            .any(|d| d.role == DisplayRole::Backglass);
-        if has_bg_display && !self.tables.is_empty() && !self.vpx_hide_covers {
-            let selected = self.selected_table.min(self.tables.len() - 1);
-            let table_name = self.tables[selected].name.clone();
-            let bg_bytes = self.tables[selected].bg_bytes.clone();
-            let bg_display = self
-                .displays
-                .iter()
-                .find(|d| d.role == DisplayRole::Backglass);
-            let (bg_x, bg_y, bg_w, bg_h) = bg_display
-                .map(|d| (d.x as f32, d.y as f32, d.width as f32, d.height as f32))
-                .unwrap_or((0.0, 0.0, 1280.0, 1024.0));
+            .find(|d| d.role == DisplayRole::Backglass)
+        {
+            if !self.tables.is_empty() {
+                let selected = self.selected_table.min(self.tables.len() - 1);
+                let table_name = self.tables[selected].name.clone();
+                let bg_bytes = self.tables[selected].bg_bytes.clone();
+                let (bg_x, bg_y, bg_w, bg_h) =
+                    (bg.x as f32, bg.y as f32, bg.width as f32, bg.height as f32);
 
-            let bg_viewport_id = egui::ViewportId::from_hash_of(BG_VIEWPORT);
-            ui.ctx().request_repaint_of(bg_viewport_id);
-            ui.ctx().show_viewport_deferred(
-                bg_viewport_id,
-                egui::ViewportBuilder::default()
-                    .with_title("PinReady — Backglass")
-                    .with_position(egui::pos2(bg_x, bg_y))
-                    .with_inner_size(egui::vec2(bg_w, bg_h))
-                    .with_decorations(false)
-                    .with_override_redirect(true),
-                move |ctx, _class| {
-                    ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(egui::pos2(
-                        bg_x, bg_y,
-                    )));
-                    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(bg_w, bg_h)));
-                    egui_extras::install_image_loaders(ctx);
-                    egui::CentralPanel::default()
-                        .frame(egui::Frame::NONE.fill(egui::Color32::BLACK))
-                        .show(ctx, |ui| {
-                            if let Some(ref bytes) = bg_bytes {
-                                let uri = format!("bytes://viewport_bg/{selected}");
-                                ctx.include_bytes(uri.clone(), bytes.clone());
-                                ui.centered_and_justified(|ui| {
-                                    ui.add(egui::Image::new(uri).shrink_to_fit());
-                                });
-                            } else {
-                                ui.centered_and_justified(|ui| {
-                                    ui.colored_label(
-                                        egui::Color32::WHITE,
-                                        egui::RichText::new(&table_name).size(32.0),
-                                    );
-                                });
+                let bg_viewport_id = egui::ViewportId::from_hash_of(BG_VIEWPORT);
+                ui.ctx().request_repaint_of(bg_viewport_id);
+                ui.ctx().show_viewport_deferred(
+                    bg_viewport_id,
+                    egui::ViewportBuilder::default()
+                        .with_title("PinReady — Backglass")
+                        .with_position(egui::pos2(bg_x, bg_y))
+                        .with_inner_size(egui::vec2(bg_w, bg_h))
+                        .with_decorations(false)
+                        .with_override_redirect(true),
+                    move |ctx, _class| {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(egui::pos2(
+                            bg_x, bg_y,
+                        )));
+                        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
+                            bg_w, bg_h,
+                        )));
+                        egui_extras::install_image_loaders(ctx);
+                        egui::CentralPanel::default()
+                            .frame(egui::Frame::NONE.fill(egui::Color32::BLACK))
+                            .show(ctx, |ui| {
+                                if let Some(ref bytes) = bg_bytes {
+                                    let uri = format!("bytes://viewport_bg/{selected}");
+                                    ctx.include_bytes(uri.clone(), bytes.clone());
+                                    ui.centered_and_justified(|ui| {
+                                        ui.add(egui::Image::new(uri).shrink_to_fit());
+                                    });
+                                } else {
+                                    ui.centered_and_justified(|ui| {
+                                        ui.colored_label(
+                                            egui::Color32::WHITE,
+                                            egui::RichText::new(&table_name).size(32.0),
+                                        );
+                                    });
+                                }
+                            });
+                    },
+                );
+            }
+        }
+
+        // Topper cover (3+ screens only)
+        if has_dmd {
+            if let Some(tp) = self.displays.iter().find(|d| d.role == DisplayRole::Topper) {
+                let bounds = (tp.x as f32, tp.y as f32, tp.width as f32, tp.height as f32);
+                Self::show_logo_viewport(ui, TOPPER_VIEWPORT, "PinReady — Topper", bounds, None);
+            }
+        }
+    }
+
+    /// Show a viewport with the VPX logo on a grey background.
+    #[allow(deprecated)] // CentralPanel::show() required in viewport callbacks (no Ui available)
+    fn show_logo_viewport(
+        ui: &mut egui::Ui,
+        id: &'static str,
+        title: &str,
+        bounds: (f32, f32, f32, f32),
+        rotation: Option<f32>,
+    ) {
+        let (x, y, w, h) = bounds;
+        let viewport_id = egui::ViewportId::from_hash_of(id);
+        ui.ctx().show_viewport_deferred(
+            viewport_id,
+            egui::ViewportBuilder::default()
+                .with_title(title)
+                .with_position(egui::pos2(x, y))
+                .with_inner_size(egui::vec2(w, h))
+                .with_decorations(false)
+                .with_override_redirect(true),
+            move |ctx, _class| {
+                ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(egui::pos2(x, y)));
+                ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(w, h)));
+                egui_extras::install_image_loaders(ctx);
+                ctx.include_bytes("bytes://vpx_logo", VPX_LOGO);
+                egui::CentralPanel::default()
+                    .frame(egui::Frame::NONE.fill(egui::Color32::from_rgb(80, 80, 85)))
+                    .show(ctx, |ui| {
+                        ui.centered_and_justified(|ui| {
+                            let mut img = egui::Image::new("bytes://vpx_logo")
+                                .max_size(egui::vec2(512.0, 512.0))
+                                .tint(egui::Color32::from_rgba_premultiplied(180, 180, 190, 200));
+                            if let Some(angle) = rotation {
+                                img = img.rotate(angle, egui::vec2(0.5, 0.5));
                             }
+                            ui.add(img);
                         });
-                },
-            );
-        }
-
-        // 3+ screens: cover Topper with grey metal background + VPX logo
-        let has_topper_display = self.displays.iter().any(|d| d.role == DisplayRole::Topper);
-        if has_topper_display && has_dmd && !self.vpx_hide_covers {
-            let topper_display = self.displays.iter().find(|d| d.role == DisplayRole::Topper);
-            let (tp_x, tp_y, tp_w, tp_h) = topper_display
-                .map(|d| (d.x as f32, d.y as f32, d.width as f32, d.height as f32))
-                .unwrap_or((0.0, 0.0, 1920.0, 1080.0));
-
-            let tp_viewport_id = egui::ViewportId::from_hash_of(TOPPER_VIEWPORT);
-            ui.ctx().show_viewport_deferred(
-                tp_viewport_id,
-                egui::ViewportBuilder::default()
-                    .with_title("PinReady — Topper")
-                    .with_position(egui::pos2(tp_x, tp_y))
-                    .with_inner_size(egui::vec2(tp_w, tp_h))
-                    .with_decorations(false)
-                    .with_override_redirect(true),
-                move |ctx, _class| {
-                    // Force position every frame — WM may ignore initial with_position
-                    ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(egui::pos2(
-                        tp_x, tp_y,
-                    )));
-                    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(tp_w, tp_h)));
-                    egui_extras::install_image_loaders(ctx);
-                    ctx.include_bytes("bytes://vpx_logo", VPX_LOGO);
-                    egui::CentralPanel::default()
-                        .frame(egui::Frame::NONE.fill(egui::Color32::from_rgb(80, 80, 85)))
-                        .show(ctx, |ui| {
-                            ui.centered_and_justified(|ui| {
-                                ui.add(
-                                    egui::Image::new("bytes://vpx_logo")
-                                        .max_size(egui::vec2(512.0, 512.0))
-                                        .tint(egui::Color32::from_rgba_premultiplied(
-                                            180, 180, 190, 200,
-                                        )),
-                                );
-                            });
-                        });
-                },
-            );
-        }
+                    });
+            },
+        );
     }
 }

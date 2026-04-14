@@ -13,24 +13,31 @@ impl App {
             .show(ui, |ui| {
                 // Sync mode
                 ui.label(t!("rendering_sync"));
-                egui::ComboBox::from_id_salt("sync_mode")
-                    .selected_text(match self.sync_mode {
-                        0 => t!("rendering_sync_none").to_string(),
-                        1 => t!("rendering_sync_vsync").to_string(),
-                        _ => t!("rendering_sync_vsync").to_string(),
-                    })
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(
-                            &mut self.sync_mode,
-                            0,
-                            t!("rendering_sync_none").to_string(),
-                        );
-                        ui.selectable_value(
-                            &mut self.sync_mode,
-                            1,
-                            t!("rendering_sync_vsync_default").to_string(),
-                        );
-                    });
+                ui.vertical(|ui| {
+                    egui::ComboBox::from_id_salt("sync_mode")
+                        .selected_text(match self.sync_mode {
+                            0 => t!("rendering_sync_none_default").to_string(),
+                            1 => t!("rendering_sync_vsync").to_string(),
+                            _ => t!("rendering_sync_vsync").to_string(),
+                        })
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(
+                                &mut self.sync_mode,
+                                0,
+                                t!("rendering_sync_none_default").to_string(),
+                            );
+                            ui.selectable_value(
+                                &mut self.sync_mode,
+                                1,
+                                t!("rendering_sync_vsync").to_string(),
+                            );
+                        });
+                    ui.label(
+                        egui::RichText::new(t!("rendering_vsync_hint"))
+                            .weak()
+                            .small(),
+                    );
+                });
                 ui.end_row();
 
                 // Max framerate — auto-set from playfield refresh rate

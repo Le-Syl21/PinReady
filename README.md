@@ -86,12 +86,24 @@ RUST_LOG=info cargo run
 
 **🎮 Launcher controls:**
 
-| Action | ⌨️ Keyboard | 🕹️ Joystick |
-|---|---|---|
-| Navigate tables | Arrow keys | Left/Right flipper (prev/next), Staged flippers (row up/down) |
-| Launch table | Enter | Start button |
-| Open config | -- | Launch Ball button |
-| Quit launcher | Escape | ExitGame button |
+| Action | 🖱️ Mouse | ⌨️ Keyboard | 🕹️ Joystick |
+|---|---|---|---|
+| Previous/next table | Hover | Arrow Left/Right | Left/Right Flipper |
+| Previous/next row | -- | Arrow Up/Down | Left/Right MagnaSave |
+| Launch table | Click | Enter | Start |
+| Open config | -- | -- | Launch Ball |
+| Quit launcher | -- | Escape | ExitGame |
+
+**📺 Multi-screen launcher layout:**
+
+| Screens | Playfield | Backglass | DMD | Topper |
+|---|---|---|---|---|
+| **1** | Table grid | -- | -- | -- |
+| **2** | Table grid (fullscreen) | Backglass preview of hovered table | -- | -- |
+| **3** | VPX logo cover | Backglass preview of hovered table | Table grid (fullscreen) | -- |
+| **4** | VPX logo cover | Backglass preview of hovered table | Table grid (fullscreen) | VPX logo cover |
+
+When a table is launched, all cover viewports are hidden to let VPX take over the screens.
 
 ---
 
@@ -177,12 +189,24 @@ RUST_LOG=info cargo run
 
 **🎮 Contrôles du lanceur :**
 
-| Action | ⌨️ Clavier | 🕹️ Joystick |
-|---|---|---|
-| Naviguer les tables | Flèches | Flippers gauche/droit (précédent/suivant), Staged flippers (ligne haut/bas) |
-| Lancer une table | Entrée | Bouton Start |
-| Ouvrir la config | -- | Bouton Launch Ball |
-| Quitter le lanceur | Échap | Bouton ExitGame |
+| Action | 🖱️ Souris | ⌨️ Clavier | 🕹️ Joystick |
+|---|---|---|---|
+| Table précédente/suivante | Survol | Flèche Gauche/Droite | Flipper Gauche/Droit |
+| Ligne précédente/suivante | -- | Flèche Haut/Bas | MagnaSave Gauche/Droit |
+| Lancer une table | Clic | Entrée | Start |
+| Ouvrir la config | -- | -- | Launch Ball |
+| Quitter le lanceur | -- | Échap | ExitGame |
+
+**📺 Disposition multi-écran du lanceur :**
+
+| Écrans | Playfield | Backglass | DMD | Topper |
+|---|---|---|---|---|
+| **1** | Grille tables | -- | -- | -- |
+| **2** | Grille tables (plein écran) | Aperçu backglass de la table survolée | -- | -- |
+| **3** | Logo VPX (cover) | Aperçu backglass de la table survolée | Grille tables (plein écran) | -- |
+| **4** | Logo VPX (cover) | Aperçu backglass de la table survolée | Grille tables (plein écran) | Logo VPX (cover) |
+
+Au lancement d'une table, tous les viewports de couverture sont masqués pour laisser VPX prendre le contrôle des écrans.
 
 ---
 

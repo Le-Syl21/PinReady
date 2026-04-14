@@ -1,5 +1,21 @@
 use super::*;
 
+/// Parse a percentage from a VPX SetProgress message.
+/// Examples: "Initializing Visuals... 10%" → Some(0.10), "Loading..." → None
+fn parse_progress_pct(msg: &str) -> Option<f32> {
+    // Look for a number followed by '%'
+    let pct_pos = msg.find('%')?;
+    let before = &msg[..pct_pos];
+    // Walk backwards to find the start of the number
+    let num_start = before
+        .rfind(|c: char| !c.is_ascii_digit() && c != '.')
+        .map(|p| p + 1)
+        .unwrap_or(0);
+    let num_str = &before[num_start..];
+    let pct: f32 = num_str.parse().ok()?;
+    Some((pct / 100.0).clamp(0.0, 1.0))
+}
+
 impl App {
     pub(super) fn finalize_wizard(&mut self, _ctx: &egui::Context) {
         // Save ALL pages
@@ -155,47 +171,108 @@ impl App {
                 .arg("-Play")
                 .arg(&path)
                 .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
                 .spawn();
             match child {
                 Ok(mut child) => {
-                    log::info!("Visual Pinball launched, reading stdout...");
+                    log::info!("Visual Pinball launched, reading stdout+stderr...");
+
+                    // Capture stderr on a separate thread
+                    let stderr_handle = child.stderr.take().map(|se| {
+                        std::thread::spawn(move || {
+                            let reader = std::io::BufReader::new(se);
+                            let mut lines = Vec::new();
+                            for line in reader.lines().map_while(Result::ok) {
+                                log::warn!("[VPX stderr] {}", line);
+                                lines.push(line);
+                            }
+                            lines
+                        })
+                    });
+
                     let stdout = child.stdout.take();
                     let mut log_lines: Vec<String> = Vec::new();
                     let mut startup_done = false;
 
-                    // Read stdout — parse progress and startup markers
                     if let Some(so) = stdout {
                         let reader = std::io::BufReader::new(so);
-                        for line in reader.lines().map_while(Result::ok) {
-                            log::info!("[VPX] {}", line);
-                            if line.contains("SetProgress") {
-                                if let Some(start) = line.find("] ") {
-                                    let msg = &line[start + 2..];
-                                    let _ = tx.send(VpxStatus::Loading(msg.to_string()));
+                        let timeout = std::time::Duration::from_secs(30);
+                        let (line_tx, line_rx) = crossbeam_channel::unbounded();
+
+                        // Read stdout lines on a helper thread to allow timeout
+                        std::thread::spawn(move || {
+                            for line in reader.lines().map_while(Result::ok) {
+                                if line_tx.send(line).is_err() {
+                                    break;
                                 }
-                            } else if line.contains("RenderStaticPrepass")
-                                && line.contains("Reflection Probe")
-                            {
-                                let _ =
-                                    tx.send(VpxStatus::Loading("Reflection Probe...".to_string()));
-                            } else if line.contains("PluginLog") {
-                                // Extract plugin name from "B2SLegacy: ..." or "VNI: ..."
-                                if let Some(start) = line.rfind("] ") {
-                                    let msg = &line[start + 2..];
-                                    if let Some(colon) = msg.find(':') {
-                                        let plugin = &msg[..colon];
-                                        let _ = tx.send(VpxStatus::Loading(format!(
-                                            "Plugin {plugin}..."
-                                        )));
-                                    }
-                                }
-                            } else if line.contains("Startup done") {
-                                startup_done = true;
-                                let _ = tx.send(VpxStatus::Started);
                             }
-                            log_lines.push(line);
+                        });
+
+                        loop {
+                            match line_rx.recv_timeout(timeout) {
+                                Ok(line) => {
+                                    log::info!("[VPX] {}", line);
+                                    if line.contains("SetProgress") {
+                                        if let Some(start) = line.find("] ") {
+                                            let msg = &line[start + 2..];
+                                            let pct = parse_progress_pct(msg);
+                                            let _ =
+                                                tx.send(VpxStatus::Loading(msg.to_string(), pct));
+                                        }
+                                    } else if line.contains("RenderStaticPrepass")
+                                        && line.contains("Reflection Probe")
+                                    {
+                                        let _ = tx.send(VpxStatus::Loading(
+                                            "Reflection Probe...".to_string(),
+                                            None,
+                                        ));
+                                    } else if line.contains("PluginLog") {
+                                        if let Some(start) = line.rfind("] ") {
+                                            let msg = &line[start + 2..];
+                                            if let Some(colon) = msg.find(':') {
+                                                let plugin = &msg[..colon];
+                                                let _ = tx.send(VpxStatus::Loading(
+                                                    format!("Plugin {plugin}..."),
+                                                    None,
+                                                ));
+                                            }
+                                        }
+                                    } else if line.contains("Startup done") {
+                                        startup_done = true;
+                                        let _ = tx.send(VpxStatus::Started);
+                                    }
+                                    log_lines.push(line);
+                                }
+                                Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
+                                    if startup_done {
+                                        // After startup, silence is normal (game is running)
+                                        // Wait for process exit instead
+                                        break;
+                                    }
+                                    log::error!(
+                                        "VPX stdout timeout (30s without output during loading)"
+                                    );
+                                    let _ = child.kill();
+                                    let mut err = "Timeout: Visual Pinball stopped responding during loading (no output for 30s).\n\n".to_string();
+                                    let tail: Vec<String> =
+                                        log_lines.iter().rev().take(50).rev().cloned().collect();
+                                    err.push_str(&tail.join("\n"));
+                                    let _ = tx.send(VpxStatus::ExitError(err));
+                                    running.store(false, Ordering::Relaxed);
+                                    return;
+                                }
+                                Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
+                                    // stdout closed — process is exiting
+                                    break;
+                                }
+                            }
                         }
                     }
+
+                    // Collect stderr
+                    let stderr_lines = stderr_handle
+                        .and_then(|h| h.join().ok())
+                        .unwrap_or_default();
 
                     match child.wait() {
                         Ok(status) => {
@@ -203,9 +280,15 @@ impl App {
                             if status.success() || startup_done {
                                 let _ = tx.send(VpxStatus::ExitOk);
                             } else {
+                                let mut combined = String::new();
                                 let tail: Vec<String> =
                                     log_lines.iter().rev().take(50).rev().cloned().collect();
-                                let _ = tx.send(VpxStatus::ExitError(tail.join("\n")));
+                                combined.push_str(&tail.join("\n"));
+                                if !stderr_lines.is_empty() {
+                                    combined.push_str("\n\n--- stderr ---\n");
+                                    combined.push_str(&stderr_lines.join("\n"));
+                                }
+                                let _ = tx.send(VpxStatus::ExitError(combined));
                             }
                         }
                         Err(e) => {
@@ -308,7 +391,7 @@ impl App {
                             self.selected_table = (self.selected_table + 1) % len;
                             self.scroll_to_selected = true;
                         }
-                        Some("LeftStagedFlipper") => {
+                        Some("LeftMagna") => {
                             if self.selected_table >= cols {
                                 self.selected_table -= cols;
                             } else {
@@ -317,7 +400,7 @@ impl App {
                             }
                             self.scroll_to_selected = true;
                         }
-                        Some("RightStagedFlipper") => {
+                        Some("RightMagna") => {
                             if self.selected_table + cols < len {
                                 self.selected_table += cols;
                             } else {
@@ -348,15 +431,18 @@ impl App {
         if let Some(rx) = &self.vpx_status_rx {
             while let Ok(status) = rx.try_recv() {
                 match status {
-                    VpxStatus::Loading(msg) => {
+                    VpxStatus::Loading(msg, pct) => {
                         self.vpx_loading_msg = msg;
+                        self.vpx_loading_pct = pct;
                     }
                     VpxStatus::Started => {
                         self.vpx_loading_msg = "Startup done".to_string();
+                        self.vpx_loading_pct = None;
                         self.vpx_hide_covers = true;
                     }
                     VpxStatus::ExitOk => {
                         self.vpx_loading_msg.clear();
+                        self.vpx_loading_pct = None;
                         self.vpx_hide_covers = false;
                         self.vpx_status_rx = None;
                         return;
@@ -391,12 +477,6 @@ impl App {
                             release.tag,
                             self.vpx_installed_tag
                         );
-                        // Update last check timestamp
-                        let now = std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .map(|d| d.as_secs().to_string())
-                            .unwrap_or_default();
-                        let _ = self.db.set_config("vpx_last_check", &now);
                         if release.tag != self.vpx_installed_tag {
                             self.vpx_latest_release = Some(release);
                         }
@@ -447,7 +527,7 @@ impl App {
     }
 
     pub(super) fn start_vpx_download(&mut self, release: &ReleaseInfo) {
-        let install_dir = updater::default_install_dir();
+        let install_dir = std::path::PathBuf::from(&self.vpx_install_dir);
         let release = release.clone();
         let (tx, rx) = crossbeam_channel::unbounded();
         self.update_progress_rx = Some(rx);
@@ -459,5 +539,63 @@ impl App {
                 let _ = tx.send(UpdateProgress::Error(format!("{e}")));
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_pct_with_integer() {
+        let pct = parse_progress_pct("Initializing Visuals... 10%");
+        assert!(pct.is_some());
+        assert!((pct.unwrap() - 0.10).abs() < 0.001);
+    }
+
+    #[test]
+    fn parse_pct_full() {
+        let pct = parse_progress_pct("Done 100%");
+        assert!(pct.is_some());
+        assert!((pct.unwrap() - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn parse_pct_zero() {
+        let pct = parse_progress_pct("Starting 0%");
+        assert!(pct.is_some());
+        assert!((pct.unwrap() - 0.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn parse_pct_no_percentage() {
+        assert!(parse_progress_pct("Loading...").is_none());
+    }
+
+    #[test]
+    fn parse_pct_no_number_before_percent() {
+        assert!(parse_progress_pct("Progress: %").is_none());
+    }
+
+    #[test]
+    fn parse_pct_clamped_above_100() {
+        let pct = parse_progress_pct("Overflow 150%");
+        assert!(pct.is_some());
+        assert!((pct.unwrap() - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn parse_pct_with_decimal() {
+        let pct = parse_progress_pct("Loading 33.5%");
+        assert!(pct.is_some());
+        assert!((pct.unwrap() - 0.335).abs() < 0.001);
+    }
+
+    #[test]
+    fn parse_pct_embedded_in_brackets() {
+        // Realistic VPX format: "[INFO SetProgress] Loading Textures... 45%"
+        let pct = parse_progress_pct("Loading Textures... 45%");
+        assert!(pct.is_some());
+        assert!((pct.unwrap() - 0.45).abs() < 0.001);
     }
 }

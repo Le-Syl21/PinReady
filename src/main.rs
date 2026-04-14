@@ -17,8 +17,50 @@ mod tilt;
 mod updater;
 
 use anyhow::Result;
+use std::io::Write;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Initialize logging to both stderr and a log file next to the database.
+/// The log file is rotated at startup: PinReady.log → PinReady.log.1
+fn init_logging() {
+    let log_dir = db::default_db_path()
+        .parent()
+        .unwrap_or(std::path::Path::new("."))
+        .to_path_buf();
+    let _ = std::fs::create_dir_all(&log_dir);
+    let log_path = log_dir.join("PinReady.log");
+    let log_prev = log_dir.join("PinReady.log.1");
+
+    // Rotate: keep one previous log
+    if log_path.exists() {
+        let _ = std::fs::rename(&log_path, &log_prev);
+    }
+
+    let log_file = std::fs::File::create(&log_path).ok();
+
+    env_logger::Builder::from_default_env()
+        .format(move |buf, record| {
+            let ts = buf.timestamp_seconds();
+            let line = format!(
+                "[{ts} {level} {target}] {msg}\n",
+                level = record.level(),
+                target = record.target(),
+                msg = record.args(),
+            );
+            // Write to stderr (default behavior)
+            let _ = buf.write_all(line.as_bytes());
+            // Write to log file
+            if let Some(ref file) = log_file {
+                use std::io::Write as _;
+                let _ = (&*file).write_all(line.as_bytes());
+            }
+            Ok(())
+        })
+        .init();
+
+    eprintln!("Log file: {}", log_path.display());
+}
 
 fn main() -> Result<()> {
     // Parse arguments
@@ -41,7 +83,7 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    env_logger::init();
+    init_logging();
     log::info!("PinReady v{VERSION} starting...");
 
     // Initialize SDL3 for display enumeration only (joystick + audio handled in their threads)

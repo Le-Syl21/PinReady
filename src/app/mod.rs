@@ -21,13 +21,13 @@ pub enum AppMode {
 
 /// VPX process status messages sent from the launch thread
 enum VpxStatus {
-    /// Loading progress message (e.g. "Initializing Visuals... 10%")
-    Loading(String),
+    /// Loading progress message with optional percentage (0.0–1.0)
+    Loading(String, Option<f32>),
     /// VPX has finished loading ("Startup done")
     Started,
     /// VPX exited normally
     ExitOk,
-    /// VPX exited with error — contains captured stderr/stdout log
+    /// VPX exited with error — contains captured stdout + stderr log
     ExitError(String),
     /// Failed to launch VPX
     LaunchError(String),
@@ -127,14 +127,16 @@ pub struct App {
     config: VpxConfig,
     db: Database,
 
-    // Visual Pinball executable path
+    // Visual Pinball executable path and install directory
     vpx_exe_path: String,
+    vpx_install_dir: String,
 
     // Page 1 — Screens
     displays: Vec<DisplayInfo>,
     screen_count: usize,
     view_mode: i32, // 0=Desktop, 1=Cabinet, 2=FSS
     disable_touch: bool,
+    external_dmd: bool, // ZeDMD, PinDMD, etc. — DMD handled by external device, not a screen
 
     // Cabinet physical dimensions (cm) for Window projection mode
     screen_inclination: f32, // Playfield screen angle, 0 = horizontal
@@ -193,7 +195,8 @@ pub struct App {
     // VPX launch status received from the VPX process thread
     vpx_status_rx: Option<crossbeam_channel::Receiver<VpxStatus>>,
     vpx_loading_msg: String,
-    vpx_hide_covers: bool,         // VPX windows are up, hide covers
+    vpx_loading_pct: Option<f32>, // loading progress 0.0–1.0, if parseable
+    vpx_hide_covers: bool,        // VPX windows are up, hide covers
     vpx_error_log: Option<String>, // set on unexpected exit, shown as popup
 
     // Autostart on boot
@@ -204,6 +207,8 @@ pub struct App {
 
     // Rescan button: long-press (3s) = full regeneration, short click = incremental
     rescan_press_start: Option<std::time::Instant>,
+    // Rescan feedback flash: (timestamp, is_full_reset)
+    rescan_flash: Option<(std::time::Instant, bool)>,
 
     // Language
     selected_language: usize,
@@ -222,150 +227,42 @@ pub struct App {
 
 impl App {
     pub fn new(config: VpxConfig, db: Database, start_in_wizard: bool) -> Self {
-        // Enumerate displays
         let displays = screens::enumerate_displays();
         let screen_count = displays.len().min(4);
-
-        // Auto-set cabinet mode for 2+ screens
         let view_mode = if screen_count >= 2 { 1 } else { 0 };
         let disable_touch = config
             .get_i32("Player", "NumberOfTimesToShowTouchMessage")
             .unwrap_or(10)
             == 0;
 
-        // Cabinet physical dimensions
-        let screen_inclination = config.get_f32("Player", "ScreenInclination").unwrap_or(0.0);
-        let lockbar_width = config.get_f32("Player", "LockbarWidth").unwrap_or(70.0);
-        let lockbar_height = config.get_f32("Player", "LockbarHeight").unwrap_or(85.0);
-        let player_x = config.get_f32("Player", "ScreenPlayerX").unwrap_or(0.0);
-        let player_y = config.get_f32("Player", "ScreenPlayerY").unwrap_or(-10.0);
-        let player_z = config.get_f32("Player", "ScreenPlayerZ").unwrap_or(70.0);
-        // Reverse-compute player height from Z + lockbar_height + 12cm (eyes-to-top-of-head)
-        let player_height = player_z + lockbar_height + 12.0;
+        let (
+            screen_inclination,
+            lockbar_width,
+            lockbar_height,
+            player_x,
+            player_y,
+            player_z,
+            player_height,
+        ) = Self::load_cabinet_dimensions(&config);
+        let (aa_factor, msaa, fxaa, sharpen, pf_reflection, max_tex_dim, sync_mode, max_framerate) =
+            Self::load_rendering_config(&config);
+        let actions = Self::load_input_mappings(&config);
 
-        // Load rendering config (pre-fill from ini)
-        let aa_factor = config.get_f32("Player", "AAFactor").unwrap_or(1.0);
-        let msaa = config.get_i32("Player", "MSAASamples").unwrap_or(0);
-        let fxaa = config.get_i32("Player", "FXAA").unwrap_or(0);
-        let sharpen = config.get_i32("Player", "Sharpen").unwrap_or(0);
-        let pf_reflection = config.get_i32("Player", "PFReflection").unwrap_or(5);
-        let max_tex_dim = config.get_i32("Player", "MaxTexDimension").unwrap_or(16384);
-        let sync_mode = config.get_i32("Player", "SyncMode").unwrap_or(0);
-        let max_framerate = config.get_f32("Player", "MaxFramerate").unwrap_or(-1.0);
-
-        // Load input actions with defaults
-        let mut actions = inputs::default_actions();
-        // Pre-fill from existing config
-        log::info!("Loading input mappings from ini...");
-        for action in &mut actions {
-            if let Some(mapping_str) = config.get_input_mapping(action.setting_id) {
-                if mapping_str.is_empty() {
-                    continue;
-                }
-                log::info!("  {} = {}", action.setting_id, mapping_str);
-                // Take first alternative (before |), first combo part (before &)
-                let first = mapping_str
-                    .split('|')
-                    .next()
-                    .unwrap_or("")
-                    .split('&')
-                    .next()
-                    .unwrap_or("")
-                    .trim();
-                if let Some(sc_str) = first.strip_prefix("Key;") {
-                    // Keyboard mapping: "Key;<scancode>"
-                    if let Ok(sc_val) = sc_str.parse::<i32>() {
-                        let scancode = sdl3_sys::everything::SDL_Scancode(sc_val);
-                        action.mapping = Some(CapturedInput::Keyboard {
-                            scancode,
-                            name: inputs::scancode_name(scancode),
-                        });
-                    }
-                } else if let Some(pos) = first.find(';') {
-                    // Joystick mapping: "SDLJoy_<id>;<button>[;extra_params...]"
-                    let device_id = first[..pos].to_string();
-                    let rest = &first[pos + 1..];
-                    // Button ID is the first number after the semicolon
-                    if let Ok(button) = rest.split(';').next().unwrap_or("").parse::<u8>() {
-                        action.mapping = Some(CapturedInput::JoystickButton {
-                            device_id: device_id.clone(),
-                            button,
-                            name: format!("{} Button {}", device_id, button),
-                        });
-                    }
-                }
-            }
-        }
-
-        // Load tilt config
         let mut tilt = TiltConfig::default();
         tilt.load_from_config(&config);
 
-        // Load audio config
         let mut audio = AudioConfig::default();
         audio.load_from_config(&config);
         audio.available_devices = AudioConfig::enumerate_devices();
 
-        // Load Visual Pinball executable path and updater config
-        let vpx_exe_path = db.get_config("vpx_exe_path").unwrap_or_default();
-        let vpx_fork_repo = db
-            .get_config("vpx_fork_repo")
-            .unwrap_or_else(|| updater::DEFAULT_FORK_REPO.to_string());
-        let vpx_installed_tag = db.get_config("vpx_installed_tag").unwrap_or_default();
-        let vpx_install_mode = if db.get_config("vpx_install_mode").as_deref() == Some("manual") {
-            VpxInstallMode::Manual
-        } else {
-            VpxInstallMode::Auto
-        };
-
-        // Load tables directory
+        let (vpx_exe_path, vpx_install_dir, vpx_fork_repo, vpx_installed_tag, vpx_install_mode) =
+            Self::load_updater_config(&db);
         let tables_dir = db.get_tables_dir().unwrap_or_default();
-
-        // Start joystick thread (keyboard captured via egui)
+        let external_dmd = db.get_config("external_dmd").as_deref() == Some("true");
         let joystick_rx = inputs::spawn_joystick_thread();
-
         let audio_cmd_tx = audio::spawn_audio_thread();
-
-        // Language detection: from DB, or system, or default English
-        let selected_language = if let Some(saved_lang) = db.get_config("language") {
-            LANGUAGE_OPTIONS
-                .iter()
-                .position(|(c, _)| *c == saved_lang)
-                .unwrap_or_else(i18n::detect_system_language)
-        } else {
-            i18n::detect_system_language()
-        };
-        let (lang_code, _) = LANGUAGE_OPTIONS[selected_language];
-        i18n::set_locale(lang_code);
-        log::info!(
-            "Language: {} ({})",
-            lang_code,
-            LANGUAGE_OPTIONS[selected_language].1
-        );
-
-        // Spawn background update check (throttled to once per hour)
-        let update_check_rx = {
-            let last_check = db.get_config("vpx_last_check").unwrap_or_default();
-            let should_check = last_check.parse::<i64>().map_or(true, |ts| {
-                let now = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map(|d| d.as_secs() as i64)
-                    .unwrap_or(0);
-                now - ts > 3600
-            });
-            if should_check && !vpx_fork_repo.is_empty() {
-                let repo = vpx_fork_repo.clone();
-                log::info!("Checking for Visual Pinball updates from {repo}...");
-                let (tx, rx) = crossbeam_channel::bounded(1);
-                std::thread::spawn(move || {
-                    let result = updater::check_latest_release(&repo);
-                    let _ = tx.send(result);
-                });
-                Some(rx)
-            } else {
-                None
-            }
-        };
+        let selected_language = Self::detect_language(&db);
+        let update_check_rx = Self::spawn_update_check(&vpx_fork_repo);
 
         let mut s = Self {
             mode: if start_in_wizard {
@@ -377,10 +274,12 @@ impl App {
             config,
             db,
             vpx_exe_path,
+            vpx_install_dir,
             displays,
             screen_count,
             view_mode,
             disable_touch,
+            external_dmd,
             screen_inclination,
             lockbar_width,
             lockbar_height,
@@ -420,11 +319,13 @@ impl App {
             vpx_running: Arc::new(AtomicBool::new(false)),
             vpx_status_rx: None,
             vpx_loading_msg: String::new(),
+            vpx_loading_pct: None,
             vpx_hide_covers: false,
             vpx_error_log: None,
             autostart: is_autostart_enabled(),
             quit_after_ms: None,
             rescan_press_start: None,
+            rescan_flash: None,
             selected_language,
             vpx_install_mode,
             vpx_fork_repo,
@@ -436,11 +337,160 @@ impl App {
             update_progress: (0, 0),
             update_error: None,
         };
-        // Pre-scan tables if starting in launcher mode
         if !start_in_wizard {
             s.scan_tables();
         }
         s
+    }
+
+    fn load_cabinet_dimensions(config: &VpxConfig) -> (f32, f32, f32, f32, f32, f32, f32) {
+        let screen_inclination = config.get_f32("Player", "ScreenInclination").unwrap_or(0.0);
+        let lockbar_width = config.get_f32("Player", "LockbarWidth").unwrap_or(70.0);
+        let lockbar_height = config.get_f32("Player", "LockbarHeight").unwrap_or(85.0);
+        let player_x = config.get_f32("Player", "ScreenPlayerX").unwrap_or(0.0);
+        let player_y = config.get_f32("Player", "ScreenPlayerY").unwrap_or(-10.0);
+        let player_z = config.get_f32("Player", "ScreenPlayerZ").unwrap_or(70.0);
+        let player_height = player_z + lockbar_height + 12.0;
+        (
+            screen_inclination,
+            lockbar_width,
+            lockbar_height,
+            player_x,
+            player_y,
+            player_z,
+            player_height,
+        )
+    }
+
+    fn load_rendering_config(config: &VpxConfig) -> (f32, i32, i32, i32, i32, i32, i32, f32) {
+        (
+            config.get_f32("Player", "AAFactor").unwrap_or(1.0),
+            config.get_i32("Player", "MSAASamples").unwrap_or(0),
+            config.get_i32("Player", "FXAA").unwrap_or(0),
+            config.get_i32("Player", "Sharpen").unwrap_or(0),
+            config.get_i32("Player", "PFReflection").unwrap_or(5),
+            config.get_i32("Player", "MaxTexDimension").unwrap_or(16384),
+            config.get_i32("Player", "SyncMode").unwrap_or(0),
+            config.get_f32("Player", "MaxFramerate").unwrap_or(-1.0),
+        )
+    }
+
+    fn load_input_mappings(config: &VpxConfig) -> Vec<InputAction> {
+        let mut actions = inputs::default_actions();
+        log::info!("Loading input mappings from ini...");
+        for action in &mut actions {
+            if let Some(mapping_str) = config.get_input_mapping(action.setting_id) {
+                if mapping_str.is_empty() {
+                    continue;
+                }
+                log::info!("  {} = {}", action.setting_id, mapping_str);
+                let first = mapping_str
+                    .split('|')
+                    .next()
+                    .unwrap_or("")
+                    .split('&')
+                    .next()
+                    .unwrap_or("")
+                    .trim();
+                if let Some(sc_str) = first.strip_prefix("Key;") {
+                    if let Ok(sc_val) = sc_str.parse::<i32>() {
+                        let scancode = sdl3_sys::everything::SDL_Scancode(sc_val);
+                        action.mapping = Some(CapturedInput::Keyboard {
+                            scancode,
+                            name: inputs::scancode_name(scancode),
+                        });
+                    }
+                } else if let Some(pos) = first.find(';') {
+                    let device_id = first[..pos].to_string();
+                    let rest = &first[pos + 1..];
+                    if let Ok(button) = rest.split(';').next().unwrap_or("").parse::<u8>() {
+                        action.mapping = Some(CapturedInput::JoystickButton {
+                            device_id: device_id.clone(),
+                            button,
+                            name: format!("{} Button {}", device_id, button),
+                        });
+                    }
+                }
+            }
+        }
+        actions
+    }
+
+    fn load_updater_config(db: &Database) -> (String, String, String, String, VpxInstallMode) {
+        let vpx_exe_path = db.get_config("vpx_exe_path").unwrap_or_default();
+        let vpx_install_dir = db
+            .get_config("vpx_install_dir")
+            .unwrap_or_else(|| updater::default_install_dir().display().to_string());
+        let vpx_fork_repo = db
+            .get_config("vpx_fork_repo")
+            .unwrap_or_else(|| updater::DEFAULT_FORK_REPO.to_string());
+        let mut vpx_installed_tag = db.get_config("vpx_installed_tag").unwrap_or_default();
+        let vpx_install_mode = if db.get_config("vpx_install_mode").as_deref() == Some("manual") {
+            VpxInstallMode::Manual
+        } else {
+            VpxInstallMode::Auto
+        };
+
+        // Verify the executable still exists — if the install dir was deleted,
+        // reset to fresh-install state so the user gets prompted to reinstall
+        if !vpx_exe_path.is_empty() {
+            let resolved = updater::resolve_vpx_exe(std::path::Path::new(&vpx_exe_path));
+            if !resolved.is_file() {
+                log::warn!(
+                    "VPX executable no longer exists at {}, resetting install state",
+                    resolved.display()
+                );
+                vpx_installed_tag.clear();
+                let _ = db.set_config("vpx_installed_tag", "");
+                let _ = db.set_config("vpx_exe_path", "");
+                return (
+                    String::new(),
+                    vpx_install_dir,
+                    vpx_fork_repo,
+                    vpx_installed_tag,
+                    vpx_install_mode,
+                );
+            }
+        }
+
+        (
+            vpx_exe_path,
+            vpx_install_dir,
+            vpx_fork_repo,
+            vpx_installed_tag,
+            vpx_install_mode,
+        )
+    }
+
+    fn detect_language(db: &Database) -> usize {
+        let selected = if let Some(saved_lang) = db.get_config("language") {
+            LANGUAGE_OPTIONS
+                .iter()
+                .position(|(c, _)| *c == saved_lang)
+                .unwrap_or_else(i18n::detect_system_language)
+        } else {
+            i18n::detect_system_language()
+        };
+        let (lang_code, _) = LANGUAGE_OPTIONS[selected];
+        i18n::set_locale(lang_code);
+        log::info!("Language: {} ({})", lang_code, LANGUAGE_OPTIONS[selected].1);
+        selected
+    }
+
+    fn spawn_update_check(
+        vpx_fork_repo: &str,
+    ) -> Option<crossbeam_channel::Receiver<anyhow::Result<ReleaseInfo>>> {
+        if vpx_fork_repo.is_empty() {
+            return None;
+        }
+        let repo = vpx_fork_repo.to_string();
+        log::info!("Checking for Visual Pinball updates from {repo}...");
+        let (tx, rx) = crossbeam_channel::bounded(1);
+        std::thread::spawn(move || {
+            let result = updater::check_latest_release(&repo);
+            let _ = tx.send(result);
+        });
+        Some(rx)
     }
 
     fn next_page(&mut self) {
@@ -470,6 +520,7 @@ impl App {
                 self.player_y = -10.0;
                 self.player_height = 167.0;
                 self.player_z = (self.player_height - 12.0 - self.lockbar_height).max(0.0);
+                self.external_dmd = false;
             }
             WizardPage::Rendering => {
                 self.aa_factor = 1.0;
@@ -495,6 +546,85 @@ impl App {
             }
             WizardPage::TablesDir => {
                 self.tables_dir = String::new();
+            }
+        }
+    }
+
+    /// Process joystick events during wizard mode (tilt viz, input capture, device detection).
+    fn process_wizard_joystick_events(&mut self) {
+        let events: Vec<JoystickEvent> = self
+            .joystick_rx
+            .as_ref()
+            .map(|rx| rx.try_iter().collect())
+            .unwrap_or_default();
+
+        for event in events {
+            match &event {
+                JoystickEvent::AccelUpdate { x, y } => {
+                    self.accel_x = *x;
+                    self.accel_y = *y;
+                }
+                JoystickEvent::ButtonDown {
+                    device_id,
+                    button,
+                    name,
+                } => {
+                    if let CaptureState::Capturing(idx) = self.capture_state {
+                        if idx < self.actions.len() {
+                            self.actions[idx].mapping = Some(CapturedInput::JoystickButton {
+                                device_id: device_id.clone(),
+                                button: *button,
+                                name: name.clone(),
+                            });
+                        }
+                        self.capture_state = CaptureState::Idle;
+                    }
+                }
+                JoystickEvent::AxisMotion { .. } => {}
+                JoystickEvent::PinscapeDetected { vpx_id } => {
+                    self.apply_pinscape_defaults(vpx_id);
+                }
+                JoystickEvent::GamepadDetected { vpx_id, name } => {
+                    log::info!("Gamepad detected in UI: {} ({})", name, vpx_id);
+                    self.gamepad_id = Some(vpx_id.clone());
+                }
+            }
+        }
+    }
+
+    /// Apply KL Shield V5 default button mapping when a Pinscape controller is detected.
+    fn apply_pinscape_defaults(&mut self, vpx_id: &str) {
+        log::info!("Pinscape detected in UI: {}", vpx_id);
+        self.pinscape_id = Some(vpx_id.to_string());
+        let defaults: &[(&str, u8)] = &[
+            ("LeftFlipper", 7),
+            ("RightFlipper", 8),
+            ("LeftMagna", 2),
+            ("RightMagna", 3),
+            ("LeftStagedFlipper", 2),
+            ("RightStagedFlipper", 3),
+            ("Start", 0),
+            ("LaunchBall", 4),
+            ("ExitGame", 5),
+            ("ExtraBall", 6),
+            ("Credit1", 12),
+            ("CoinDoor", 13),
+            ("Service1", 14),
+            ("Service2", 15),
+            ("Service3", 16),
+            ("Service4", 17),
+            ("VolumeDown", 18),
+            ("VolumeUp", 19),
+        ];
+        for (action_id, button) in defaults {
+            if let Some(action) = self.actions.iter_mut().find(|a| a.setting_id == *action_id) {
+                if action.mapping.is_none() {
+                    action.mapping = Some(CapturedInput::JoystickButton {
+                        device_id: vpx_id.to_string(),
+                        button: *button,
+                        name: format!("{} Button {}", vpx_id, button),
+                    });
+                }
             }
         }
     }
@@ -530,81 +660,7 @@ impl eframe::App for App {
             return;
         }
 
-        // === Wizard mode: process joystick events for tilt viz + input capture ===
-        if let Some(rx) = &self.joystick_rx {
-            while let Ok(event) = rx.try_recv() {
-                match &event {
-                    JoystickEvent::AccelUpdate { x, y } => {
-                        self.accel_x = *x;
-                        self.accel_y = *y;
-                    }
-                    JoystickEvent::ButtonDown {
-                        device_id,
-                        button,
-                        name,
-                    } => {
-                        if let CaptureState::Capturing(idx) = self.capture_state {
-                            if idx < self.actions.len() {
-                                self.actions[idx].mapping = Some(CapturedInput::JoystickButton {
-                                    device_id: device_id.clone(),
-                                    button: *button,
-                                    name: name.clone(),
-                                });
-                            }
-                            self.capture_state = CaptureState::Idle;
-                        }
-                    }
-                    JoystickEvent::AxisMotion { .. } => {}
-                    JoystickEvent::PinscapeDetected { vpx_id } => {
-                        log::info!("Pinscape detected in UI: {}", vpx_id);
-                        self.pinscape_id = Some(vpx_id.clone());
-                        // KL Shield V5 default mapping (Pinscape KL25Z)
-                        let brain_defaults: &[(&str, u8)] = &[
-                            // Flippers
-                            ("LeftFlipper", 7),
-                            ("RightFlipper", 8),
-                            // Upper flippers: mapped to both Magna and Staged (same physical button)
-                            ("LeftMagna", 2),
-                            ("RightMagna", 3),
-                            ("LeftStagedFlipper", 2),
-                            ("RightStagedFlipper", 3),
-                            // Game controls
-                            ("Start", 0),
-                            ("LaunchBall", 4),
-                            ("ExitGame", 5),
-                            ("ExtraBall", 6),
-                            // Coin & service
-                            ("Credit1", 12),
-                            ("CoinDoor", 13),
-                            ("Service1", 14),
-                            ("Service2", 15),
-                            ("Service3", 16),
-                            ("Service4", 17),
-                            // Volume
-                            ("VolumeDown", 18),
-                            ("VolumeUp", 19),
-                        ];
-                        for (action_id, button) in brain_defaults {
-                            if let Some(action) =
-                                self.actions.iter_mut().find(|a| a.setting_id == *action_id)
-                            {
-                                if action.mapping.is_none() {
-                                    action.mapping = Some(CapturedInput::JoystickButton {
-                                        device_id: vpx_id.clone(),
-                                        button: *button,
-                                        name: format!("{} Button {}", vpx_id, button),
-                                    });
-                                }
-                            }
-                        }
-                    }
-                    JoystickEvent::GamepadDetected { vpx_id, name } => {
-                        log::info!("Gamepad detected in UI: {} ({})", name, vpx_id);
-                        self.gamepad_id = Some(vpx_id.clone());
-                    }
-                }
-            }
-        }
+        self.process_wizard_joystick_events();
 
         // === Wizard mode ===
 
@@ -642,18 +698,29 @@ impl eframe::App for App {
                 }
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    // Block navigation while VPX is downloading on the Screens page
-                    let downloading = self.update_downloading && self.page == WizardPage::Screens;
+                    // Block navigation on Screens page if VPX is not installed or downloading
+                    let on_screens_page = self.page == WizardPage::Screens;
+                    let downloading = self.update_downloading && on_screens_page;
+                    let vpx_missing = on_screens_page && {
+                        let resolved =
+                            updater::resolve_vpx_exe(std::path::Path::new(&self.vpx_exe_path));
+                        self.vpx_exe_path.is_empty() || !resolved.is_file()
+                    };
+                    let blocked = downloading || vpx_missing;
+
                     if self.page.index() < WizardPage::count() - 1 {
                         let btn = egui::Button::new(t!("wizard_next"));
-                        if ui.add_enabled(!downloading, btn).clicked() {
+                        if ui.add_enabled(!blocked, btn).clicked() {
                             self.next_page();
                         }
                     } else {
                         let btn = egui::Button::new(t!("wizard_finish"));
-                        if ui.add_enabled(!downloading, btn).clicked() {
+                        if ui.add_enabled(!blocked, btn).clicked() {
                             self.finalize_wizard(ui.ctx());
                         }
+                    }
+                    if vpx_missing && !downloading {
+                        ui.colored_label(egui::Color32::from_rgb(255, 180, 50), t!("vpx_required"));
                     }
                     if downloading {
                         let (current, total) = self.update_progress;
