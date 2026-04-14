@@ -204,6 +204,8 @@ tilt_desc = "Pengaturan sensitivitas untuk akselerometer Anda (Pinscape / KL25Z)
 tilt_nudge = "Nudge"
 tilt_noise_filter = "Filter noise"
 tilt_sensitivity = "Sensitivitas akselerometer:"
+tilt_deadzone = "Zona mati (gerakan di bawah ambang ini diabaikan):"
+tilt_deadzone_warning = "Peringatan: zona mati lebih besar atau sama dengan ambang tilt — nudge tidak akan pernah berfungsi!"
 tilt_section = "Tilt"
 tilt_threshold = "Ambang batas pemicu TILT:"
 tilt_visualization = "Dorong kabinet untuk melihat titik bergerak. Jika menyentuh lingkaran merah = TILT:"

@@ -205,6 +205,8 @@ tilt_desc = "Réglage de la sensibilité de votre accéléromètre (Pinscape / K
 tilt_nudge = "Nudge"
 tilt_noise_filter = "Filtre anti-bruit"
 tilt_sensitivity = "Sensibilité de l'accéléromètre :"
+tilt_deadzone = "Zone morte (mouvements ignorés en dessous de ce seuil) :"
+tilt_deadzone_warning = "Attention : la zone morte est supérieure ou égale au seuil de tilt — le nudge ne fonctionnera jamais !"
 tilt_section = "Tilt"
 tilt_threshold = "Seuil de déclenchement du TILT :"
 tilt_visualization = "Poussez la caisse pour voir le point bouger. S'il touche l'anneau rouge = TILT :"

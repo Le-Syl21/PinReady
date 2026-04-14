@@ -204,6 +204,8 @@ tilt_desc = "إعدادات الحساسية لمقياس التسارع (Pinsca
 tilt_nudge = "الدفع"
 tilt_noise_filter = "مرشح الضوضاء"
 tilt_sensitivity = "حساسية مقياس التسارع:"
+tilt_deadzone = "المنطقة الميتة (يتم تجاهل الحركات تحت هذا الحد):"
+tilt_deadzone_warning = "تحذير: المنطقة الميتة أكبر من أو تساوي حد الإمالة — لن يعمل الدفع أبداً!"
 tilt_section = "الميل"
 tilt_threshold = "عتبة تشغيل TILT:"
 tilt_visualization = "ادفع الخزانة لرؤية النقطة تتحرك. إذا لمست الحلقة الحمراء = TILT:"

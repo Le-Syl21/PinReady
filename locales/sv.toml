@@ -204,6 +204,8 @@ tilt_desc = "Känslighetsinställningar för din accelerometer (Pinscape / KL25Z
 tilt_nudge = "Nudge"
 tilt_noise_filter = "Brusfilter"
 tilt_sensitivity = "Accelerometerkänslighet:"
+tilt_deadzone = "Dödzon (rörelser under detta tröskelvärde ignoreras):"
+tilt_deadzone_warning = "Varning: dödzonen är större än eller lika med tilt-tröskeln — nudge kommer aldrig att fungera!"
 tilt_section = "Tilt"
 tilt_threshold = "TILT-utlösningströskel:"
 tilt_visualization = "Tryck på kabinettet för att se punkten röra sig. Om den når den röda ringen = TILT:"

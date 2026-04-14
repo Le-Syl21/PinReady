@@ -21,8 +21,16 @@ impl App {
         ui.label(t!("tilt_sensitivity"));
         ui.add_sized(
             [ui.available_width(), 24.0],
-            egui::Slider::new(&mut self.tilt.nudge_scale, 0.1..=2.0)
-                .custom_formatter(|v, _| format!("{:.1}x", v)),
+            egui::Slider::new(&mut self.tilt.nudge_scale_pct, 0.0..=100.0)
+                .custom_formatter(|v, _| format!("{:.0}%", v)),
+        );
+        ui.add_space(4.0);
+
+        ui.label(t!("tilt_deadzone"));
+        ui.add_sized(
+            [ui.available_width(), 24.0],
+            egui::Slider::new(&mut self.tilt.nudge_deadzone_pct, 0.0..=100.0)
+                .custom_formatter(|v, _| format!("{:.0}%", v)),
         );
         ui.add_space(12.0);
 
@@ -34,13 +42,21 @@ impl App {
         ui.label(t!("tilt_threshold"));
         ui.add_sized(
             [ui.available_width(), 24.0],
-            egui::Slider::new(&mut self.tilt.plumb_threshold_angle, 5.0..=60.0)
-                .suffix("°")
-                .custom_formatter(|v, _| format!("{:.0}°", v)),
+            egui::Slider::new(&mut self.tilt.tilt_sensitivity_pct, 0.0..=100.0)
+                .custom_formatter(|v, _| format!("{:.0}%", v)),
         );
         ui.add_space(8.0);
 
-        // Single visualization circle: live accel dot + tilt threshold ring
+        // Warning if deadzone >= tilt threshold
+        if self.tilt.nudge_deadzone_pct >= self.tilt.tilt_sensitivity_pct {
+            ui.colored_label(
+                egui::Color32::from_rgb(255, 180, 50),
+                t!("tilt_deadzone_warning"),
+            );
+        }
+        ui.add_space(4.0);
+
+        // Visualization: deadzone (green ring) + tilt (red ring) + live dot
         ui.label(t!("tilt_visualization"));
         ui.add_space(4.0);
         let viz_size = egui::vec2(240.0, 240.0);
@@ -67,8 +83,23 @@ impl App {
             egui::Stroke::new(1.0, egui::Color32::DARK_GRAY),
         );
 
-        // TILT threshold ring (red)
-        let threshold_radius = radius * (self.tilt.plumb_threshold_angle / 60.0);
+        // Deadzone ring (green) — movements inside are ignored
+        let deadzone_radius = radius * (self.tilt.nudge_deadzone_pct / 100.0);
+        if deadzone_radius > 1.0 {
+            painter.circle_filled(
+                center,
+                deadzone_radius,
+                egui::Color32::from_rgba_unmultiplied(80, 200, 80, 30),
+            );
+            painter.circle_stroke(
+                center,
+                deadzone_radius,
+                egui::Stroke::new(2.0, egui::Color32::from_rgb(80, 200, 80)),
+            );
+        }
+
+        // TILT threshold ring (red) — beyond this = TILT
+        let threshold_radius = radius * (self.tilt.tilt_sensitivity_pct / 100.0);
         painter.circle_stroke(
             center,
             threshold_radius,
@@ -82,16 +113,18 @@ impl App {
             egui::Color32::from_rgb(255, 80, 80),
         );
 
-        // Live accelerometer dot — apply nudge_scale so slider changes are visible live
-        let scale = self.tilt.nudge_scale * 8.0; // 8x base amplification for visibility
+        // Live accelerometer dot
+        let scale = (self.tilt.nudge_scale_pct / 100.0) * 8.0;
         let dot_x = center.x + (self.accel_x * scale).clamp(-1.0, 1.0) * radius;
         let dot_y = center.y + (self.accel_y * scale).clamp(-1.0, 1.0) * radius;
         let dot_pos = egui::pos2(dot_x, dot_y);
         let dist = ((dot_x - center.x).powi(2) + (dot_y - center.y).powi(2)).sqrt();
         let dot_color = if dist > threshold_radius {
             egui::Color32::from_rgb(255, 50, 50) // in TILT zone
+        } else if dist < deadzone_radius {
+            egui::Color32::from_rgb(150, 150, 150) // in deadzone (ignored)
         } else {
-            egui::Color32::from_rgb(100, 220, 100) // safe
+            egui::Color32::from_rgb(100, 220, 100) // active zone
         };
         painter.circle_filled(dot_pos, 7.0, dot_color);
     }

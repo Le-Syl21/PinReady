@@ -204,6 +204,8 @@ tilt_desc = "आपके एक्सेलेरोमीटर (Pinscape / KL
 tilt_nudge = "नज"
 tilt_noise_filter = "शोर फ़िल्टर"
 tilt_sensitivity = "एक्सेलेरोमीटर संवेदनशीलता:"
+tilt_deadzone = "डेड ज़ोन (इस सीमा से नीचे की गतिविधि को नज़रअंदाज़ किया जाता है):"
+tilt_deadzone_warning = "चेतावनी: डेड ज़ोन टिल्ट सीमा से बड़ा या बराबर है — नज कभी काम नहीं करेगा!"
 tilt_section = "टिल्ट"
 tilt_threshold = "TILT ट्रिगर सीमा:"
 tilt_visualization = "कैबिनेट को धक्का दें और बिंदु को हिलते देखें। यदि यह लाल रिंग को छूता है = TILT:"

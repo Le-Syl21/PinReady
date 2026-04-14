@@ -166,8 +166,8 @@ pub struct App {
     capture_state: CaptureState,
     show_advanced_inputs: bool,
     joystick_rx: Option<crossbeam_channel::Receiver<JoystickEvent>>,
-    pinscape_id: Option<String>, // VPX device ID if Pinscape detected
-    pinscape_profile: usize,     // 0 = KL25Z, 1 = Pico (OpenPinballDevice)
+    pinscape_id: Option<String>, // VPX device ID if pinball controller detected
+    pinscape_profile: usize,     // 0 = KL25Z, 1 = Pico, 2 = DudesCab
     gamepad_id: Option<String>,  // VPX device ID if generic gamepad detected
     use_gamepad: bool,           // User toggle: use gamepad axes for flippers/nudge/plunger
 

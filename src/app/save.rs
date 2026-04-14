@@ -186,43 +186,23 @@ impl App {
 
         if let Some(psc_id) = &self.pinscape_id {
             let psc_id = psc_id.clone();
-            // Register all known devices with proper types (matches VPX auto-mapping format)
-            self.config
-                .set("Input", "Devices", &format!("Key;Mouse;{psc_id}"));
-            // Keyboard device
-            self.config.set("Input", "Device.Key.Type", "1");
+            // Device declarations — leave values empty, VPX fills them on first launch.
+            // Only NoAutoLayout = 1 matters (prevents VPX from re-prompting mapping).
+            self.config.set("Input", "Devices", "");
+            self.config.set("Input", "Device.Key.Type", "");
             self.config.set("Input", "Device.Key.NoAutoLayout", "");
-            self.config.set("Input", "Device.Key.Name", "Keyboards");
-            // Mouse device
-            self.config.set("Input", "Device.Mouse.Type", "3");
+            self.config.set("Input", "Device.Key.Name", "");
+            self.config.set("Input", "Device.Mouse.Type", "");
             self.config.set("Input", "Device.Mouse.NoAutoLayout", "");
-            self.config.set("Input", "Device.Mouse.Name", "Mouse");
-            // Pinscape device — type 2 (joystick), NoAutoLayout = 1 (don't re-prompt)
             self.config
-                .set("Input", &format!("Device.{psc_id}.Type"), "2");
+                .set("Input", &format!("Device.{psc_id}.Type"), "");
             self.config
                 .set("Input", &format!("Device.{psc_id}.NoAutoLayout"), "1");
-            self.config.set(
-                "Input",
-                &format!("Device.{psc_id}.Name"),
-                &format!("mjrnet Pinscape Controller {psc_id}"),
-            );
-            // Pinscape axis elements (matches VPX auto-mapping output)
-            let elements = [
-                "512;A;Nudge X Acceleration",
-                "513;A;Nudge Y Acceleration",
-                "514;A;Plunger Position",
-                "515;A;Nudge X Velocity",
-                "516;A;Nudge Y Velocity",
-                "517;A;Plunger Velocity",
-                "518;A;Axis #6",
-                "519;A;Axis #7",
-            ];
-            for (i, elem) in elements.iter().enumerate() {
-                self.config
-                    .set("Input", &format!("Device.{psc_id}.Element{i}"), elem);
-            }
-            // Analog mappings — plunger + nudge
+            self.config
+                .set("Input", &format!("Device.{psc_id}.Name"), "");
+
+            // Axes: always write them so VPX doesn't need to auto-detect.
+            // Combined with NoAutoLayout=1, VPX won't prompt and axes work.
             self.config.set(
                 "Input",
                 "Mapping.PlungerPos",
@@ -232,22 +212,20 @@ impl App {
                 "Input",
                 "Mapping.NudgeX1",
                 &format!(
-                    "{psc_id};512;A;0.100000;{:.6};1.000000",
-                    self.tilt.nudge_scale
+                    "{psc_id};512;A;{:.6};{:.6};1.000000",
+                    self.tilt.nudge_deadzone_pct / 100.0,
+                    self.tilt.nudge_scale_pct / 100.0
                 ),
             );
             self.config.set(
                 "Input",
                 "Mapping.NudgeY1",
                 &format!(
-                    "{psc_id};513;A;0.100000;{:.6};1.000000",
-                    self.tilt.nudge_scale
+                    "{psc_id};513;A;{:.6};{:.6};1.000000",
+                    self.tilt.nudge_deadzone_pct / 100.0,
+                    self.tilt.nudge_scale_pct / 100.0
                 ),
             );
-            // Empty entries to match VPX format (prevents VPX from re-prompting)
-            self.config.set("Input", "Mapping.PlungerVel", "");
-            self.config.set("Input", "Mapping.NudgeX2", "");
-            self.config.set("Input", "Mapping.NudgeY2", "");
         }
 
         if let Some(gp_id) = &self.gamepad_id {

@@ -204,6 +204,8 @@ tilt_desc = "Definições de sensibilidade para o seu acelerómetro (Pinscape / 
 tilt_nudge = "Nudge"
 tilt_noise_filter = "Filtro de ruído"
 tilt_sensitivity = "Sensibilidade do acelerómetro:"
+tilt_deadzone = "Zona morta (movimentos ignorados abaixo deste limiar):"
+tilt_deadzone_warning = "Aviso: a zona morta é maior ou igual ao limiar de tilt — o nudge nunca funcionará!"
 tilt_section = "Tilt"
 tilt_threshold = "Limiar de ativação do TILT:"
 tilt_visualization = "Empurre o gabinete para ver o ponto mover-se. Se tocar no anel vermelho = TILT:"

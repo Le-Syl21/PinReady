@@ -204,6 +204,8 @@ tilt_desc = "آپ کے ایکسلرومیٹر (Pinscape / KL25Z) کی حساسی
 tilt_nudge = "نج"
 tilt_noise_filter = "شور فلٹر"
 tilt_sensitivity = "ایکسلرومیٹر حساسیت:"
+tilt_deadzone = "ڈیڈ زون (اس حد سے نیچے حرکات نظرانداز کی جاتی ہیں):"
+tilt_deadzone_warning = "انتباہ: ڈیڈ زون ٹلٹ حد سے بڑا یا برابر ہے — نج کبھی کام نہیں کرے گا!"
 tilt_section = "ٹلٹ"
 tilt_threshold = "TILT ٹرگر حد:"
 tilt_visualization = "کیبنٹ کو دھکیلیں اور نقطے کو حرکت کرتے دیکھیں۔ اگر سرخ حلقے کو چھوئے = TILT:"

@@ -86,8 +86,8 @@ pub enum JoystickEvent {
 }
 
 /// Build the VPX-compatible device ID for an SDL joystick.
-/// VPX format: `SDLJoy_<serial>` where serial comes from SDL_GetJoystickSerial.
-/// Falls back to GUID string if no serial is available.
+/// Uses serial (`SDLJoy_PSC...`) if available, else GUID.
+/// Single ID used for both buttons and axes — VPX handles the rest.
 unsafe fn vpx_device_id(joy: *mut sdl3_sys::everything::SDL_Joystick) -> String {
     let serial_ptr = SDL_GetJoystickSerial(joy);
     if !serial_ptr.is_null() {

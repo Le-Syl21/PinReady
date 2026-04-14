@@ -204,6 +204,8 @@ tilt_desc = "Gevoeligheidsinstellingen voor uw versnellingsmeter (Pinscape / KL2
 tilt_nudge = "Nudge"
 tilt_noise_filter = "Ruisfilter"
 tilt_sensitivity = "Versnellingsmeter-gevoeligheid:"
+tilt_deadzone = "Dode zone (bewegingen onder deze drempel worden genegeerd):"
+tilt_deadzone_warning = "Waarschuwing: de dode zone is groter dan of gelijk aan de tilt-drempel — nudge zal nooit werken!"
 tilt_section = "Tilt"
 tilt_threshold = "TILT-activeringsdrempel:"
 tilt_visualization = "Duw het cabinet om het punt te zien bewegen. Als het de rode ring raakt = TILT:"

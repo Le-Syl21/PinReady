@@ -358,9 +358,24 @@ impl App {
         }
     }
 
-    /// Find which action is mapped to a given joystick button number.
-    pub(super) fn action_for_button(&self, button: u8) -> Option<String> {
+    /// Find launcher navigation action for a button.
+    /// Only matches LeftFlipper, RightFlipper, LeftMagna, RightMagna, Start,
+    /// LaunchBall, ExitGame — ignores StagedFlipper and other actions to avoid
+    /// conflicts when flipper and staged are on the same physical button.
+    fn action_for_launcher_nav(&self, button: u8) -> Option<String> {
+        const NAV_ACTIONS: &[&str] = &[
+            "LeftFlipper",
+            "RightFlipper",
+            "LeftMagna",
+            "RightMagna",
+            "Start",
+            "LaunchBall",
+            "ExitGame",
+        ];
         for action in &self.actions {
+            if !NAV_ACTIONS.contains(&action.setting_id) {
+                continue;
+            }
             if let Some(inputs::CapturedInput::JoystickButton { button: b, .. }) = &action.mapping {
                 if *b == button {
                     return Some(action.setting_id.to_string());
@@ -388,7 +403,7 @@ impl App {
         for event in events {
             match &event {
                 JoystickEvent::ButtonDown { button, .. } => {
-                    let action = self.action_for_button(*button);
+                    let action = self.action_for_launcher_nav(*button);
                     match action.as_deref() {
                         Some("LeftFlipper") => {
                             if self.selected_table > 0 {

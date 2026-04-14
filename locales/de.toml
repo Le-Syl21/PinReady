@@ -204,6 +204,8 @@ tilt_desc = "Empfindlichkeitseinstellungen für Ihren Beschleunigungssensor (Pin
 tilt_nudge = "Nudge"
 tilt_noise_filter = "Rauschfilter"
 tilt_sensitivity = "Beschleunigungssensor-Empfindlichkeit:"
+tilt_deadzone = "Totzone (Bewegungen unterhalb dieses Schwellenwerts werden ignoriert):"
+tilt_deadzone_warning = "Warnung: Die Totzone ist größer oder gleich dem Tilt-Schwellenwert — Nudge wird nie funktionieren!"
 tilt_section = "Tilt"
 tilt_threshold = "TILT-Auslöseschwelle:"
 tilt_visualization = "Schieben Sie das Cabinet, um den Punkt zu bewegen. Berührt er den roten Ring = TILT:"

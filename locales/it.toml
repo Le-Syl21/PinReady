@@ -204,6 +204,8 @@ tilt_desc = "Impostazioni di sensibilità per l'accelerometro (Pinscape / KL25Z)
 tilt_nudge = "Nudge"
 tilt_noise_filter = "Filtro rumore"
 tilt_sensitivity = "Sensibilità accelerometro:"
+tilt_deadzone = "Zona morta (movimenti ignorati sotto questa soglia):"
+tilt_deadzone_warning = "Attenzione: la zona morta è maggiore o uguale alla soglia di tilt — il nudge non funzionerà mai!"
 tilt_section = "Tilt"
 tilt_threshold = "Soglia di attivazione TILT:"
 tilt_visualization = "Spingi il cabinet per vedere il punto muoversi. Se tocca l'anello rosso = TILT:"
