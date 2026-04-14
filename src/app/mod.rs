@@ -6,7 +6,7 @@ use crate::audio::{self, AudioCommand, AudioConfig, Sound3DMode};
 use crate::config::VpxConfig;
 use crate::db::Database;
 use crate::i18n::{self, LANGUAGE_OPTIONS};
-use crate::inputs::{self, CapturedInput, InputAction, JoystickEvent};
+use crate::inputs::{self, pinscape_button_defaults, CapturedInput, InputAction, JoystickEvent};
 use crate::screens::{self, DisplayInfo, DisplayRole};
 use crate::tilt::TiltConfig;
 use crate::updater::{self, ReleaseInfo, UpdateProgress};
@@ -167,6 +167,7 @@ pub struct App {
     show_advanced_inputs: bool,
     joystick_rx: Option<crossbeam_channel::Receiver<JoystickEvent>>,
     pinscape_id: Option<String>, // VPX device ID if Pinscape detected
+    pinscape_profile: usize,     // 0 = KL25Z, 1 = Pico (OpenPinballDevice)
     gamepad_id: Option<String>,  // VPX device ID if generic gamepad detected
     use_gamepad: bool,           // User toggle: use gamepad axes for flippers/nudge/plunger
 
@@ -259,6 +260,10 @@ impl App {
             Self::load_updater_config(&db);
         let tables_dir = db.get_tables_dir().unwrap_or_default();
         let external_dmd = db.get_config("external_dmd").as_deref() == Some("true");
+        let pinscape_profile = db
+            .get_config("pinscape_profile")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0);
         let joystick_rx = inputs::spawn_joystick_thread();
         let audio_cmd_tx = audio::spawn_audio_thread();
         let selected_language = Self::detect_language(&db);
@@ -302,6 +307,7 @@ impl App {
             show_advanced_inputs: false,
             joystick_rx: Some(joystick_rx),
             pinscape_id: None,
+            pinscape_profile,
             gamepad_id: None,
             use_gamepad: false,
             tilt,
@@ -584,6 +590,11 @@ impl App {
                 JoystickEvent::PinscapeDetected { vpx_id } => {
                     self.apply_pinscape_defaults(vpx_id);
                 }
+                JoystickEvent::DudesCabDetected { vpx_id } => {
+                    log::info!("DudesCab detected in UI: {}", vpx_id);
+                    self.pinscape_profile = 2;
+                    self.apply_pinscape_defaults(vpx_id);
+                }
                 JoystickEvent::GamepadDetected { vpx_id, name } => {
                     log::info!("Gamepad detected in UI: {} ({})", name, vpx_id);
                     self.gamepad_id = Some(vpx_id.clone());
@@ -592,30 +603,12 @@ impl App {
         }
     }
 
-    /// Apply KL Shield V5 default button mapping when a Pinscape controller is detected.
+    /// Apply Pinscape default button mapping when a controller is detected.
+    /// Profile is selected by `pinscape_profile`: 0 = KL25Z, 1 = Pico (OpenPinballDevice).
     fn apply_pinscape_defaults(&mut self, vpx_id: &str) {
         log::info!("Pinscape detected in UI: {}", vpx_id);
         self.pinscape_id = Some(vpx_id.to_string());
-        let defaults: &[(&str, u8)] = &[
-            ("LeftFlipper", 7),
-            ("RightFlipper", 8),
-            ("LeftMagna", 2),
-            ("RightMagna", 3),
-            ("LeftStagedFlipper", 2),
-            ("RightStagedFlipper", 3),
-            ("Start", 0),
-            ("LaunchBall", 4),
-            ("ExitGame", 5),
-            ("ExtraBall", 6),
-            ("Credit1", 12),
-            ("CoinDoor", 13),
-            ("Service1", 14),
-            ("Service2", 15),
-            ("Service3", 16),
-            ("Service4", 17),
-            ("VolumeDown", 18),
-            ("VolumeUp", 19),
-        ];
+        let defaults = pinscape_button_defaults(self.pinscape_profile);
         for (action_id, button) in defaults {
             if let Some(action) = self.actions.iter_mut().find(|a| a.setting_id == *action_id) {
                 if action.mapping.is_none() {

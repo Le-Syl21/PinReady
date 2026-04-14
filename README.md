@@ -17,7 +17,7 @@ PinReady replaces the non-existent native configuration tools for VPX standalone
 - 📥 **Visual Pinball auto-install** -- Automatically download and install the correct Visual Pinball build for your platform (Linux/macOS/Windows, x64/arm64/SBC)
 - 🖥️ **Screen assignment** -- Detect displays via SDL3, auto-assign roles (Playfield, Backglass, DMD, Topper) by size, configure multi-screen positioning and cabinet physical dimensions
 - 🎨 **Rendering** -- Anti-aliasing, FXAA, sharpening, reflections, texture limits, sync mode, max framerate
-- 🎮 **Input mapping** -- Capture keyboard and joystick bindings for all VPX actions, auto-detect Pinscape/KL25Z controllers, conflict warnings
+- 🎮 **Input mapping** -- Capture keyboard and joystick bindings for all VPX actions, auto-detect pinball controllers (Pinscape KL25Z, Pinscape Pico, DudesCab), conflict warnings
 - 📐 **Tilt & nudge** -- Configure accelerometer sensitivity with simplified or advanced controls
 - 🔊 **Audio routing** -- Assign playfield and backglass audio devices, configure SSF surround modes (6 modes), test speaker wiring with built-in audio sequences (music, ball sounds, knocker)
 - 📁 **Tables directory** -- Select the root folder containing your tables (folder-per-table layout)
@@ -105,6 +105,97 @@ RUST_LOG=info cargo run
 
 When a table is launched, all cover viewports are hidden to let VPX take over the screens.
 
+**🕹️ Supported pinball controllers:**
+
+PinReady auto-detects pinball controllers and applies default button mappings. The profile can be changed in the wizard.
+
+<details>
+<summary>KL25Z (KL Shield V5.1 / Brain / Rig Master) — 21 buttons</summary>
+
+| Btn | Label | VPX Action |
+|---|---|---|
+| 0 | START | Start |
+| 1 | EXTRA-B | ExtraBall |
+| 2 | COIN1 | Credit1 |
+| 3 | COIN2 | Credit2 |
+| 4 | L BALL | LaunchBall |
+| 5 | EXIT | ExitGame |
+| 6 | QUIT | *(VP editor)* |
+| 7 | L FLIPP | LeftFlipper + LeftStagedFlipper |
+| 8 | R FLIPP | RightFlipper + RightStagedFlipper |
+| 9 | L MAGNA | LeftMagna |
+| 10 | R MAGNA | RightMagna |
+| 11 | FIRE | Lockbar |
+| 12 | TILT | Tilt |
+| 13 | DOOR | CoinDoor |
+| 14 | SERVICE EXIT | Service1 |
+| 15 | SERVICE - | Service2 |
+| 16 | SERVICE + | Service3 |
+| 17 | ENTER | Service4 |
+| 18 | N.M. | *(Night Mode)* |
+| 19 | VOL- | VolumeDown |
+| 20 | VOL+ | VolumeUp |
+
+</details>
+
+<details>
+<summary>Pinscape Pico (OpenPinballDevice) — 27 buttons</summary>
+
+| Btn | Function | VPX Action |
+|---|---|---|
+| 0 | Start | Start |
+| 1 | Exit | ExitGame |
+| 2 | Extra Ball | ExtraBall |
+| 3–6 | Coin 1–4 | Credit1–4 |
+| 7 | Launch Ball | LaunchBall |
+| 8 | Fire | Lockbar |
+| 9 | Left Flipper | LeftFlipper |
+| 10 | Right Flipper | RightFlipper |
+| 11 | Upper Left Flipper | LeftStagedFlipper |
+| 12 | Upper Right Flipper | RightStagedFlipper |
+| 13 | MagnaSave Left | LeftMagna |
+| 14 | MagnaSave Right | RightMagna |
+| 15 | Tilt Bob | Tilt |
+| 16 | Slam Tilt | SlamTilt |
+| 17 | Coin Door | CoinDoor |
+| 18–21 | Service 1–4 | Service1–4 |
+| 22 | Left Nudge | LeftNudge |
+| 23 | Forward Nudge | CenterNudge |
+| 24 | Right Nudge | RightNudge |
+| 25 | Volume Up | VolumeUp |
+| 26 | Volume Down | VolumeDown |
+
+</details>
+
+<details>
+<summary>DudesCab (Arnoz) — 32 buttons</summary>
+
+| Btn | Label | VPX Action |
+|---|---|---|
+| 0 | Start | Start |
+| 1 | ExtraBall | ExtraBall |
+| 2 | Coin1 | Credit1 |
+| 3 | Coin2 | Credit2 |
+| 4 | LaunchBall | LaunchBall |
+| 5 | Return | ExitGame |
+| 6 | Exit | *(Quit to editor)* |
+| 7 | Flipper Left | LeftFlipper + LeftStagedFlipper |
+| 8 | Flipper Right | RightFlipper + RightStagedFlipper |
+| 9 | Magna Left | LeftMagna |
+| 10 | Magna Right | RightMagna |
+| 11 | Tilt | Tilt |
+| 12 | Fire | Lockbar |
+| 13 | Door | CoinDoor |
+| 14–17 | ROM Exit/−/+/Enter | Service1–4 |
+| 18 | VOL − | VolumeDown |
+| 19 | VOL + | VolumeUp |
+| 20–23 | DPAD | *(Hat navigation)* |
+| 24 | NightMode | *(DO NOT REMAP)* |
+| 25–30 | Spare 1–6 | *(User-defined)* |
+| 31 | Calib | *(DO NOT REMAP)* |
+
+</details>
+
 ---
 
 ## 🇫🇷 Français
@@ -120,7 +211,7 @@ PinReady remplace les outils de configuration natifs inexistants pour les builds
 - 📥 **Installation automatique de Visual Pinball** -- Télécharge et installe automatiquement le bon build Visual Pinball pour votre plateforme (Linux/macOS/Windows, x64/arm64/SBC)
 - 🖥️ **Affectation des écrans** -- Détection des écrans via SDL3, affectation automatique des rôles (Playfield, Backglass, DMD, Topper) par taille, configuration du positionnement multi-écran et des dimensions physiques du cabinet
 - 🎨 **Rendu** -- Anti-aliasing, FXAA, netteté, reflets, limites de texture, mode sync, framerate max
-- 🎮 **Mapping des contrôles** -- Capture des touches clavier et boutons joystick pour toutes les actions VPX, détection automatique des contrôleurs Pinscape/KL25Z, avertissements de conflits
+- 🎮 **Mapping des contrôles** -- Capture des touches clavier et boutons joystick pour toutes les actions VPX, détection automatique des contrôleurs pinball (Pinscape KL25Z, Pinscape Pico, DudesCab), avertissements de conflits
 - 📐 **Tilt & nudge** -- Configuration de la sensibilité de l'accéléromètre en mode simplifié ou avancé
 - 🔊 **Routage audio** -- Affectation des périphériques audio playfield et backglass, configuration des modes surround SSF (6 modes), test du câblage des enceintes avec séquences audio intégrées (musique, bruits de bille, knocker)
 - 📁 **Répertoire des tables** -- Sélection du dossier racine contenant vos tables (format dossier-par-table)
@@ -207,6 +298,97 @@ RUST_LOG=info cargo run
 | **4** | Logo VPX (cover) | Aperçu backglass de la table survolée | Grille tables (plein écran) | Logo VPX (cover) |
 
 Au lancement d'une table, tous les viewports de couverture sont masqués pour laisser VPX prendre le contrôle des écrans.
+
+**🕹️ Contrôleurs pinball supportés :**
+
+PinReady détecte automatiquement les contrôleurs pinball et applique le mapping par défaut. Le profil est modifiable dans l'assistant.
+
+<details>
+<summary>KL25Z (KL Shield V5.1 / Brain / Rig Master) — 21 boutons</summary>
+
+| Btn | Sérigraphie | Action VPX |
+|---|---|---|
+| 0 | START | Start |
+| 1 | EXTRA-B | ExtraBall |
+| 2 | COIN1 | Credit1 |
+| 3 | COIN2 | Credit2 |
+| 4 | L BALL | LaunchBall |
+| 5 | EXIT | ExitGame |
+| 6 | QUIT | *(éditeur VP)* |
+| 7 | L FLIPP | LeftFlipper + LeftStagedFlipper |
+| 8 | R FLIPP | RightFlipper + RightStagedFlipper |
+| 9 | L MAGNA | LeftMagna |
+| 10 | R MAGNA | RightMagna |
+| 11 | FIRE | Lockbar |
+| 12 | TILT | Tilt |
+| 13 | DOOR | CoinDoor |
+| 14 | SERVICE EXIT | Service1 |
+| 15 | SERVICE - | Service2 |
+| 16 | SERVICE + | Service3 |
+| 17 | ENTER | Service4 |
+| 18 | N.M. | *(Night Mode)* |
+| 19 | VOL- | VolumeDown |
+| 20 | VOL+ | VolumeUp |
+
+</details>
+
+<details>
+<summary>Pinscape Pico (OpenPinballDevice) — 27 boutons</summary>
+
+| Btn | Fonction | Action VPX |
+|---|---|---|
+| 0 | Start | Start |
+| 1 | Exit | ExitGame |
+| 2 | Extra Ball | ExtraBall |
+| 3–6 | Coin 1–4 | Credit1–4 |
+| 7 | Launch Ball | LaunchBall |
+| 8 | Fire | Lockbar |
+| 9 | Flipper Gauche | LeftFlipper |
+| 10 | Flipper Droit | RightFlipper |
+| 11 | Upper Flipper Gauche | LeftStagedFlipper |
+| 12 | Upper Flipper Droit | RightStagedFlipper |
+| 13 | MagnaSave Gauche | LeftMagna |
+| 14 | MagnaSave Droit | RightMagna |
+| 15 | Tilt Bob | Tilt |
+| 16 | Slam Tilt | SlamTilt |
+| 17 | Porte monnayeur | CoinDoor |
+| 18–21 | Service 1–4 | Service1–4 |
+| 22 | Nudge Gauche | LeftNudge |
+| 23 | Nudge Centre | CenterNudge |
+| 24 | Nudge Droit | RightNudge |
+| 25 | Volume + | VolumeUp |
+| 26 | Volume − | VolumeDown |
+
+</details>
+
+<details>
+<summary>DudesCab (Arnoz) — 32 boutons</summary>
+
+| Btn | Label | Action VPX |
+|---|---|---|
+| 0 | Start | Start |
+| 1 | ExtraBall | ExtraBall |
+| 2 | Coin1 | Credit1 |
+| 3 | Coin2 | Credit2 |
+| 4 | LaunchBall | LaunchBall |
+| 5 | Return | ExitGame |
+| 6 | Exit | *(Quit éditeur)* |
+| 7 | Flipper Left | LeftFlipper + LeftStagedFlipper |
+| 8 | Flipper Right | RightFlipper + RightStagedFlipper |
+| 9 | Magna Left | LeftMagna |
+| 10 | Magna Right | RightMagna |
+| 11 | Tilt | Tilt |
+| 12 | Fire | Lockbar |
+| 13 | Door | CoinDoor |
+| 14–17 | ROM Exit/−/+/Enter | Service1–4 |
+| 18 | VOL − | VolumeDown |
+| 19 | VOL + | VolumeUp |
+| 20–23 | DPAD | *(Navigation hat)* |
+| 24 | NightMode | *(NE PAS REMAPPER)* |
+| 25–30 | Spare 1–6 | *(Libre)* |
+| 31 | Calib | *(NE PAS REMAPPER)* |
+
+</details>
 
 ---
 

@@ -8,6 +8,30 @@ impl App {
         // Detected controllers info
         if self.pinscape_id.is_some() {
             ui.label(t!("inputs_pinscape").to_string());
+            ui.horizontal(|ui| {
+                ui.label(t!("inputs_pinscape_profile"));
+                let prev_profile = self.pinscape_profile;
+                egui::ComboBox::from_id_salt("pinscape_profile")
+                    .selected_text(inputs::PINSCAPE_PROFILES[self.pinscape_profile])
+                    .show_ui(ui, |ui| {
+                        for (i, label) in inputs::PINSCAPE_PROFILES.iter().enumerate() {
+                            ui.selectable_value(&mut self.pinscape_profile, i, *label);
+                        }
+                    });
+                if self.pinscape_profile != prev_profile {
+                    // Re-apply defaults with new profile
+                    if let Some(vpx_id) = self.pinscape_id.clone() {
+                        // Clear existing joystick mappings before re-applying
+                        for action in &mut self.actions {
+                            if matches!(&action.mapping, Some(CapturedInput::JoystickButton { .. }))
+                            {
+                                action.mapping = None;
+                            }
+                        }
+                        self.apply_pinscape_defaults(&vpx_id);
+                    }
+                }
+            });
         }
         if self.gamepad_id.is_some() {
             ui.checkbox(&mut self.use_gamepad, t!("inputs_gamepad").to_string());

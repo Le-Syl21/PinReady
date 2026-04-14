@@ -145,7 +145,8 @@ rendering_tex_default = "16384 (défaut, recommandé)"
 
 # Page Inputs
 inputs_heading = "Configuration des inputs"
-inputs_pinscape = "Pinscape détecté — plunger et nudge configurés automatiquement."
+inputs_pinscape = "Contrôleur pinball détecté — plunger et nudge configurés automatiquement."
+inputs_pinscape_profile = "Carte contrôleur :"
 inputs_gamepad = "Utiliser la manette pour les flippers, plunger et nudge"
 inputs_instructions = "Cliquez sur \"Mapper\" puis appuyez sur une touche ou un bouton. Échap = garder la valeur actuelle."
 inputs_essential = "Actions essentielles"

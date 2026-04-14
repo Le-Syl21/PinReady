@@ -308,17 +308,28 @@ impl App {
 
     pub(super) fn process_bg_extraction(&mut self, ctx: &egui::Context) {
         if let Some(rx) = &self.bg_rx {
-            while let Ok((idx, path)) = rx.try_recv() {
-                if idx < self.tables.len() {
-                    if let Ok(bytes) = std::fs::read(&path) {
-                        let arc: std::sync::Arc<[u8]> =
-                            std::sync::Arc::from(bytes.into_boxed_slice());
-                        let uri = format!("bytes://bg/{idx}");
-                        ctx.include_bytes(uri, arc.clone());
-                        self.tables[idx].bg_bytes = Some(arc);
+            loop {
+                match rx.try_recv() {
+                    Ok((idx, path)) => {
+                        if idx < self.tables.len() {
+                            if let Ok(bytes) = std::fs::read(&path) {
+                                let arc: std::sync::Arc<[u8]> =
+                                    std::sync::Arc::from(bytes.into_boxed_slice());
+                                let uri = format!("bytes://bg/{idx}");
+                                ctx.include_bytes(uri, arc.clone());
+                                self.tables[idx].bg_bytes = Some(arc);
+                            }
+                            self.tables[idx].bg_path = Some(path.clone());
+                            log::debug!("BG extracted for table {idx}: {}", path.display());
+                        }
                     }
-                    self.tables[idx].bg_path = Some(path.clone());
-                    log::debug!("BG extracted for table {idx}: {}", path.display());
+                    Err(crossbeam_channel::TryRecvError::Empty) => break,
+                    Err(crossbeam_channel::TryRecvError::Disconnected) => {
+                        // Extraction thread finished — stop polling
+                        log::info!("Background backglass extraction channel closed");
+                        self.bg_rx = None;
+                        break;
+                    }
                 }
             }
         }

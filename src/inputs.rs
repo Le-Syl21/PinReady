@@ -79,6 +79,8 @@ pub enum JoystickEvent {
     AccelUpdate { x: f32, y: f32 },
     /// A Pinscape controller was detected with this VPX device ID
     PinscapeDetected { vpx_id: String },
+    /// A DudesCab controller was detected with this VPX device ID
+    DudesCabDetected { vpx_id: String },
     /// A generic gamepad was detected with this VPX device ID
     GamepadDetected { vpx_id: String, name: String },
 }
@@ -472,6 +474,114 @@ pub fn default_actions() -> Vec<InputAction> {
     ]
 }
 
+/// Pinball controller profile names for UI display.
+pub const PINSCAPE_PROFILES: &[&str] = &[
+    "KL25Z (KL Shield / Brain / Rig Master)",
+    "Pico (OpenPinballDevice)",
+    "DudesCab (Arnoz)",
+];
+
+/// Default button mappings for each Pinscape profile.
+/// Returns (action_setting_id, button_number) pairs.
+///
+/// KL25Z mapping verified with jstest on KL Shield V5.1 (Arnoz default config):
+/// 0=START, 1=EXTRA-B, 2=COIN1, 3=COIN2, 4=L BALL, 5=EXIT, 6=QUIT,
+/// 7=L FLIPP, 8=R FLIPP, 9=L MAGNA, 10=R MAGNA, 11=FIRE, 12=TILT,
+/// 13=DOOR, 14=SERVICE EXIT, 15=SERVICE -, 16=SERVICE +, 17=ENTER,
+/// 18=N.M., 19=VOL-, 20=VOL+
+pub fn pinscape_button_defaults(profile: usize) -> &'static [(&'static str, u8)] {
+    match profile {
+        // KL25Z with KL Shield V5.1 / Brain / Rig Master (Arnoz default config)
+        // Verified via jstest on physical hardware
+        0 => &[
+            ("Start", 0),
+            ("ExtraBall", 1),
+            ("Credit1", 2),
+            ("Credit2", 3),
+            ("LaunchBall", 4),
+            ("ExitGame", 5),
+            // 6 = QUIT (VP editor only, not mapped in game)
+            ("LeftFlipper", 7),
+            ("RightFlipper", 8),
+            ("LeftMagna", 9),
+            ("RightMagna", 10),
+            ("LeftStagedFlipper", 7), // same physical button as flipper (double switch stack)
+            ("RightStagedFlipper", 8), // same physical button as flipper (double switch stack)
+            ("Lockbar", 11),
+            ("Tilt", 12),
+            ("CoinDoor", 13),
+            ("Service1", 14),
+            ("Service2", 15),
+            ("Service3", 16),
+            ("Service4", 17),
+            // 18 = Night Mode (not a VPX action)
+            ("VolumeDown", 19),
+            ("VolumeUp", 20),
+        ],
+        // Pinscape Pico — OpenPinballDevice standard
+        1 => &[
+            ("Start", 0),
+            ("ExitGame", 1),
+            ("ExtraBall", 2),
+            ("Credit1", 3),
+            ("Credit2", 4),
+            ("Credit3", 5),
+            ("Credit4", 6),
+            ("LaunchBall", 7),
+            ("Lockbar", 8),
+            ("LeftFlipper", 9),
+            ("RightFlipper", 10),
+            ("LeftStagedFlipper", 11),
+            ("RightStagedFlipper", 12),
+            ("LeftMagna", 13),
+            ("RightMagna", 14),
+            ("Tilt", 15),
+            ("SlamTilt", 16),
+            ("CoinDoor", 17),
+            ("Service1", 18),
+            ("Service2", 19),
+            ("Service3", 20),
+            ("Service4", 21),
+            ("LeftNudge", 22),
+            ("CenterNudge", 23),
+            ("RightNudge", 24),
+            ("VolumeUp", 25),
+            ("VolumeDown", 26),
+        ],
+        // DudesCab (Arnoz) — from official mapping table
+        // Also used as fallback for unknown controllers
+        // Note: DudesCab numbers buttons from 1, SDL3 from 0, so btn_gamepad - 1 = SDL button
+        _ => &[
+            ("Start", 0),      // Gamepad 1
+            ("ExtraBall", 1),  // Gamepad 2
+            ("Credit1", 2),    // Gamepad 3
+            ("Credit2", 3),    // Gamepad 4
+            ("LaunchBall", 4), // Gamepad 5
+            ("ExitGame", 5),   // Gamepad 6 (Return = exit to menu)
+            // 6 = Exit/Quit to editor (X key) — not mapped in game
+            ("LeftFlipper", 7),        // Gamepad 8
+            ("RightFlipper", 8),       // Gamepad 9
+            ("LeftMagna", 9),          // Gamepad 10
+            ("RightMagna", 10),        // Gamepad 11
+            ("LeftStagedFlipper", 7),  // same physical button as flipper
+            ("RightStagedFlipper", 8), // same physical button as flipper
+            ("Tilt", 11),              // Gamepad 12
+            ("Lockbar", 12),           // Gamepad 13 (Fire)
+            ("CoinDoor", 13),          // Gamepad 14
+            ("Service1", 14),          // Gamepad 15 (ROM Exit)
+            ("Service2", 15),          // Gamepad 16 (ROM -)
+            ("Service3", 16),          // Gamepad 17 (ROM +)
+            ("Service4", 17),          // Gamepad 18 (ROM Enter)
+            ("VolumeDown", 18),        // Gamepad 19
+            ("VolumeUp", 19),          // Gamepad 20
+                                       // 20-23 = DPAD (handled as hat, not buttons)
+                                       // 24 = NightMode (DO NOT REMAP)
+                                       // 25-30 = Spare 1-6
+                                       // 31 = Calib (DO NOT REMAP)
+        ],
+    }
+}
+
 /// Check if any two actions share the same key binding.
 pub fn find_conflicts(actions: &[InputAction]) -> Vec<(usize, usize)> {
     let mut conflicts = Vec::new();
@@ -551,10 +661,15 @@ pub fn spawn_joystick_thread() -> crossbeam_channel::Receiver<JoystickEvent> {
                             num_buttons,
                             num_axes
                         );
-                        // Detect Pinscape controller
+                        // Detect pinball controllers
                         if name.contains("Pinscape") || dev_id.contains("PSC") {
                             log::info!("Pinscape controller detected: {}", dev_id);
                             let _ = evt_tx.send(JoystickEvent::PinscapeDetected {
+                                vpx_id: dev_id.clone(),
+                            });
+                        } else if name.contains("DudesCab") {
+                            log::info!("DudesCab controller detected: {}", dev_id);
+                            let _ = evt_tx.send(JoystickEvent::DudesCabDetected {
                                 vpx_id: dev_id.clone(),
                             });
                         } else if SDL_IsGamepad(jid) {

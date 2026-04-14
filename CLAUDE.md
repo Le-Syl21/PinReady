@@ -140,7 +140,94 @@ Mapping.RightNudge = Key;56
 **SDL3 event loop** runs on a **dedicated thread**, communicates via `crossbeam-channel`.
 
 **At startup**, detect connected devices via SDL3 joystick/gamepad API.
-- If dedicated pinball controller detected (KL25Z, Pinscape, etc.) → VPX auto-manages plunger axes and accelerometer nudge. PinReady does NOT map PlungerPos/PlungerVel/NudgeX/NudgeY — those are handled by VPX directly.
+- If dedicated pinball controller detected (Pinscape KL25Z, Pinscape Pico, DudesCab) → VPX auto-manages plunger axes and accelerometer nudge. PinReady does NOT map PlungerPos/PlungerVel/NudgeX/NudgeY — those are handled by VPX directly.
+- Detection: name contains "Pinscape" or ID contains "PSC" → Pinscape; name contains "DudesCab" → DudesCab.
+- Three controller profiles with default button mappings, selectable in the wizard:
+
+**Profile 0 — KL25Z (KL Shield V5.1 / Brain / Rig Master)**
+Verified via jstest on physical hardware (Arnoz default firmware config).
+
+| SDL Btn | KL Shield label | VPX Action |
+|---|---|---|
+| 0 | START | Start |
+| 1 | EXTRA-B | ExtraBall |
+| 2 | COIN1 | Credit1 |
+| 3 | COIN2 | Credit2 |
+| 4 | L BALL | LaunchBall |
+| 5 | EXIT | ExitGame |
+| 6 | QUIT | *(VP editor, not mapped)* |
+| 7 | L FLIPP | LeftFlipper + LeftStagedFlipper |
+| 8 | R FLIPP | RightFlipper + RightStagedFlipper |
+| 9 | L MAGNA | LeftMagna |
+| 10 | R MAGNA | RightMagna |
+| 11 | FIRE | Lockbar |
+| 12 | TILT | Tilt |
+| 13 | DOOR | CoinDoor |
+| 14 | SERVICE EXIT | Service1 (Cancel) |
+| 15 | SERVICE - | Service2 (Down) |
+| 16 | SERVICE + | Service3 (Up) |
+| 17 | ENTER | Service4 (Enter) |
+| 18 | N.M. | *(Night Mode, Pinscape only)* |
+| 19 | VOL- | VolumeDown |
+| 20 | VOL+ | VolumeUp |
+
+**Profile 1 — Pinscape Pico (OpenPinballDevice)**
+From `OpenPinballDeviceReport.h` standard.
+
+| SDL Btn | Function | VPX Action |
+|---|---|---|
+| 0 | Start | Start |
+| 1 | Exit | ExitGame |
+| 2 | Extra Ball | ExtraBall |
+| 3–6 | Coin 1–4 | Credit1–Credit4 |
+| 7 | Launch Ball | LaunchBall |
+| 8 | Fire | Lockbar |
+| 9 | Left Flipper | LeftFlipper |
+| 10 | Right Flipper | RightFlipper |
+| 11 | Upper Left Flipper | LeftStagedFlipper |
+| 12 | Upper Right Flipper | RightStagedFlipper |
+| 13 | MagnaSave Left | LeftMagna |
+| 14 | MagnaSave Right | RightMagna |
+| 15 | Tilt Bob | Tilt |
+| 16 | Slam Tilt | SlamTilt |
+| 17 | Coin Door | CoinDoor |
+| 18–21 | Service Cancel/Down/Up/Enter | Service1–Service4 |
+| 22 | Left Nudge | LeftNudge |
+| 23 | Forward Nudge | CenterNudge |
+| 24 | Right Nudge | RightNudge |
+| 25 | Volume Up | VolumeUp |
+| 26 | Volume Down | VolumeDown |
+
+**Profile 2 — DudesCab (Arnoz)**
+From official DudesCab mapping table. Buttons numbered from 1 in docs, SDL from 0.
+
+| SDL Btn | DudesCab label | VPX Action |
+|---|---|---|
+| 0 | Start | Start |
+| 1 | ExtraBall | ExtraBall |
+| 2 | Coin1 | Credit1 |
+| 3 | Coin2 | Credit2 |
+| 4 | LaunchBall | LaunchBall |
+| 5 | Return | ExitGame |
+| 6 | Exit | *(Quit to editor, not mapped)* |
+| 7 | Flipper Left | LeftFlipper + LeftStagedFlipper |
+| 8 | Flipper Right | RightFlipper + RightStagedFlipper |
+| 9 | Magna Left | LeftMagna |
+| 10 | Magna Right | RightMagna |
+| 11 | Tilt | Tilt |
+| 12 | Fire | Lockbar |
+| 13 | Door | CoinDoor |
+| 14 | ROM Exit | Service1 |
+| 15 | ROM - | Service2 |
+| 16 | ROM + | Service3 |
+| 17 | ROM Enter | Service4 |
+| 18 | VOL - | VolumeDown |
+| 19 | VOL + | VolumeUp |
+| 20–23 | DPAD | *(Hat, not buttons)* |
+| 24 | NightMode | *(DO NOT REMAP)* |
+| 25–30 | Spare 1–6 | *(User-defined)* |
+| 31 | Calib | *(DO NOT REMAP)* |
+
 - Keyboard and joypad can coexist.
 
 **Actions to map — presented all at once:**
