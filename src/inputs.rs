@@ -583,7 +583,7 @@ pub fn pinscape_button_defaults(profile: usize) -> &'static [(&'static str, u8)]
         ],
         // CSD PinOne — from VPX calibration screenshot (VPX buttons are 1-indexed, SDL 0-indexed)
         // Device identifies as "Clev Soft PinOne" (VID 0x0E8F, PID 0x0792)
-        // Axes: X=nudge L/R, Y=nudge U/D (Position), Z=plunger (Position)
+        // Axes: X=nudge L/R (Accel), Y=nudge U/D (Accel), Z=plunger (Position)
         _ => &[
             ("RightFlipper", 0), // VPX Button 1
             ("RightMagna", 1),   // VPX Button 2
