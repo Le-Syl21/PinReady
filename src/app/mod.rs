@@ -595,6 +595,11 @@ impl App {
                     self.pinscape_profile = 2;
                     self.apply_pinscape_defaults(vpx_id);
                 }
+                JoystickEvent::PinOneDetected { vpx_id } => {
+                    log::info!("CSD PinOne detected in UI: {}", vpx_id);
+                    self.pinscape_profile = 3;
+                    self.apply_pinscape_defaults(vpx_id);
+                }
                 JoystickEvent::GamepadDetected { vpx_id, name } => {
                     log::info!("Gamepad detected in UI: {} ({})", name, vpx_id);
                     self.gamepad_id = Some(vpx_id.clone());

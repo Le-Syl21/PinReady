@@ -203,6 +203,10 @@ impl App {
 
             // Axes: always write them so VPX doesn't need to auto-detect.
             // Combined with NoAutoLayout=1, VPX won't prompt and axes work.
+            //
+            // PinOne sends Position data (firmware integrates accelerometer),
+            // while Pinscape/DudesCab send raw Acceleration data.
+            let nudge_type = if self.pinscape_profile == 3 { "P" } else { "A" };
             self.config.set(
                 "Input",
                 "Mapping.PlungerPos",
@@ -212,7 +216,7 @@ impl App {
                 "Input",
                 "Mapping.NudgeX1",
                 &format!(
-                    "{psc_id};512;A;{:.6};{:.6};1.000000",
+                    "{psc_id};512;{nudge_type};{:.6};{:.6};1.000000",
                     self.tilt.nudge_deadzone_pct / 100.0,
                     self.tilt.nudge_scale_pct / 100.0
                 ),
@@ -221,7 +225,7 @@ impl App {
                 "Input",
                 "Mapping.NudgeY1",
                 &format!(
-                    "{psc_id};513;A;{:.6};{:.6};1.000000",
+                    "{psc_id};513;{nudge_type};{:.6};{:.6};1.000000",
                     self.tilt.nudge_deadzone_pct / 100.0,
                     self.tilt.nudge_scale_pct / 100.0
                 ),

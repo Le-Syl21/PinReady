@@ -81,6 +81,8 @@ pub enum JoystickEvent {
     PinscapeDetected { vpx_id: String },
     /// A DudesCab controller was detected with this VPX device ID
     DudesCabDetected { vpx_id: String },
+    /// A CSD PinOne controller was detected with this VPX device ID
+    PinOneDetected { vpx_id: String },
     /// A generic gamepad was detected with this VPX device ID
     GamepadDetected { vpx_id: String, name: String },
 }
@@ -479,6 +481,7 @@ pub const PINSCAPE_PROFILES: &[&str] = &[
     "KL25Z (KL Shield / Brain / Rig Master)",
     "Pico (OpenPinballDevice)",
     "DudesCab (Arnoz)",
+    "CSD PinOne",
 ];
 
 /// Default button mappings for each Pinscape profile.
@@ -549,9 +552,8 @@ pub fn pinscape_button_defaults(profile: usize) -> &'static [(&'static str, u8)]
             ("VolumeDown", 26),
         ],
         // DudesCab (Arnoz) — from official mapping table
-        // Also used as fallback for unknown controllers
         // Note: DudesCab numbers buttons from 1, SDL3 from 0, so btn_gamepad - 1 = SDL button
-        _ => &[
+        2 => &[
             ("Start", 0),      // Gamepad 1
             ("ExtraBall", 1),  // Gamepad 2
             ("Credit1", 2),    // Gamepad 3
@@ -578,6 +580,29 @@ pub fn pinscape_button_defaults(profile: usize) -> &'static [(&'static str, u8)]
                                        // 24 = NightMode (DO NOT REMAP)
                                        // 25-30 = Spare 1-6
                                        // 31 = Calib (DO NOT REMAP)
+        ],
+        // CSD PinOne — from VPX calibration screenshot (VPX buttons are 1-indexed, SDL 0-indexed)
+        // Device identifies as "Clev Soft PinOne" (VID 0x0E8F, PID 0x0792)
+        // Axes: X=nudge L/R, Y=nudge U/D (Position), Z=plunger (Position)
+        _ => &[
+            ("RightFlipper", 0), // VPX Button 1
+            ("RightMagna", 1),   // VPX Button 2
+            ("LeftFlipper", 2),  // VPX Button 3
+            ("LeftMagna", 3),    // VPX Button 4
+            ("ExtraBall", 4),    // VPX Button 5 (EB BuyIn)
+            ("Start", 5),        // VPX Button 6
+            ("Credit1", 6),      // VPX Button 7
+            ("ExitGame", 7),     // VPX Button 8
+            ("Lockbar", 8),      // VPX Button 9 (Menu / Fire)
+            ("VolumeUp", 15),    // VPX Button 16
+            ("VolumeDown", 16),  // VPX Button 17
+            ("CoinDoor", 17),    // VPX Button 18
+            ("Service1", 18),    // VPX Button 19 (Cancel)
+            ("Service2", 19),    // VPX Button 20 (Down)
+            ("Service3", 20),    // VPX Button 21 (Up)
+            ("Service4", 21),    // VPX Button 22 (Enter)
+            ("Tilt", 22),        // VPX Button 23 (Mech Tilt)
+            ("LaunchBall", 23),  // VPX Button 24 (Plunger digital)
         ],
     }
 }
@@ -670,6 +695,11 @@ pub fn spawn_joystick_thread() -> crossbeam_channel::Receiver<JoystickEvent> {
                         } else if name.contains("DudesCab") {
                             log::info!("DudesCab controller detected: {}", dev_id);
                             let _ = evt_tx.send(JoystickEvent::DudesCabDetected {
+                                vpx_id: dev_id.clone(),
+                            });
+                        } else if name.contains("PinOne") {
+                            log::info!("CSD PinOne controller detected: {}", dev_id);
+                            let _ = evt_tx.send(JoystickEvent::PinOneDetected {
                                 vpx_id: dev_id.clone(),
                             });
                         } else if SDL_IsGamepad(jid) {
