@@ -156,10 +156,6 @@ impl App {
             .set_f32("Player", "ScreenPlayerY", self.player_y);
         self.config
             .set_f32("Player", "ScreenPlayerZ", self.player_z);
-
-        if let Err(e) = self.config.save() {
-            log::error!("Failed to save config: {e}");
-        }
     }
 
     pub(super) fn save_rendering(&mut self) {
@@ -174,9 +170,6 @@ impl App {
         self.config.set_i32("Player", "SyncMode", self.sync_mode);
         self.config
             .set_f32("Player", "MaxFramerate", self.max_framerate);
-        if let Err(e) = self.config.save() {
-            log::error!("Failed to save config: {e}");
-        }
     }
 
     pub(super) fn save_inputs(&mut self) {
@@ -265,21 +258,17 @@ impl App {
             };
             self.config.set_input_mapping(action.setting_id, &mapping);
         }
-
-        if let Err(e) = self.config.save() {
-            log::error!("Failed to save config: {e}");
-        }
     }
 
     pub(super) fn save_tilt(&mut self) {
         self.tilt.save_to_config(&mut self.config);
-        if let Err(e) = self.config.save() {
-            log::error!("Failed to save config: {e}");
-        }
     }
 
     pub(super) fn save_audio(&mut self) {
         self.audio.save_to_config(&mut self.config);
+    }
+
+    pub(super) fn flush_config(&mut self) {
         if let Err(e) = self.config.save() {
             log::error!("Failed to save config: {e}");
         }

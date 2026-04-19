@@ -25,6 +25,7 @@ impl App {
         self.save_tilt();
         self.save_audio();
         self.save_tables_dir();
+        self.flush_config();
 
         if let Err(e) = self.db.set_configured() {
             log::error!("Failed to mark wizard complete: {e}");
