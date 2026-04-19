@@ -45,7 +45,11 @@ fn init_logging() {
     if let Some(file) = log_file.as_ref().map(|f| f.try_clone().ok()).flatten() {
         std::panic::set_hook(Box::new(move |info| {
             use std::io::Write as _;
-            let msg = format!("\n!!! PANIC: {}\n{:?}\n", info, std::backtrace::Backtrace::capture());
+            let msg = format!(
+                "\n!!! PANIC: {}\n{:?}\n",
+                info,
+                std::backtrace::Backtrace::capture()
+            );
             let _ = (&file).write_all(msg.as_bytes());
             eprintln!("{msg}");
         }));
@@ -134,8 +138,7 @@ fn main() -> Result<()> {
     // Detect Cabinet mode (BGSet=1) → rotate viewport and place on Playfield.
     // Only applies in launcher mode — the wizard must always run in a standard,
     // non-rotated window since it's where the user configures cabinet mode.
-    let cabinet_mode =
-        !start_in_wizard && vpx_config.get_i32("Player", "BGSet") == Some(1);
+    let cabinet_mode = !start_in_wizard && vpx_config.get_i32("Player", "BGSet") == Some(1);
     let playfield_name = vpx_config.get("Player", "PlayfieldDisplay");
     let playfield_idx = if cabinet_mode {
         playfield_name
@@ -167,7 +170,9 @@ fn main() -> Result<()> {
             // window is mapped. Placement itself is handled by with_monitor.
             app.enable_kiosk_cursor();
         } else {
-            log::warn!("Cabinet mode: Playfield display not found, rotation applied without repositioning");
+            log::warn!(
+                "Cabinet mode: Playfield display not found, rotation applied without repositioning"
+            );
         }
     }
     let options = eframe::NativeOptions {

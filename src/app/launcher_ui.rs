@@ -513,7 +513,11 @@ impl App {
         }
 
         // DMD cover
-        if let Some(dmd_idx) = self.displays.iter().position(|d| d.role == DisplayRole::Dmd) {
+        if let Some(dmd_idx) = self
+            .displays
+            .iter()
+            .position(|d| d.role == DisplayRole::Dmd)
+        {
             Self::show_logo_viewport(
                 ui,
                 PF_VIEWPORT,

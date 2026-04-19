@@ -80,15 +80,27 @@ pub enum JoystickEvent {
         name: String,
     },
     /// Live accelerometer/axis data for visualization (axis_id, normalized value -1.0 to 1.0)
-    AccelUpdate { x: f32, y: f32 },
+    AccelUpdate {
+        x: f32,
+        y: f32,
+    },
     /// A Pinscape controller was detected with this VPX device ID
-    PinscapeDetected { vpx_id: String },
+    PinscapeDetected {
+        vpx_id: String,
+    },
     /// A DudesCab controller was detected with this VPX device ID
-    DudesCabDetected { vpx_id: String },
+    DudesCabDetected {
+        vpx_id: String,
+    },
     /// A CSD PinOne controller was detected with this VPX device ID
-    PinOneDetected { vpx_id: String },
+    PinOneDetected {
+        vpx_id: String,
+    },
     /// A generic gamepad was detected with this VPX device ID
-    GamepadDetected { vpx_id: String, name: String },
+    GamepadDetected {
+        vpx_id: String,
+        name: String,
+    },
 }
 
 /// Build the VPX-compatible device ID for an SDL joystick.

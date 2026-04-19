@@ -191,8 +191,8 @@ pub struct App {
     images_preloaded: bool,
     // Kiosk mode: lock the cursor inside the PF window and center it on the grid.
     // Window placement itself is handled at creation via ViewportBuilder::with_monitor.
-    kiosk_cursor: bool,         // scale + lock the cursor, warp once window is mapped
-    kiosk_cursor_warped: bool,  // one-shot: warp cursor after window settles
+    kiosk_cursor: bool, // scale + lock the cursor, warp once window is mapped
+    kiosk_cursor_warped: bool, // one-shot: warp cursor after window settles
     // Launcher joystick nav auto-repeat: track which nav button is held
     nav_held: Option<(u8, String, std::time::Instant, std::time::Instant)>,
     bg_rx: Option<crossbeam_channel::Receiver<(usize, std::path::PathBuf)>>,
@@ -825,7 +825,9 @@ impl eframe::App for App {
             .show_inside(ui, |ui| {
                 egui::ScrollArea::vertical()
                     .auto_shrink([false, false])
-                    .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
+                    .scroll_bar_visibility(
+                        egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded,
+                    )
                     .show(ui, |ui| {
                         ui.add_space(0.0); // ensure full width
                         let _ = ui.available_width(); // force layout to use full width
@@ -844,6 +846,5 @@ impl eframe::App for App {
                         }
                     });
             });
-
     }
 }
