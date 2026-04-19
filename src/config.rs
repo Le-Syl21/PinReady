@@ -39,16 +39,35 @@ impl VpxConfig {
                 format!("Failed to create config directory: {}", parent.display())
             })?;
         }
+        // If self.path is a symlink, resolve to the real target so that
+        // ini-preserve's atomic rename doesn't clobber the symlink itself.
+        let write_path = if self.path.is_symlink() {
+            let target = std::fs::read_link(&self.path).with_context(|| {
+                format!("Failed to read symlink target: {}", self.path.display())
+            })?;
+            if target.is_absolute() {
+                target
+            } else {
+                self.path
+                    .parent()
+                    .unwrap_or(std::path::Path::new("."))
+                    .join(target)
+            }
+        } else {
+            self.path.clone()
+        };
+
         let content = self.ini.to_string();
         let line_count = content.split('\n').count();
         log::info!(
-            "Saving ini: {} bytes, {} lines to {}",
+            "Saving ini: {} bytes, {} lines to {}{}",
             content.len(),
             line_count,
-            self.path.display()
+            self.path.display(),
+            if self.path.is_symlink() { "@" } else { "" }
         );
         self.ini
-            .save(&self.path)
+            .save(&write_path)
             .map_err(|e| anyhow::anyhow!("{e}"))
     }
 
