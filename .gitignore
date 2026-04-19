@@ -38,3 +38,6 @@ PinReady.log.*
 # Claude Code harness state
 .claude/
 
+# macOS Finder metadata
+.DS_Store
+
