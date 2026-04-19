@@ -3460,6 +3460,7 @@ dependencies = [
  "base64",
  "crossbeam-channel",
  "directb2s",
+ "dirs",
  "display-info",
  "eframe",
  "egui",

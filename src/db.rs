@@ -2,10 +2,15 @@ use anyhow::{Context, Result};
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
 
-/// Default database location
+/// Default database location, following OS conventions:
+/// - Linux:   ~/.local/share/pinready/pinready.db
+/// - macOS:   ~/Library/Application Support/pinready/pinready.db
+/// - Windows: %APPDATA%\pinready\pinready.db
 pub fn default_db_path() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-    PathBuf::from(home).join(".local/share/pinready/pinready.db")
+    dirs::data_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("pinready")
+        .join("pinready.db")
 }
 
 pub struct Database {

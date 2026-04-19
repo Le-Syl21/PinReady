@@ -2,9 +2,16 @@ use anyhow::{Context, Result};
 use ini_preserve::Ini;
 use std::path::{Path, PathBuf};
 
-fn default_ini_path() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-    PathBuf::from(home).join(".local/share/VPinballX/10.8/VPinballX.ini")
+/// Default VPinballX.ini location, following OS conventions:
+/// - Linux:   ~/.local/share/VPinballX/10.8/VPinballX.ini
+/// - macOS:   ~/Library/Application Support/VPinballX/10.8/VPinballX.ini
+/// - Windows: %APPDATA%\VPinballX\10.8\VPinballX.ini
+pub fn default_ini_path() -> PathBuf {
+    dirs::data_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("VPinballX")
+        .join("10.8")
+        .join("VPinballX.ini")
 }
 
 pub struct VpxConfig {

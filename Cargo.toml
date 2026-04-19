@@ -69,6 +69,9 @@ rust-i18n = "4"
 # Fonts for non-Latin scripts (Arabic, CJK, Devanagari, Thai, etc.)
 noto-fonts-dl = { version = "0.1.2", features = ["ar", "hi", "bn", "zh", "zh_tw", "ja", "ko", "th", "ur"] }
 
+# Platform directories (data, config, home)
+dirs = "6"
+
 # Error handling
 anyhow = "1"
 
