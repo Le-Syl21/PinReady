@@ -22,11 +22,9 @@ impl App {
         }
 
         // Keyboard + mouse wheel nav — same actions as joystick for a single
-        // source of truth. Arrows = flipper/magna, wheel = flipper, Enter = launch, Escape = quit.
+        // source of truth. Arrows = flipper/magna, Enter = launch, Escape = quit.
         enum NavInput {
             Key(egui::Key),
-            WheelUp,
-            WheelDown,
         }
         if !self.tables.is_empty() && !self.vpx_running.load(Ordering::Relaxed) {
             let inputs: Vec<NavInput> = ui.input(|i| {
@@ -36,16 +34,11 @@ impl App {
                         egui::Event::Key {
                             key, pressed: true, ..
                         } => Some(NavInput::Key(*key)),
-                        egui::Event::MouseWheel { delta, .. } if delta.y > 0.0 => {
-                            Some(NavInput::WheelUp)
-                        }
-                        egui::Event::MouseWheel { delta, .. } if delta.y < 0.0 => {
-                            Some(NavInput::WheelDown)
-                        }
                         _ => None,
                     })
                     .collect()
             });
+
             for input in inputs {
                 match input {
                     NavInput::Key(egui::Key::ArrowLeft) => {
@@ -54,10 +47,10 @@ impl App {
                     NavInput::Key(egui::Key::ArrowRight) => {
                         self.apply_nav_action("RightFlipper");
                     }
-                    NavInput::Key(egui::Key::ArrowUp) | NavInput::WheelUp => {
+                    NavInput::Key(egui::Key::ArrowUp) => {
                         self.apply_nav_action("LeftMagna");
                     }
-                    NavInput::Key(egui::Key::ArrowDown) | NavInput::WheelDown => {
+                    NavInput::Key(egui::Key::ArrowDown) => {
                         self.apply_nav_action("RightMagna");
                     }
                     NavInput::Key(egui::Key::Enter) => {
