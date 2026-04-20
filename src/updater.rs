@@ -186,8 +186,6 @@ fn detect_arm_board() -> &'static str {
         }
         // Generic ARM Linux — try RPi as default
         "rpi-linux-aarch64"
-    } else if cfg!(target_os = "macos") {
-        "arm64"
     } else {
         "aarch64"
     }

@@ -14,7 +14,7 @@ PinReady replaces the non-existent native configuration tools for VPX standalone
 
 **🧙 Configuration wizard (first run)**
 
-- 📥 **Visual Pinball auto-install** -- Automatically download and install the correct Visual Pinball build for your platform (Linux/macOS/Windows, x64/arm64/SBC)
+- 📥 **Visual Pinball auto-install** -- Automatically download and install the correct Visual Pinball build for your platform (Linux/macOS/Windows, x64/aarch64/SBC)
 - 🖥️ **Screen assignment** -- Detect displays via SDL3, auto-assign roles (Playfield, Backglass, DMD, Topper) by size, configure multi-screen positioning and cabinet physical dimensions
 - 🎨 **Rendering** -- Anti-aliasing, FXAA, sharpening, reflections, texture limits, sync mode, max framerate
 - 🎮 **Input mapping** -- Capture keyboard and joystick bindings for all VPX actions, auto-detect pinball controllers (Pinscape KL25Z, Pinscape Pico, DudesCab), conflict warnings
@@ -208,7 +208,7 @@ PinReady remplace les outils de configuration natifs inexistants pour les builds
 
 **🧙 Assistant de configuration (premier lancement)**
 
-- 📥 **Installation automatique de Visual Pinball** -- Télécharge et installe automatiquement le bon build Visual Pinball pour votre plateforme (Linux/macOS/Windows, x64/arm64/SBC)
+- 📥 **Installation automatique de Visual Pinball** -- Télécharge et installe automatiquement le bon build Visual Pinball pour votre plateforme (Linux/macOS/Windows, x64/aarch64/SBC)
 - 🖥️ **Affectation des écrans** -- Détection des écrans via SDL3, affectation automatique des rôles (Playfield, Backglass, DMD, Topper) par taille, configuration du positionnement multi-écran et des dimensions physiques du cabinet
 - 🎨 **Rendu** -- Anti-aliasing, FXAA, netteté, reflets, limites de texture, mode sync, framerate max
 - 🎮 **Mapping des contrôles** -- Capture des touches clavier et boutons joystick pour toutes les actions VPX, détection automatique des contrôleurs pinball (Pinscape KL25Z, Pinscape Pico, DudesCab), avertissements de conflits
