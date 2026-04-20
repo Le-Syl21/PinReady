@@ -9,21 +9,40 @@ impl App {
 
         ui.label(t!("tables_structure"));
         ui.add_space(4.0);
-        ui.code(
-            "Tables/
-  Table_Name/
-Table_Name.vpx               <- table (required)
-Table_Name.directb2s         <- backglass (same name as .vpx)
-Table_Name.ini               <- per-table config (optional)
-pinmame/
-  roms/rom_name.zip          <- PinMAME ROM
-  nvram/rom_name.nv          <- save data
-altcolor/rom_name/            <- Serum/VNI colorization
-medias/                       <- frontend images/videos",
+        ui.code(t!("tables_structure_tree").to_string());
+
+        ui.add_space(6.0);
+        ui.colored_label(
+            egui::Color32::from_rgb(200, 180, 100),
+            t!("tables_formats_supported"),
+        );
+        ui.colored_label(
+            egui::Color32::from_rgb(255, 80, 80),
+            t!("tables_formats_unsupported"),
         );
 
         ui.add_space(8.0);
         ui.label(t!("tables_modifiable"));
+        ui.add_space(8.0);
+
+        ui.horizontal(|ui| {
+            ui.label("📖");
+            ui.label(t!("tables_tips_patch_desc"));
+            ui.hyperlink_to(
+                t!("tables_tips_info_here"),
+                t!("tables_tips_patch_url").to_string(),
+            );
+        });
+        ui.add_space(4.0);
+        ui.horizontal(|ui| {
+            // Text variation selector (U+FE0E) forces monochrome rendering of the wrench.
+            ui.label("\u{1F527}\u{FE0E}");
+            ui.label(t!("tables_tips_webp_desc"));
+            ui.hyperlink_to(
+                t!("tables_tips_info_here"),
+                t!("tables_tips_webp_url").to_string(),
+            );
+        });
         ui.add_space(12.0);
 
         ui.horizontal(|ui| {

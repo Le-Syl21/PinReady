@@ -6,6 +6,7 @@ impl App {
             WizardPage::Screens => self.save_screens(),
             WizardPage::Rendering => self.save_rendering(),
             WizardPage::Inputs => self.save_inputs(),
+            WizardPage::Outputs => {} // purely informational page, nothing to persist
             WizardPage::Tilt => self.save_tilt(),
             WizardPage::Audio => self.save_audio(),
             WizardPage::TablesDir => self.save_tables_dir(),

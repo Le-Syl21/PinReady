@@ -58,6 +58,7 @@ pub enum WizardPage {
     Screens,
     Rendering,
     Inputs,
+    Outputs,
     Tilt,
     Audio,
     TablesDir,
@@ -69,6 +70,7 @@ impl WizardPage {
             Self::Screens => t!("page_screens"),
             Self::Rendering => t!("page_rendering"),
             Self::Inputs => t!("page_inputs"),
+            Self::Outputs => t!("page_outputs"),
             Self::Tilt => t!("page_tilt"),
             Self::Audio => t!("page_audio"),
             Self::TablesDir => t!("page_tables"),
@@ -81,9 +83,10 @@ impl WizardPage {
             Self::Screens => 0,
             Self::Rendering => 1,
             Self::Inputs => 2,
-            Self::Tilt => 3,
-            Self::Audio => 4,
-            Self::TablesDir => 5,
+            Self::Outputs => 3,
+            Self::Tilt => 4,
+            Self::Audio => 5,
+            Self::TablesDir => 6,
         }
     }
 
@@ -92,15 +95,16 @@ impl WizardPage {
             0 => Some(Self::Screens),
             1 => Some(Self::Rendering),
             2 => Some(Self::Inputs),
-            3 => Some(Self::Tilt),
-            4 => Some(Self::Audio),
-            5 => Some(Self::TablesDir),
+            3 => Some(Self::Outputs),
+            4 => Some(Self::Tilt),
+            5 => Some(Self::Audio),
+            6 => Some(Self::TablesDir),
             _ => None,
         }
     }
 
     fn count() -> usize {
-        6
+        7
     }
 }
 
@@ -564,6 +568,9 @@ impl App {
                 self.capture_state = CaptureState::Idle;
                 self.use_gamepad = false;
             }
+            WizardPage::Outputs => {
+                // Purely informational page — nothing to reset
+            }
             WizardPage::Tilt => {
                 self.tilt = TiltConfig::default();
             }
@@ -655,6 +662,7 @@ mod autostart;
 mod inputs_page;
 mod launcher;
 mod launcher_ui;
+mod outputs_page;
 mod rendering_page;
 mod save;
 mod screens_page;
@@ -714,20 +722,9 @@ impl eframe::App for App {
 
         // === Wizard mode ===
 
-        // Scale wizard UI x2 via Style (fonts + spacing). The initial window
-        // size is set to accommodate this scaled content in main.rs.
-        const WIZARD_SCALE: f32 = 2.0;
-        ui.style_mut().text_styles.values_mut().for_each(|font_id| {
-            font_id.size *= WIZARD_SCALE;
-        });
-        let spacing = &mut ui.style_mut().spacing;
-        spacing.button_padding *= WIZARD_SCALE;
-        spacing.interact_size *= WIZARD_SCALE;
-        spacing.item_spacing *= WIZARD_SCALE;
-        spacing.indent *= WIZARD_SCALE;
         // Push the scrollbar flush to the window edge — default bar_outer_margin
         // leaves a small gap on the right that looks awkward on this layout.
-        spacing.scroll.bar_outer_margin = 0.0;
+        ui.style_mut().spacing.scroll.bar_outer_margin = 0.0;
 
         // Header
         egui::Panel::top("wizard_header").show_inside(ui, |ui| {
@@ -840,6 +837,7 @@ impl eframe::App for App {
                             WizardPage::Screens => self.render_screens_page(ui),
                             WizardPage::Rendering => self.render_rendering_page(ui),
                             WizardPage::Inputs => self.render_inputs_page(ui),
+                            WizardPage::Outputs => self.render_outputs_page(ui),
                             WizardPage::Tilt => self.render_tilt_page(ui),
                             WizardPage::Audio => self.render_audio_page(ui),
                             WizardPage::TablesDir => self.render_tables_dir_page(ui),

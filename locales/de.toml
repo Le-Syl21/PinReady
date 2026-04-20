@@ -4,6 +4,7 @@
 page_screens = "Bildschirme"
 page_rendering = "Rendering"
 page_inputs = "Eingaben"
+page_outputs = "Ausgänge"
 page_tilt = "Tilt / Nudge"
 page_audio = "Audio"
 page_tables = "Tische"
@@ -194,6 +195,34 @@ input_custom2 = "Benutzerdefiniert #2 (Tisch-Mod)"
 input_custom3 = "Benutzerdefiniert #3 (Tisch-Mod)"
 input_custom4 = "Benutzerdefiniert #4 (Tisch-Mod)"
 
+# Outputs page
+outputs_heading = "Ausgänge / DOF-Konfiguration"
+outputs_desc = "VPX 10.8.1 standalone integriert libdof nativ — kein externes Plugin nötig. Sie müssen nur eine DOF-Konfiguration bereitstellen, die die Hardware Ihres Cabinets beschreibt (Solenoide, LEDs, Motoren...). Nutzen Sie den Online-Generator VPUniverse, um sie zu erzeugen, und entpacken Sie das Ergebnis in den unten angegebenen Ordner."
+outputs_workflow_title = "So erzeugen Sie Ihre DOF-Konfiguration"
+outputs_step1_account = "Erstellen Sie ein (kostenloses) Konto beim VPUniverse ConfigTool."
+outputs_step2_table = "Legen Sie im Tool einen neuen Tisch an, der zu Ihrem Cabinet passt."
+outputs_step3_output_system = "Fügen Sie diesem Tisch ein Output-System hinzu (Pinscape, LedWiz, PinOne, DudesCab, PacLed, TeensyStripController…)."
+outputs_step4_devices = "Verbinden Sie Ihre Geräte mit den Ausgängen: Solenoide, Flasher, GI-Beleuchtung, RGB-Tasten, WS2812 LED-Streifen, shaker-Motor, knocker, Blaulicht…"
+outputs_step5_generate = "Klicken Sie auf Generate — das Tool erzeugt eine .zip mit directoutputconfig51.ini, DirectOutputShapes.xml, tablemappings.xml usw."
+outputs_step6_extract = "Laden Sie die .zip herunter und entpacken Sie deren Inhalt direkt in den unten angegebenen Zielordner (die Dateien gehören in das Wurzelverzeichnis von directoutputconfig/, nicht in einen Unterordner)."
+outputs_devices_intro = "Anschließbare Geräte (nicht abschließend):"
+outputs_device_solenoids = "Solenoide (Flipper, Bumper, Slingshots)"
+outputs_device_flashers = "Flasher"
+outputs_device_gi = "GI-Beleuchtung"
+outputs_device_rgb_buttons = "RGB-Tastenbeleuchtung"
+outputs_device_rgb_strips = "WS2811/WS2812 RGB-LED-Streifen"
+outputs_device_shaker = "shaker-Motor"
+outputs_device_knocker = "knocker"
+outputs_device_beacon = "Blaulicht / Strobe"
+outputs_device_gear = "Getriebemotor / Lüfter"
+outputs_generator_title = "Online-Generator"
+outputs_generator_desc = "Öffnet das VPUniverse ConfigTool in Ihrem Standardbrowser."
+outputs_open_generator = "VPUniverse ConfigTool öffnen"
+outputs_target_title = "Zielordner auf diesem Rechner"
+outputs_target_desc = "Entpacken Sie die vom ConfigTool erzeugte .zip in diesen Ordner:"
+outputs_open_folder = "Ordner im Dateimanager öffnen"
+outputs_folder_missing = "Der Ordner existiert noch nicht — er wird beim Klick auf Öffnen angelegt."
+
 # Tilt page
 tilt_heading = "Tilt-/Nudge-Empfindlichkeit"
 tilt_desc = "Empfindlichkeitseinstellungen für Ihren Beschleunigungssensor (Pinscape / KL25Z)."
@@ -244,7 +273,29 @@ audio_wiring_stereo_no_spatial = "Playfield: Der Ton kommt aus denselben Lautspr
 tables_heading = "Tischverzeichnis"
 tables_desc = "Wählen Sie das Verzeichnis mit Ihren VPX-Tischen (ein Ordner pro Tisch)."
 tables_structure = "Erwartete Struktur (Ordner pro Tisch, Visual Pinball 10.8):"
+tables_structure_tree = """
+Tables/
+└── Table Name/
+    ├── Table Name.vpx                <- Tischdatei (erforderlich)
+    ├── Table Name.directb2s          <- Backglass B2S (optional)
+    ├── Table Name.ini                <- Tisch-spezifische Overrides (optional)
+    ├── Table Name.vbs                <- VBS-Patch / Script-Override (optional)
+    ├── altsound/<rom>/               <- altsound-Paket (optional)
+    ├── pinmame/
+    │   ├── roms/<rom>.zip            <- PinMAME-ROM (erforderlich für ROM-Tische)
+    │   └── nvram/<rom>.nv            <- Speicherdaten (automatisch erzeugt)
+    ├── pupvideos/<rom>/              <- PinUp Player-Videos (optional)
+    ├── serum/<rom>/<rom>.crz         <- Serum DMD-Kolorierung (optional)
+    ├── vni/<rom>/<rom>.vni + .pal    <- VNI DMD-Kolorierung (optional)
+    └── medias/                       <- Frontend-Medien (optional)"""
+tables_formats_supported = "ℹ Unterstützte DMD-Kolorierungsformate: Serum (.crz) und VNI (.vni + .pal)."
+tables_formats_unsupported = " => Proprietäre Formate wie .pac werden nicht unterstützt."
 tables_modifiable = "Alle Einstellungen können im Spiel über F12 geändert werden."
+tables_tips_patch_desc = "Einige Tische benötigen einen VBS-Patch, um auf 10.8.1 standalone zu laufen."
+tables_tips_webp_desc = "Sie können auch große PNG/BMP-Bilder in WebP konvertieren, um Tische zu verschlanken."
+tables_tips_info_here = "-> Infos hier"
+tables_tips_patch_url = "https://github.com/Le-Syl21/PinReady#-table-preparation"
+tables_tips_webp_url = "https://github.com/Le-Syl21/PinReady#-table-preparation"
 tables_path = "Pfad:"
 tables_browse = "Durchsuchen..."
 tables_folder_picker = "Tischverzeichnis auswählen"

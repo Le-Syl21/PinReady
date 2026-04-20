@@ -147,15 +147,21 @@ fn main() -> Result<()> {
     } else {
         None
     };
+    // Primary monitor index — used to anchor the window on the user's main
+    // display instead of whatever screen the WM decides (multi-monitor setups).
+    let primary_idx = displays.iter().position(|d| d.is_primary).unwrap_or(0);
 
     // Create app (starts joystick + audio threads internally)
     let mut app = app::App::new(vpx_config, db, start_in_wizard, displays);
 
-    // Launch eframe. Wizard UI is style-scaled x2 so we start with a window
-    // large enough to show all breadcrumbs + content comfortably.
+    // Launch eframe. Initial size is in logical pixels — the OS's DPI scaling
+    // is applied on top so the window grows proportionally on HiDPI displays.
+    // Grown to match the +20% zoom_factor set below so content keeps the same
+    // logical room.
     let mut viewport = egui::ViewportBuilder::default()
         .with_title(format!("PinReady v{VERSION}"))
-        .with_inner_size([1800.0, 1100.0]);
+        .with_inner_size([1320.0, 900.0])
+        .with_monitor(primary_idx);
     if cabinet_mode {
         viewport = viewport
             .with_rotation(eframe::emath::ViewportRotation::CW90)
@@ -203,6 +209,10 @@ fn main() -> Result<()> {
                 cc.egui_ctx.set_fonts(font_defs);
                 log::info!("Loaded {} Noto font(s) for non-Latin scripts", font_count);
             }
+            // Bump the UI a bit beyond egui's default sizing. Composes with the
+            // OS-reported DPI scale (native_pixels_per_point), so HiDPI is
+            // still honored — this is an additional user-level zoom.
+            cc.egui_ctx.set_zoom_factor(1.20);
             Ok(Box::new(app))
         }),
     )

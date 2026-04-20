@@ -4,6 +4,7 @@
 page_screens = "Schermi"
 page_rendering = "Rendering"
 page_inputs = "Controlli"
+page_outputs = "Uscite"
 page_tilt = "Tilt / Nudge"
 page_audio = "Audio"
 page_tables = "Tavoli"

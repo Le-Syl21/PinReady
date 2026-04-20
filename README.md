@@ -10,11 +10,15 @@ Cross-platform configurator and launcher for [Visual Pinball](https://github.com
 
 PinReady replaces the non-existent native configuration tools for VPX standalone builds (SDL3/bgfx). It guides you through setting up a virtual pinball cabinet from scratch: screens, inputs, tilt, audio, then lets you browse and launch tables from a single interface. 🕹️
 
+> ⚠️ **Scope — please read before installing**
+>
+> PinReady is designed to **support the development and adoption of VPX 10.8.1**, not to replace a stable production VPX setup. The target audience is testers and early adopters of the new 10.8.1 architecture (integrated plugins, folder-per-table layout, SDL3/bgfx backend). If you run a stable VPX 10.7.x production cabinet, PinReady is probably not for you yet.
+
 ### ✨ Features
 
 **🧙 Configuration wizard (first run)**
 
-- 📥 **Visual Pinball auto-install** -- Automatically download and install the correct Visual Pinball build for your platform (Linux/macOS/Windows, x64/arm64/SBC)
+- 📥 **Visual Pinball auto-install** -- Automatically download and install the correct Visual Pinball build for your platform (Linux/macOS/Windows, x64/aarch64/SBC)
 - 🖥️ **Screen assignment** -- Detect displays via SDL3, auto-assign roles (Playfield, Backglass, DMD, Topper) by size, configure multi-screen positioning and cabinet physical dimensions
 - 🎨 **Rendering** -- Anti-aliasing, FXAA, sharpening, reflections, texture limits, sync mode, max framerate
 - 🎮 **Input mapping** -- Capture keyboard and joystick bindings for all VPX actions, auto-detect pinball controllers (Pinscape KL25Z, Pinscape Pico, DudesCab), conflict warnings
@@ -42,6 +46,8 @@ PinReady replaces the non-existent native configuration tools for VPX standalone
 Grab the latest release for your platform -- no install needed, just download and run:
 
 👉 **[Download PinReady](https://github.com/Le-Syl21/PinReady/releases/latest)** (Linux, macOS, Windows)
+
+📹 **[Video demo — YouTube playlist (EN + FR)](https://www.youtube.com/playlist?list=PLZ838nY4NE902Am7NIOGYbEJaak5pEP71)**
 
 ### 🔨 Build from source
 
@@ -84,12 +90,23 @@ RUST_LOG=info cargo run
 - 📁 **Tables directory** -- folder-per-table layout as described in VPX docs
 - 🌐 **Internet connection** -- required for auto-install and update checks (optional for manual install)
 
+**📂 File locations** (auto-resolved via OS conventions — you do not need to create these folders yourself):
+
+| What | Linux | macOS | Windows |
+|---|---|---|---|
+| **VPinballX.ini** (PinReady reads/writes) | `~/.local/share/VPinballX/10.8/VPinballX.ini` | `~/Library/Application Support/VPinballX/10.8/VPinballX.ini` | `%APPDATA%\VPinballX\10.8\VPinballX.ini` |
+| **PinReady DB + log** | `~/.local/share/pinready/` | `~/Library/Application Support/pinready/` | `%APPDATA%\pinready\` |
+| **DOF config** (extract the VPUniverse zip here) | `~/.local/share/VPinballX/10.8/directoutputconfig/` | `~/Library/Application Support/VPinballX/10.8/directoutputconfig/` | `%APPDATA%\VPinballX\10.8\directoutputconfig\` |
+
 **🎮 Launcher controls:**
 
 | Action | 🖱️ Mouse | ⌨️ Keyboard | 🕹️ Joystick |
 |---|---|---|---|
 | Previous/next table | Hover | Arrow Left/Right | Left/Right Flipper |
 | Previous/next row | -- | Arrow Up/Down | Left/Right MagnaSave |
+| Jump by one viewport | Wheel flick | PageUp/PageDown | -- |
+| First/last table | -- | Home/End | -- |
+| Scroll view (no selection change) | Mouse wheel | -- | -- |
 | Launch table | Click | Enter | Start |
 | Open config | -- | -- | Launch Ball |
 | Quit launcher | -- | Escape | ExitGame |
@@ -196,6 +213,59 @@ PinReady auto-detects pinball controllers and applies default button mappings. T
 
 </details>
 
+### 🧩 Table preparation
+
+Some tables need a bit of prep to behave correctly under VPX Standalone 10.8.1. Optional steps, but worth knowing:
+
+**🔧 Patching old tables for VPX Standalone**
+
+Some older tables use VBScript features that don't behave identically under VPX Standalone's scripting engine. The community-maintained [`jsm174/vpx-standalone-scripts`](https://github.com/jsm174/vpx-standalone-scripts) repo provides patched `.vbs` sidecar scripts for hundreds of tables.
+
+Workflow:
+1. Find the `.vbs` file matching your table name in the repo
+2. Place it next to your `.vpx` (same folder, same base name)
+3. VPX Standalone automatically uses the sidecar script instead of the embedded one
+
+**⚙️ Per-table settings (custom ini)**
+
+Global settings live in `VPinballX.ini`. To override them for a specific table, two options:
+
+**Option A — Sidecar ini (simplest, no tool needed)**
+
+Drop a `.ini` next to your `.vpx` with the same base name. VPX picks it up automatically:
+
+```
+MyTable/
+├── MyTable.vpx
+└── MyTable.ini   # overrides global VPinballX.ini for this table only
+```
+
+Only include the keys you want to override — everything else falls back to the global ini.
+
+**Option B — Embed the ini inside the .vpx (via vpxtool)**
+
+If you prefer keeping the settings inside the table file itself, use [vpxtool](https://github.com/francisdb/vpxtool) — grab a binary from the [latest release](https://github.com/francisdb/vpxtool/releases/latest) (Linux, macOS, Windows):
+
+```bash
+# 1. Extract the .vpx into a directory structure
+vpxtool extract MyTable.vpx
+
+# 2. Edit MyTable/MyTable.ini with your overrides
+
+# 3. Reassemble the .vpx with the ini embedded
+vpxtool assemble MyTable/
+```
+
+**🎨 Bonus — shrink table size (WebP conversion)**
+
+VPX tables often ship with large lossless BMP/PNG images. `vpxtool` can batch-convert them to WebP:
+
+```bash
+vpxtool images webp MyTable.vpx
+```
+
+Useful when you have dozens of tables eating disk space.
+
 ---
 
 ## 🇫🇷 Français
@@ -204,11 +274,15 @@ Configurateur et lanceur multiplateforme pour [Visual Pinball](https://github.co
 
 PinReady remplace les outils de configuration natifs inexistants pour les builds VPX standalone (SDL3/bgfx). Il vous guide dans la mise en place d'un flipper virtuel depuis zéro : écrans, contrôles, tilt, audio, puis permet de parcourir et lancer vos tables depuis une interface unique. 🕹️
 
+> ⚠️ **Périmètre — à lire avant d'installer**
+>
+> PinReady est conçu pour **accompagner le développement et l'adoption de VPX 10.8.1**, pas pour remplacer une installation VPX stable en production. Le public cible, ce sont les testeurs et les early adopters de la nouvelle architecture 10.8.1 (plugins intégrés, format dossier-par-table, backend SDL3/bgfx). Si vous avez un cabinet VPX 10.7.x stable en production, PinReady n'est probablement pas encore pour vous.
+
 ### ✨ Fonctionnalités
 
 **🧙 Assistant de configuration (premier lancement)**
 
-- 📥 **Installation automatique de Visual Pinball** -- Télécharge et installe automatiquement le bon build Visual Pinball pour votre plateforme (Linux/macOS/Windows, x64/arm64/SBC)
+- 📥 **Installation automatique de Visual Pinball** -- Télécharge et installe automatiquement le bon build Visual Pinball pour votre plateforme (Linux/macOS/Windows, x64/aarch64/SBC)
 - 🖥️ **Affectation des écrans** -- Détection des écrans via SDL3, affectation automatique des rôles (Playfield, Backglass, DMD, Topper) par taille, configuration du positionnement multi-écran et des dimensions physiques du cabinet
 - 🎨 **Rendu** -- Anti-aliasing, FXAA, netteté, reflets, limites de texture, mode sync, framerate max
 - 🎮 **Mapping des contrôles** -- Capture des touches clavier et boutons joystick pour toutes les actions VPX, détection automatique des contrôleurs pinball (Pinscape KL25Z, Pinscape Pico, DudesCab), avertissements de conflits
@@ -236,6 +310,8 @@ PinReady remplace les outils de configuration natifs inexistants pour les builds
 Téléchargez la dernière version pour votre plateforme -- pas d'installation, il suffit de lancer :
 
 👉 **[Télécharger PinReady](https://github.com/Le-Syl21/PinReady/releases/latest)** (Linux, macOS, Windows)
+
+📹 **[Démo vidéo — playlist YouTube (FR + EN)](https://www.youtube.com/playlist?list=PLZ838nY4NE902Am7NIOGYbEJaak5pEP71)**
 
 ### 🔨 Compilation depuis les sources
 
@@ -278,12 +354,23 @@ RUST_LOG=info cargo run
 - 📁 **Répertoire de tables** -- format dossier-par-table tel que décrit dans la doc VPX
 - 🌐 **Connexion internet** -- nécessaire pour l'installation automatique et la vérification des mises à jour (optionnel pour l'installation manuelle)
 
+**📂 Emplacements des fichiers** (résolus automatiquement via les conventions OS — vous n'avez pas à créer ces dossiers vous-même) :
+
+| Quoi | Linux | macOS | Windows |
+|---|---|---|---|
+| **VPinballX.ini** (PinReady lit/écrit) | `~/.local/share/VPinballX/10.8/VPinballX.ini` | `~/Library/Application Support/VPinballX/10.8/VPinballX.ini` | `%APPDATA%\VPinballX\10.8\VPinballX.ini` |
+| **BDD + log PinReady** | `~/.local/share/pinready/` | `~/Library/Application Support/pinready/` | `%APPDATA%\pinready\` |
+| **Config DOF** (décompresser le zip VPUniverse ici) | `~/.local/share/VPinballX/10.8/directoutputconfig/` | `~/Library/Application Support/VPinballX/10.8/directoutputconfig/` | `%APPDATA%\VPinballX\10.8\directoutputconfig\` |
+
 **🎮 Contrôles du lanceur :**
 
 | Action | 🖱️ Souris | ⌨️ Clavier | 🕹️ Joystick |
 |---|---|---|---|
 | Table précédente/suivante | Survol | Flèche Gauche/Droite | Flipper Gauche/Droit |
 | Ligne précédente/suivante | -- | Flèche Haut/Bas | MagnaSave Gauche/Droit |
+| Saut d'un viewport | Flick molette | PageUp/PageDown | -- |
+| Première/dernière table | -- | Home/End | -- |
+| Scroll visuel (sans changer la sélection) | Molette | -- | -- |
 | Lancer une table | Clic | Entrée | Start |
 | Ouvrir la config | -- | -- | Launch Ball |
 | Quitter le lanceur | -- | Échap | ExitGame |
@@ -389,6 +476,59 @@ PinReady détecte automatiquement les contrôleurs pinball et applique le mappin
 | 31 | Calib | *(NE PAS REMAPPER)* |
 
 </details>
+
+### 🧩 Préparation des tables
+
+Certaines tables demandent un peu de préparation pour bien fonctionner sous VPX Standalone 10.8.1. Étapes optionnelles, mais bon à savoir :
+
+**🔧 Patcher les anciennes tables pour VPX Standalone**
+
+Certaines tables anciennes utilisent des particularités VBScript qui ne se comportent pas à l'identique sous le moteur de script de VPX Standalone. Le dépôt communautaire [`jsm174/vpx-standalone-scripts`](https://github.com/jsm174/vpx-standalone-scripts) fournit des scripts `.vbs` patchés pour des centaines de tables, à utiliser en sidecar.
+
+Procédure :
+1. Trouvez le fichier `.vbs` correspondant au nom de votre table dans le dépôt
+2. Placez-le à côté de votre `.vpx` (même dossier, même nom de base)
+3. VPX Standalone utilise automatiquement le script sidecar à la place du script embarqué
+
+**⚙️ Réglages par table (ini personnalisé)**
+
+Les réglages globaux sont dans `VPinballX.ini`. Pour les surcharger pour une table donnée, deux options :
+
+**Option A — Ini sidecar (le plus simple, sans outil)**
+
+Déposez un `.ini` à côté de votre `.vpx` avec le même nom de base. VPX le prend automatiquement :
+
+```
+MaTable/
+├── MaTable.vpx
+└── MaTable.ini   # surcharge le VPinballX.ini global pour cette table uniquement
+```
+
+N'incluez que les clés à surcharger — tout le reste retombe sur l'ini global.
+
+**Option B — Embarquer l'ini dans le .vpx (via vpxtool)**
+
+Si vous préférez garder les réglages dans le fichier de table lui-même, utilisez [vpxtool](https://github.com/francisdb/vpxtool) — récupérez un binaire sur la [dernière release](https://github.com/francisdb/vpxtool/releases/latest) (Linux, macOS, Windows) :
+
+```bash
+# 1. Extraire le .vpx sous forme de répertoire
+vpxtool extract MaTable.vpx
+
+# 2. Éditer MaTable/MaTable.ini avec vos surcharges
+
+# 3. Réassembler le .vpx avec l'ini embarqué
+vpxtool assemble MaTable/
+```
+
+**🎨 Bonus — réduire la taille des tables (conversion WebP)**
+
+Les tables VPX embarquent souvent des images BMP/PNG sans perte, volumineuses. `vpxtool` peut les convertir en WebP en une passe :
+
+```bash
+vpxtool images webp MaTable.vpx
+```
+
+Utile quand vous avez des dizaines de tables qui mangent de l'espace disque.
 
 ---
 
