@@ -59,7 +59,12 @@ fn init_logging() {
     // land in the log file. RUST_LOG env var still overrides if set.
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
         .format(move |buf, record| {
-            let ts = buf.timestamp_seconds();
+            let ts = time::OffsetDateTime::now_local()
+                .unwrap_or_else(|_| time::OffsetDateTime::now_utc())
+                .format(&time::macros::format_description!(
+                    "[year]-[month]-[day] [hour]:[minute]:[second]"
+                ))
+                .unwrap();
             let line = format!(
                 "[{ts} {level} {target}] {msg}\n",
                 level = record.level(),
