@@ -106,7 +106,7 @@ impl WizardPage {
 
 /// How the Visual Pinball executable is provided
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum VpxInstallMode {
+pub enum VpxInstallMode {
     /// Download from GitHub fork release
     Auto,
     /// User provides the path manually
@@ -277,7 +277,11 @@ impl App {
         let joystick_rx = inputs::spawn_joystick_thread();
         let audio_cmd_tx = audio::spawn_audio_thread();
         let selected_language = Self::detect_language(&db);
-        let update_check_rx = Self::spawn_update_check(&vpx_fork_repo);
+        let update_check_rx = if vpx_install_mode == VpxInstallMode::Manual {
+            None
+        } else {
+            Self::spawn_update_check(&vpx_fork_repo)
+        };
 
         let mut s = Self {
             mode: if start_in_wizard {
@@ -477,6 +481,20 @@ impl App {
                     vpx_installed_tag,
                     vpx_install_mode,
                 );
+            }
+
+            // For manual installs, always query the executable version at startup.
+            // Do NOT cache this to the database — only the auto-download flow writes tags to DB.
+            if vpx_install_mode == VpxInstallMode::Manual {
+                if let Some(version) = crate::updater::query_vpx_version(&vpx_exe_path) {
+                    log::info!("Detected VPX version from executable: {}", version);
+                    vpx_installed_tag = version;
+                } else {
+                    log::debug!(
+                        "Could not query VPX version from executable at {}",
+                        vpx_exe_path
+                    );
+                }
             }
         }
 

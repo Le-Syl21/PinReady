@@ -3480,6 +3480,7 @@ dependencies = [
  "ini-preserve",
  "log",
  "noto-fonts-dl",
+ "regex",
  "rfd",
  "rusqlite",
  "rust-i18n",

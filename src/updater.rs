@@ -4,8 +4,10 @@
 
 use anyhow::{bail, Context, Result};
 use crossbeam_channel::Sender;
+use regex::Regex;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 /// Default GitHub repository for Visual Pinball releases.
 pub const DEFAULT_FORK_REPO: &str = "Le-Syl21/vpinball";
@@ -17,6 +19,28 @@ pub struct ReleaseInfo {
     pub asset_name: String,
     pub asset_url: String,
     pub asset_size: u64,
+}
+
+/// Parse VPX `--version` output into a version string mirroring the release artifact tag format.
+///
+/// Input:  `Starting VPX - v10.8.1 Beta (Rev. 4955 (da4e2db), macos BGFX 64bits)`
+/// Output: `v10.8.1-4955-da4e2db`
+///
+/// Falls back to just the version number if the revision or SHA cannot be found.
+fn parse_vpx_version_output(s: &str) -> Option<String> {
+    static VPX_VERSION_RE: OnceLock<Regex> = OnceLock::new();
+    let re = VPX_VERSION_RE.get_or_init(|| {
+        Regex::new(r"(?x)\b(?P<ver>v\d+\.\d+\.\d+)\b(?:.*?\bRev\.\s*(?P<rev>\d+)\s*\((?P<sha>[0-9A-Fa-f]{7})\))?")
+        .expect("valid VPX version regex")
+    });
+
+    let caps = re.captures(s)?;
+    let base = caps.name("ver")?.as_str();
+
+    match (caps.name("rev"), caps.name("sha")) {
+        (Some(rev), Some(sha)) => Some(format!("{}-{}-{}", base, rev.as_str(), sha.as_str())),
+        _ => Some(base.to_string()),
+    }
 }
 
 /// Progress updates sent during download/install.
@@ -354,6 +378,58 @@ fn extract_zip(archive_path: &Path, dest: &Path) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// Query the version from a manually installed VPX executable using `--version`.
+///
+/// Parses output like:
+/// `Starting VPX - v10.8.1 Beta (Rev. 4955 (da4e2db), macos BGFX 64bits)`
+///
+/// to extract a human-readable version token and return it as a string tag.
+/// Returns None if the executable cannot be run or the output cannot be parsed.
+pub fn query_vpx_version(exe_path: &str) -> Option<String> {
+    use std::process::Command;
+
+    let exe_path = resolve_vpx_exe(Path::new(exe_path));
+
+    // Attempt to run the executable with --version flag
+    let output = Command::new(&exe_path).arg("--version").output().ok()?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{}{}", stdout, stderr);
+
+    // Parse into artifact-tag-style version string (e.g., "10.8.1-4955-da4e2db")
+    parse_vpx_version_output(&combined)
+}
+
+#[cfg(test)]
+mod version_tests {
+    use super::*;
+
+    #[test]
+    fn full_vpx_output_produces_artifact_tag_format() {
+        assert_eq!(
+            parse_vpx_version_output(
+                "Starting VPX - v10.8.1 Beta (Rev. 4955 (da4e2db), macos BGFX 64bits)"
+            ),
+            Some("v10.8.1-4955-da4e2db".to_string())
+        );
+    }
+
+    #[test]
+    fn version_only_fallback_when_no_rev_sha() {
+        assert_eq!(
+            parse_vpx_version_output("v10.8.1"),
+            Some("v10.8.1".to_string())
+        );
+    }
+
+    #[test]
+    fn returns_none_for_unparseable_output() {
+        assert_eq!(parse_vpx_version_output("invalid"), None);
+        assert_eq!(parse_vpx_version_output("4955"), None);
+    }
 }
 
 #[cfg(test)]
