@@ -299,6 +299,40 @@ impl App {
         self.launcher_cols = cols;
         let row_height = card_height + card_spacing;
 
+        // Extra keyboard navigation for long lists.
+        // Home/End jump to first/last table. PageUp/PageDown jump by one
+        // viewport worth of rows, keeping alignment consistent with joystick nav.
+        if !self.vpx_running.load(Ordering::Relaxed) {
+            let home = ui.input(|i| i.key_pressed(egui::Key::Home));
+            let end = ui.input(|i| i.key_pressed(egui::Key::End));
+            let page_up = ui.input(|i| i.key_pressed(egui::Key::PageUp));
+            let page_down = ui.input(|i| i.key_pressed(egui::Key::PageDown));
+
+            if home {
+                self.selected_table = 0;
+                self.scroll_to_selected = true;
+            }
+            if end {
+                self.selected_table = self.tables.len().saturating_sub(1);
+                self.scroll_to_selected = true;
+            }
+
+            if page_up || page_down {
+                let visible_rows = (ui.available_height() / row_height).floor().max(1.0) as usize;
+                let page_size = visible_rows.saturating_mul(cols).max(1);
+                if page_up {
+                    self.selected_table = self.selected_table.saturating_sub(page_size);
+                }
+                if page_down {
+                    self.selected_table = self
+                        .selected_table
+                        .saturating_add(page_size)
+                        .min(self.tables.len().saturating_sub(1));
+                }
+                self.scroll_to_selected = true;
+            }
+        }
+
         // Boost line-based mouse wheel input so stronger wheel flicks scroll farther.
         // Keep trackpad behavior untouched (trackpads usually report point deltas).
         let line_wheel_strength: f32 = ui.input(|i| {
