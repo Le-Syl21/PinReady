@@ -112,6 +112,36 @@ fn composite_bulb(base: &mut image::RgbaImage, bulb: &directb2s::Bulb) {
 }
 
 /// Extract the illuminated backglass image from a `.directb2s` file and
+/// User-override sources: check `<table_dir>/media/launcher.(png|webp|jpg|jpeg)`
+/// in that priority order. Returns the raw file bytes as-is — we don't
+/// re-encode because (a) the user picked the format deliberately and (b) the
+/// `image` crate's egui loader accepts PNG/WebP/JPEG uniformly.
+///
+/// Priority rationale: PNG first (lossless, most common for manually
+/// assembled frames); WebP second (modern, often smaller at equal quality);
+/// JPEG last (lossy, but widely supported).
+pub fn extract_backglass_from_launcher_override(table_dir: &Path) -> Option<Vec<u8>> {
+    let media = table_dir.join("media");
+    for ext in ["png", "webp", "jpg", "jpeg"] {
+        let candidate = media.join(format!("launcher.{ext}"));
+        if candidate.is_file() {
+            match std::fs::read(&candidate) {
+                Ok(bytes) if !bytes.is_empty() => {
+                    log::info!("Backglass: user override {}", candidate.display());
+                    return Some(bytes);
+                }
+                Ok(_) => {
+                    log::warn!("Backglass: {} is empty, skipping", candidate.display());
+                }
+                Err(e) => {
+                    log::warn!("Backglass: failed to read {}: {e}", candidate.display());
+                }
+            }
+        }
+    }
+    None
+}
+
 /// return it as JPEG bytes in memory. The caller stores the bytes in the
 /// SQLite cache (`backglass` table) instead of writing a PNG next to the
 /// table — see issue #6 for why we no longer drop `.pinready_bg_v*.png`

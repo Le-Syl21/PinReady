@@ -1,5 +1,36 @@
 use super::*;
 
+/// Return the most-recent Unix-seconds mtime across every candidate
+/// backglass source for a given table folder: `media/launcher.*`,
+/// `.directb2s`, and the `.vpx` itself. Missing files don't participate.
+/// Used at scan time to invalidate the SQLite cache when the user drops
+/// or updates a source file (especially a launcher.* override added
+/// after the initial scan). Silent on any fs error — a 0 mtime just
+/// means "don't consider this file newer than the cache".
+fn max_source_mtime(table_dir: &std::path::Path, vpx_path: &std::path::Path) -> i64 {
+    let b2s = vpx_path.with_extension("directb2s");
+    let media = table_dir.join("media");
+    let candidates = [
+        media.join("launcher.png"),
+        media.join("launcher.webp"),
+        media.join("launcher.jpg"),
+        media.join("launcher.jpeg"),
+        b2s,
+        vpx_path.to_path_buf(),
+    ];
+    let mut max_mtime = 0i64;
+    for candidate in &candidates {
+        if let Ok(meta) = std::fs::metadata(candidate) {
+            if let Ok(m) = meta.modified() {
+                if let Ok(d) = m.duration_since(std::time::UNIX_EPOCH) {
+                    max_mtime = max_mtime.max(d.as_secs() as i64);
+                }
+            }
+        }
+    }
+    max_mtime
+}
+
 /// Parse a percentage from a VPX SetProgress message.
 /// Examples: "Initializing Visuals... 10%" → Some(0.10), "Loading..." → None
 fn parse_progress_pct(msg: &str) -> Option<f32> {
@@ -83,88 +114,95 @@ impl App {
             log::warn!("Tables directory does not exist: {}", dir);
             return;
         }
-        // Scan for .vpx files (folder-per-table layout: each subfolder has a .vpx)
+        // Scan for .vpx files (folder-per-table layout: each subfolder has a .vpx).
+        // Phase 1: collect raw (table_dir, vpx_path, rel_path, source_mtime).
+        let mut found: Vec<(std::path::PathBuf, std::path::PathBuf, String, i64)> = Vec::new();
         if let Ok(entries) = std::fs::read_dir(dir_path) {
             for entry in entries.flatten() {
-                let path = entry.path();
-                if !path.is_dir() {
+                let table_dir = entry.path();
+                if !table_dir.is_dir() {
                     continue;
                 }
-                if let Ok(files) = std::fs::read_dir(&path) {
+                if let Ok(files) = std::fs::read_dir(&table_dir) {
                     for file in files.flatten() {
                         let fp = file.path();
                         if fp.extension().and_then(|e| e.to_str()) == Some("vpx") {
-                            let name = path
-                                .file_name()
-                                .unwrap_or_default()
-                                .to_string_lossy()
-                                .replace('_', " ");
-                            let b2s_path = fp.with_extension("directb2s");
-                            let has_directb2s = b2s_path.exists();
-                            // Relative path from tables_dir is the DB key.
-                            // Stable across disk moves when the user
-                            // reconfigures `tables_dir` — see issue #6.
                             let rel_path = fp
                                 .strip_prefix(dir_path)
                                 .map(|p| p.to_string_lossy().into_owned())
                                 .unwrap_or_else(|_| fp.to_string_lossy().into_owned());
-                            let bg_bytes = self
-                                .db
-                                .get_backglass(&rel_path)
-                                .map(|v| std::sync::Arc::from(v.into_boxed_slice()));
-                            self.tables.push(TableEntry {
-                                path: fp,
-                                name,
-                                has_directb2s,
-                                bg_bytes,
-                            });
+                            let source_mtime = max_source_mtime(&table_dir, &fp);
+                            found.push((table_dir.clone(), fp, rel_path, source_mtime));
                             break; // one vpx per folder
                         }
                     }
                 }
             }
         }
+
+        // Phase 2: build TableEntry list + extraction jobs in a single
+        // pass. The jobs reference the final (post-sort) indices so the
+        // extraction thread can write to the right row.
+        for (table_dir, vpx_path, _, _) in &found {
+            let name = table_dir
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .replace('_', " ");
+            self.tables.push(TableEntry {
+                path: vpx_path.clone(),
+                name,
+                bg_bytes: None,
+            });
+        }
         self.tables.sort_by_key(|a| a.name.to_lowercase());
+
+        let mut jobs: Vec<(usize, std::path::PathBuf, std::path::PathBuf, i64)> = Vec::new();
+        for (table_dir, vpx_path, rel_path, source_mtime) in found {
+            let idx = match self.tables.iter().position(|t| t.path == vpx_path) {
+                Some(i) => i,
+                None => continue,
+            };
+            match self.db.get_backglass(&rel_path) {
+                Some((bytes, cached_mtime)) if cached_mtime >= source_mtime => {
+                    self.tables[idx].bg_bytes =
+                        Some(std::sync::Arc::from(bytes.into_boxed_slice()));
+                }
+                _ => jobs.push((idx, table_dir, vpx_path, source_mtime)),
+            }
+        }
         log::info!("Scanned {} tables in {}", self.tables.len(), dir);
 
-        // Schedule extraction for tables with no cached bg. Each job
-        // tries the `.directb2s` first when present, else falls back to
-        // scanning the `.vpx`'s internal images catalog for a texture
-        // named "backglass*" (issue #6 case: PuP-era originals that ship
-        // without a separate backglass file).
+        // Schedule extraction for tables with no valid cached bg. Each
+        // job tries sources in priority order:
+        //   1. <table_dir>/media/launcher.(png|webp|jpg|jpeg) — user override
+        //   2. <table_dir>/<base>.directb2s
+        //   3. <table_dir>/<base>.vpx internal images (filtered "backglass*")
         let (tx, rx) = crossbeam_channel::unbounded();
         let tables_root = dir_path.to_path_buf();
-        let jobs: Vec<(usize, std::path::PathBuf, bool)> = self
-            .tables
-            .iter()
-            .enumerate()
-            .filter(|(_, t)| t.bg_bytes.is_none())
-            .map(|(i, t)| (i, t.path.clone(), t.has_directb2s))
-            .collect();
         if !jobs.is_empty() {
             log::info!(
-                "Extracting {} backglass images in background (b2s → vpx images/ fallback)...",
+                "Extracting {} backglass images in background (media/launcher.* → .directb2s → .vpx)...",
                 jobs.len()
             );
             std::thread::spawn(move || {
-                for (idx, vpx_path, has_directb2s) in jobs {
-                    // Try the .directb2s companion first.
-                    let mut bytes = if has_directb2s {
-                        let b2s = vpx_path.with_extension("directb2s");
-                        crate::assets::extract_backglass_from_b2s(&b2s)
-                    } else {
-                        None
-                    };
-                    // Fallback: scan the .vpx's images/ catalog.
-                    if bytes.is_none() {
-                        bytes = crate::assets::extract_backglass_from_vpx(&vpx_path);
-                    }
+                for (idx, table_dir, vpx_path, source_mtime) in jobs {
+                    let bytes = crate::assets::extract_backglass_from_launcher_override(&table_dir)
+                        .or_else(|| {
+                            let b2s = vpx_path.with_extension("directb2s");
+                            if b2s.is_file() {
+                                crate::assets::extract_backglass_from_b2s(&b2s)
+                            } else {
+                                None
+                            }
+                        })
+                        .or_else(|| crate::assets::extract_backglass_from_vpx(&vpx_path));
                     if let Some(bytes) = bytes {
                         let rel_path = vpx_path
                             .strip_prefix(&tables_root)
                             .map(|p| p.to_string_lossy().into_owned())
                             .unwrap_or_else(|_| vpx_path.to_string_lossy().into_owned());
-                        let _ = tx.send((idx, rel_path, bytes));
+                        let _ = tx.send((idx, rel_path, bytes, source_mtime));
                     }
                 }
                 log::info!("Background backglass extraction complete");
@@ -355,11 +393,11 @@ impl App {
                 log::info!("Background backglass extraction channel closed");
                 self.bg_rx = None;
             }
-            for (idx, rel_path, bytes) in drained {
+            for (idx, rel_path, bytes, source_mtime) in drained {
                 if idx >= self.tables.len() {
                     continue;
                 }
-                if let Err(e) = self.db.set_backglass(&rel_path, &bytes) {
+                if let Err(e) = self.db.set_backglass(&rel_path, &bytes, source_mtime) {
                     log::error!("Failed to cache backglass for {rel_path}: {e}");
                 }
                 let arc: std::sync::Arc<[u8]> = std::sync::Arc::from(bytes.into_boxed_slice());

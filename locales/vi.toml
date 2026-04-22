@@ -28,7 +28,9 @@ launcher_no_tables = "Không tìm thấy bàn nào. Kiểm tra thư mục bàn t
 launcher_error_title = "Visual Pinball — Lỗi"
 launcher_vpx_crashed = "Visual Pinball đã thoát bất ngờ."
 launcher_loading = "Đang khởi chạy Visual Pinball..."
-launcher_no_backglass = "Không có backglass"
+launcher_missing_title = "\"%{table}\" — không có hình ảnh"
+launcher_missing_hint_launcher = "Thả media/launcher.png"
+launcher_missing_hint_b2s = "hoặc một tệp .directb2s"
 launcher_close = "Đóng"
 
 # Update

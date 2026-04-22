@@ -28,7 +28,9 @@ launcher_no_tables = "Masa bulunamadı. Yapılandırmada masa dizinini kontrol e
 launcher_error_title = "Visual Pinball — Hata"
 launcher_vpx_crashed = "Visual Pinball beklenmedik şekilde kapandı."
 launcher_loading = "Visual Pinball başlatılıyor..."
-launcher_no_backglass = "Backglass yok"
+launcher_missing_title = "\"%{table}\" — görüntü yok"
+launcher_missing_hint_launcher = "media/launcher.png yerleştirin"
+launcher_missing_hint_b2s = "veya bir .directb2s dosyası"
 launcher_close = "Kapat"
 
 # Update

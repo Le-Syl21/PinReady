@@ -536,13 +536,32 @@ impl App {
                                 .corner_radius(egui::CornerRadius::same(4));
                             img.paint_at(ui, img_area);
                         } else {
-                            // Placeholder
+                            // Localized "missing image" placeholder. Tells the user
+                            // exactly which two filenames they can drop in to fix
+                            // it. Rendered live rather than pre-generated so the
+                            // hint re-localizes when the user switches language.
                             painter.rect_filled(img_area, 4.0, egui::Color32::from_rgb(25, 25, 30));
+                            let cx = img_area.center().x;
+                            let h = img_area.height();
                             painter.text(
-                                img_area.center(),
+                                egui::pos2(cx, img_area.min.y + h * 0.30),
                                 egui::Align2::CENTER_CENTER,
-                                &t!("launcher_no_backglass"),
+                                t!("launcher_missing_title", table = table.name.clone()),
                                 egui::FontId::proportional(18.0),
+                                egui::Color32::LIGHT_GRAY,
+                            );
+                            painter.text(
+                                egui::pos2(cx, img_area.min.y + h * 0.52),
+                                egui::Align2::CENTER_CENTER,
+                                t!("launcher_missing_hint_launcher"),
+                                egui::FontId::proportional(14.0),
+                                egui::Color32::GRAY,
+                            );
+                            painter.text(
+                                egui::pos2(cx, img_area.min.y + h * 0.68),
+                                egui::Align2::CENTER_CENTER,
+                                t!("launcher_missing_hint_b2s"),
+                                egui::FontId::proportional(14.0),
                                 egui::Color32::GRAY,
                             );
                         }
@@ -563,19 +582,6 @@ impl App {
                                 egui::Color32::WHITE
                             },
                         );
-
-                        // B2S badge
-                        if !table.has_directb2s {
-                            let badge_pos =
-                                egui::pos2(rect.max.x - 12.0, rect.min.y + img_height + 6.0);
-                            painter.text(
-                                badge_pos,
-                                egui::Align2::RIGHT_TOP,
-                                "No B2S",
-                                egui::FontId::proportional(14.0),
-                                egui::Color32::from_rgb(255, 100, 100),
-                            );
-                        }
                     }
                 });
                 ui.add_space(4.0);

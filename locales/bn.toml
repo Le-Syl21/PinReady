@@ -28,7 +28,9 @@ launcher_no_tables = "কোনো টেবিল পাওয়া যায�
 launcher_error_title = "Visual Pinball — ত্রুটি"
 launcher_vpx_crashed = "Visual Pinball অপ্রত্যাশিতভাবে বন্ধ হয়ে গেছে।"
 launcher_loading = "Visual Pinball চালু হচ্ছে..."
-launcher_no_backglass = "ব্যাকগ্লাস নেই"
+launcher_missing_title = "\"%{table}\" — কোনো ছবি নেই"
+launcher_missing_hint_launcher = "media/launcher.png রাখুন"
+launcher_missing_hint_b2s = "অথবা একটি .directb2s ফাইল"
 launcher_close = "বন্ধ"
 
 # Update

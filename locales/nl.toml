@@ -28,7 +28,9 @@ launcher_no_tables = "Geen tafels gevonden. Controleer de tafelmap in de configu
 launcher_error_title = "Visual Pinball — Fout"
 launcher_vpx_crashed = "Visual Pinball is onverwacht afgesloten."
 launcher_loading = "Visual Pinball starten..."
-launcher_no_backglass = "Geen backglass"
+launcher_missing_title = "\"%{table}\" — geen afbeelding"
+launcher_missing_hint_launcher = "Plaats media/launcher.png"
+launcher_missing_hint_b2s = "of een .directb2s-bestand"
 launcher_close = "Sluiten"
 
 # Update

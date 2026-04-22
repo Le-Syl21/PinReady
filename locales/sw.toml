@@ -28,7 +28,9 @@ launcher_no_tables = "Hakuna meza zilizopatikana. Angalia saraka ya meza katika 
 launcher_error_title = "Visual Pinball — Hitilafu"
 launcher_vpx_crashed = "Visual Pinball imesimama bila kutarajiwa."
 launcher_loading = "Inazindua Visual Pinball..."
-launcher_no_backglass = "Hakuna backglass"
+launcher_missing_title = "\"%{table}\" — hakuna picha"
+launcher_missing_hint_launcher = "Weka media/launcher.png"
+launcher_missing_hint_b2s = "au faili la .directb2s"
 launcher_close = "Funga"
 
 # Update

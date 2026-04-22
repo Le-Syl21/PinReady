@@ -28,7 +28,9 @@ launcher_no_tables = "Pöytiä ei löytynyt. Tarkista pöytähakemisto asetuksis
 launcher_error_title = "Visual Pinball — Virhe"
 launcher_vpx_crashed = "Visual Pinball sulkeutui odottamatta."
 launcher_loading = "Käynnistetään Visual Pinball..."
-launcher_no_backglass = "Ei backglassia"
+launcher_missing_title = "\"%{table}\" — ei kuvaa"
+launcher_missing_hint_launcher = "Pudota media/launcher.png"
+launcher_missing_hint_b2s = "tai .directb2s-tiedosto"
 launcher_close = "Sulje"
 
 # Update

@@ -28,7 +28,9 @@ launcher_no_tables = "找不到球台。請在設定中檢查球台目錄。"
 launcher_error_title = "Visual Pinball — 錯誤"
 launcher_vpx_crashed = "Visual Pinball 意外結束。"
 launcher_loading = "正在啟動 Visual Pinball..."
-launcher_no_backglass = "無背板"
+launcher_missing_title = "\"%{table}\" — 無圖像"
+launcher_missing_hint_launcher = "放入 media/launcher.png"
+launcher_missing_hint_b2s = "或 .directb2s 檔案"
 launcher_close = "關閉"
 
 # Update

@@ -28,7 +28,9 @@ launcher_no_tables = "Nessun tavolo trovato. Verificare la directory dei tavoli 
 launcher_error_title = "Visual Pinball — Errore"
 launcher_vpx_crashed = "Visual Pinball si è chiuso inaspettatamente."
 launcher_loading = "Avvio di Visual Pinball..."
-launcher_no_backglass = "Nessun backglass"
+launcher_missing_title = "\"%{table}\" — nessuna immagine"
+launcher_missing_hint_launcher = "Inserisci media/launcher.png"
+launcher_missing_hint_b2s = "o un file .directb2s"
 launcher_close = "Chiudi"
 
 # Update

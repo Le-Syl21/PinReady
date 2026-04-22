@@ -28,7 +28,9 @@ launcher_no_tables = "Neboli nájdené žiadne stoly. Skontrolujte adresár stol
 launcher_error_title = "Visual Pinball — Chyba"
 launcher_vpx_crashed = "Visual Pinball sa neočakávane ukončil."
 launcher_loading = "Spúšťanie Visual Pinball..."
-launcher_no_backglass = "Bez backglassu"
+launcher_missing_title = "\"%{table}\" — bez obrázka"
+launcher_missing_hint_launcher = "Vložte media/launcher.png"
+launcher_missing_hint_b2s = "alebo súbor .directb2s"
 launcher_close = "Zavrieť"
 
 # Update

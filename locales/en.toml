@@ -28,7 +28,9 @@ launcher_no_tables = "No tables found. Check the tables directory in configurati
 launcher_error_title = "Visual Pinball — Error"
 launcher_vpx_crashed = "Visual Pinball exited unexpectedly."
 launcher_loading = "Launching Visual Pinball..."
-launcher_no_backglass = "No backglass"
+launcher_missing_title = "\"%{table}\" — no image"
+launcher_missing_hint_launcher = "Drop media/launcher.png"
+launcher_missing_hint_b2s = "or a .directb2s file"
 launcher_close = "Close"
 
 # Update

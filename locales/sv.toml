@@ -28,7 +28,9 @@ launcher_no_tables = "Inga bord hittades. Kontrollera bordkatalogen i konfigurat
 launcher_error_title = "Visual Pinball — Fel"
 launcher_vpx_crashed = "Visual Pinball avslutades oväntat."
 launcher_loading = "Startar Visual Pinball..."
-launcher_no_backglass = "Ingen backglass"
+launcher_missing_title = "\"%{table}\" — ingen bild"
+launcher_missing_hint_launcher = "Lägg in media/launcher.png"
+launcher_missing_hint_b2s = "eller en .directb2s-fil"
 launcher_close = "Stäng"
 
 # Update

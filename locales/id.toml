@@ -28,7 +28,9 @@ launcher_no_tables = "Tidak ada meja ditemukan. Periksa direktori meja di konfig
 launcher_error_title = "Visual Pinball — Error"
 launcher_vpx_crashed = "Visual Pinball berhenti secara tidak terduga."
 launcher_loading = "Meluncurkan Visual Pinball..."
-launcher_no_backglass = "Tidak ada backglass"
+launcher_missing_title = "\"%{table}\" — tidak ada gambar"
+launcher_missing_hint_launcher = "Letakkan media/launcher.png"
+launcher_missing_hint_b2s = "atau berkas .directb2s"
 launcher_close = "Tutup"
 
 # Update

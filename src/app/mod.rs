@@ -67,14 +67,20 @@ const TOPPER_VIEWPORT: &str = "topper_viewport";
 /// VPX logo bytes (embedded at compile time)
 const VPX_LOGO: &[u8] = include_bytes!("../../assets/vpinball_logo.png");
 
+/// A completed background-extraction result: (table index, relative
+/// .vpx path used as DB key, encoded image bytes, source mtime for
+/// cache invalidation).
+pub type BgExtraction = (usize, String, Vec<u8>, i64);
+
 /// A discovered table
 #[derive(Debug, Clone)]
 pub struct TableEntry {
     pub path: std::path::PathBuf,
     pub name: String,
-    pub has_directb2s: bool,
-    /// Backglass image bytes (JPEG) loaded from the SQLite cache on
-    /// scan, or `None` if extraction is pending / impossible.
+    /// Backglass image bytes (JPEG/PNG/WebP depending on source) loaded
+    /// from the SQLite cache on scan, or `None` if extraction is pending
+    /// or nothing could be found. When `None`, the grid renders a
+    /// localized placeholder with instructions.
     pub bg_bytes: Option<std::sync::Arc<[u8]>>,
 }
 
@@ -234,7 +240,7 @@ pub struct App {
     // JPEG bytes). The UI thread pulls these in `process_bg_extraction`,
     // stores the bytes in the SQLite cache, and updates the TableEntry +
     // egui image cache.
-    bg_rx: Option<crossbeam_channel::Receiver<(usize, String, Vec<u8>)>>,
+    bg_rx: Option<crossbeam_channel::Receiver<BgExtraction>>,
 
     // VPX process running — disables launcher while true
     vpx_running: Arc<AtomicBool>,

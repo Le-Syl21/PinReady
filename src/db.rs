@@ -61,6 +61,40 @@ impl Database {
                 .execute("DROP TABLE backglass", [])
                 .context("Failed to drop v1 backglass table")?;
         }
+
+        // v2 → v3: add cached_at_mtime column (Unix seconds of the source
+        // file we extracted from). Existing rows get 0 → considered stale
+        // on next scan and re-extracted once, from then on mtime-based
+        // invalidation kicks in.
+        let has_mtime_col: bool = self
+            .conn
+            .query_row(
+                "SELECT 1 FROM pragma_table_info('backglass')
+                 WHERE name = 'cached_at_mtime' LIMIT 1",
+                [],
+                |row| row.get::<_, i32>(0),
+            )
+            .map(|_| true)
+            .unwrap_or(false);
+        let has_v2_backglass: bool = self
+            .conn
+            .query_row(
+                "SELECT 1 FROM pragma_table_info('backglass')
+                 WHERE name = 'rel_path' LIMIT 1",
+                [],
+                |row| row.get::<_, i32>(0),
+            )
+            .map(|_| true)
+            .unwrap_or(false);
+        if has_v2_backglass && !has_mtime_col {
+            log::info!("Adding cached_at_mtime column (schema upgrade to v3)");
+            self.conn
+                .execute(
+                    "ALTER TABLE backglass ADD COLUMN cached_at_mtime INTEGER NOT NULL DEFAULT 0",
+                    [],
+                )
+                .context("Failed to add cached_at_mtime column")?;
+        }
         Ok(())
     }
 
@@ -87,10 +121,16 @@ impl Database {
             -- folder to another disk (and updating `tables_dir` in config)
             -- doesn't invalidate the cache. `image` holds JPEG bytes at
             -- quality 85 (~5× smaller than PNG, visually lossless on the
-            -- photographic backglass content at 1280×1024).
+            -- photographic backglass content at 1280×1024); PNG/WebP bytes
+            -- stored as-is when the source was a user override at
+            -- `<table_dir>/media/launcher.(png|webp|jpg|jpeg)`.
+            -- `cached_at_mtime` is the Unix-seconds mtime of the source
+            -- file at extraction time; the scanner re-extracts when any
+            -- candidate source file on disk is newer.
             CREATE TABLE IF NOT EXISTS backglass (
-                rel_path TEXT PRIMARY KEY,
-                image    BLOB NOT NULL
+                rel_path        TEXT    PRIMARY KEY,
+                image           BLOB    NOT NULL,
+                cached_at_mtime INTEGER NOT NULL DEFAULT 0
             );",
             )
             .context("Failed to initialize database schema")?;
@@ -98,25 +138,33 @@ impl Database {
     }
 
     /// Lookup the cached backglass image for a table by its `.vpx` path
-    /// relative to the configured `tables_dir`. Returns `None` if no
-    /// entry exists.
-    pub fn get_backglass(&self, rel_path: &str) -> Option<Vec<u8>> {
+    /// relative to the configured `tables_dir`. Returns `(image_bytes,
+    /// cached_at_mtime)` so the scanner can compare against source-file
+    /// mtimes and re-extract when stale. `None` if no entry exists.
+    pub fn get_backglass(&self, rel_path: &str) -> Option<(Vec<u8>, i64)> {
         self.conn
             .query_row(
-                "SELECT image FROM backglass WHERE rel_path = ?1",
+                "SELECT image, cached_at_mtime FROM backglass WHERE rel_path = ?1",
                 [rel_path],
-                |row| row.get::<_, Vec<u8>>(0),
+                |row| Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, i64>(1)?)),
             )
             .ok()
     }
 
-    /// Upsert a JPEG-encoded backglass image for a table's relative path.
-    pub fn set_backglass(&self, rel_path: &str, image: &[u8]) -> Result<()> {
+    /// Upsert an encoded backglass image (JPEG/PNG/WebP depending on
+    /// source) for a table's relative path. `source_mtime` is the Unix
+    /// seconds mtime of the file we extracted from — stored so the next
+    /// scan can detect user-dropped launcher.* overrides without a
+    /// manual rescan.
+    pub fn set_backglass(&self, rel_path: &str, image: &[u8], source_mtime: i64) -> Result<()> {
         self.conn
             .execute(
-                "INSERT INTO backglass (rel_path, image) VALUES (?1, ?2)
-                 ON CONFLICT(rel_path) DO UPDATE SET image = excluded.image",
-                rusqlite::params![rel_path, image],
+                "INSERT INTO backglass (rel_path, image, cached_at_mtime)
+                 VALUES (?1, ?2, ?3)
+                 ON CONFLICT(rel_path) DO UPDATE
+                 SET image = excluded.image,
+                     cached_at_mtime = excluded.cached_at_mtime",
+                rusqlite::params![rel_path, image, source_mtime],
             )
             .context("Failed to insert backglass row")?;
         Ok(())

@@ -28,7 +28,9 @@ launcher_no_tables = "ไม่พบโต๊ะ ตรวจสอบไดเ
 launcher_error_title = "Visual Pinball — ข้อผิดพลาด"
 launcher_vpx_crashed = "Visual Pinball ปิดตัวลงโดยไม่คาดคิด"
 launcher_loading = "กำลังเปิด Visual Pinball..."
-launcher_no_backglass = "ไม่มี backglass"
+launcher_missing_title = "\"%{table}\" — ไม่มีรูปภาพ"
+launcher_missing_hint_launcher = "วาง media/launcher.png"
+launcher_missing_hint_b2s = "หรือไฟล์ .directb2s"
 launcher_close = "ปิด"
 
 # Update
