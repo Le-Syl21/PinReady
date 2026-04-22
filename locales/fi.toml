@@ -20,8 +20,7 @@ wizard_reset = "Palauta"
 # Launcher
 launcher_quit = "Lopeta"
 launcher_config = "Asetukset"
-launcher_rescan = "Skannaa uudelleen"
-launcher_reset_pct = "Palautetaan... %{pct}%"
+launcher_rebuild = "Rakenna uudelleen"
 launcher_search = "Haku:"
 launcher_table_count = "%{count} pöytä(ä)"
 launcher_no_tables = "Pöytiä ei löytynyt. Tarkista pöytähakemisto asetuksissa."
@@ -383,10 +382,12 @@ tables_folder_picker = "Valitse pöytähakemisto"
 tables_valid = "Kelvollinen hakemisto — %{count} kansiota löydetty"
 tables_invalid = "Tätä hakemistoa ei ole olemassa"
 
-# Rescan hint (tables page)
-tables_rescan_title = "Pöytien uudelleenskannaus (käynnistysohjelmassa)"
-tables_rescan_click = "Nopea napsautus: skannaa pöytähakemisto uudelleen (tunnistaa lisätyt/poistetut pöydät ja luo puuttuvat backglass-kuvat)."
-tables_rescan_hold = "Pidä 3 sekuntia: täysi nollaus — poistaa kaikki välimuistissa olevat backglass-kuvat ja luo ne uudelleen."
+# Rebuild button + VBS patch explainer (tables page)
+tables_rebuild_title = "Rakenna uudelleen -painike (pöytäkäynnistysohjelmassa)"
+tables_rebuild_desc = "Napsauta poistaaksesi kaikki välimuistissa olevat backglass-kuvat ja VBS-korjaustilan, ja skannaa sitten pöytähakemisto alusta alkaen uudelleen. Käytä tätä, kun PinReady vaikuttaa olevan epäsynkronissa levysi kanssa — pöytien uudelleenjärjestelyn jälkeen tai vastajulkaistun jsm174-korjauksen noutamiseksi."
+tables_vbs_patch_title = "Visual Pinball Standalone -yhteensopivuus"
+tables_vbs_patch_desc = "Jotkin pöydät käyttävät Windows-kohtaisia VBScript-rajapintoja, jotka eivät toimi Linux/macOS Standalone -versiossa. Skannauksen aikana PinReady laskee kunkin pöydän upotetun VBS:n sormenjäljen ja — kun yhteisöprojektilla jsm174/vpx-standalone-scripts on sille korjaus — asentaa korjatun skriptin .vbs-sidecar-tiedostona .vpx-tiedoston viereen."
+tables_vbs_patch_backup = "Jos sinulla oli oma mukautettu <table>.vbs-sidecar, se säilytetään nimellä <table>.pre_standalone.vbs (VPX ei lataa tätä tiedostonimeä automaattisesti) ennen korjauksen käyttämistä — toimiva pöytä, ja vanha skriptisi turvallisesti varmuuskopioitu."
 
 # Autostart
 autostart_label = "Käynnistä PinReady automaattisesti käynnistyksessä"

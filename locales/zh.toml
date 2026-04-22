@@ -20,8 +20,7 @@ wizard_reset = "重置"
 # Launcher
 launcher_quit = "退出"
 launcher_config = "配置"
-launcher_rescan = "重新扫描"
-launcher_reset_pct = "重置中... %{pct}%"
+launcher_rebuild = "重建"
 launcher_search = "搜索："
 launcher_table_count = "%{count} 个球台"
 launcher_no_tables = "未找到球台。请在配置中检查球台目录。"
@@ -382,10 +381,12 @@ tables_folder_picker = "选择球台目录"
 tables_valid = "有效目录 — 找到 %{count} 个文件夹"
 tables_invalid = "此目录不存在"
 
-# Rescan hint (tables page)
-tables_rescan_title = "重新扫描球台（在启动器中）"
-tables_rescan_click = "快速点击：重新扫描球台目录（检测新增/移除的球台并生成缺失的背景玻璃图片）。"
-tables_rescan_hold = "长按3秒：完全重置——删除所有缓存的背景玻璃图片并从头重新生成。"
+# Rebuild button + VBS patch explainer (tables page)
+tables_rebuild_title = "重建按钮（在球台启动器中）"
+tables_rebuild_desc = "点击以清除所有缓存的背景玻璃图片和 VBS 补丁状态，然后从头重新扫描球台目录。当 PinReady 似乎与磁盘不同步时使用——例如在重新整理球台之后，或者为了获取刚发布的 jsm174 补丁。"
+tables_vbs_patch_title = "Visual Pinball Standalone 兼容性"
+tables_vbs_patch_desc = "某些球台使用仅适用于 Windows 的 VBScript API，在 Linux/macOS Standalone 版本上会失效。扫描时，PinReady 会对每个球台内嵌的 VBS 计算指纹——当社区项目 jsm174/vpx-standalone-scripts 提供对应补丁时——将修补后的脚本作为 .vbs 文件安装在 .vpx 文件旁边。"
+tables_vbs_patch_backup = "如果您有自己定制的 <table>.vbs 文件，在应用补丁之前，它会被保留为 <table>.pre_standalone.vbs（VPX 不会自动加载此文件名）——一张可正常运行的球台，同时您的原脚本也被安全备份。"
 
 # Autostart
 autostart_label = "开机自动启动 PinReady"

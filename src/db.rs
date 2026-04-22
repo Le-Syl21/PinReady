@@ -131,6 +131,38 @@ impl Database {
                 rel_path        TEXT    PRIMARY KEY,
                 image           BLOB    NOT NULL,
                 cached_at_mtime INTEGER NOT NULL DEFAULT 0
+            );
+
+            -- jsm174/vpx-standalone-scripts catalog cache. Single-row
+            -- table (keyed on last_commit_sha). At startup we hit
+            -- api.github.com to read the master branch's latest commit
+            -- SHA and compare — if different, we re-fetch hashes.json.
+            -- Saves bandwidth (hashes.json is ~150 KB) and lets us work
+            -- offline with the last-known catalog.
+            CREATE TABLE IF NOT EXISTS vbs_catalog (
+                last_commit_sha TEXT    PRIMARY KEY,
+                hashes_json     TEXT    NOT NULL,
+                fetched_at      INTEGER NOT NULL
+            );
+
+            -- Per-table VBS patch state. Keyed on `rel_path` (same
+            -- semantics as the backglass cache — the .vpx path relative
+            -- to tables_dir). `embedded_sha256` is the SHA256 of the VBS
+            -- embedded inside the .vpx; `sidecar_sha256` is the SHA of
+            -- the companion .vbs file next to the .vpx, if any.
+            -- `status` records what the scanner did: NotInCatalog /
+            -- AlreadyPatched / Applied / CustomPreserved (the user's
+            -- sidecar was renamed to .pre_standalone.vbs before applying
+            -- the patched version from the catalog) / Failed.
+            -- `last_checked_mtime` is max(mtime(.vpx), mtime(sidecar))
+            -- at classification time — scanner re-evaluates when any
+            -- source file is newer than this.
+            CREATE TABLE IF NOT EXISTS vbs_patches (
+                rel_path           TEXT    PRIMARY KEY,
+                embedded_sha256    TEXT    NOT NULL,
+                sidecar_sha256     TEXT,
+                status             TEXT    NOT NULL,
+                last_checked_mtime INTEGER NOT NULL DEFAULT 0
             );",
             )
             .context("Failed to initialize database schema")?;
@@ -176,6 +208,107 @@ impl Database {
         self.conn
             .execute("DELETE FROM backglass", [])
             .context("Failed to clear backglass cache")?;
+        Ok(())
+    }
+
+    // --- vbs_catalog (jsm174/vpx-standalone-scripts cache) ---
+
+    /// Read the cached jsm174 catalog. Returns `(last_commit_sha,
+    /// hashes_json)`. At most one row ever exists — the SHA is the
+    /// primary key and we just overwrite on each refresh.
+    pub fn get_vbs_catalog(&self) -> Option<(String, String)> {
+        self.conn
+            .query_row(
+                "SELECT last_commit_sha, hashes_json FROM vbs_catalog LIMIT 1",
+                [],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+            )
+            .ok()
+    }
+
+    /// Replace the cached catalog with a fresh (sha, hashes_json). The
+    /// previous row is wiped first so only one entry ever lives here.
+    pub fn set_vbs_catalog(&self, last_commit_sha: &str, hashes_json: &str) -> Result<()> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        self.conn
+            .execute("DELETE FROM vbs_catalog", [])
+            .context("Failed to clear vbs_catalog")?;
+        self.conn
+            .execute(
+                "INSERT INTO vbs_catalog (last_commit_sha, hashes_json, fetched_at)
+                 VALUES (?1, ?2, ?3)",
+                rusqlite::params![last_commit_sha, hashes_json, now],
+            )
+            .context("Failed to insert vbs_catalog row")?;
+        Ok(())
+    }
+
+    // --- vbs_patches (per-table state) ---
+
+    /// Lookup the recorded VBS-patch state for a table. Returns
+    /// `(embedded_sha, sidecar_sha, status, last_checked_mtime)`.
+    /// `None` if no entry exists (never classified).
+    pub fn get_vbs_patch(&self, rel_path: &str) -> Option<(String, Option<String>, String, i64)> {
+        self.conn
+            .query_row(
+                "SELECT embedded_sha256, sidecar_sha256, status, last_checked_mtime
+                 FROM vbs_patches WHERE rel_path = ?1",
+                [rel_path],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, Option<String>>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, i64>(3)?,
+                    ))
+                },
+            )
+            .ok()
+    }
+
+    /// Upsert the VBS-patch state for a table after the scanner has
+    /// classified + acted on it.
+    pub fn set_vbs_patch(
+        &self,
+        rel_path: &str,
+        embedded_sha: &str,
+        sidecar_sha: Option<&str>,
+        status: &str,
+        last_checked_mtime: i64,
+    ) -> Result<()> {
+        self.conn
+            .execute(
+                "INSERT INTO vbs_patches
+                 (rel_path, embedded_sha256, sidecar_sha256, status, last_checked_mtime)
+                 VALUES (?1, ?2, ?3, ?4, ?5)
+                 ON CONFLICT(rel_path) DO UPDATE SET
+                   embedded_sha256 = excluded.embedded_sha256,
+                   sidecar_sha256  = excluded.sidecar_sha256,
+                   status          = excluded.status,
+                   last_checked_mtime = excluded.last_checked_mtime",
+                rusqlite::params![
+                    rel_path,
+                    embedded_sha,
+                    sidecar_sha,
+                    status,
+                    last_checked_mtime
+                ],
+            )
+            .context("Failed to upsert vbs_patches row")?;
+        Ok(())
+    }
+
+    /// Wipe every recorded VBS-patch state. Called by the Rebuild
+    /// action so the next scan re-classifies all tables from scratch.
+    // Wired in by the Rebuild button (task #9). Drop once consumed.
+    #[allow(dead_code)]
+    pub fn clear_vbs_patches(&self) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM vbs_patches", [])
+            .context("Failed to clear vbs_patches")?;
         Ok(())
     }
 
@@ -280,5 +413,83 @@ mod tests {
         db.set_config("b", "2").unwrap();
         assert_eq!(db.get_config("a"), Some("1".to_string()));
         assert_eq!(db.get_config("b"), Some("2".to_string()));
+    }
+
+    #[test]
+    fn vbs_catalog_roundtrip() {
+        let db = temp_db();
+        assert!(db.get_vbs_catalog().is_none());
+        db.set_vbs_catalog("abc123", "{\"files\": []}").unwrap();
+        let (sha, json) = db.get_vbs_catalog().unwrap();
+        assert_eq!(sha, "abc123");
+        assert_eq!(json, "{\"files\": []}");
+    }
+
+    #[test]
+    fn vbs_catalog_replaces_single_row() {
+        let db = temp_db();
+        db.set_vbs_catalog("sha1", "{\"v\":1}").unwrap();
+        db.set_vbs_catalog("sha2", "{\"v\":2}").unwrap();
+        let (sha, json) = db.get_vbs_catalog().unwrap();
+        assert_eq!(sha, "sha2");
+        assert_eq!(json, "{\"v\":2}");
+        // Ensure only one row exists
+        let count: i64 = db
+            .conn
+            .query_row("SELECT COUNT(*) FROM vbs_catalog", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn vbs_patch_roundtrip_with_sidecar() {
+        let db = temp_db();
+        db.set_vbs_patch(
+            "Totan/Totan.vpx",
+            "embed_sha_hex",
+            Some("sidecar_sha_hex"),
+            "Applied",
+            1_700_000_000,
+        )
+        .unwrap();
+        let (emb, side, status, mtime) = db.get_vbs_patch("Totan/Totan.vpx").unwrap();
+        assert_eq!(emb, "embed_sha_hex");
+        assert_eq!(side, Some("sidecar_sha_hex".to_string()));
+        assert_eq!(status, "Applied");
+        assert_eq!(mtime, 1_700_000_000);
+    }
+
+    #[test]
+    fn vbs_patch_roundtrip_no_sidecar() {
+        let db = temp_db();
+        db.set_vbs_patch("Foo/Foo.vpx", "emb", None, "NotInCatalog", 0)
+            .unwrap();
+        let (_, side, status, _) = db.get_vbs_patch("Foo/Foo.vpx").unwrap();
+        assert_eq!(side, None);
+        assert_eq!(status, "NotInCatalog");
+    }
+
+    #[test]
+    fn vbs_patch_upserts_on_rescan() {
+        let db = temp_db();
+        db.set_vbs_patch("t/t.vpx", "emb1", None, "NotInCatalog", 100)
+            .unwrap();
+        db.set_vbs_patch("t/t.vpx", "emb2", Some("sc"), "Applied", 200)
+            .unwrap();
+        let (emb, side, status, mtime) = db.get_vbs_patch("t/t.vpx").unwrap();
+        assert_eq!(emb, "emb2");
+        assert_eq!(side, Some("sc".to_string()));
+        assert_eq!(status, "Applied");
+        assert_eq!(mtime, 200);
+    }
+
+    #[test]
+    fn clear_vbs_patches_wipes_all() {
+        let db = temp_db();
+        db.set_vbs_patch("a.vpx", "e", None, "s", 1).unwrap();
+        db.set_vbs_patch("b.vpx", "e", None, "s", 1).unwrap();
+        db.clear_vbs_patches().unwrap();
+        assert!(db.get_vbs_patch("a.vpx").is_none());
+        assert!(db.get_vbs_patch("b.vpx").is_none());
     }
 }

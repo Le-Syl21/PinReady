@@ -20,8 +20,7 @@ wizard_reset = "リセット"
 # Launcher
 launcher_quit = "終了"
 launcher_config = "設定"
-launcher_rescan = "再スキャン"
-launcher_reset_pct = "リセット中... %{pct}%"
+launcher_rebuild = "再構築"
 launcher_search = "検索："
 launcher_table_count = "%{count} テーブル"
 launcher_no_tables = "テーブルが見つかりません。設定でテーブルディレクトリを確認してください。"
@@ -383,10 +382,12 @@ tables_folder_picker = "テーブルディレクトリを選択"
 tables_valid = "有効なディレクトリ — %{count} フォルダ検出"
 tables_invalid = "このディレクトリは存在しません"
 
-# Rescan hint (tables page)
-tables_rescan_title = "テーブル再スキャン（ランチャー内）"
-tables_rescan_click = "クリック：テーブルディレクトリを再スキャン（追加/削除されたテーブルを検出し、不足しているバックグラス画像を生成）。"
-tables_rescan_hold = "3秒長押し：完全リセット — キャッシュされたバックグラス画像をすべて削除し、最初から再生成します。"
+# Rebuild button + VBS patch explainer (tables page)
+tables_rebuild_title = "再構築ボタン（テーブルランチャー内）"
+tables_rebuild_desc = "クリックすると、キャッシュされたすべてのバックグラス画像とVBSパッチ状態を消去し、テーブルディレクトリをゼロから再スキャンします。PinReadyがディスクと同期していないように見える場合 — テーブルを再編成した後、または新しくリリースされたjsm174パッチを取得するために — 使用してください。"
+tables_vbs_patch_title = "Visual Pinball Standalone 互換性"
+tables_vbs_patch_desc = "一部のテーブルはWindows専用のVBScript APIを使用しており、Linux/macOS Standaloneビルドで動作しません。スキャン時、PinReadyは各テーブルに埋め込まれたVBSのフィンガープリントを作成し — コミュニティプロジェクトjsm174/vpx-standalone-scriptsにパッチがある場合 — パッチ適用済みスクリプトを.vpxと同じ場所に.vbsサイドカーとしてインストールします。"
+tables_vbs_patch_backup = "独自にカスタマイズした<table>.vbsサイドカーがあった場合は、パッチ適用前に<table>.pre_standalone.vbsとして保存されます（VPXはそのファイル名を自動ロードしません） — 動作するテーブルと、安全にバックアップされた元のスクリプトの両方が得られます。"
 
 # Autostart
 autostart_label = "起動時にPinReadyを自動的に起動する"

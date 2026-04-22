@@ -20,8 +20,7 @@ wizard_reset = "ری سیٹ"
 # Launcher
 launcher_quit = "باہر نکلیں"
 launcher_config = "ترتیبات"
-launcher_rescan = "دوبارہ اسکین"
-launcher_reset_pct = "ری سیٹ... %{pct}%"
+launcher_rebuild = "دوبارہ تعمیر"
 launcher_search = "تلاش:"
 launcher_table_count = "%{count} ٹیبل"
 launcher_no_tables = "کوئی ٹیبل نہیں ملی۔ ترتیبات میں ٹیبل ڈائریکٹری چیک کریں۔"
@@ -383,10 +382,12 @@ tables_folder_picker = "ٹیبل ڈائریکٹری منتخب کریں"
 tables_valid = "درست ڈائریکٹری — %{count} فولڈرز ملے"
 tables_invalid = "یہ ڈائریکٹری موجود نہیں ہے"
 
-# Rescan hint (tables page)
-tables_rescan_title = "ٹیبل دوبارہ اسکین (لانچر میں)"
-tables_rescan_click = "فوری کلک: ٹیبل ڈائریکٹری دوبارہ اسکین کریں (نئی/ہٹائی گئی ٹیبلز کا پتہ لگاتا ہے اور غائب بیک گلاس بناتا ہے)۔"
-tables_rescan_hold = "3 سیکنڈ دبائے رکھیں: مکمل ری سیٹ — تمام کیش شدہ بیک گلاس حذف کرتا ہے اور نئے سرے سے بناتا ہے۔"
+# Rebuild button + VBS patch explainer (tables page)
+tables_rebuild_title = "دوبارہ تعمیر بٹن (ٹیبل لانچر میں)"
+tables_rebuild_desc = "تمام کیش شدہ بیک گلاس تصاویر اور VBS-پیچ حالت مٹانے کے لیے کلک کریں، پھر ٹیبل ڈائریکٹری کو شروع سے دوبارہ اسکین کریں۔ جب PinReady آپ کی ڈسک کے ساتھ ہم آہنگ نہ لگے تو اسے استعمال کریں — ٹیبلز کو دوبارہ ترتیب دینے کے بعد، یا نئے جاری کردہ jsm174 پیچ کو حاصل کرنے کے لیے۔"
+tables_vbs_patch_title = "Visual Pinball Standalone مطابقت"
+tables_vbs_patch_desc = "کچھ ٹیبلز صرف Windows کی VBScript API استعمال کرتی ہیں جو Linux/macOS Standalone بلڈ پر کام نہیں کرتیں۔ اسکین کے وقت، PinReady ہر ٹیبل کے ایمبیڈڈ VBS کا فنگر پرنٹ بناتا ہے اور — جب کمیونٹی پروجیکٹ jsm174/vpx-standalone-scripts کے پاس اس کا پیچ موجود ہو — پیچ شدہ اسکرپٹ کو .vpx کے ساتھ .vbs سائڈکار فائل کے طور پر انسٹال کرتا ہے۔"
+tables_vbs_patch_backup = "اگر آپ کے پاس اپنی اپنی مرضی کی <table>.vbs سائڈکار فائل تھی، پیچ لگانے سے پہلے اسے <table>.pre_standalone.vbs کے طور پر محفوظ کیا جاتا ہے (VPX اس فائل نام کو خودکار طور پر لوڈ نہیں کرے گا) — ایک کام کرتی ہوئی ٹیبل، آپ کی پرانی اسکرپٹ محفوظ طریقے سے بیک اپ کے ساتھ۔"
 
 # Autostart
 autostart_label = "اسٹارٹ اپ پر PinReady خود بخود شروع کریں"

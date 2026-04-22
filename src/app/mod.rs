@@ -72,6 +72,11 @@ const VPX_LOGO: &[u8] = include_bytes!("../../assets/vpinball_logo.png");
 /// cache invalidation).
 pub type BgExtraction = (usize, String, Vec<u8>, i64);
 
+/// A completed VBS-patch classification+apply result: (rel_path,
+/// embedded_sha256, sidecar_sha256, status, last_checked_mtime).
+/// `status` is one of `vbs_patches::status::*`.
+pub type VbsPatchRecord = (String, String, Option<String>, String, i64);
+
 /// A discovered table
 #[derive(Debug, Clone)]
 pub struct TableEntry {
@@ -242,6 +247,12 @@ pub struct App {
     // egui image cache.
     bg_rx: Option<crossbeam_channel::Receiver<BgExtraction>>,
 
+    // VBS patch classification results — (rel_path, embedded_sha,
+    // sidecar_sha, status, last_checked_mtime). Drained into
+    // `vbs_patches` table. Silent on the UI side — we don't show per-
+    // table badges; the log is the source of truth for what happened.
+    vbs_rx: Option<crossbeam_channel::Receiver<VbsPatchRecord>>,
+
     // VPX process running — disables launcher while true
     vpx_running: Arc<AtomicBool>,
     // VPX launch status received from the VPX process thread
@@ -265,9 +276,9 @@ pub struct App {
     // prevention); we drop it a few frames later to avoid pinning.
     focus_reset_at: Option<std::time::Instant>,
 
-    // Rescan button: long-press (3s) = full regeneration, short click = incremental
-    rescan_press_start: Option<std::time::Instant>,
-    // Rescan feedback flash: (timestamp, is_full_reset)
+    // Rebuild feedback flash: (timestamp, _unused). Button briefly
+    // tints red on click so the user has visual confirmation the
+    // wipe-and-rescan was triggered.
     rescan_flash: Option<(std::time::Instant, bool)>,
 
     // Language
@@ -408,6 +419,7 @@ impl App {
             kiosk_cursor_warped: false,
             nav_held: None,
             bg_rx: None,
+            vbs_rx: None,
             vpx_running: Arc::new(AtomicBool::new(false)),
             vpx_status_rx: None,
             vpx_loading_msg: String::new(),
@@ -417,7 +429,6 @@ impl App {
             autostart: is_autostart_enabled(),
             close_at: None,
             focus_reset_at: None,
-            rescan_press_start: None,
             rescan_flash: None,
             selected_language,
             vpx_install_mode,

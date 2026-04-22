@@ -20,8 +20,7 @@ wizard_reset = "Ripristina"
 # Launcher
 launcher_quit = "Esci"
 launcher_config = "Configurazione"
-launcher_rescan = "Riscansiona"
-launcher_reset_pct = "Ripristino... %{pct}%"
+launcher_rebuild = "Ricostruisci"
 launcher_search = "Cerca:"
 launcher_table_count = "%{count} tavolo/i"
 launcher_no_tables = "Nessun tavolo trovato. Verificare la directory dei tavoli nella configurazione."
@@ -383,10 +382,12 @@ tables_folder_picker = "Seleziona directory dei tavoli"
 tables_valid = "Directory valida — %{count} cartelle trovate"
 tables_invalid = "Questa directory non esiste"
 
-# Rescan hint (tables page)
-tables_rescan_title = "Riscansione tabelle (nel launcher)"
-tables_rescan_click = "Clic rapido: riscansiona la cartella delle tabelle (rileva tabelle aggiunte/rimosse e genera i backglass mancanti)."
-tables_rescan_hold = "Tenere premuto 3 secondi: reset completo — elimina tutte le immagini in cache e le rigenera da zero."
+# Rebuild button + VBS patch explainer (tables page)
+tables_rebuild_title = "Pulsante Ricostruisci (nel launcher delle tabelle)"
+tables_rebuild_desc = "Fai clic per cancellare tutte le immagini di backglass in cache e lo stato dei patch VBS, quindi ri-scansionare la cartella delle tabelle da zero. Usa questa opzione quando PinReady sembra non essere sincronizzato con il tuo disco — dopo aver riorganizzato le tabelle, o per recuperare un patch jsm174 appena rilasciato."
+tables_vbs_patch_title = "Compatibilità Visual Pinball Standalone"
+tables_vbs_patch_desc = "Alcune tabelle utilizzano API VBScript specifiche di Windows che non funzionano sulla build Linux/macOS di Standalone. Durante la scansione, PinReady calcola l'impronta del VBS incorporato in ogni tabella e — quando il progetto della community jsm174/vpx-standalone-scripts dispone di un patch — installa lo script patchato come file .vbs accanto al file .vpx."
+tables_vbs_patch_backup = "Se avevi un tuo file <table>.vbs personalizzato, viene conservato come <table>.pre_standalone.vbs (VPX non caricherà automaticamente quel nome) prima dell'applicazione del patch — una tabella funzionante, con il tuo vecchio script messo al sicuro."
 
 # Autostart
 autostart_label = "Avvia PinReady automaticamente all'avvio"

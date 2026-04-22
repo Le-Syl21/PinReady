@@ -81,26 +81,34 @@ impl App {
         ui.separator();
         ui.add_space(8.0);
 
-        // Rescan explanation
-        ui.label(egui::RichText::new(t!("tables_rescan_title")).strong());
+        // Rebuild button explanation
+        ui.label(egui::RichText::new(t!("tables_rebuild_title")).strong());
         ui.add_space(4.0);
         ui.horizontal_wrapped(|ui| {
             ui.label(
-                egui::RichText::new(t!("launcher_rescan"))
-                    .strong()
-                    .color(egui::Color32::from_rgb(80, 200, 80)),
-            );
-            ui.label(t!("tables_rescan_click"));
-        });
-        ui.add_space(2.0);
-        ui.horizontal_wrapped(|ui| {
-            ui.label(
-                egui::RichText::new(t!("launcher_reset_pct", pct = 100))
+                egui::RichText::new(t!("launcher_rebuild"))
                     .strong()
                     .color(egui::Color32::from_rgb(255, 80, 80)),
             );
-            ui.label(t!("tables_rescan_hold"));
+            ui.label(t!("tables_rebuild_desc"));
         });
+
+        ui.add_space(16.0);
+        ui.separator();
+        ui.add_space(8.0);
+
+        // VBS patch auto-apply notice — explains that we silently
+        // install sidecar scripts from jsm174/vpx-standalone-scripts at
+        // scan time, and that any pre-existing custom sidecar is
+        // backed up as .pre_standalone.vbs before the patch lands.
+        ui.label(egui::RichText::new(t!("tables_vbs_patch_title")).strong());
+        ui.add_space(4.0);
+        ui.label(t!("tables_vbs_patch_desc"));
+        ui.add_space(4.0);
+        ui.colored_label(
+            egui::Color32::from_rgb(200, 180, 100),
+            t!("tables_vbs_patch_backup"),
+        );
 
         ui.add_space(16.0);
         ui.separator();

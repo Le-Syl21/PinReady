@@ -20,8 +20,7 @@ wizard_reset = "Weka upya"
 # Launcher
 launcher_quit = "Ondoka"
 launcher_config = "Usanidi"
-launcher_rescan = "Changanua tena"
-launcher_reset_pct = "Kuweka upya... %{pct}%"
+launcher_rebuild = "Jenga upya"
 launcher_search = "Tafuta:"
 launcher_table_count = "Meza %{count}"
 launcher_no_tables = "Hakuna meza zilizopatikana. Angalia saraka ya meza katika usanidi."
@@ -383,10 +382,12 @@ tables_folder_picker = "Chagua saraka ya meza"
 tables_valid = "Saraka halali — folda %{count} zimepatikana"
 tables_invalid = "Saraka hii haipo"
 
-# Rescan hint (tables page)
-tables_rescan_title = "Changanua tena meza (katika kizinduzi)"
-tables_rescan_click = "Bofya haraka: changanua tena saraka ya meza (hugundua meza mpya/zilizoondolewa na kutengeneza picha za backglass zinazokosekana)."
-tables_rescan_hold = "Shikilia sekunde 3: upya kamili — hufuta picha zote za backglass zilizohifadhiwa na kuzizalisha upya."
+# Rebuild button + VBS patch explainer (tables page)
+tables_rebuild_title = "Kitufe cha Jenga upya (katika kizinduzi cha meza)"
+tables_rebuild_desc = "Bofya ili kufuta picha zote za backglass zilizohifadhiwa na hali ya viraka vya VBS, kisha changanua upya saraka ya meza kutoka mwanzo. Tumia hii wakati PinReady inaonekana haijasawazishwa na diski yako — baada ya kupanga upya meza, au kupata kiraka kipya cha jsm174 kilichotolewa."
+tables_vbs_patch_title = "Uoanifu na Visual Pinball Standalone"
+tables_vbs_patch_desc = "Baadhi ya meza hutumia API za VBScript mahususi kwa Windows ambazo haziwezi kufanya kazi kwenye toleo la Linux/macOS Standalone. Wakati wa uchanganuaji, PinReady hukokotoa alama ya kidole ya VBS iliyopachikwa ya kila meza na — wakati mradi wa jumuiya wa jsm174/vpx-standalone-scripts una kiraka kwa ajili yake — husakinisha hati iliyorekebishwa kama faili ya .vbs kando ya faili ya .vpx."
+tables_vbs_patch_backup = "Ikiwa ulikuwa na faili yako mwenyewe ya kubinafsishwa ya <table>.vbs, huhifadhiwa kama <table>.pre_standalone.vbs (VPX haitapakia jina hilo la faili kiotomatiki) kabla ya kiraka kutumika — meza inayofanya kazi, na hati yako ya zamani iliyohifadhiwa salama."
 
 # Autostart
 autostart_label = "Zindua PinReady kiotomatiki wakati wa kuanza"

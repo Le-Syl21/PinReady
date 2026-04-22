@@ -20,8 +20,7 @@ wizard_reset = "Сбросить"
 # Launcher
 launcher_quit = "Выход"
 launcher_config = "Настройки"
-launcher_rescan = "Пересканировать"
-launcher_reset_pct = "Сброс... %{pct}%"
+launcher_rebuild = "Пересобрать"
 launcher_search = "Поиск:"
 launcher_table_count = "%{count} стол(ов)"
 launcher_no_tables = "Столы не найдены. Проверьте каталог столов в настройках."
@@ -383,10 +382,12 @@ tables_folder_picker = "Выберите каталог столов"
 tables_valid = "Корректный каталог — найдено папок: %{count}"
 tables_invalid = "Этот каталог не существует"
 
-# Rescan hint (tables page)
-tables_rescan_title = "Повторное сканирование столов (в лаунчере)"
-tables_rescan_click = "Быстрый клик: пересканировать каталог столов (обнаруживает добавленные/удалённые столы и генерирует недостающие backglass)."
-tables_rescan_hold = "Удерживать 3 секунды: полный сброс — удаляет все кэшированные backglass и генерирует их заново."
+# Rebuild button + VBS patch explainer (tables page)
+tables_rebuild_title = "Кнопка «Пересобрать» (в лаунчере столов)"
+tables_rebuild_desc = "Нажмите, чтобы удалить все кэшированные изображения backglass и состояние патчей VBS, затем пересканировать каталог столов с нуля. Используйте, когда PinReady кажется не синхронизированным с вашим диском — после реорганизации столов или чтобы получить свежевыпущенный патч jsm174."
+tables_vbs_patch_title = "Совместимость с Visual Pinball Standalone"
+tables_vbs_patch_desc = "Некоторые столы используют Windows-специфичные API VBScript, которые не работают в Linux/macOS-сборке Standalone. Во время сканирования PinReady вычисляет отпечаток встроенного VBS каждого стола и — если у общественного проекта jsm174/vpx-standalone-scripts есть патч для него — устанавливает исправленный скрипт в виде файла .vbs рядом с файлом .vpx."
+tables_vbs_patch_backup = "Если у вас был собственный настроенный файл <table>.vbs, перед применением патча он сохраняется как <table>.pre_standalone.vbs (VPX не загружает это имя автоматически) — рабочий стол и ваш исходный скрипт, надёжно сохранённый."
 
 # Autostart
 autostart_label = "Запускать PinReady автоматически при старте"

@@ -20,8 +20,7 @@ wizard_reset = "초기화"
 # Launcher
 launcher_quit = "종료"
 launcher_config = "설정"
-launcher_rescan = "재스캔"
-launcher_reset_pct = "초기화 중... %{pct}%"
+launcher_rebuild = "재구축"
 launcher_search = "검색:"
 launcher_table_count = "%{count}개 테이블"
 launcher_no_tables = "테이블을 찾을 수 없습니다. 설정에서 테이블 디렉토리를 확인하세요."
@@ -383,10 +382,12 @@ tables_folder_picker = "테이블 디렉토리 선택"
 tables_valid = "유효한 디렉토리 — %{count}개 폴더 발견"
 tables_invalid = "이 디렉토리는 존재하지 않습니다"
 
-# Rescan hint (tables page)
-tables_rescan_title = "테이블 재스캔 (런처에서)"
-tables_rescan_click = "빠른 클릭: 테이블 디렉터리를 재스캔합니다 (추가/제거된 테이블을 감지하고 누락된 백글라스 이미지를 생성)."
-tables_rescan_hold = "3초 길게 누르기: 전체 초기화 — 모든 캐시된 백글라스 이미지를 삭제하고 처음부터 다시 생성합니다."
+# Rebuild button + VBS patch explainer (tables page)
+tables_rebuild_title = "재구축 버튼 (테이블 런처에서)"
+tables_rebuild_desc = "클릭하면 캐시된 모든 백글라스 이미지와 VBS 패치 상태를 지우고 테이블 디렉터리를 처음부터 다시 스캔합니다. PinReady가 디스크와 동기화되지 않은 것 같을 때 — 테이블을 재구성한 후 또는 새로 출시된 jsm174 패치를 받아오기 위해 — 사용하세요."
+tables_vbs_patch_title = "Visual Pinball Standalone 호환성"
+tables_vbs_patch_desc = "일부 테이블은 Windows 전용 VBScript API를 사용하며 Linux/macOS Standalone 빌드에서는 작동하지 않습니다. 스캔 시 PinReady는 각 테이블에 내장된 VBS의 지문을 생성하고 — 커뮤니티 프로젝트 jsm174/vpx-standalone-scripts에 해당 패치가 있는 경우 — 패치된 스크립트를 .vpx 옆에 .vbs 사이드카로 설치합니다."
+tables_vbs_patch_backup = "자체적으로 커스터마이즈한 <table>.vbs 사이드카가 있었다면, 패치 적용 전에 <table>.pre_standalone.vbs로 보존됩니다 (VPX는 해당 파일 이름을 자동으로 로드하지 않습니다) — 작동하는 테이블과 안전하게 백업된 원본 스크립트를 모두 유지할 수 있습니다."
 
 # Autostart
 autostart_label = "시작 시 PinReady 자동 실행"

@@ -20,8 +20,7 @@ wizard_reset = "রিসেট"
 # Launcher
 launcher_quit = "প্রস্থান"
 launcher_config = "কনফিগারেশন"
-launcher_rescan = "পুনঃস্ক্যান"
-launcher_reset_pct = "রিসেট... %{pct}%"
+launcher_rebuild = "পুনর্নির্মাণ"
 launcher_search = "অনুসন্ধান:"
 launcher_table_count = "%{count}টি টেবিল"
 launcher_no_tables = "কোনো টেবিল পাওয়া যায়নি। কনফিগারেশনে টেবিল ডিরেক্টরি পরীক্ষা করুন।"
@@ -383,10 +382,12 @@ tables_folder_picker = "টেবিল ডিরেক্টরি নির্
 tables_valid = "বৈধ ডিরেক্টরি — %{count}টি ফোল্ডার পাওয়া গেছে"
 tables_invalid = "এই ডিরেক্টরি বিদ্যমান নেই"
 
-# Rescan hint (tables page)
-tables_rescan_title = "টেবিল পুনঃস্ক্যান (লঞ্চারে)"
-tables_rescan_click = "দ্রুত ক্লিক: টেবিল ডিরেক্টরি পুনরায় স্ক্যান করুন (নতুন/সরানো টেবিল শনাক্ত করে এবং অনুপস্থিত ব্যাকগ্লাস তৈরি করে)।"
-tables_rescan_hold = "3 সেকেন্ড ধরে রাখুন: সম্পূর্ণ রিসেট — সমস্ত ক্যাশ করা ব্যাকগ্লাস মুছে দেয় এবং নতুন করে তৈরি করে।"
+# Rebuild button + VBS patch explainer (tables page)
+tables_rebuild_title = "পুনর্নির্মাণ বোতাম (টেবিল লঞ্চারে)"
+tables_rebuild_desc = "প্রতিটি ক্যাশে করা ব্যাকগ্লাস ছবি এবং VBS-প্যাচ অবস্থা মুছতে ক্লিক করুন, তারপর টেবিল ডিরেক্টরি নতুন করে স্ক্যান করুন। যখন PinReady আপনার ডিস্কের সাথে সিঙ্ক থাকে না বলে মনে হয় তখন এটি ব্যবহার করুন — টেবিল পুনর্বিন্যাস করার পরে, বা সদ্য প্রকাশিত jsm174 প্যাচ গ্রহণ করতে।"
+tables_vbs_patch_title = "Visual Pinball Standalone সামঞ্জস্যতা"
+tables_vbs_patch_desc = "কিছু টেবিল Windows-এর জন্য বিশেষ VBScript API ব্যবহার করে যা Linux/macOS Standalone বিল্ডে কাজ করে না। স্ক্যান করার সময়, PinReady প্রতিটি টেবিলের এম্বেডেড VBS-এর ফিঙ্গারপ্রিন্ট তৈরি করে এবং — যখন কমিউনিটি প্রকল্প jsm174/vpx-standalone-scripts-এ এর জন্য একটি প্যাচ থাকে — .vpx ফাইলের পাশে একটি .vbs সাইডকার হিসাবে প্যাচ করা স্ক্রিপ্ট ইনস্টল করে।"
+tables_vbs_patch_backup = "যদি আপনার নিজস্ব কাস্টমাইজড <table>.vbs সাইডকার থাকে, প্যাচ প্রয়োগ করার আগে এটি <table>.pre_standalone.vbs হিসাবে সংরক্ষিত হয় (VPX এই ফাইলের নাম স্বয়ংক্রিয়ভাবে লোড করবে না) — একটি কার্যকর টেবিল, আপনার পুরানো স্ক্রিপ্ট নিরাপদে ব্যাকআপ সহ।"
 
 # Autostart
 autostart_label = "স্টার্টআপে PinReady স্বয়ংক্রিয়ভাবে চালু করুন"

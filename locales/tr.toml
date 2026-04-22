@@ -20,8 +20,7 @@ wizard_reset = "Sıfırla"
 # Launcher
 launcher_quit = "Çıkış"
 launcher_config = "Yapılandırma"
-launcher_rescan = "Yeniden tara"
-launcher_reset_pct = "Sıfırlanıyor... %{pct}%"
+launcher_rebuild = "Yeniden oluştur"
 launcher_search = "Ara:"
 launcher_table_count = "%{count} masa"
 launcher_no_tables = "Masa bulunamadı. Yapılandırmada masa dizinini kontrol edin."
@@ -383,10 +382,12 @@ tables_folder_picker = "Masa dizinini seç"
 tables_valid = "Geçerli dizin — %{count} klasör bulundu"
 tables_invalid = "Bu dizin mevcut değil"
 
-# Rescan hint (tables page)
-tables_rescan_title = "Tablo yeniden tarama (başlatıcıda)"
-tables_rescan_click = "Hızlı tıklama: tablo dizinini yeniden tarar (eklenen/kaldırılan tabloları algılar ve eksik backglass görüntüleri oluşturur)."
-tables_rescan_hold = "3 saniye basılı tutma: tam sıfırlama — tüm önbellek backglass görüntülerini siler ve sıfırdan oluşturur."
+# Rebuild button + VBS patch explainer (tables page)
+tables_rebuild_title = "Yeniden oluştur düğmesi (tablo başlatıcıda)"
+tables_rebuild_desc = "Tüm önbelleğe alınmış backglass görüntülerini ve VBS yama durumunu silmek ve ardından tablo dizinini sıfırdan yeniden taramak için tıklayın. PinReady diskinizle senkronize değilmiş gibi göründüğünde — tabloları yeniden düzenledikten sonra veya yeni yayınlanan bir jsm174 yamasını almak için — bunu kullanın."
+tables_vbs_patch_title = "Visual Pinball Standalone uyumluluğu"
+tables_vbs_patch_desc = "Bazı tablolar, Linux/macOS Standalone sürümünde çalışmayan yalnızca Windows'a özgü VBScript API'lerini kullanır. Tarama sırasında PinReady her tablonun gömülü VBS'sinin parmak izini hesaplar ve — topluluk projesi jsm174/vpx-standalone-scripts için bir yama mevcut olduğunda — yamalı betiği .vpx dosyasının yanına bir .vbs sidecar dosyası olarak kurar."
+tables_vbs_patch_backup = "Kendi özelleştirilmiş <table>.vbs sidecar dosyanız varsa, yama uygulanmadan önce <table>.pre_standalone.vbs olarak korunur (VPX bu dosya adını otomatik yüklemeyecektir) — çalışan bir tablo ve eski betiğiniz güvenli şekilde yedeklenmiş olur."
 
 # Autostart
 autostart_label = "PinReady'yi başlangıçta otomatik başlat"

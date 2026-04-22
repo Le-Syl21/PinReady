@@ -20,8 +20,7 @@ wizard_reset = "Herstellen"
 # Launcher
 launcher_quit = "Afsluiten"
 launcher_config = "Configuratie"
-launcher_rescan = "Opnieuw scannen"
-launcher_reset_pct = "Herstellen... %{pct}%"
+launcher_rebuild = "Opnieuw opbouwen"
 launcher_search = "Zoeken:"
 launcher_table_count = "%{count} tafel(s)"
 launcher_no_tables = "Geen tafels gevonden. Controleer de tafelmap in de configuratie."
@@ -383,10 +382,12 @@ tables_folder_picker = "Tafelmap selecteren"
 tables_valid = "Geldige map — %{count} mappen gevonden"
 tables_invalid = "Deze map bestaat niet"
 
-# Rescan hint (tables page)
-tables_rescan_title = "Tabellen opnieuw scannen (in de launcher)"
-tables_rescan_click = "Korte klik: scan de tabellenmap opnieuw (detecteert toegevoegde/verwijderde tabellen en genereert ontbrekende backglass-afbeeldingen)."
-tables_rescan_hold = "3 seconden ingedrukt houden: volledige reset — verwijdert alle gecachte backglass-afbeeldingen en genereert ze opnieuw."
+# Rebuild button + VBS patch explainer (tables page)
+tables_rebuild_title = "Knop Opnieuw opbouwen (in de tabellen-launcher)"
+tables_rebuild_desc = "Klik om alle gecachte backglass-afbeeldingen en VBS-patchstatus te wissen en de tabellenmap opnieuw vanaf nul te scannen. Gebruik dit wanneer PinReady niet meer in sync lijkt met uw schijf — na het herorganiseren van tabellen, of om een nieuw uitgebrachte jsm174-patch op te halen."
+tables_vbs_patch_title = "Visual Pinball Standalone compatibiliteit"
+tables_vbs_patch_desc = "Sommige tabellen gebruiken Windows-specifieke VBScript-API's die niet werken op de Linux/macOS Standalone-build. Tijdens het scannen berekent PinReady een vingerafdruk van de ingebedde VBS in elke tabel en — wanneer het community-project jsm174/vpx-standalone-scripts een patch heeft — installeert het gepatchte script als een .vbs-sidecar naast het .vpx-bestand."
+tables_vbs_patch_backup = "Als u een eigen aangepaste <table>.vbs-sidecar had, wordt deze vóór het toepassen van de patch bewaard als <table>.pre_standalone.vbs (VPX laadt die bestandsnaam niet automatisch) — een werkende tabel, met uw oorspronkelijke script veilig gearchiveerd."
 
 # Autostart
 autostart_label = "PinReady automatisch starten bij het opstarten"

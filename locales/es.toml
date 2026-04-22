@@ -20,8 +20,7 @@ wizard_reset = "Reiniciar"
 # Launcher
 launcher_quit = "Salir"
 launcher_config = "Configuración"
-launcher_rescan = "Reescanear"
-launcher_reset_pct = "Reiniciando... %{pct}%"
+launcher_rebuild = "Reconstruir"
 launcher_search = "Buscar:"
 launcher_table_count = "%{count} mesa(s)"
 launcher_no_tables = "No se encontraron mesas. Verifique el directorio de mesas en la configuración."
@@ -383,10 +382,12 @@ tables_folder_picker = "Seleccionar directorio de mesas"
 tables_valid = "Directorio válido — %{count} carpetas encontradas"
 tables_invalid = "Este directorio no existe"
 
-# Rescan hint (tables page)
-tables_rescan_title = "Reescaneo de tablas (en el lanzador)"
-tables_rescan_click = "Clic rápido: reescanea el directorio de tablas (detecta tablas añadidas/eliminadas y genera los backglass faltantes)."
-tables_rescan_hold = "Mantener 3 segundos: reset completo — borra todas las imágenes en caché y las regenera desde cero."
+# Rebuild button + VBS patch explainer (tables page)
+tables_rebuild_title = "Botón Reconstruir (en el lanzador de tablas)"
+tables_rebuild_desc = "Haga clic para borrar todas las imágenes de backglass en caché y el estado de los parches VBS, y luego reescanear el directorio de tablas desde cero. Úselo cuando PinReady parezca desincronizado con su disco — tras reorganizar tablas, o para recibir un parche jsm174 recién publicado."
+tables_vbs_patch_title = "Compatibilidad con Visual Pinball Standalone"
+tables_vbs_patch_desc = "Algunas tablas utilizan APIs VBScript específicas de Windows que no funcionan en la compilación Standalone para Linux/macOS. Durante el escaneo, PinReady calcula la huella del VBS embebido en cada tabla y — cuando el proyecto comunitario jsm174/vpx-standalone-scripts dispone de un parche — instala el script parcheado como archivo .vbs junto al .vpx."
+tables_vbs_patch_backup = "Si tenía su propio archivo <table>.vbs personalizado, se conserva como <table>.pre_standalone.vbs (VPX no cargará automáticamente ese nombre) antes de aplicar el parche — una tabla funcional, con su script original respaldado de forma segura."
 
 # Autostart
 autostart_label = "Iniciar PinReady automáticamente al arrancar"

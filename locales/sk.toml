@@ -20,8 +20,7 @@ wizard_reset = "Obnoviť"
 # Launcher
 launcher_quit = "Ukončiť"
 launcher_config = "Konfigurácia"
-launcher_rescan = "Znovu prehľadať"
-launcher_reset_pct = "Obnovovanie... %{pct}%"
+launcher_rebuild = "Prebudovať"
 launcher_search = "Hľadať:"
 launcher_table_count = "%{count} stôl/stolov"
 launcher_no_tables = "Neboli nájdené žiadne stoly. Skontrolujte adresár stolov v konfigurácii."
@@ -383,10 +382,12 @@ tables_folder_picker = "Vybrať adresár stolov"
 tables_valid = "Platný adresár — nájdených %{count} priečinkov"
 tables_invalid = "Tento adresár neexistuje"
 
-# Rescan hint (tables page)
-tables_rescan_title = "Opätovné prehľadanie stolov (v spúšťači)"
-tables_rescan_click = "Krátke kliknutie: znovu prehľadá adresár stolov (zistí pridané/odstránené stoly a vygeneruje chýbajúce backglass)."
-tables_rescan_hold = "Podržať 3 sekundy: úplný reset — vymaže všetky backglass z vyrovnávacej pamäte a vygeneruje ich znova."
+# Rebuild button + VBS patch explainer (tables page)
+tables_rebuild_title = "Tlačidlo Prebudovať (v spúšťači stolov)"
+tables_rebuild_desc = "Kliknutím vymažete všetky backglass v pamäti cache a stav VBS patchov a potom znovu prehľadáte adresár stolov od začiatku. Použite to, keď sa PinReady javí nesynchronizovaný s vaším diskom — po reorganizácii stolov alebo na získanie čerstvo vydaného patcha jsm174."
+tables_vbs_patch_title = "Kompatibilita s Visual Pinball Standalone"
+tables_vbs_patch_desc = "Niektoré stoly používajú Windows-špecifické VBScript API, ktoré na verzii Linux/macOS Standalone nefungujú. Pri skenovaní PinReady vypočíta odtlačok vloženého VBS každého stola a — keď komunitný projekt jsm174/vpx-standalone-scripts má patch — nainštaluje opravený skript ako súbor .vbs vedľa súboru .vpx."
+tables_vbs_patch_backup = "Ak ste mali vlastný prispôsobený súbor <table>.vbs, pred aplikáciou patcha sa uchová ako <table>.pre_standalone.vbs (VPX tento názov automaticky nenačíta) — funkčný stôl a váš pôvodný skript bezpečne zálohovaný."
 
 # Autostart
 autostart_label = "Spustiť PinReady automaticky pri štarte"

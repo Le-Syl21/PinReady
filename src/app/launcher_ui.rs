@@ -7,6 +7,7 @@ impl App {
         egui_extras::install_image_loaders(ui.ctx());
 
         self.process_bg_extraction(ui.ctx());
+        self.process_vbs_extraction();
         self.preload_images_once(ui.ctx());
         self.handle_launcher_joystick(ui);
         self.process_vpx_status(ui.ctx());
@@ -217,89 +218,44 @@ impl App {
                         );
                     }
 
-                    // Rescan button with long-press detection and color feedback
-                    // Track mouse button globally to avoid losing the press when cursor drifts
-                    let primary_down = ui.input(|i| i.pointer.primary_down());
-                    let held_secs = self
-                        .rescan_press_start
-                        .map(|s| s.elapsed().as_secs_f32())
-                        .unwrap_or(0.0);
-                    let hold_ratio = (held_secs / 3.0).min(1.0);
-
-                    // Button color: flash feedback after action, or hold progress
-                    let btn_color = if let Some((flash_time, is_full)) = self.rescan_flash {
+                    // Rebuild button: single click, flushes backglass +
+                    // vbs_patches caches and re-scans from scratch. No
+                    // incremental mode — the mtime-invalidation inside
+                    // `scan_tables` already handles "new tables" and
+                    // "source file changed" cases transparently on every
+                    // scan. The button flashes briefly after click so the
+                    // user has visual confirmation something happened.
+                    let btn_color = self.rescan_flash.and_then(|(flash_time, _)| {
                         let age = flash_time.elapsed().as_secs_f32();
                         let alpha = ((1.0 - age / 1.0) * 255.0).clamp(0.0, 255.0) as u8;
                         if alpha > 0 {
                             ui.ctx().request_repaint();
-                            if is_full {
-                                Some(egui::Color32::from_rgba_unmultiplied(255, 80, 80, alpha))
-                            } else {
-                                Some(egui::Color32::from_rgba_unmultiplied(80, 200, 80, alpha))
-                            }
+                            Some(egui::Color32::from_rgba_unmultiplied(255, 80, 80, alpha))
                         } else {
                             self.rescan_flash = None;
                             None
                         }
-                    } else if self.rescan_press_start.is_some() {
-                        // Gradient from green (quick rescan) to red (full reset) as hold progresses
-                        let r = (80.0 + hold_ratio * 175.0) as u8;
-                        let g = (200.0 - hold_ratio * 120.0) as u8;
-                        Some(egui::Color32::from_rgb(r, g, 80))
-                    } else {
-                        None
-                    };
-
-                    let label = if self.rescan_press_start.is_some() {
-                        let pct = (hold_ratio * 100.0) as u32;
-                        t!("launcher_reset_pct", pct = pct).to_string()
-                    } else {
-                        t!("launcher_rescan").to_string()
-                    };
-
+                    });
+                    let label = t!("launcher_rebuild").to_string();
                     let text = if let Some(color) = btn_color {
                         egui::RichText::new(&label).color(color).size(h_size)
                     } else {
                         egui::RichText::new(&label).size(h_size)
                     };
-                    let rescan_btn = ui.button(text);
-
-                    if rescan_btn.is_pointer_button_down_on() && self.rescan_press_start.is_none() {
-                        // Mouse down on button: start tracking
-                        self.rescan_press_start = Some(std::time::Instant::now());
-                    }
-
-                    if self.rescan_press_start.is_some() {
-                        if primary_down {
-                            // Still holding — check if 3s reached
-                            if hold_ratio >= 1.0 {
-                                log::info!(
-                                    "Long press: full backglass regeneration (flush DB cache)"
-                                );
-                                self.rescan_press_start = None;
-                                self.rescan_flash = Some((std::time::Instant::now(), true));
-                                // Flush the SQLite `backglass` cache so the
-                                // follow-up scan re-extracts every image
-                                // from scratch. Legacy `.pinready_bg_v*.png`
-                                // files may still live in table folders
-                                // from older PinReady versions — we no
-                                // longer write nor read them; users can
-                                // delete them manually if desired.
-                                if let Err(e) = self.db.clear_backglass() {
-                                    log::error!("clear_backglass failed: {e}");
-                                }
-                                self.tables.iter_mut().for_each(|t| t.bg_bytes = None);
-                                self.images_preloaded = false;
-                                self.scan_tables();
-                            } else {
-                                ui.ctx().request_repaint();
-                            }
-                        } else {
-                            // Released before 3s: incremental rescan
-                            self.rescan_press_start = None;
-                            self.rescan_flash = Some((std::time::Instant::now(), false));
-                            self.scan_tables();
+                    if ui.button(text).clicked() {
+                        log::info!(
+                            "Rebuild: flushing backglass + vbs_patches caches, full re-scan"
+                        );
+                        self.rescan_flash = Some((std::time::Instant::now(), true));
+                        if let Err(e) = self.db.clear_backglass() {
+                            log::error!("clear_backglass failed: {e}");
                         }
+                        if let Err(e) = self.db.clear_vbs_patches() {
+                            log::error!("clear_vbs_patches failed: {e}");
+                        }
+                        self.tables.iter_mut().for_each(|t| t.bg_bytes = None);
+                        self.images_preloaded = false;
+                        self.scan_tables();
                     }
                 });
             },

@@ -20,8 +20,7 @@ wizard_reset = "Reset"
 # Launcher
 launcher_quit = "Keluar"
 launcher_config = "Konfigurasi"
-launcher_rescan = "Pindai ulang"
-launcher_reset_pct = "Reset... %{pct}%"
+launcher_rebuild = "Bangun ulang"
 launcher_search = "Cari:"
 launcher_table_count = "%{count} meja"
 launcher_no_tables = "Tidak ada meja ditemukan. Periksa direktori meja di konfigurasi."
@@ -383,10 +382,12 @@ tables_folder_picker = "Pilih direktori meja"
 tables_valid = "Direktori valid — %{count} folder ditemukan"
 tables_invalid = "Direktori ini tidak ada"
 
-# Rescan hint (tables page)
-tables_rescan_title = "Pindai ulang tabel (di peluncur)"
-tables_rescan_click = "Klik cepat: pindai ulang direktori tabel (mendeteksi tabel baru/dihapus dan membuat gambar backglass yang hilang)."
-tables_rescan_hold = "Tahan 3 detik: reset penuh — menghapus semua gambar backglass cache dan membuatnya ulang dari awal."
+# Rebuild button + VBS patch explainer (tables page)
+tables_rebuild_title = "Tombol Bangun ulang (di peluncur tabel)"
+tables_rebuild_desc = "Klik untuk menghapus semua gambar backglass cache dan status patch VBS, lalu pindai ulang direktori tabel dari awal. Gunakan ini ketika PinReady tampak tidak sinkron dengan disk Anda — setelah mengatur ulang tabel, atau untuk mendapatkan patch jsm174 yang baru dirilis."
+tables_vbs_patch_title = "Kompatibilitas Visual Pinball Standalone"
+tables_vbs_patch_desc = "Beberapa tabel menggunakan API VBScript khusus Windows yang tidak berfungsi pada build Linux/macOS Standalone. Saat pemindaian, PinReady menghitung sidik jari VBS yang tertanam di setiap tabel dan — ketika proyek komunitas jsm174/vpx-standalone-scripts memiliki patch untuknya — memasang skrip yang telah dipatch sebagai sidecar .vbs di samping file .vpx."
+tables_vbs_patch_backup = "Jika Anda memiliki sidecar <table>.vbs kustom sendiri, itu dipertahankan sebagai <table>.pre_standalone.vbs (VPX tidak akan memuat nama file itu secara otomatis) sebelum patch diterapkan — tabel yang berfungsi, dengan skrip lama Anda dicadangkan dengan aman."
 
 # Autostart
 autostart_label = "Jalankan PinReady secara otomatis saat startup"

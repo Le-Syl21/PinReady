@@ -20,8 +20,7 @@ wizard_reset = "Obnovit"
 # Launcher
 launcher_quit = "Ukončit"
 launcher_config = "Konfigurace"
-launcher_rescan = "Znovu prohledat"
-launcher_reset_pct = "Obnovování... %{pct}%"
+launcher_rebuild = "Znovu sestavit"
 launcher_search = "Hledat:"
 launcher_table_count = "%{count} stůl/stolů"
 launcher_no_tables = "Nebyly nalezeny žádné stoly. Zkontrolujte adresář stolů v konfiguraci."
@@ -383,10 +382,12 @@ tables_folder_picker = "Vybrat adresář stolů"
 tables_valid = "Platný adresář — nalezeno %{count} složek"
 tables_invalid = "Tento adresář neexistuje"
 
-# Rescan hint (tables page)
-tables_rescan_title = "Opětovné prohledání stolů (ve spouštěči)"
-tables_rescan_click = "Krátké kliknutí: znovu prohledá adresář stolů (detekuje přidané/odebrané stoly a vygeneruje chybějící backglass)."
-tables_rescan_hold = "Podržet 3 sekundy: úplný reset — smaže všechny backglass v mezipaměti a vygeneruje je znovu."
+# Rebuild button + VBS patch explainer (tables page)
+tables_rebuild_title = "Tlačítko Znovu sestavit (ve spouštěči stolů)"
+tables_rebuild_desc = "Kliknutím smažete všechny backglass v mezipaměti a stav VBS patchů, poté se adresář stolů od začátku znovu prohledá. Použijte tuto funkci, když PinReady vypadá nesynchronně s vaším diskem — po reorganizaci stolů nebo pro získání čerstvě vydaného patche od jsm174."
+tables_vbs_patch_title = "Kompatibilita s Visual Pinball Standalone"
+tables_vbs_patch_desc = "Některé stoly používají VBScript API specifické pro Windows, které na Linux/macOS verzi Standalone nefungují. Při skenování PinReady vypočítá otisk vloženého VBS v každém stole a — pokud má komunitní projekt jsm174/vpx-standalone-scripts patch — nainstaluje opravený skript jako soubor .vbs vedle souboru .vpx."
+tables_vbs_patch_backup = "Pokud jste měli vlastní přizpůsobený soubor <table>.vbs, před aplikací patche se uloží jako <table>.pre_standalone.vbs (VPX tento název automaticky nenačte) — funkční stůl a vaše původní skript bezpečně zálohovaný."
 
 # Autostart
 autostart_label = "Spouštět PinReady automaticky při startu"

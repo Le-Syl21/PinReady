@@ -20,8 +20,7 @@ wizard_reset = "Resetuj"
 # Launcher
 launcher_quit = "Zamknij"
 launcher_config = "Konfiguracja"
-launcher_rescan = "Skanuj ponownie"
-launcher_reset_pct = "Resetowanie... %{pct}%"
+launcher_rebuild = "Przebuduj"
 launcher_search = "Szukaj:"
 launcher_table_count = "%{count} stół/stołów"
 launcher_no_tables = "Nie znaleziono stołów. Sprawdź katalog stołów w konfiguracji."
@@ -383,10 +382,12 @@ tables_folder_picker = "Wybierz katalog stołów"
 tables_valid = "Prawidłowy katalog — znaleziono %{count} folderów"
 tables_invalid = "Ten katalog nie istnieje"
 
-# Rescan hint (tables page)
-tables_rescan_title = "Ponowne skanowanie stołów (w launcherze)"
-tables_rescan_click = "Krótkie kliknięcie: przeskanuj katalog stołów (wykrywa dodane/usunięte stoły i generuje brakujące obrazy backglass)."
-tables_rescan_hold = "Przytrzymaj 3 sekundy: pełny reset — usuwa wszystkie zbuforowane obrazy backglass i generuje je od nowa."
+# Rebuild button + VBS patch explainer (tables page)
+tables_rebuild_title = "Przycisk Przebuduj (w launcherze stołów)"
+tables_rebuild_desc = "Kliknij, aby usunąć wszystkie zbuforowane obrazy backglass oraz stan patchów VBS i ponownie przeskanować katalog stołów od zera. Użyj tej opcji, gdy PinReady wydaje się niezsynchronizowany z dyskiem — po reorganizacji stołów lub w celu pobrania świeżo wydanego patcha jsm174."
+tables_vbs_patch_title = "Zgodność z Visual Pinball Standalone"
+tables_vbs_patch_desc = "Niektóre stoły używają specyficznych dla Windows API VBScript, które nie działają w wersji Linux/macOS Standalone. Podczas skanowania PinReady oblicza odcisk palca osadzonego VBS każdego stołu i — jeśli społecznościowy projekt jsm174/vpx-standalone-scripts ma dla niego patch — instaluje zmodyfikowany skrypt jako plik .vbs obok pliku .vpx."
+tables_vbs_patch_backup = "Jeśli miałeś własny spersonalizowany plik <table>.vbs, przed zastosowaniem patcha zostaje zachowany jako <table>.pre_standalone.vbs (VPX nie załaduje automatycznie tej nazwy pliku) — działający stół i twój oryginalny skrypt bezpiecznie zabezpieczony."
 
 # Autostart
 autostart_label = "Uruchamiaj PinReady automatycznie przy starcie"

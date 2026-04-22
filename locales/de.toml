@@ -20,8 +20,7 @@ wizard_reset = "Zurücksetzen"
 # Launcher
 launcher_quit = "Beenden"
 launcher_config = "Konfiguration"
-launcher_rescan = "Neu scannen"
-launcher_reset_pct = "Zurücksetzen... %{pct}%"
+launcher_rebuild = "Neu aufbauen"
 launcher_search = "Suche:"
 launcher_table_count = "%{count} Tisch(e)"
 launcher_no_tables = "Keine Tische gefunden. Überprüfen Sie das Tischverzeichnis in der Konfiguration."
@@ -383,10 +382,12 @@ tables_folder_picker = "Tischverzeichnis auswählen"
 tables_valid = "Gültiges Verzeichnis — %{count} Ordner gefunden"
 tables_invalid = "Dieses Verzeichnis existiert nicht"
 
-# Rescan hint (tables page)
-tables_rescan_title = "Tabellen-Neuscan (im Launcher)"
-tables_rescan_click = "Kurzer Klick: Tabellenverzeichnis neu scannen (erkennt hinzugefügte/entfernte Tabellen und erzeugt fehlende Backglass-Bilder)."
-tables_rescan_hold = "3 Sekunden halten: Komplett-Reset — löscht alle gecachten Backglass-Bilder und erzeugt sie neu."
+# Rebuild button + VBS patch explainer (tables page)
+tables_rebuild_title = "Schaltfläche „Neu aufbauen“ (im Tabellen-Launcher)"
+tables_rebuild_desc = "Klicken Sie, um alle gecachten Backglass-Bilder und den VBS-Patch-Status zu löschen und das Tabellenverzeichnis von Grund auf neu zu scannen. Verwenden Sie dies, wenn PinReady nicht mehr mit Ihrer Festplatte synchron zu sein scheint — nach dem Neuorganisieren von Tabellen oder um einen frisch veröffentlichten jsm174-Patch zu übernehmen."
+tables_vbs_patch_title = "Visual Pinball Standalone Kompatibilität"
+tables_vbs_patch_desc = "Einige Tabellen verwenden Windows-spezifische VBScript-APIs, die auf dem Linux/macOS Standalone-Build nicht funktionieren. Beim Scannen erstellt PinReady einen Fingerabdruck des eingebetteten VBS jeder Tabelle und — wenn das Community-Projekt jsm174/vpx-standalone-scripts einen Patch dafür hat — installiert das gepatchte Skript als .vbs-Sidecar neben der .vpx-Datei."
+tables_vbs_patch_backup = "Wenn Sie Ihre eigene angepasste <table>.vbs-Sidecar-Datei hatten, wird sie vor dem Anwenden des Patches als <table>.pre_standalone.vbs gesichert (VPX lädt diesen Dateinamen nicht automatisch) — eine funktionierende Tabelle, mit Ihrem alten Skript sicher gesichert."
 
 # Autostart
 autostart_label = "PinReady automatisch beim Start ausführen"

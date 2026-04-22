@@ -20,8 +20,7 @@ wizard_reset = "Reset"
 # Launcher
 launcher_quit = "Quit"
 launcher_config = "Configuration"
-launcher_rescan = "Rescan"
-launcher_reset_pct = "Reset... %{pct}%"
+launcher_rebuild = "Rebuild"
 launcher_search = "%{count} Tables"
 launcher_table_count = "%{count} table(s)"
 launcher_no_tables = "No tables found. Check the tables directory in configuration."
@@ -384,9 +383,11 @@ tables_valid = "Valid directory — %{count} folders found"
 tables_invalid = "This directory does not exist"
 
 # Rescan hint (tables page)
-tables_rescan_title = "Table rescan (in table launcher)"
-tables_rescan_click = "Quick click: rescan tables directory (detects new/removed tables and generates missing backglass images)."
-tables_rescan_hold = "Hold 3 seconds: full reset — deletes all cached backglass images and regenerates them from scratch."
+tables_rebuild_title = "Rebuild button (in table launcher)"
+tables_rebuild_desc = "Click to wipe every cached backglass image and VBS-patch state, then re-scan the tables directory from scratch. Use this when PinReady seems out of sync with your disk — after reorganizing tables, or to pick up a freshly released jsm174 patch."
+tables_vbs_patch_title = "Visual Pinball Standalone compatibility"
+tables_vbs_patch_desc = "Some tables use Windows-only VBScript APIs that break on the Linux/macOS Standalone build. At scan, PinReady fingerprints each table's embedded VBS and — when the community project jsm174/vpx-standalone-scripts has a patch for it — installs the patched script as a .vbs sidecar next to the .vpx."
+tables_vbs_patch_backup = "If you had your own customized <table>.vbs sidecar, it is preserved as <table>.pre_standalone.vbs (VPX won't auto-load that filename) before the patch is applied — a working table, with your old script safely backed up."
 
 # Autostart
 autostart_label = "Launch PinReady automatically at startup"

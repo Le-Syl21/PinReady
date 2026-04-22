@@ -31,6 +31,26 @@ fn max_source_mtime(table_dir: &std::path::Path, vpx_path: &std::path::Path) -> 
     max_mtime
 }
 
+/// mtime helper used by the VBS-patch scanner: only the `.vpx` and its
+/// `.vbs` sidecar matter (the launcher.* override is irrelevant to VBS
+/// classification). Same semantics and failure mode as
+/// `max_source_mtime`.
+fn max_vbs_mtime(vpx_path: &std::path::Path) -> i64 {
+    let sidecar = vpx_path.with_extension("vbs");
+    let candidates = [vpx_path.to_path_buf(), sidecar];
+    let mut max_mtime = 0i64;
+    for candidate in &candidates {
+        if let Ok(meta) = std::fs::metadata(candidate) {
+            if let Ok(m) = meta.modified() {
+                if let Ok(d) = m.duration_since(std::time::UNIX_EPOCH) {
+                    max_mtime = max_mtime.max(d.as_secs() as i64);
+                }
+            }
+        }
+    }
+    max_mtime
+}
+
 /// Parse a percentage from a VPX SetProgress message.
 /// Examples: "Initializing Visuals... 10%" → Some(0.10), "Loading..." → None
 fn parse_progress_pct(msg: &str) -> Option<f32> {
@@ -104,16 +124,18 @@ impl App {
 
     pub(super) fn scan_tables(&mut self) {
         self.tables.clear();
-        let dir = if self.tables_dir.is_empty() {
+        if self.tables_dir.is_empty() {
             return;
-        } else {
-            &self.tables_dir
-        };
-        let dir_path = std::path::Path::new(dir);
+        }
+        // Own the path so we can mix immutable reads of `dir_path`
+        // with `&mut self` later (scan_vbs_patches needs `&mut self`).
+        let dir: String = self.tables_dir.clone();
+        let dir_path: std::path::PathBuf = std::path::PathBuf::from(&dir);
         if !dir_path.is_dir() {
             log::warn!("Tables directory does not exist: {}", dir);
             return;
         }
+        let dir_path = dir_path.as_path();
         // Scan for .vpx files (folder-per-table layout: each subfolder has a .vpx).
         // Phase 1: collect raw (table_dir, vpx_path, rel_path, source_mtime).
         let mut found: Vec<(std::path::PathBuf, std::path::PathBuf, String, i64)> = Vec::new();
@@ -209,6 +231,102 @@ impl App {
             });
         }
         self.bg_rx = Some(rx);
+
+        // VBS patch pipeline. Runs independently of the backglass
+        // thread: separate mtime tracking (sidecar + .vpx only, no
+        // media/launcher.*), separate DB table, separate worker.
+        self.scan_vbs_patches(dir_path);
+    }
+
+    /// Classify each table's VBS state and apply patches from the
+    /// jsm174 catalog when appropriate. Runs the network fetch +
+    /// classification + file ops on a background thread; the UI gets
+    /// results via `vbs_rx` and folds them into the `vbs_patches`
+    /// table in `process_vbs_extraction`.
+    fn scan_vbs_patches(&mut self, dir_path: &std::path::Path) {
+        // Refresh the jsm174 catalog if upstream master has moved.
+        // Non-fatal on network error — falls back to cached catalog.
+        if let Err(e) = crate::vbs_patches::refresh_catalog_if_stale(&self.db) {
+            log::warn!("vbs_patches: catalog refresh failed: {e}");
+        }
+        let catalog: Vec<crate::vbs_patches::CatalogEntry> = self
+            .db
+            .get_vbs_catalog()
+            .and_then(|(_, json)| crate::vbs_patches::parse_catalog(&json).ok())
+            .unwrap_or_default();
+        if catalog.is_empty() {
+            log::info!("vbs_patches: no catalog available yet (first boot offline?). Skipping.");
+            return;
+        }
+
+        // Collect jobs for stale / unclassified tables.
+        let mut jobs: Vec<(std::path::PathBuf, String, i64)> = Vec::new();
+        for table in &self.tables {
+            let rel_path = table
+                .path
+                .strip_prefix(dir_path)
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_else(|_| table.path.to_string_lossy().into_owned());
+            let vbs_mtime = max_vbs_mtime(&table.path);
+            match self.db.get_vbs_patch(&rel_path) {
+                Some((_, _, _, cached_mtime)) if cached_mtime >= vbs_mtime => {
+                    // Fresh classification — nothing to do.
+                }
+                _ => jobs.push((table.path.clone(), rel_path, vbs_mtime)),
+            }
+        }
+        if jobs.is_empty() {
+            return;
+        }
+        log::info!(
+            "vbs_patches: classifying {} tables in background...",
+            jobs.len()
+        );
+
+        let (tx, rx) = crossbeam_channel::unbounded();
+        std::thread::spawn(move || {
+            for (vpx_path, rel_path, mtime) in jobs {
+                match crate::vbs_patches::classify(&vpx_path, &catalog) {
+                    Ok(classification) => {
+                        let decision_status =
+                            crate::vbs_patches::decision_status(&classification.decision);
+                        // Apply side-effects (download + install). A
+                        // failure here flips the recorded status to
+                        // Failed so the next scan will retry.
+                        let status = match crate::vbs_patches::apply_patch(
+                            &vpx_path,
+                            &classification.decision,
+                        ) {
+                            Ok(()) => decision_status.to_string(),
+                            Err(e) => {
+                                log::warn!("vbs_patches: apply failed for {}: {e}", rel_path);
+                                crate::vbs_patches::status::FAILED.to_string()
+                            }
+                        };
+                        log::info!("vbs_patches: {} → {}", rel_path, status);
+                        let _ = tx.send((
+                            rel_path,
+                            classification.embedded_sha,
+                            classification.sidecar_sha,
+                            status,
+                            mtime,
+                        ));
+                    }
+                    Err(e) => {
+                        log::warn!("vbs_patches: classify failed for {}: {e}", rel_path);
+                        let _ = tx.send((
+                            rel_path,
+                            String::new(),
+                            None,
+                            crate::vbs_patches::status::FAILED.to_string(),
+                            mtime,
+                        ));
+                    }
+                }
+            }
+            log::info!("vbs_patches: classification run complete");
+        });
+        self.vbs_rx = Some(rx);
     }
 
     pub(super) fn launch_table(&mut self, table_path: &std::path::Path) {
@@ -405,6 +523,34 @@ impl App {
                 ctx.include_bytes(uri, arc.clone());
                 self.tables[idx].bg_bytes = Some(arc);
                 log::debug!("BG cached for table {idx} ({rel_path})");
+            }
+        }
+    }
+
+    /// Drain VBS-patch classification results and persist them in
+    /// `vbs_patches`. No UI side-effects — patching is silent by design
+    /// (user validates via log + `.pre_standalone.vbs` files appearing).
+    pub(super) fn process_vbs_extraction(&mut self) {
+        if let Some(rx) = &self.vbs_rx {
+            let drained: Vec<_> = std::iter::from_fn(|| rx.try_recv().ok()).collect();
+            let disconnected = matches!(
+                rx.try_recv(),
+                Err(crossbeam_channel::TryRecvError::Disconnected)
+            );
+            if disconnected {
+                log::info!("vbs_patches: channel closed");
+                self.vbs_rx = None;
+            }
+            for (rel_path, embedded_sha, sidecar_sha, status, mtime) in drained {
+                if let Err(e) = self.db.set_vbs_patch(
+                    &rel_path,
+                    &embedded_sha,
+                    sidecar_sha.as_deref(),
+                    &status,
+                    mtime,
+                ) {
+                    log::error!("Failed to upsert vbs_patches row for {rel_path}: {e}");
+                }
             }
         }
     }

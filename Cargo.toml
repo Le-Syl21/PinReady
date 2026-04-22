@@ -88,6 +88,11 @@ self-replace = "1"
 anyhow = "1"
 regex = "1"
 
+# SHA256 for VBS-patch fingerprinting (jsm174/vpx-standalone-scripts).
+# Already pulled transitively; declared explicitly because we call it
+# directly from vbs_patches.rs.
+sha2 = "0.10"
+
 # USB HID for output board discovery (Pinscape KL25Z / Pico, DudesCab, PinOne).
 # linux-static-hidraw statically compiles the hidraw backend → zero runtime
 # deps on Linux; native backends on macOS (IOKit) and Windows (Win32 HID API).

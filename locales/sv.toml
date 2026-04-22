@@ -20,8 +20,7 @@ wizard_reset = "Återställ"
 # Launcher
 launcher_quit = "Avsluta"
 launcher_config = "Konfiguration"
-launcher_rescan = "Skanna om"
-launcher_reset_pct = "Återställer... %{pct}%"
+launcher_rebuild = "Bygg om"
 launcher_search = "Sök:"
 launcher_table_count = "%{count} bord"
 launcher_no_tables = "Inga bord hittades. Kontrollera bordkatalogen i konfigurationen."
@@ -383,10 +382,12 @@ tables_folder_picker = "Välj bordkatalog"
 tables_valid = "Giltig katalog — %{count} mappar hittade"
 tables_invalid = "Denna katalog finns inte"
 
-# Rescan hint (tables page)
-tables_rescan_title = "Skanna om tabeller (i startprogrammet)"
-tables_rescan_click = "Snabbklick: skanna om tabellkatalogen (upptäcker nya/borttagna tabeller och genererar saknade backglass-bilder)."
-tables_rescan_hold = "Håll 3 sekunder: fullständig återställning — raderar alla cachade backglass-bilder och återskapar dem."
+# Rebuild button + VBS patch explainer (tables page)
+tables_rebuild_title = "Knappen Bygg om (i tabellstartprogrammet)"
+tables_rebuild_desc = "Klicka för att radera alla cachade backglass-bilder och VBS-patchstatus, och sedan skanna om tabellkatalogen från grunden. Använd detta när PinReady verkar osynkroniserat med din disk — efter att ha omorganiserat tabeller, eller för att hämta en nyutgiven jsm174-patch."
+tables_vbs_patch_title = "Visual Pinball Standalone-kompatibilitet"
+tables_vbs_patch_desc = "Vissa tabeller använder Windows-specifika VBScript-API:er som inte fungerar på Linux/macOS Standalone-versionen. Vid skanning beräknar PinReady ett fingeravtryck av den inbäddade VBS i varje tabell och — när gemenskapsprojektet jsm174/vpx-standalone-scripts har en patch för den — installerar det patchade skriptet som en .vbs-sidecar bredvid .vpx-filen."
+tables_vbs_patch_backup = "Om du hade en egen anpassad <table>.vbs-sidecar bevaras den som <table>.pre_standalone.vbs innan patchen tillämpas (VPX laddar inte automatiskt det filnamnet) — en fungerande tabell, med ditt gamla skript säkert säkerhetskopierat."
 
 # Autostart
 autostart_label = "Starta PinReady automatiskt vid uppstart"

@@ -20,8 +20,7 @@ wizard_reset = "रीसेट"
 # Launcher
 launcher_quit = "बाहर निकलें"
 launcher_config = "कॉन्फ़िगरेशन"
-launcher_rescan = "पुनः स्कैन"
-launcher_reset_pct = "रीसेट... %{pct}%"
+launcher_rebuild = "पुनर्निर्माण"
 launcher_search = "खोजें:"
 launcher_table_count = "%{count} टेबल"
 launcher_no_tables = "कोई टेबल नहीं मिली। कॉन्फ़िगरेशन में टेबल डायरेक्टरी जाँचें।"
@@ -383,10 +382,12 @@ tables_folder_picker = "टेबल डायरेक्टरी चुने
 tables_valid = "वैध डायरेक्टरी — %{count} फ़ोल्डर मिले"
 tables_invalid = "यह डायरेक्टरी मौजूद नहीं है"
 
-# Rescan hint (tables page)
-tables_rescan_title = "टेबल रीस्कैन (लॉन्चर में)"
-tables_rescan_click = "त्वरित क्लिक: टेबल डायरेक्ट्री को फिर से स्कैन करें (नई/हटाई गई टेबल का पता लगाता है और गायब बैकग्लास बनाता है)।"
-tables_rescan_hold = "3 सेकंड दबाए रखें: पूर्ण रीसेट — सभी कैश्ड बैकग्लास हटाता है और उन्हें नए सिरे से बनाता है।"
+# Rebuild button + VBS patch explainer (tables page)
+tables_rebuild_title = "पुनर्निर्माण बटन (टेबल लॉन्चर में)"
+tables_rebuild_desc = "प्रत्येक कैश्ड बैकग्लास छवि और VBS-पैच स्थिति को मिटाने के लिए क्लिक करें, फिर टेबल डायरेक्टरी को शुरू से फिर से स्कैन करें। जब PinReady आपकी डिस्क के साथ असंगत लगे तो इसका उपयोग करें — टेबल्स को पुनर्व्यवस्थित करने के बाद, या नए जारी jsm174 पैच को लेने के लिए।"
+tables_vbs_patch_title = "Visual Pinball Standalone संगतता"
+tables_vbs_patch_desc = "कुछ टेबल Windows-विशिष्ट VBScript API का उपयोग करती हैं जो Linux/macOS Standalone बिल्ड पर काम नहीं करतीं। स्कैन के दौरान, PinReady प्रत्येक टेबल के एम्बेडेड VBS का फिंगरप्रिंट बनाता है और — जब समुदाय परियोजना jsm174/vpx-standalone-scripts के पास इसके लिए एक पैच हो — पैच की गई स्क्रिप्ट को .vpx के बगल में एक .vbs साइडकार के रूप में स्थापित करता है।"
+tables_vbs_patch_backup = "यदि आपके पास अपना अनुकूलित <table>.vbs साइडकार था, तो पैच लागू करने से पहले इसे <table>.pre_standalone.vbs के रूप में संरक्षित किया जाता है (VPX उस फ़ाइल नाम को ऑटो-लोड नहीं करेगा) — एक कार्यशील टेबल, आपकी पुरानी स्क्रिप्ट सुरक्षित रूप से बैकअप की गई।"
 
 # Autostart
 autostart_label = "स्टार्टअप पर PinReady स्वचालित रूप से लॉन्च करें"

@@ -20,8 +20,7 @@ wizard_reset = "إعادة تعيين"
 # Launcher
 launcher_quit = "خروج"
 launcher_config = "الإعدادات"
-launcher_rescan = "إعادة الفحص"
-launcher_reset_pct = "إعادة تعيين... %{pct}%"
+launcher_rebuild = "إعادة البناء"
 launcher_search = "بحث:"
 launcher_table_count = "%{count} طاولة(طاولات)"
 launcher_no_tables = "لم يتم العثور على طاولات. تحقق من مجلد الطاولات في الإعدادات."
@@ -382,10 +381,12 @@ tables_folder_picker = "اختر مجلد الطاولات"
 tables_valid = "مجلد صالح — %{count} مجلد(مجلدات) تم العثور عليها"
 tables_invalid = "هذا المجلد غير موجود"
 
-# Rescan hint (tables page)
-tables_rescan_title = "إعادة فحص الطاولات (في المشغّل)"
-tables_rescan_click = "نقرة سريعة: إعادة فحص مجلد الطاولات (يكتشف الطاولات المضافة/المحذوفة وينشئ صور الخلفية المفقودة)."
-tables_rescan_hold = "الضغط 3 ثوانٍ: إعادة تعيين كاملة — يحذف جميع صور الخلفية المخزنة ويعيد إنشاءها من الصفر."
+# Rebuild button + VBS patch explainer (tables page)
+tables_rebuild_title = "زر إعادة البناء (في مشغّل الطاولات)"
+tables_rebuild_desc = "انقر لمسح جميع صور الخلفية المخزنة وحالة ترقيع VBS، ثم إعادة فحص مجلد الطاولات من الصفر. استخدم هذا عندما يبدو PinReady غير متزامن مع قرصك — بعد إعادة تنظيم الطاولات، أو لاستلام ترقيع jsm174 المنشور حديثًا."
+tables_vbs_patch_title = "توافق Visual Pinball Standalone"
+tables_vbs_patch_desc = "تستخدم بعض الطاولات واجهات VBScript خاصة بـ Windows فقط تتعطل على إصدار Linux/macOS من Standalone. عند الفحص، يحسب PinReady بصمة نص VBS المضمن في كل طاولة — وعندما يوفر مشروع المجتمع jsm174/vpx-standalone-scripts ترقيعًا له — يُثبِّت النص المرقَّع كملف .vbs بجانب ملف .vpx."
+tables_vbs_patch_backup = "إذا كان لديك ملف <table>.vbs مخصص خاص بك، فسيتم الاحتفاظ به باسم <table>.pre_standalone.vbs (لن يُحمِّل VPX هذا الاسم تلقائيًا) قبل تطبيق الترقيع — طاولة تعمل، مع حفظ نصك القديم بأمان."
 
 # Autostart
 autostart_label = "تشغيل PinReady تلقائياً عند بدء التشغيل"

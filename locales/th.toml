@@ -20,8 +20,7 @@ wizard_reset = "รีเซ็ต"
 # Launcher
 launcher_quit = "ออก"
 launcher_config = "ตั้งค่า"
-launcher_rescan = "สแกนใหม่"
-launcher_reset_pct = "รีเซ็ต... %{pct}%"
+launcher_rebuild = "สร้างใหม่"
 launcher_search = "ค้นหา:"
 launcher_table_count = "%{count} โต๊ะ"
 launcher_no_tables = "ไม่พบโต๊ะ ตรวจสอบไดเรกทอรีโต๊ะในการตั้งค่า"
@@ -383,10 +382,12 @@ tables_folder_picker = "เลือกไดเรกทอรีโต๊ะ"
 tables_valid = "ไดเรกทอรีถูกต้อง — พบ %{count} โฟลเดอร์"
 tables_invalid = "ไดเรกทอรีนี้ไม่มีอยู่"
 
-# Rescan hint (tables page)
-tables_rescan_title = "สแกนโต๊ะใหม่ (ในตัวเปิด)"
-tables_rescan_click = "คลิกเร็ว: สแกนไดเรกทอรีโต๊ะใหม่ (ตรวจจับโต๊ะที่เพิ่ม/ลบและสร้างภาพ backglass ที่หายไป)"
-tables_rescan_hold = "กดค้าง 3 วินาที: รีเซ็ตทั้งหมด — ลบภาพ backglass ที่แคชไว้ทั้งหมดและสร้างใหม่ตั้งแต่ต้น"
+# Rebuild button + VBS patch explainer (tables page)
+tables_rebuild_title = "ปุ่มสร้างใหม่ (ในตัวเปิดโต๊ะ)"
+tables_rebuild_desc = "คลิกเพื่อลบภาพ backglass ที่แคชทั้งหมดและสถานะแพตช์ VBS จากนั้นสแกนไดเรกทอรีโต๊ะใหม่ตั้งแต่ต้น ใช้เมื่อ PinReady ดูเหมือนจะไม่ซิงค์กับดิสก์ของคุณ — หลังจากจัดระเบียบโต๊ะใหม่ หรือเพื่อรับแพตช์ jsm174 ที่เผยแพร่ใหม่"
+tables_vbs_patch_title = "ความเข้ากันได้กับ Visual Pinball Standalone"
+tables_vbs_patch_desc = "บางโต๊ะใช้ API ของ VBScript เฉพาะ Windows ที่ใช้งานไม่ได้บนบิลด์ Linux/macOS Standalone ระหว่างการสแกน PinReady จะคำนวณลายนิ้วมือของ VBS ที่ฝังอยู่ในแต่ละโต๊ะ — และเมื่อโครงการชุมชน jsm174/vpx-standalone-scripts มีแพตช์สำหรับมัน — จะติดตั้งสคริปต์ที่แพตช์แล้วเป็นไฟล์ .vbs ข้างไฟล์ .vpx"
+tables_vbs_patch_backup = "หากคุณมีไฟล์ <table>.vbs ที่ปรับแต่งเองอยู่ก่อน จะถูกเก็บไว้เป็น <table>.pre_standalone.vbs (VPX จะไม่โหลดชื่อไฟล์นั้นอัตโนมัติ) ก่อนที่จะใช้แพตช์ — โต๊ะที่ใช้งานได้ พร้อมกับสคริปต์เดิมของคุณที่สำรองไว้อย่างปลอดภัย"
 
 # Autostart
 autostart_label = "เปิด PinReady อัตโนมัติเมื่อเริ่มระบบ"

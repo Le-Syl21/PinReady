@@ -17,6 +17,7 @@ mod pidlock;
 mod screens;
 mod tilt;
 mod updater;
+mod vbs_patches;
 
 use anyhow::Result;
 use std::io::Write;
