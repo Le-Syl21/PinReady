@@ -358,6 +358,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- masa dosyası (zorunlu)
     ├── Table Name.directb2s          <- backglass B2S (isteğe bağlı)
+    ├── media/launcher.png            <- launcher küçük resmi geçersiz kılma (isteğe bağlı, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- masa başına geçersiz kılma (isteğe bağlı)
     ├── Table Name.vbs                <- VBS patch / script geçersiz kılma (isteğe bağlı)
     ├── altsound/<rom>/               <- altsound paketi (isteğe bağlı)

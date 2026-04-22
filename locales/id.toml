@@ -358,6 +358,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- file meja (wajib)
     ├── Table Name.directb2s          <- backglass B2S (opsional)
+    ├── media/launcher.png            <- override thumbnail launcher (opsional, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- override per meja (opsional)
     ├── Table Name.vbs                <- patch VBS / override skrip (opsional)
     ├── altsound/<rom>/               <- paket altsound (opsional)

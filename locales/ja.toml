@@ -358,6 +358,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- テーブルファイル（必須）
     ├── Table Name.directb2s          <- バックグラス B2S（オプション）
+    ├── media/launcher.png            <- ランチャーのサムネイル上書き（オプション、.png/.webp/.jpg/.jpeg）
     ├── Table Name.ini                <- テーブル別オーバーライド（オプション）
     ├── Table Name.vbs                <- VBS パッチ / スクリプトオーバーライド（オプション）
     ├── altsound/<rom>/               <- altsound パック（オプション）

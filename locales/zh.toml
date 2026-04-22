@@ -357,6 +357,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- 球台文件（必需）
     ├── Table Name.directb2s          <- backglass B2S（可选）
+    ├── media/launcher.png            <- 启动器缩略图覆盖（可选，.png/.webp/.jpg/.jpeg）
     ├── Table Name.ini                <- 单台覆盖设置（可选）
     ├── Table Name.vbs                <- VBS 补丁 / 脚本覆盖（可选）
     ├── altsound/<rom>/               <- altsound 包（可选）

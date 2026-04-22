@@ -358,6 +358,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- faili ya meza (inahitajika)
     ├── Table Name.directb2s          <- backglass B2S (hiari)
+    ├── media/launcher.png            <- ubatilishaji wa kijipicha cha launcher (hiari, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- ubatilishaji kwa meza (hiari)
     ├── Table Name.vbs                <- VBS patch / ubatilishaji wa skripti (hiari)
     ├── altsound/<rom>/               <- pakiti ya altsound (hiari)

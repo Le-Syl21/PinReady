@@ -358,6 +358,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- टेबल फ़ाइल (आवश्यक)
     ├── Table Name.directb2s          <- backglass B2S (वैकल्पिक)
+    ├── media/launcher.png            <- launcher थंबनेल ओवरराइड (वैकल्पिक, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- प्रति-टेबल ओवरराइड (वैकल्पिक)
     ├── Table Name.vbs                <- VBS patch / स्क्रिप्ट ओवरराइड (वैकल्पिक)
     ├── altsound/<rom>/               <- altsound पैक (वैकल्पिक)

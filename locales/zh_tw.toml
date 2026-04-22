@@ -357,6 +357,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- 球台檔案（必需）
     ├── Table Name.directb2s          <- backglass B2S（選用）
+    ├── media/launcher.png            <- 啟動器縮圖覆寫（選用，.png/.webp/.jpg/.jpeg）
     ├── Table Name.ini                <- 單台覆寫設定（選用）
     ├── Table Name.vbs                <- VBS 修補 / 腳本覆寫（選用）
     ├── altsound/<rom>/               <- altsound 套件（選用）

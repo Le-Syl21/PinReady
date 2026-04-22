@@ -358,6 +358,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- bordfil (obligatorisk)
     ├── Table Name.directb2s          <- backglass B2S (valfri)
+    ├── media/launcher.png            <- överskrivning av launcher-miniatyr (valfri, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- bordspecifika överskrivningar (valfri)
     ├── Table Name.vbs                <- VBS-patch / scriptöverskrivning (valfri)
     ├── altsound/<rom>/               <- altsound-paket (valfri)

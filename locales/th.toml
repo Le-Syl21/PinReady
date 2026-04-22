@@ -358,6 +358,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- ไฟล์โต๊ะ (ต้องมี)
     ├── Table Name.directb2s          <- backglass B2S (ทางเลือก)
+    ├── media/launcher.png            <- การแทนที่ภาพย่อของ launcher (ทางเลือก, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- การตั้งค่าเฉพาะโต๊ะ (ทางเลือก)
     ├── Table Name.vbs                <- VBS patch / override สคริปต์ (ทางเลือก)
     ├── altsound/<rom>/               <- ชุด altsound (ทางเลือก)

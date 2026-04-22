@@ -358,6 +358,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- файл стола (обязательно)
     ├── Table Name.directb2s          <- backglass B2S (опционально)
+    ├── media/launcher.png            <- переопределение миниатюры лаунчера (опционально, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- переопределения для стола (опционально)
     ├── Table Name.vbs                <- патч VBS / override скрипта (опционально)
     ├── altsound/<rom>/               <- пакет altsound (опционально)

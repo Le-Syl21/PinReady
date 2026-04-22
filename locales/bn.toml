@@ -358,6 +358,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- টেবিল ফাইল (আবশ্যক)
     ├── Table Name.directb2s          <- backglass B2S (ঐচ্ছিক)
+    ├── media/launcher.png            <- launcher থাম্বনেইল ওভাররাইড (ঐচ্ছিক, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- টেবিল-ভিত্তিক ওভাররাইড (ঐচ্ছিক)
     ├── Table Name.vbs                <- VBS patch / স্ক্রিপ্ট ওভাররাইড (ঐচ্ছিক)
     ├── altsound/<rom>/               <- altsound প্যাক (ঐচ্ছিক)

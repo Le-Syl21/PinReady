@@ -358,6 +358,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- 테이블 파일 (필수)
     ├── Table Name.directb2s          <- 백글라스 B2S (선택)
+    ├── media/launcher.png            <- 런처 썸네일 오버라이드 (선택, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- 테이블별 오버라이드 (선택)
     ├── Table Name.vbs                <- VBS 패치 / 스크립트 오버라이드 (선택)
     ├── altsound/<rom>/               <- altsound 팩 (선택)

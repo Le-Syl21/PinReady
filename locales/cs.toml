@@ -358,6 +358,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- soubor stolu (povinný)
     ├── Table Name.directb2s          <- backglass B2S (volitelný)
+    ├── media/launcher.png            <- přepis miniatury launcheru (volitelné, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- přepisy pro stůl (volitelné)
     ├── Table Name.vbs                <- patch VBS / přepis skriptu (volitelné)
     ├── altsound/<rom>/               <- balíček altsound (volitelný)

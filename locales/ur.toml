@@ -358,6 +358,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- ٹیبل فائل (ضروری)
     ├── Table Name.directb2s          <- backglass B2S (اختیاری)
+    ├── media/launcher.png            <- launcher تھمب نیل اوورائیڈ (اختیاری، .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- فی ٹیبل اوورائیڈ (اختیاری)
     ├── Table Name.vbs                <- VBS patch / اسکرپٹ اوورائیڈ (اختیاری)
     ├── altsound/<rom>/               <- altsound پیک (اختیاری)

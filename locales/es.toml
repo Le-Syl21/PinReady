@@ -358,6 +358,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- archivo de la mesa (requerido)
     ├── Table Name.directb2s          <- backglass B2S (opcional)
+    ├── media/launcher.png            <- override de miniatura del launcher (opcional, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- overrides por mesa (opcional)
     ├── Table Name.vbs                <- parche VBS / override de script (opcional)
     ├── altsound/<rom>/               <- paquete altsound (opcional)

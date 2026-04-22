@@ -358,6 +358,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- pöytätiedosto (pakollinen)
     ├── Table Name.directb2s          <- backglass B2S (valinnainen)
+    ├── media/launcher.png            <- launcherin pikkukuvan ohitus (valinnainen, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- pöytäkohtaiset asetukset (valinnainen)
     ├── Table Name.vbs                <- VBS-paikka / skriptin ohitus (valinnainen)
     ├── altsound/<rom>/               <- altsound-paketti (valinnainen)

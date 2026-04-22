@@ -358,6 +358,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- plik stołu (wymagany)
     ├── Table Name.directb2s          <- backglass B2S (opcjonalnie)
+    ├── media/launcher.png            <- nadpisanie miniatury launchera (opcjonalnie, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- nadpisania dla stołu (opcjonalnie)
     ├── Table Name.vbs                <- patch VBS / nadpisanie skryptu (opcjonalnie)
     ├── altsound/<rom>/               <- pakiet altsound (opcjonalnie)

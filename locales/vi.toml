@@ -357,6 +357,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- tệp bàn (bắt buộc)
     ├── Table Name.directb2s          <- backglass B2S (tùy chọn)
+    ├── media/launcher.png            <- ghi đè hình thu nhỏ của launcher (tùy chọn, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- ghi đè theo bàn (tùy chọn)
     ├── Table Name.vbs                <- patch VBS / ghi đè script (tùy chọn)
     ├── altsound/<rom>/               <- gói altsound (tùy chọn)
