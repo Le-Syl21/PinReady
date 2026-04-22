@@ -58,7 +58,8 @@ jobs:
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
             libxtst-dev libxss-dev libwayland-dev wayland-protocols \
             libdbus-1-dev libdrm-dev libgbm-dev \
-            libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev
+            libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev \
+            libudev-dev
 
       # --- Lint (linux-x86_64 only) ---
       - name: Check formatting
@@ -243,7 +244,8 @@ jobs:
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
             libxtst-dev libxss-dev libwayland-dev wayland-protocols \
             libdbus-1-dev libdrm-dev libgbm-dev \
-            libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev
+            libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev \
+            libudev-dev
 
       - name: Publish to crates.io
         run: cargo publish --allow-dirty
