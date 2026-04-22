@@ -47,27 +47,41 @@ impl App {
             let modifiers = ui.input(|i| i.modifiers);
             let mut captured = false;
 
-            // Check key events
-            let key_events: Vec<(egui::Key, bool)> = ui.input(|i| {
+            // Check key events. We capture both the logical key (what the
+            // user sees — e.g. "!" when pressing Shift+1 on QWERTY) and
+            // the physical key (the unshifted position — Num1 in that
+            // example). The physical key gets priority: it's what VPX
+            // stores in the ini as an SDL scancode, and it's layout-
+            // independent so users on AZERTY keep a consistent binding.
+            let key_events: Vec<(egui::Key, Option<egui::Key>, bool)> = ui.input(|i| {
                 i.events
                     .iter()
                     .filter_map(|e| {
-                        if let egui::Event::Key { key, pressed, .. } = e {
-                            Some((*key, *pressed))
+                        if let egui::Event::Key {
+                            key,
+                            physical_key,
+                            pressed,
+                            ..
+                        } = e
+                        {
+                            Some((*key, *physical_key, *pressed))
                         } else {
                             None
                         }
                     })
                     .collect()
             });
-            for &(key, pressed) in &key_events {
+            for &(key, physical_key, pressed) in &key_events {
                 if pressed {
                     if key == egui::Key::Escape {
                         self.capture_state = CaptureState::Idle;
                         captured = true;
                         break;
                     }
-                    if let Some(sc) = inputs::egui_key_to_scancode(key) {
+                    let sc = physical_key
+                        .and_then(inputs::egui_key_to_scancode)
+                        .or_else(|| inputs::egui_key_to_scancode(key));
+                    if let Some(sc) = sc {
                         if idx < self.actions.len() {
                             self.actions[idx].mapping = Some(CapturedInput::Keyboard {
                                 scancode: sc,

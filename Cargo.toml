@@ -38,12 +38,19 @@ rfd = "0.17"
 # File scan
 walkdir = "2.5"
 
-# Images
-image = { version = "0.25", features = ["png", "jpeg"] }
+# Images — `jpeg` used to encode backglass blobs stored in the SQLite cache
+# at quality 85 (5× smaller than PNG, visually lossless on photographic
+# content at our 1280×1024 target). `webp` kept for decode compatibility
+# with any legacy cache rows still stored as WebP after a version upgrade.
+image = { version = "0.25", features = ["png", "jpeg", "webp"] }
 
 # B2S parsing (directb2s backglass thumbnail extraction)
 directb2s = "0.1"
 base64 = "0.22"
+
+# .vpx file parsing — used to extract the embedded backglass preview
+# (`TableInfo.screenshot`) when a table doesn't ship a separate .directb2s.
+vpin = "0.23"
 
 # Audio decoding (OGG Vorbis → PCM for SDL3)
 symphonia = { version = "0.5", default-features = false, features = ["ogg", "vorbis"] }
@@ -81,6 +88,14 @@ self-replace = "1"
 anyhow = "1"
 regex = "1"
 
+# USB HID for output board discovery (Pinscape KL25Z / Pico, DudesCab, PinOne).
+# linux-static-hidraw statically compiles the hidraw backend → zero runtime
+# deps on Linux; native backends on macOS (IOKit) and Windows (Win32 HID API).
+hidapi = { version = "2.6", default-features = false, features = ["linux-static-hidraw"] }
+
+# Cross-platform file locking for the single-instance PID lock.
+fs4 = { version = "1.0", features = ["sync"] }
+
 [target.'cfg(windows)'.build-dependencies]
 winres = { version = "0.1", optional = true }
 
@@ -106,8 +121,8 @@ strip = true
 # Use Le-Syl21/egui fork with viewport rotation + cursor lock for kiosk/cabinet mode.
 # Remove this block once upstream merges: https://github.com/emilk/egui/issues/4130
 [patch.crates-io]
-egui        = { git = "https://github.com/Le-Syl21/egui", rev = "3b08da93" }
-eframe      = { git = "https://github.com/Le-Syl21/egui", rev = "3b08da93" }
-egui_extras = { git = "https://github.com/Le-Syl21/egui", rev = "3b08da93" }
-emath       = { git = "https://github.com/Le-Syl21/egui", rev = "3b08da93" }
-epaint      = { git = "https://github.com/Le-Syl21/egui", rev = "3b08da93" }
+egui        = { git = "https://github.com/Le-Syl21/egui", rev = "1eb1b589" }
+eframe      = { git = "https://github.com/Le-Syl21/egui", rev = "1eb1b589" }
+egui_extras = { git = "https://github.com/Le-Syl21/egui", rev = "1eb1b589" }
+emath       = { git = "https://github.com/Le-Syl21/egui", rev = "1eb1b589" }
+epaint      = { git = "https://github.com/Le-Syl21/egui", rev = "1eb1b589" }

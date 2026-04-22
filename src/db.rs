@@ -30,8 +30,38 @@ impl Database {
             .with_context(|| format!("Failed to open database: {}", path.display()))?;
 
         let db = Self { conn };
+        db.migrate()?;
         db.init_schema()?;
         Ok(db)
+    }
+
+    /// Apply destructive schema migrations before `init_schema` creates
+    /// the current-shape tables. Only the `backglass` cache table has
+    /// ever been reshaped; its contents are always regeneratable from
+    /// the `.vpx`/`.directb2s` files on disk, so dropping the table on
+    /// schema mismatch is safe.
+    fn migrate(&self) -> Result<()> {
+        // v1 of the backglass table used columns (path, image, source,
+        // extracted_at); v2 uses (rel_path, image). Detect the old shape
+        // by the presence of a `path` column and drop it so the
+        // subsequent CREATE installs the new schema.
+        let has_old_backglass: bool = self
+            .conn
+            .query_row(
+                "SELECT 1 FROM pragma_table_info('backglass')
+                 WHERE name = 'path' LIMIT 1",
+                [],
+                |row| row.get::<_, i32>(0),
+            )
+            .map(|_| true)
+            .unwrap_or(false);
+        if has_old_backglass {
+            log::info!("Dropping v1 backglass cache (schema upgrade to v2)");
+            self.conn
+                .execute("DROP TABLE backglass", [])
+                .context("Failed to drop v1 backglass table")?;
+        }
+        Ok(())
     }
 
     fn init_schema(&self) -> Result<()> {
@@ -50,9 +80,54 @@ impl Database {
                 year         INTEGER,
                 rom_name     TEXT,
                 last_scanned TEXT NOT NULL
+            );
+
+            -- Per-table backglass cache. Keyed by the .vpx path RELATIVE
+            -- to the configured tables directory, so moving the tables
+            -- folder to another disk (and updating `tables_dir` in config)
+            -- doesn't invalidate the cache. `image` holds JPEG bytes at
+            -- quality 85 (~5× smaller than PNG, visually lossless on the
+            -- photographic backglass content at 1280×1024).
+            CREATE TABLE IF NOT EXISTS backglass (
+                rel_path TEXT PRIMARY KEY,
+                image    BLOB NOT NULL
             );",
             )
             .context("Failed to initialize database schema")?;
+        Ok(())
+    }
+
+    /// Lookup the cached backglass image for a table by its `.vpx` path
+    /// relative to the configured `tables_dir`. Returns `None` if no
+    /// entry exists.
+    pub fn get_backglass(&self, rel_path: &str) -> Option<Vec<u8>> {
+        self.conn
+            .query_row(
+                "SELECT image FROM backglass WHERE rel_path = ?1",
+                [rel_path],
+                |row| row.get::<_, Vec<u8>>(0),
+            )
+            .ok()
+    }
+
+    /// Upsert a JPEG-encoded backglass image for a table's relative path.
+    pub fn set_backglass(&self, rel_path: &str, image: &[u8]) -> Result<()> {
+        self.conn
+            .execute(
+                "INSERT INTO backglass (rel_path, image) VALUES (?1, ?2)
+                 ON CONFLICT(rel_path) DO UPDATE SET image = excluded.image",
+                rusqlite::params![rel_path, image],
+            )
+            .context("Failed to insert backglass row")?;
+        Ok(())
+    }
+
+    /// Wipe every cached backglass. Called by the long-press rescan so the
+    /// next scan re-extracts all images from scratch.
+    pub fn clear_backglass(&self) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM backglass", [])
+            .context("Failed to clear backglass cache")?;
         Ok(())
     }
 

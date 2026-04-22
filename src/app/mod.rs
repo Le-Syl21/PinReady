@@ -1,12 +1,13 @@
 use eframe::egui;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::audio::{self, AudioCommand, AudioConfig, Sound3DMode};
 use crate::config::VpxConfig;
 use crate::db::Database;
 use crate::i18n::{self, LANGUAGE_OPTIONS};
 use crate::inputs::{self, pinscape_button_defaults, CapturedInput, InputAction, JoystickEvent};
+use crate::outputs_hid::DiscoveryState;
 use crate::screens::{DisplayInfo, DisplayRole};
 use crate::tilt::TiltConfig;
 use crate::updater::{self, ReleaseInfo, UpdateProgress};
@@ -17,6 +18,30 @@ use rust_i18n::t;
 pub enum AppMode {
     Wizard,
     Launcher,
+}
+
+/// Cross-session signal for `main.rs` to know what to do after the current
+/// eframe session exits. Set by UI click handlers (Finish, Config, etc.) just
+/// before they send `ViewportCommand::Close`; `main.rs` reads it after
+/// `run_native` returns and relaunches a fresh eframe with the right
+/// viewport for the new mode.
+///
+/// We use a static rather than carrying state through `App` because
+/// `eframe::run_native` consumes the App and we want a minimal handshake
+/// that survives the Drop.
+static NEXT_ACTION: Mutex<Option<AppMode>> = Mutex::new(None);
+
+/// Request a mode switch after the current eframe session closes. Call
+/// this, then send `ViewportCommand::Close` to trigger the transition.
+pub fn request_mode_switch(mode: AppMode) {
+    *NEXT_ACTION.lock().unwrap() = Some(mode);
+}
+
+/// Consume the pending mode switch request, if any. `main.rs` calls this
+/// after each `run_native` returns; `Some(mode)` means relaunch in `mode`,
+/// `None` means the user is quitting the app.
+pub fn take_next_mode() -> Option<AppMode> {
+    NEXT_ACTION.lock().unwrap().take()
 }
 
 /// VPX process status messages sent from the launch thread
@@ -48,7 +73,8 @@ pub struct TableEntry {
     pub path: std::path::PathBuf,
     pub name: String,
     pub has_directb2s: bool,
-    pub bg_path: Option<std::path::PathBuf>,
+    /// Backglass image bytes (JPEG) loaded from the SQLite cache on
+    /// scan, or `None` if extraction is pending / impossible.
     pub bg_bytes: Option<std::sync::Arc<[u8]>>,
 }
 
@@ -175,6 +201,9 @@ pub struct App {
     gamepad_id: Option<String>,  // VPX device ID if generic gamepad detected
     use_gamepad: bool,           // User toggle: use gamepad axes for flippers/nudge/plunger
 
+    // Page 4 — Outputs (discovery tool)
+    pub(super) output_discovery: DiscoveryState,
+
     // Page 3 — Tilt
     tilt: TiltConfig,
 
@@ -200,7 +229,12 @@ pub struct App {
     kiosk_cursor_warped: bool, // one-shot: warp cursor after window settles
     // Launcher joystick nav auto-repeat: track which nav button is held
     nav_held: Option<(u8, String, std::time::Instant, std::time::Instant)>,
-    bg_rx: Option<crossbeam_channel::Receiver<(usize, std::path::PathBuf)>>,
+    // Background backglass extraction results. Sent by the thread spawned
+    // in `scan_tables`: (table index, .vpx path relative to tables_dir,
+    // JPEG bytes). The UI thread pulls these in `process_bg_extraction`,
+    // stores the bytes in the SQLite cache, and updates the TableEntry +
+    // egui image cache.
+    bg_rx: Option<crossbeam_channel::Receiver<(usize, String, Vec<u8>)>>,
 
     // VPX process running — disables launcher while true
     vpx_running: Arc<AtomicBool>,
@@ -214,8 +248,16 @@ pub struct App {
     // Autostart on boot
     autostart: bool,
 
-    // Quit timer (set after finalize_wizard)
-    quit_after_ms: Option<std::time::Instant>,
+    // Deadline for sending `ViewportCommand::Close` after finalize_wizard.
+    // Absolute wall-clock instant = knocker playback end + small buffer.
+    // Compared with `Instant::now()` every frame; no ms hardcoding.
+    close_at: Option<std::time::Instant>,
+
+    // Deadline for resetting window level back to Normal after a focus-
+    // raise from a second launch. `AlwaysOnTop` forces the compositor to
+    // re-stack us on top (plain `Focus` is often refused by focus-stealing
+    // prevention); we drop it a few frames later to avoid pinning.
+    focus_reset_at: Option<std::time::Instant>,
 
     // Rescan button: long-press (3s) = full regeneration, short click = incremental
     rescan_press_start: Option<std::time::Instant>,
@@ -270,6 +312,13 @@ impl App {
         ) = Self::load_cabinet_dimensions(&config);
         let (aa_factor, msaa, fxaa, sharpen, pf_reflection, max_tex_dim, sync_mode, max_framerate) =
             Self::load_rendering_config(&config);
+
+        // Detect + install the user's language BEFORE anything that
+        // calls `t!()` or `scancode_name()`, so localised labels (key
+        // names, action names) end up in the right language from the
+        // first render rather than staying frozen in English.
+        let selected_language = Self::detect_language(&db);
+
         let actions = Self::load_input_mappings(&config);
 
         let mut tilt = TiltConfig::default();
@@ -289,7 +338,6 @@ impl App {
             .unwrap_or(0);
         let joystick_rx = inputs::spawn_joystick_thread();
         let audio_cmd_tx = audio::spawn_audio_thread();
-        let selected_language = Self::detect_language(&db);
         let update_check_rx = if vpx_install_mode == VpxInstallMode::Manual {
             None
         } else {
@@ -337,6 +385,7 @@ impl App {
             pinscape_profile,
             gamepad_id: None,
             use_gamepad: false,
+            output_discovery: DiscoveryState::default(),
             tilt,
             audio,
             audio_cmd_tx: Some(audio_cmd_tx),
@@ -360,7 +409,8 @@ impl App {
             vpx_hide_covers: false,
             vpx_error_log: None,
             autostart: is_autostart_enabled(),
-            quit_after_ms: None,
+            close_at: None,
+            focus_reset_at: None,
             rescan_press_start: None,
             rescan_flash: None,
             selected_language,
@@ -575,6 +625,7 @@ impl App {
     }
 
     fn next_page(&mut self) {
+        self.leave_page_hooks();
         let next = self.page.index() + 1;
         if let Some(page) = WizardPage::from_index(next) {
             self.save_current_page();
@@ -583,10 +634,20 @@ impl App {
     }
 
     fn prev_page(&mut self) {
+        self.leave_page_hooks();
         if self.page.index() > 0 {
             if let Some(page) = WizardPage::from_index(self.page.index() - 1) {
                 self.page = page;
             }
+        }
+    }
+
+    /// Called just before the wizard switches away from the current page.
+    /// Ensures any background activity (pulse loops, etc.) is halted so it
+    /// doesn't keep running invisibly on another page.
+    fn leave_page_hooks(&mut self) {
+        if self.page == WizardPage::Outputs && self.output_discovery.loop_running {
+            self.output_discovery.stop_loop();
         }
     }
 
@@ -619,7 +680,8 @@ impl App {
                 self.use_gamepad = false;
             }
             WizardPage::Outputs => {
-                // Purely informational page — nothing to reset
+                self.output_discovery.stop_session();
+                self.output_discovery = DiscoveryState::default();
             }
             WizardPage::Tilt => {
                 self.tilt = TiltConfig::default();
@@ -775,13 +837,51 @@ impl eframe::App for App {
             }
         }
 
-        // Check quit timer (after knocker plays)
-        if let Some(start) = self.quit_after_ms {
-            if start.elapsed().as_millis() > 800 {
+        // Scheduled close (fires once the knocker sound has finished playing
+        // on the audio thread — deadline set by `finalize_wizard` from the
+        // decoded PCM length, not a hardcoded timeout).
+        if let Some(deadline) = self.close_at {
+            if std::time::Instant::now() >= deadline {
                 ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                 return;
             }
-            ui.ctx().request_repaint(); // keep ticking
+            ui.ctx().request_repaint();
+        }
+
+        // Another launch asked us to raise our window. We now actually
+        // reach this branch immediately because `register_egui_ctx` lets
+        // the socket listener call `request_repaint()` on wake.
+        //
+        // `Focus` alone is often refused by focus-stealing prevention
+        // (Mutter X11 & Wayland, KWin…). The AlwaysOnTop toggle forces a
+        // z-order bump even when the WM blocks direct raise; we drop back
+        // to Normal 300ms later so the window isn't permanently pinned.
+        if crate::pidlock::take_focus_request() {
+            log::info!("Focus request from second launch — raising window");
+            let ctx = ui.ctx();
+            ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
+            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+            ctx.send_viewport_cmd(egui::ViewportCommand::WindowLevel(
+                egui::WindowLevel::AlwaysOnTop,
+            ));
+            ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+            ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
+                egui::UserAttentionType::Informational,
+            ));
+            self.focus_reset_at =
+                Some(std::time::Instant::now() + std::time::Duration::from_millis(300));
+            ctx.request_repaint();
+        }
+        if let Some(deadline) = self.focus_reset_at {
+            if std::time::Instant::now() >= deadline {
+                ui.ctx()
+                    .send_viewport_cmd(egui::ViewportCommand::WindowLevel(
+                        egui::WindowLevel::Normal,
+                    ));
+                self.focus_reset_at = None;
+            } else {
+                ui.ctx().request_repaint();
+            }
         }
 
         // Route based on mode — joystick events are handled per-mode

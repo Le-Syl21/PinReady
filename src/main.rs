@@ -12,6 +12,8 @@ mod config;
 mod db;
 mod i18n;
 mod inputs;
+mod outputs_hid;
+mod pidlock;
 mod screens;
 mod tilt;
 mod updater;
@@ -139,8 +141,57 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    // Acquire the single-instance PID lock BEFORE init_logging: the log
+    // rotation that init_logging does (rename PinReady.log →
+    // PinReady.log.1) would otherwise clobber the running instance's
+    // diagnostics every time a second launch happens. Only the instance
+    // that wins the lock should touch the log files.
+    let lock_dir = db::default_db_path()
+        .parent()
+        .unwrap_or(std::path::Path::new("."))
+        .to_path_buf();
+    let _pid_lock = match pidlock::PidLock::acquire_in(&lock_dir) {
+        Ok(lock) => lock,
+        Err(pidlock::PidLockError::AlreadyRunning { path, pid }) => {
+            // Another PinReady is live. Politely ask it to bring its window
+            // to the front (via the focus-on-relaunch Unix socket) and exit
+            // cleanly. Only stderr here — init_logging isn't set up yet,
+            // which is intentional: leaves the running instance's log
+            // intact.
+            if pidlock::try_notify_focus(&lock_dir) {
+                eprintln!("PinReady already running — asked it to focus and exiting.");
+                return Ok(());
+            }
+            let pid_display = pid
+                .map(|p| p.to_string())
+                .unwrap_or_else(|| "?".to_string());
+            eprintln!(
+                "PinReady is already running (PID {pid_display}).\n\
+                 Lock file: {}\n\
+                 To stop the running instance: kill {pid_display}",
+                path.display()
+            );
+            std::process::exit(1);
+        }
+        Err(pidlock::PidLockError::OpenFailed(e)) => {
+            eprintln!(
+                "PID lock file could not be opened ({e}). \
+                 This typically means a permissions problem on {}. \
+                 Aborting to avoid running two PinReady in parallel.",
+                lock_dir.display()
+            );
+            std::process::exit(1);
+        }
+    };
+
+    // Only now initialize logging — we've confirmed we're the sole instance,
+    // so rotating the log is safe and desired.
     init_logging();
     log::info!("PinReady v{VERSION} starting...");
+    log::info!(
+        "PID lock held at {}",
+        lock_dir.join("PinReady.pid").display()
+    );
 
     // Initialize SDL3 for display enumeration only (joystick + audio handled in their threads)
     unsafe {
@@ -152,108 +203,60 @@ fn main() -> Result<()> {
     }
     log::info!("SDL3 initialized (video for display enumeration)");
 
-    // Open database
-    let db = db::Database::open(None)?;
-
-    // Load VPX config (pre-fill wizard if ini exists)
-    let vpx_config = config::VpxConfig::load(None)?;
-
-    // Determine start mode:
-    // - --config flag → wizard
-    // - DB not marked as configured (first run, wiped DB, etc.) → wizard
-    // - Otherwise → launcher
-    let configured = db.get_config("wizard_completed").as_deref() == Some("true");
-    let start_in_wizard = force_config || !configured;
-    if start_in_wizard {
-        log::info!("Starting in configuration wizard mode");
-    } else {
-        log::info!("Starting in launcher mode");
-    }
-
-    // Enumerate displays once — shared between kiosk lookup and App state.
-    let displays = screens::enumerate_displays();
-
-    // Detect Cabinet mode (BGSet=1) → rotate viewport and place on Playfield.
-    // Only applies in launcher mode — the wizard must always run in a standard,
-    // non-rotated window since it's where the user configures cabinet mode.
-    let cabinet_mode = !start_in_wizard && vpx_config.get_i32("Player", "BGSet") == Some(1);
-    let playfield_name = vpx_config.get("Player", "PlayfieldDisplay");
-    let playfield_idx = if cabinet_mode {
-        playfield_name
-            .as_ref()
-            .and_then(|name| displays.iter().position(|d| &d.name == name))
-    } else {
-        None
-    };
-    // Primary monitor index — used to place the launcher in borderless
-    // fullscreen on the user's main display when not in cabinet mode.
-    let primary_idx = displays.iter().position(|d| d.is_primary).unwrap_or(0);
-
-    // Compute the initial window size based on mode:
-    //  - Wizard: windowed square, 80% of primary monitor's smaller axis
-    //      1920x1080 -> 864x864   2560x1440 -> 1152x1152
-    //      3840x2160 -> 1728x1728 3840x1080 -> 864x864 (32:9 ultrawide)
-    //  - Launcher: full target monitor dims (cabinet -> playfield, else
-    //    primary). with_monitor below promotes it to borderless fullscreen;
-    //    the explicit inner_size avoids winit's 800x600 default being
-    //    visible during the WM fullscreen transition on X11.
-    let initial_size: [f32; 2] = if start_in_wizard {
-        displays
-            .iter()
-            .find(|d| d.is_primary)
-            .or_else(|| displays.first())
-            .map(|d| {
-                let side = 0.80 * (d.width.min(d.height)) as f32;
-                [side, side]
-            })
-            .unwrap_or([864.0, 864.0])
-    } else {
-        let target_idx = if cabinet_mode {
-            playfield_idx.unwrap_or(primary_idx)
+    // Determine the initial mode once from CLI + DB, then loop: each mode
+    // owns its own eframe session with a viewport built at window creation
+    // time. Switching modes = close current session, main reads the signal
+    // set by `crate::app::request_mode_switch`, restart with fresh state.
+    // This avoids any live-viewport mutation and its stale-compositor
+    // artifacts (double rotation, half-rendered frames).
+    let initial_mode = {
+        let db = db::Database::open(None)?;
+        let configured = db.get_config("wizard_completed").as_deref() == Some("true");
+        if force_config || !configured {
+            app::AppMode::Wizard
         } else {
-            primary_idx
-        };
-        displays
-            .get(target_idx)
-            .map(|d| [d.width as f32, d.height as f32])
-            .unwrap_or([1920.0, 1080.0])
+            app::AppMode::Launcher
+        }
     };
+    let mut current_mode = initial_mode;
+    log::info!("Starting in {:?} mode", current_mode);
 
-    // Create app (starts joystick + audio threads internally)
-    let mut app = app::App::new(vpx_config, db, start_in_wizard, displays);
+    loop {
+        run_eframe_for_mode(current_mode)?;
 
-    // Launch eframe. Wizard stays windowed; launcher (desktop or cabinet)
-    // goes borderless fullscreen on the target monitor.
-    let mut viewport = egui::ViewportBuilder::default()
-        .with_title(format!("PinReady v{VERSION}"))
-        .with_inner_size(initial_size);
-    if !start_in_wizard {
-        // Launcher → borderless fullscreen on the target monitor.
-        viewport = viewport.with_decorations(false);
-        if cabinet_mode {
-            viewport = viewport.with_rotation(eframe::emath::ViewportRotation::CW90);
-            if let Some(idx) = playfield_idx {
-                log::info!(
-                    "Cabinet mode: rotating launcher CW90 on monitor index {}",
-                    idx
-                );
-                viewport = viewport.with_monitor(idx);
-                // kiosk_bounds drives cursor lock + warp to grid center after
-                // the window is mapped. Placement is handled by with_monitor.
-                app.enable_kiosk_cursor();
-            } else {
-                log::warn!(
-                    "Cabinet mode: Playfield display not found, rotation applied without repositioning"
-                );
+        // After the eframe session closed, decide what's next:
+        //   Some(mode) → a UI handler requested a switch; relaunch as that.
+        //   None       → user closed the window without switching; quit.
+        match app::take_next_mode() {
+            Some(next) => {
+                log::info!("Relaunching eframe in {:?} mode", next);
+                current_mode = next;
             }
-        } else {
-            log::info!(
-                "Launcher desktop mode: borderless fullscreen on monitor index {}",
-                primary_idx
-            );
-            viewport = viewport.with_monitor(primary_idx);
+            None => {
+                log::info!("No next-mode signal — user quit");
+                break;
+            }
         }
     }
+
+    Ok(())
+}
+
+/// Single eframe session for one mode. Builds the viewport with the right
+/// rotation / monitor / decorations for the mode at creation time, runs
+/// until the App signals Close (mode switch or quit), returns.
+fn run_eframe_for_mode(mode: app::AppMode) -> Result<()> {
+    let db = db::Database::open(None)?;
+    let vpx_config = config::VpxConfig::load(None)?;
+    let displays = screens::enumerate_displays();
+
+    let (viewport, want_kiosk_cursor) = build_viewport(&displays, mode, &vpx_config);
+    let start_in_wizard = matches!(mode, app::AppMode::Wizard);
+    let mut app = app::App::new(vpx_config, db, start_in_wizard, displays);
+    if want_kiosk_cursor {
+        app.enable_kiosk_cursor();
+    }
+
     let options = eframe::NativeOptions {
         viewport,
         ..Default::default()
@@ -282,14 +285,97 @@ fn main() -> Result<()> {
                 cc.egui_ctx.set_fonts(font_defs);
                 log::info!("Loaded {} Noto font(s) for non-Latin scripts", font_count);
             }
-            // Bump the UI a bit beyond egui's default sizing. Composes with the
-            // OS-reported DPI scale (native_pixels_per_point), so HiDPI is
-            // still honored — this is an additional user-level zoom.
+            // Bump the UI a bit beyond egui's default sizing. Composes with
+            // the OS-reported DPI scale (native_pixels_per_point), so HiDPI
+            // is still honored — this is an additional user-level zoom.
             cc.egui_ctx.set_zoom_factor(1.20);
+            // Register egui context with pidlock so the socket listener
+            // can wake egui up on focus requests (otherwise the atomic
+            // never gets consumed while the window is unfocused).
+            pidlock::register_egui_ctx(cc.egui_ctx.clone());
             Ok(Box::new(app))
         }),
     )
     .map_err(|e| anyhow::anyhow!("eframe error: {e}"))?;
 
     Ok(())
+}
+
+/// Build the initial `ViewportBuilder` for `mode`:
+///   - Wizard: windowed square at 80% of the primary monitor's smaller axis.
+///   - Launcher desktop: borderless fullscreen on the primary monitor.
+///   - Launcher cabinet: borderless fullscreen + CW90 on the Playfield monitor.
+///
+/// Returns `(viewport, want_kiosk_cursor)`. The kiosk-cursor flag lets the
+/// caller enable cursor lock + focus-reclaim on the App instance only when
+/// we've successfully set up cabinet mode.
+fn build_viewport(
+    displays: &[screens::DisplayInfo],
+    mode: app::AppMode,
+    vpx_config: &config::VpxConfig,
+) -> (egui::ViewportBuilder, bool) {
+    let primary_idx = displays.iter().position(|d| d.is_primary).unwrap_or(0);
+
+    let cabinet_mode =
+        matches!(mode, app::AppMode::Launcher) && vpx_config.get_i32("Player", "BGSet") == Some(1);
+    let playfield_name = vpx_config.get("Player", "PlayfieldDisplay");
+    let playfield_idx = if cabinet_mode {
+        playfield_name
+            .as_ref()
+            .and_then(|name| displays.iter().position(|d| &d.name == name))
+    } else {
+        None
+    };
+
+    // Initial size:
+    //  - Wizard: square window, 80% of primary's smaller axis
+    //  - Launcher: full target monitor (with_monitor promotes to borderless FS)
+    let initial_size: [f32; 2] = if matches!(mode, app::AppMode::Wizard) {
+        displays
+            .iter()
+            .find(|d| d.is_primary)
+            .or_else(|| displays.first())
+            .map(|d| {
+                let side = 0.80 * (d.width.min(d.height)) as f32;
+                [side, side]
+            })
+            .unwrap_or([864.0, 864.0])
+    } else {
+        let target_idx = if cabinet_mode {
+            playfield_idx.unwrap_or(primary_idx)
+        } else {
+            primary_idx
+        };
+        displays
+            .get(target_idx)
+            .map(|d| [d.width as f32, d.height as f32])
+            .unwrap_or([1920.0, 1080.0])
+    };
+
+    let mut viewport = egui::ViewportBuilder::default()
+        .with_title(format!("PinReady v{VERSION}"))
+        .with_inner_size(initial_size);
+
+    let mut want_kiosk_cursor = false;
+    if matches!(mode, app::AppMode::Launcher) {
+        viewport = viewport.with_decorations(false);
+        if cabinet_mode {
+            viewport = viewport.with_rotation(eframe::emath::ViewportRotation::CW90);
+            if let Some(idx) = playfield_idx {
+                log::info!("Cabinet mode: rotating launcher CW90 on monitor index {idx}");
+                viewport = viewport.with_monitor(idx);
+                want_kiosk_cursor = true;
+            } else {
+                log::warn!(
+                    "Cabinet mode: Playfield display not found, rotation applied without repositioning"
+                );
+            }
+        } else {
+            log::info!(
+                "Launcher desktop mode: borderless fullscreen on monitor index {primary_idx}"
+            );
+            viewport = viewport.with_monitor(primary_idx);
+        }
+    }
+    (viewport, want_kiosk_cursor)
 }

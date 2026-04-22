@@ -796,6 +796,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cfb"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a347dcabdae9c31b0825fd6a8bed285ec9c2acb89c47827126d52fa4f59cece3"
+dependencies = [
+ "fnv",
+ "uuid",
+ "web-time",
+]
+
+[[package]]
 name = "cfg-if"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1185,7 +1196,7 @@ checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 [[package]]
 name = "ecolor"
 version = "0.34.1"
-source = "git+https://github.com/Le-Syl21/egui?rev=3b08da93#3b08da93ee393907f1a36fee0568109e2b89d4a1"
+source = "git+https://github.com/Le-Syl21/egui?rev=1eb1b589#1eb1b589b706245312c2b2fa96c70303aabb8454"
 dependencies = [
  "bytemuck",
  "emath",
@@ -1194,7 +1205,7 @@ dependencies = [
 [[package]]
 name = "eframe"
 version = "0.34.1"
-source = "git+https://github.com/Le-Syl21/egui?rev=3b08da93#3b08da93ee393907f1a36fee0568109e2b89d4a1"
+source = "git+https://github.com/Le-Syl21/egui?rev=1eb1b589#1eb1b589b706245312c2b2fa96c70303aabb8454"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1229,7 +1240,7 @@ dependencies = [
 [[package]]
 name = "egui"
 version = "0.34.1"
-source = "git+https://github.com/Le-Syl21/egui?rev=3b08da93#3b08da93ee393907f1a36fee0568109e2b89d4a1"
+source = "git+https://github.com/Le-Syl21/egui?rev=1eb1b589#1eb1b589b706245312c2b2fa96c70303aabb8454"
 dependencies = [
  "accesskit",
  "ahash",
@@ -1246,7 +1257,7 @@ dependencies = [
 [[package]]
 name = "egui-wgpu"
 version = "0.34.1"
-source = "git+https://github.com/Le-Syl21/egui?rev=3b08da93#3b08da93ee393907f1a36fee0568109e2b89d4a1"
+source = "git+https://github.com/Le-Syl21/egui?rev=1eb1b589#1eb1b589b706245312c2b2fa96c70303aabb8454"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1265,7 +1276,7 @@ dependencies = [
 [[package]]
 name = "egui-winit"
 version = "0.34.1"
-source = "git+https://github.com/Le-Syl21/egui?rev=3b08da93#3b08da93ee393907f1a36fee0568109e2b89d4a1"
+source = "git+https://github.com/Le-Syl21/egui?rev=1eb1b589#1eb1b589b706245312c2b2fa96c70303aabb8454"
 dependencies = [
  "accesskit_winit",
  "arboard",
@@ -1286,7 +1297,7 @@ dependencies = [
 [[package]]
 name = "egui_extras"
 version = "0.34.1"
-source = "git+https://github.com/Le-Syl21/egui?rev=3b08da93#3b08da93ee393907f1a36fee0568109e2b89d4a1"
+source = "git+https://github.com/Le-Syl21/egui?rev=1eb1b589#1eb1b589b706245312c2b2fa96c70303aabb8454"
 dependencies = [
  "ahash",
  "egui",
@@ -1300,7 +1311,7 @@ dependencies = [
 [[package]]
 name = "egui_glow"
 version = "0.34.1"
-source = "git+https://github.com/Le-Syl21/egui?rev=3b08da93#3b08da93ee393907f1a36fee0568109e2b89d4a1"
+source = "git+https://github.com/Le-Syl21/egui?rev=1eb1b589#1eb1b589b706245312c2b2fa96c70303aabb8454"
 dependencies = [
  "bytemuck",
  "egui",
@@ -1320,7 +1331,7 @@ checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 [[package]]
 name = "emath"
 version = "0.34.1"
-source = "git+https://github.com/Le-Syl21/egui?rev=3b08da93#3b08da93ee393907f1a36fee0568109e2b89d4a1"
+source = "git+https://github.com/Le-Syl21/egui?rev=1eb1b589#1eb1b589b706245312c2b2fa96c70303aabb8454"
 dependencies = [
  "bytemuck",
 ]
@@ -1407,7 +1418,7 @@ dependencies = [
 [[package]]
 name = "epaint"
 version = "0.34.1"
-source = "git+https://github.com/Le-Syl21/egui?rev=3b08da93#3b08da93ee393907f1a36fee0568109e2b89d4a1"
+source = "git+https://github.com/Le-Syl21/egui?rev=1eb1b589#1eb1b589b706245312c2b2fa96c70303aabb8454"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1431,7 +1442,7 @@ dependencies = [
 [[package]]
 name = "epaint_default_fonts"
 version = "0.34.1"
-source = "git+https://github.com/Le-Syl21/egui?rev=3b08da93#3b08da93ee393907f1a36fee0568109e2b89d4a1"
+source = "git+https://github.com/Le-Syl21/egui?rev=1eb1b589#1eb1b589b706245312c2b2fa96c70303aabb8454"
 
 [[package]]
 name = "equator"
@@ -1602,6 +1613,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fnv"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
+
+[[package]]
 name = "foldhash"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1656,6 +1673,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb4cb245038516f5f85277875cdaa4f7d2c9a0fa0468de06ed190163b1581fcf"
 dependencies = [
  "percent-encoding",
+]
+
+[[package]]
+name = "fs4"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d30c8899ca6ce4566c407ee75aa6331c666bddaca6ed846e7712d2db0ecdcd46"
+dependencies = [
+ "rustix 1.1.4",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2035,6 +2062,19 @@ name = "hexf-parse"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
+
+[[package]]
+name = "hidapi"
+version = "2.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1b71e1f4791fb9e93b9d7ee03d70b501ab48f6151432fbcadeabc30fe15396e"
+dependencies = [
+ "cc",
+ "cfg-if",
+ "libc",
+ "pkg-config",
+ "windows-sys 0.61.2",
+]
 
 [[package]]
 name = "hmac"
@@ -2587,6 +2627,15 @@ checksum = "8ea1f30cedd69f0a2954655f7188c6a834246d2bcf1e315e2ac40c4b24dc9519"
 dependencies = [
  "cfg-if",
  "rayon",
+]
+
+[[package]]
+name = "md2"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f4f0f3ed25ff4f8d8d102288d92f900efc202661c884cf67dfe4f0d07c43d1f"
+dependencies = [
+ "digest",
 ]
 
 [[package]]
@@ -3476,6 +3525,8 @@ dependencies = [
  "egui_extras",
  "env_logger",
  "flate2",
+ "fs4",
+ "hidapi",
  "image",
  "ini-preserve",
  "log",
@@ -3493,6 +3544,7 @@ dependencies = [
  "tempfile",
  "time",
  "ureq 3.3.0",
+ "vpin",
  "walkdir",
  "winapi",
  "winres",
@@ -4179,6 +4231,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sanitize-filename"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc984f4f9ceb736a7bb755c3e3bd17dc56370af2600c9780dcc48c66453da34d"
+dependencies = [
+ "regex",
+]
+
+[[package]]
 name = "scoped-tls"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4280,6 +4341,7 @@ version = "1.0.149"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83fc039473c5595ace860d8c4fafa220ff474b3fc6bfdb4293327f1a37e94d86"
 dependencies = [
+ "indexmap",
  "itoa",
  "memchr",
  "serde",
@@ -5148,6 +5210,32 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
+
+[[package]]
+name = "vpin"
+version = "0.23.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dcd2159153d62b1f3c80dfddf15ffb0928b3a305b2725ae9263e418e134f648f"
+dependencies = [
+ "byteorder",
+ "bytes",
+ "cfb",
+ "encoding_rs",
+ "flate2",
+ "hex",
+ "image",
+ "itoa",
+ "log",
+ "md2",
+ "nom",
+ "rayon",
+ "regex",
+ "sanitize-filename",
+ "serde",
+ "serde_json",
+ "tracing",
+ "weezl",
+]
 
 [[package]]
 name = "walkdir"

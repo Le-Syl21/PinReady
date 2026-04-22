@@ -17,7 +17,7 @@ fn parse_progress_pct(msg: &str) -> Option<f32> {
 }
 
 impl App {
-    pub(super) fn finalize_wizard(&mut self, ctx: &egui::Context) {
+    pub(super) fn finalize_wizard(&mut self, _ctx: &egui::Context) {
         // Save ALL pages
         self.save_screens();
         self.save_rendering();
@@ -36,56 +36,40 @@ impl App {
             log::error!("Failed to set autostart: {e}");
         }
 
-        // Knocker surprise!
+        // Knocker surprise — compute its exact playback duration from the
+        // decoded PCM so the close deadline matches the real end of the
+        // sound (not an arbitrary 800ms timeout).
+        let knocker_path = "knocker.ogg";
+        let knocker_duration =
+            audio::asset_duration(knocker_path).unwrap_or(std::time::Duration::from_millis(300));
         if let Some(tx) = &self.audio_cmd_tx {
             let _ = tx.send(AudioCommand::PlayOnSpeaker {
-                path: "knocker.ogg".to_string(),
+                path: knocker_path.to_string(),
                 target: audio::SpeakerTarget::FrontBoth,
             });
         }
 
-        log::info!("Wizard completed! Config saved to VPinballX.ini");
-
-        // Scan tables and switch to launcher mode
-        self.scan_tables();
-        self.mode = AppMode::Launcher;
-
-        // Apply cabinet mode live if BGSet=1. OuterPosition on a mapped window
-        // may be ignored by Mutter/GNOME — a cold restart is then more reliable
-        // (the next run creates the window directly at the PF position).
-        self.enter_cabinet_mode_if_configured(ctx);
-    }
-
-    /// If config has BGSet=1 and a Playfield display is known, rotate the
-    /// viewport CW90 and move it to the PF monitor via SetMonitor. Cursor
-    /// lock + warp are enabled via enable_kiosk_cursor.
-    pub(super) fn enter_cabinet_mode_if_configured(&mut self, ctx: &egui::Context) {
-        let cabinet = self.config.get_i32("Player", "BGSet") == Some(1);
-        if !cabinet {
-            return;
-        }
-        let playfield_name = match self.config.get("Player", "PlayfieldDisplay") {
-            Some(n) if !n.is_empty() => n,
-            _ => return,
-        };
-        let idx = match self.displays.iter().position(|d| d.name == playfield_name) {
-            Some(i) => i,
-            None => {
-                log::warn!(
-                    "Cabinet mode requested but Playfield display '{}' not found",
-                    playfield_name
-                );
-                return;
-            }
-        };
         log::info!(
-            "Entering cabinet mode live: rotating CW90, moving to monitor {}",
-            idx
+            "Wizard completed! Config saved; closing eframe in {:?} to let the knocker play out.",
+            knocker_duration
         );
-        ctx.set_viewport_rotation(eframe::emath::ViewportRotation::CW90);
-        ctx.send_viewport_cmd(egui::ViewportCommand::SetMonitor(idx));
-        self.enable_kiosk_cursor();
+
+        // Signal main.rs that after this eframe exits, relaunch in Launcher
+        // mode. The actual Close fires from the `close_at` tick in App::ui.
+        // Add a tiny post-roll (50ms) to cover SDL buffering latency.
+        crate::app::request_mode_switch(AppMode::Launcher);
+        self.close_at = Some(
+            std::time::Instant::now() + knocker_duration + std::time::Duration::from_millis(50),
+        );
     }
+
+    // Previous versions of this file had `enter_cabinet_mode_if_configured`
+    // and `leave_cabinet_mode_live` that mutated the live viewport (rotation,
+    // monitor, decorations) between wizard and launcher modes. Those were
+    // removed in favour of the restart-eframe-per-mode model driven by
+    // `request_mode_switch` + `main.rs` loop: each mode now comes up with
+    // its viewport correctly configured at window-creation time, avoiding
+    // the dual-render / stale-compositor glitches.
 
     pub(super) fn scan_tables(&mut self) {
         self.tables.clear();
@@ -106,7 +90,6 @@ impl App {
                 if !path.is_dir() {
                     continue;
                 }
-                // Look for .vpx file inside this folder
                 if let Ok(files) = std::fs::read_dir(&path) {
                     for file in files.flatten() {
                         let fp = file.path();
@@ -118,20 +101,21 @@ impl App {
                                 .replace('_', " ");
                             let b2s_path = fp.with_extension("directb2s");
                             let has_directb2s = b2s_path.exists();
-                            let cached = crate::assets::cached_bg_path(&path);
-                            let (bg_path, bg_bytes) = if cached.exists() {
-                                let bytes = std::fs::read(&cached)
-                                    .ok()
-                                    .map(|b| std::sync::Arc::from(b.into_boxed_slice()));
-                                (Some(cached), bytes)
-                            } else {
-                                (None, None)
-                            };
+                            // Relative path from tables_dir is the DB key.
+                            // Stable across disk moves when the user
+                            // reconfigures `tables_dir` — see issue #6.
+                            let rel_path = fp
+                                .strip_prefix(dir_path)
+                                .map(|p| p.to_string_lossy().into_owned())
+                                .unwrap_or_else(|_| fp.to_string_lossy().into_owned());
+                            let bg_bytes = self
+                                .db
+                                .get_backglass(&rel_path)
+                                .map(|v| std::sync::Arc::from(v.into_boxed_slice()));
                             self.tables.push(TableEntry {
                                 path: fp,
                                 name,
                                 has_directb2s,
-                                bg_path,
                                 bg_bytes,
                             });
                             break; // one vpx per folder
@@ -143,32 +127,44 @@ impl App {
         self.tables.sort_by_key(|a| a.name.to_lowercase());
         log::info!("Scanned {} tables in {}", self.tables.len(), dir);
 
-        // Spawn background thread to extract missing backglass images
+        // Schedule extraction for tables with no cached bg. Each job
+        // tries the `.directb2s` first when present, else falls back to
+        // scanning the `.vpx`'s internal images catalog for a texture
+        // named "backglass*" (issue #6 case: PuP-era originals that ship
+        // without a separate backglass file).
         let (tx, rx) = crossbeam_channel::unbounded();
-        let jobs: Vec<(usize, std::path::PathBuf, std::path::PathBuf)> = self
+        let tables_root = dir_path.to_path_buf();
+        let jobs: Vec<(usize, std::path::PathBuf, bool)> = self
             .tables
             .iter()
             .enumerate()
-            .filter(|(_, t)| t.bg_path.is_none() && t.has_directb2s)
-            .map(|(i, t)| {
-                let b2s = t.path.with_extension("directb2s");
-                let table_dir = t
-                    .path
-                    .parent()
-                    .unwrap_or(std::path::Path::new("."))
-                    .to_path_buf();
-                (i, b2s, table_dir)
-            })
+            .filter(|(_, t)| t.bg_bytes.is_none())
+            .map(|(i, t)| (i, t.path.clone(), t.has_directb2s))
             .collect();
         if !jobs.is_empty() {
             log::info!(
-                "Extracting {} backglass images in background...",
+                "Extracting {} backglass images in background (b2s → vpx images/ fallback)...",
                 jobs.len()
             );
             std::thread::spawn(move || {
-                for (idx, b2s_path, table_dir) in jobs {
-                    if let Some(cached) = crate::assets::extract_backglass(&b2s_path, &table_dir) {
-                        let _ = tx.send((idx, cached));
+                for (idx, vpx_path, has_directb2s) in jobs {
+                    // Try the .directb2s companion first.
+                    let mut bytes = if has_directb2s {
+                        let b2s = vpx_path.with_extension("directb2s");
+                        crate::assets::extract_backglass_from_b2s(&b2s)
+                    } else {
+                        None
+                    };
+                    // Fallback: scan the .vpx's images/ catalog.
+                    if bytes.is_none() {
+                        bytes = crate::assets::extract_backglass_from_vpx(&vpx_path);
+                    }
+                    if let Some(bytes) = bytes {
+                        let rel_path = vpx_path
+                            .strip_prefix(&tables_root)
+                            .map(|p| p.to_string_lossy().into_owned())
+                            .unwrap_or_else(|_| vpx_path.to_string_lossy().into_owned());
+                        let _ = tx.send((idx, rel_path, bytes));
                     }
                 }
                 log::info!("Background backglass extraction complete");
@@ -344,29 +340,29 @@ impl App {
 
     pub(super) fn process_bg_extraction(&mut self, ctx: &egui::Context) {
         if let Some(rx) = &self.bg_rx {
-            loop {
-                match rx.try_recv() {
-                    Ok((idx, path)) => {
-                        if idx < self.tables.len() {
-                            if let Ok(bytes) = std::fs::read(&path) {
-                                let arc: std::sync::Arc<[u8]> =
-                                    std::sync::Arc::from(bytes.into_boxed_slice());
-                                let uri = format!("bytes://bg/{idx}");
-                                ctx.include_bytes(uri, arc.clone());
-                                self.tables[idx].bg_bytes = Some(arc);
-                            }
-                            self.tables[idx].bg_path = Some(path.clone());
-                            log::debug!("BG extracted for table {idx}: {}", path.display());
-                        }
-                    }
-                    Err(crossbeam_channel::TryRecvError::Empty) => break,
-                    Err(crossbeam_channel::TryRecvError::Disconnected) => {
-                        // Extraction thread finished — stop polling
-                        log::info!("Background backglass extraction channel closed");
-                        self.bg_rx = None;
-                        break;
-                    }
+            // Drain without holding a borrow of `self` — we need `&mut self`
+            // below for `self.db.set_backglass` and the TableEntry update.
+            let drained: Vec<_> = std::iter::from_fn(|| rx.try_recv().ok()).collect();
+            let disconnected = matches!(
+                rx.try_recv(),
+                Err(crossbeam_channel::TryRecvError::Disconnected)
+            );
+            if disconnected {
+                log::info!("Background backglass extraction channel closed");
+                self.bg_rx = None;
+            }
+            for (idx, rel_path, bytes) in drained {
+                if idx >= self.tables.len() {
+                    continue;
                 }
+                if let Err(e) = self.db.set_backglass(&rel_path, &bytes) {
+                    log::error!("Failed to cache backglass for {rel_path}: {e}");
+                }
+                let arc: std::sync::Arc<[u8]> = std::sync::Arc::from(bytes.into_boxed_slice());
+                let uri = format!("bytes://bg/{idx}");
+                ctx.include_bytes(uri, arc.clone());
+                self.tables[idx].bg_bytes = Some(arc);
+                log::debug!("BG cached for table {idx} ({rel_path})");
             }
         }
     }
@@ -378,15 +374,10 @@ impl App {
         self.images_preloaded = true;
         let mut count = 0;
         for (idx, table) in self.tables.iter().enumerate() {
-            let uri = format!("bytes://bg/{idx}");
             if let Some(ref arc) = table.bg_bytes {
+                let uri = format!("bytes://bg/{idx}");
                 ctx.include_bytes(uri, arc.clone());
                 count += 1;
-            } else if let Some(ref path) = table.bg_path {
-                if let Ok(bytes) = std::fs::read(path) {
-                    ctx.include_bytes(uri, bytes);
-                    count += 1;
-                }
             }
         }
         if count > 0 {

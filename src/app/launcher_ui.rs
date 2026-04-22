@@ -22,8 +22,12 @@ impl App {
             ui.ctx().request_repaint();
         }
 
-        // Keyboard + mouse wheel nav — same actions as joystick for a single
-        // source of truth. Arrows = flipper/magna, Enter = launch, Escape = quit.
+        // Keyboard nav — same actions as joystick for a single source of
+        // truth. Arrows = flipper/magna, Enter = launch, Escape = quit.
+        // Mouse wheel is NOT mapped to navigation: it falls through to
+        // egui's ScrollArea (native smooth scrolling + acceleration tuned
+        // below). On pincab, navigation is done via joystick buttons and
+        // the search box — the wheel is for viewport scrolling only.
         enum NavInput {
             Key(egui::Key),
         }
@@ -132,7 +136,11 @@ impl App {
                         .button(egui::RichText::new(t!("launcher_config")).size(h_size))
                         .clicked()
                     {
-                        self.mode = AppMode::Wizard;
+                        // Signal main.rs to relaunch this eframe session in
+                        // Wizard mode with a fresh viewport (windowed on the
+                        // primary display), then close this one.
+                        crate::app::request_mode_switch(AppMode::Wizard);
+                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                     }
                     // Update button — visible when a new release is available
                     if self.update_downloading {
@@ -265,25 +273,23 @@ impl App {
                         if primary_down {
                             // Still holding — check if 3s reached
                             if hold_ratio >= 1.0 {
-                                log::info!("Long press: full backglass regeneration");
+                                log::info!(
+                                    "Long press: full backglass regeneration (flush DB cache)"
+                                );
                                 self.rescan_press_start = None;
                                 self.rescan_flash = Some((std::time::Instant::now(), true));
-                                let dir = std::path::Path::new(&self.tables_dir);
-                                if dir.is_dir() {
-                                    for entry in walkdir::WalkDir::new(dir)
-                                        .max_depth(2)
-                                        .into_iter()
-                                        .flatten()
-                                    {
-                                        let p = entry.path();
-                                        if p.file_name()
-                                            .and_then(|f| f.to_str())
-                                            .is_some_and(|f| f.starts_with(".pinready_bg_v"))
-                                        {
-                                            let _ = std::fs::remove_file(p);
-                                        }
-                                    }
+                                // Flush the SQLite `backglass` cache so the
+                                // follow-up scan re-extracts every image
+                                // from scratch. Legacy `.pinready_bg_v*.png`
+                                // files may still live in table folders
+                                // from older PinReady versions — we no
+                                // longer write nor read them; users can
+                                // delete them manually if desired.
+                                if let Err(e) = self.db.clear_backglass() {
+                                    log::error!("clear_backglass failed: {e}");
                                 }
+                                self.tables.iter_mut().for_each(|t| t.bg_bytes = None);
+                                self.images_preloaded = false;
                                 self.scan_tables();
                             } else {
                                 ui.ctx().request_repaint();
@@ -523,7 +529,7 @@ impl App {
                             rect.min + egui::vec2(4.0, 4.0),
                             egui::vec2(card_width - 8.0, img_height - 8.0),
                         );
-                        if table.bg_path.is_some() {
+                        if table.bg_bytes.is_some() {
                             let uri = format!("bytes://bg/{idx}");
                             let img = egui::Image::new(uri)
                                 .shrink_to_fit()

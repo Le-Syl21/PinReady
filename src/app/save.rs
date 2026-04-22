@@ -249,7 +249,25 @@ impl App {
 
         for action in &self.actions {
             let mapping = match &action.mapping {
-                Some(captured) => captured.to_mapping_string(),
+                Some(captured) => {
+                    let captured_str = captured.to_mapping_string();
+                    // Always keep the keyboard default as a fallback when
+                    // the captured input is a joystick button. VPX supports
+                    // alternatives via `|` — pressing either the joy button
+                    // OR the default key triggers the action. Without this
+                    // fallback, the user can't use Esc / 5 / 1 / etc. when
+                    // debugging with a keyboard plugged in, since the joy
+                    // capture would have replaced the whole mapping.
+                    match captured {
+                        crate::inputs::CapturedInput::JoystickButton { .. }
+                            if action.default_scancode
+                                != sdl3_sys::everything::SDL_SCANCODE_UNKNOWN =>
+                        {
+                            format!("{captured_str} | Key;{}", action.default_scancode.0)
+                        }
+                        _ => captured_str,
+                    }
+                }
                 None => {
                     if action.default_scancode == sdl3_sys::everything::SDL_SCANCODE_UNKNOWN {
                         continue;

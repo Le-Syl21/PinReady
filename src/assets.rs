@@ -1,10 +1,7 @@
 use std::io::BufReader;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use base64::Engine;
-
-// Versioned cache filename — bump when extraction logic changes
-const CACHE_FILENAME: &str = ".pinready_bg_v4.png";
 
 // Illumination: all bulbs composited at this opacity
 const BULB_OPACITY: f32 = 0.50;
@@ -16,10 +13,10 @@ const TARGET_MEDIAN_LUM: f32 = 75.0;
 const MAX_BRIGHTNESS_FACTOR: f32 = 2.5;
 const MIN_BRIGHTNESS_FACTOR: f32 = 0.5;
 
-/// Get the cached backglass image path for a table directory.
-pub fn cached_bg_path(table_dir: &Path) -> PathBuf {
-    table_dir.join(CACHE_FILENAME)
-}
+/// Final resize target for both B2S and .vpx extraction — keeps the
+/// in-memory DB blob small and the launcher rendering consistent.
+const DISPLAY_WIDTH: u32 = 1280;
+const DISPLAY_HEIGHT: u32 = 1024;
 
 /// Decode base64 image data (with whitespace stripping) to a DynamicImage.
 fn decode_b64_image(b64: &str) -> Option<image::DynamicImage> {
@@ -114,24 +111,23 @@ fn composite_bulb(base: &mut image::RgbaImage, bulb: &directb2s::Bulb) {
     }
 }
 
-/// Extract the backglass image from a .directb2s file and cache it as PNG.
+/// Extract the illuminated backglass image from a `.directb2s` file and
+/// return it as JPEG bytes in memory. The caller stores the bytes in the
+/// SQLite cache (`backglass` table) instead of writing a PNG next to the
+/// table — see issue #6 for why we no longer drop `.pinready_bg_v*.png`
+/// files in user table folders.
 ///
 /// Pipeline:
-/// 1. Load BackglassImage (base artwork, typically dark/unlit state)
-/// 2. Crop out the grill/DMD area at the bottom using GrillHeight
-/// 3. Composite all Backglass bulbs at 50% opacity (GI + flashers)
-/// 4. Normalize brightness to median luminosity of 75
-/// 5. Resize for display and save as PNG cache
-///
-/// Returns the path to the cached image, or None if extraction failed.
-pub fn extract_backglass(directb2s_path: &Path, table_dir: &Path) -> Option<PathBuf> {
-    let cache_path = cached_bg_path(table_dir);
-
-    if cache_path.exists() {
-        return Some(cache_path);
-    }
-
-    log::info!("Extracting backglass from {}", directb2s_path.display());
+///   1. Load BackglassImage (base artwork, typically dark/unlit state)
+///   2. Crop out the grill/DMD area at the bottom using GrillHeight
+///   3. Composite all Backglass bulbs at 50% opacity (GI + flashers)
+///   4. Normalize brightness to median luminosity of 75
+///   5. Resize to DISPLAY_WIDTH×DISPLAY_HEIGHT and encode as JPEG 85
+pub fn extract_backglass_from_b2s(directb2s_path: &Path) -> Option<Vec<u8>> {
+    log::info!(
+        "Extracting backglass from .directb2s: {}",
+        directb2s_path.display()
+    );
 
     let file = match std::fs::File::open(directb2s_path) {
         Ok(f) => f,
@@ -212,37 +208,168 @@ pub fn extract_backglass(directb2s_path: &Path, table_dir: &Path) -> Option<Path
         );
     }
 
-    // Step 5: Resize and save
+    // Step 5: Resize and encode JPEG to memory
     let final_img = image::DynamicImage::ImageRgb8(rgb);
-    let resized = final_img.resize(1280, 1024, image::imageops::FilterType::Lanczos3);
-    if let Err(e) = resized.save(&cache_path) {
-        log::error!("Failed to save cache {}: {e}", cache_path.display());
-        return None;
-    }
-
+    let resized = final_img.resize(
+        DISPLAY_WIDTH,
+        DISPLAY_HEIGHT,
+        image::imageops::FilterType::Lanczos3,
+    );
+    let bytes = encode_jpeg(&resized)?;
     log::info!(
-        "Cached backglass: {} ({}x{}, {} bulbs)",
-        cache_path.display(),
+        "Extracted backglass ({}x{}, {} bulbs, {} bytes)",
         resized.width(),
         resized.height(),
-        bulb_count
+        bulb_count,
+        bytes.len()
     );
-    Some(cache_path)
+    Some(bytes)
+}
+
+/// Extract a backglass image from inside a `.vpx` file by scanning its
+/// `images/` catalog for any texture whose logical name contains
+/// "backglass" (case-insensitive). Used as a fallback for tables shipped
+/// without a companion `.directb2s` — issue #6 cases.
+///
+/// The `TableInfo.screenshot` field is empirically unusable (empty on
+/// virtually every modern pincab table), so we ignore it and look at the
+/// real image catalog. Examples this catches:
+///
+///   - Darkest Dungeon Original — `images/backglassimage.jpg`
+///   - Die Hard Trilogy (VPW 2023) — `images/Backglass3scrnON.webp`,
+///     `images/DHBackGlassOFF.webp`
+///
+/// The first matching image with decodable pixel data wins; we decode it
+/// (the `.jpeg` field actually holds any encoded format — JPEG, PNG,
+/// WebP, BMP), resize to the B2S pipeline dimensions, and return JPEG
+/// bytes.
+pub fn extract_backglass_from_vpx(vpx_path: &Path) -> Option<Vec<u8>> {
+    log::info!(
+        "Scanning .vpx images/ for a backglass asset: {}",
+        vpx_path.display()
+    );
+    let mut vpx = match vpin::vpx::open(vpx_path) {
+        Ok(f) => f,
+        Err(e) => {
+            log::error!("Failed to open .vpx {}: {e}", vpx_path.display());
+            return None;
+        }
+    };
+    let images = match vpx.read_images() {
+        Ok(i) => i,
+        Err(e) => {
+            log::error!(
+                "Failed to read image catalog from {}: {e}",
+                vpx_path.display()
+            );
+            return None;
+        }
+    };
+
+    // Collect all images whose name/path contains "backglass" and rank
+    // them by encoded blob size. The real backglass is always a large
+    // high-res photographic asset (200-500 KB typical), whereas slot
+    // collisions — placeholder textures authors reuse across projects
+    // (e.g. the Color_Black.jpg copied from Indianapolis 500 seen in
+    // Darkest Dungeon) — compress to < 50 KB. Picking the biggest
+    // candidate reliably selects the real one.
+    let mut candidates: Vec<_> = images
+        .iter()
+        .filter(|img| {
+            let name = img.name.to_lowercase();
+            let path = img.path.to_lowercase();
+            name.contains("backglass") || path.contains("backglass")
+        })
+        .filter_map(|img| {
+            // Only entries with an encoded blob are usable; BMP-bits
+            // (`bits` field, LZW-compressed BGRA) would need additional
+            // decode code and are uncommon for backglass textures.
+            let data = img.jpeg.as_ref()?.data.as_slice();
+            if data.is_empty() {
+                None
+            } else {
+                Some((img, data))
+            }
+        })
+        .collect();
+    if candidates.is_empty() {
+        log::debug!(
+            "No backglass candidate with encoded data in {}",
+            vpx_path.display()
+        );
+        return None;
+    }
+    // Sort by blob size DESC, keep the biggest.
+    candidates.sort_by_key(|(_, data)| std::cmp::Reverse(data.len()));
+    for (img, data) in &candidates {
+        log::info!(
+            "  candidate: name={:?} path={:?} size={}",
+            img.name,
+            img.path,
+            data.len()
+        );
+    }
+    let (candidate, raw) = candidates[0];
+    log::info!(
+        "Picked largest backglass candidate: name={:?} ({} bytes)",
+        candidate.name,
+        raw.len()
+    );
+    let img = match image::load_from_memory(raw) {
+        Ok(i) => i,
+        Err(e) => {
+            log::warn!(
+                "Failed to decode backglass candidate {} from {}: {e}",
+                candidate.name,
+                vpx_path.display()
+            );
+            return None;
+        }
+    };
+    let resized = img.resize(
+        DISPLAY_WIDTH,
+        DISPLAY_HEIGHT,
+        image::imageops::FilterType::Lanczos3,
+    );
+    let bytes = encode_jpeg(&resized)?;
+    log::info!(
+        "Extracted embedded backglass from .vpx ({}x{}, {} bytes)",
+        resized.width(),
+        resized.height(),
+        bytes.len()
+    );
+    Some(bytes)
+}
+
+/// JPEG quality for cached backglass blobs. 85 is the sweet spot for
+/// photographic content: visually lossless at 1280×1024, ~5× smaller
+/// than PNG, ~2× smaller than WebP lossless.
+const BG_JPEG_QUALITY: u8 = 85;
+
+/// Encode a [`image::DynamicImage`] as JPEG bytes at `BG_JPEG_QUALITY`
+/// for the SQLite cache. Uses `image::codecs::jpeg::JpegEncoder` because
+/// `DynamicImage::write_to(ImageFormat::Jpeg)` doesn't expose a quality
+/// parameter.
+fn encode_jpeg(img: &image::DynamicImage) -> Option<Vec<u8>> {
+    // JPEG can't encode with alpha — flatten to RGB first. Backglass
+    // compositing is already done upstream; transparency isn't useful
+    // in the cached display copy anyway.
+    let rgb = img.to_rgb8();
+    let mut buf = Vec::new();
+    {
+        let mut enc = image::codecs::jpeg::JpegEncoder::new_with_quality(
+            std::io::Cursor::new(&mut buf),
+            BG_JPEG_QUALITY,
+        );
+        enc.encode_image(&rgb).ok()?;
+    }
+    Some(buf)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use image::{Rgb, RgbImage};
-    use std::path::Path;
-
-    // --- cached_bg_path ---
-
-    #[test]
-    fn cached_bg_path_appends_filename() {
-        let path = cached_bg_path(Path::new("/tables/My Table"));
-        assert_eq!(path, Path::new("/tables/My Table/.pinready_bg_v4.png"));
-    }
 
     // --- median_luminosity ---
 

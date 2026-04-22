@@ -191,6 +191,14 @@ impl AudioConfig {
 
 const SAMPLE_RATE: usize = 44100;
 
+/// Decode an asset and return its exact playback duration. Used by the
+/// wizard's finalize path to schedule the eframe close precisely at the
+/// end of the knocker sound instead of hardcoding a timeout.
+pub fn asset_duration(name: &str) -> Option<std::time::Duration> {
+    decode_to_mono_pcm(name)
+        .map(|pcm| std::time::Duration::from_secs_f64(pcm.len() as f64 / SAMPLE_RATE as f64))
+}
+
 // Embedded audio assets
 const KNOCKER_OGG: &[u8] = include_bytes!("../assets/audio/knocker.ogg");
 const BALL_ROLL_OGG: &[u8] = include_bytes!("../assets/audio/ball_roll.ogg");

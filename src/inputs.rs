@@ -1,3 +1,4 @@
+use rust_i18n::t;
 use sdl3_sys::everything::*;
 use std::ffi::CStr;
 use std::thread;
@@ -111,18 +112,97 @@ unsafe fn vpx_device_id(joy: *mut sdl3_sys::everything::SDL_Joystick) -> String 
     format!("SDLJoy_{guid_str}")
 }
 
-/// Get a human-readable name for an SDL scancode.
+/// Get a human-readable label for an SDL scancode, localised both to
+/// the user's current keyboard layout (character keys) and to their UI
+/// language (named keys like Escape / Home / Shift).
+///
+/// Two passes:
+///   1. `SDL_GetKeyName(SDL_GetKeyFromScancode(...))` — the standard SDL
+///      layout-aware name. A FR AZERTY user sees `!` / `:` / `<`
+///      directly for the character keys, instead of the US QWERTY
+///      labels `/` / `.` / `NonUSBackslash`. VPX uses the same call.
+///   2. `localize_key_name(...)` — post-process to translate the
+///      English-only *named* keys SDL returns ("Escape", "Left Shift",
+///      etc.) via rust-i18n. Character keys fall through unchanged.
+///
+/// Falls back to the raw scancode name, then to a numeric form, so we
+/// always return something the UI can show.
 pub fn scancode_name(scancode: SDL_Scancode) -> String {
-    unsafe {
-        let name_ptr = SDL_GetScancodeName(scancode);
-        if !name_ptr.is_null() {
-            let s = CStr::from_ptr(name_ptr).to_string_lossy().into_owned();
-            if !s.is_empty() {
-                return s;
+    let raw = unsafe {
+        let keycode = SDL_GetKeyFromScancode(scancode, SDL_KMOD_NONE, false);
+        let mut out = String::new();
+        if keycode.0 != 0 {
+            let name_ptr = SDL_GetKeyName(keycode);
+            if !name_ptr.is_null() {
+                let s = CStr::from_ptr(name_ptr).to_string_lossy().into_owned();
+                if !s.is_empty() {
+                    out = s;
+                }
             }
         }
+        if out.is_empty() {
+            // Fallback: physical-position label (`Comma`,
+            // `NonUSBackslash`…) when no layout character is available.
+            let name_ptr = SDL_GetScancodeName(scancode);
+            if !name_ptr.is_null() {
+                let s = CStr::from_ptr(name_ptr).to_string_lossy().into_owned();
+                if !s.is_empty() {
+                    out = s;
+                }
+            }
+        }
+        out
+    };
+
+    if raw.is_empty() {
+        return format!("Key {}", scancode.0);
     }
-    format!("Key {}", scancode.0)
+    localize_key_name(&raw)
+}
+
+/// Translate the English named keys SDL returns (e.g. "Escape", "Home",
+/// "Left Shift") via rust-i18n. Character keys and unknown strings pass
+/// through unchanged so the user still sees `!`, `:`, `<`, etc. on
+/// non-US layouts.
+fn localize_key_name(raw: &str) -> String {
+    // Arrow keys — prefer symbols, universal across locales.
+    match raw {
+        "Left" => return "←".to_string(),
+        "Right" => return "→".to_string(),
+        "Up" => return "↑".to_string(),
+        "Down" => return "↓".to_string(),
+        _ => {}
+    }
+    let key = match raw {
+        "Escape" => "key_escape",
+        "Tab" => "key_tab",
+        "Space" => "key_space",
+        "Return" => "key_return",
+        "Backspace" => "key_backspace",
+        "Delete" => "key_delete",
+        "Insert" => "key_insert",
+        "Home" => "key_home",
+        "End" => "key_end",
+        "PageUp" => "key_pageup",
+        "PageDown" => "key_pagedown",
+        "CapsLock" => "key_capslock",
+        "NumLockClear" => "key_numlock",
+        "ScrollLock" => "key_scrolllock",
+        "PrintScreen" => "key_printscreen",
+        "Pause" => "key_pause",
+        "Left Shift" => "key_lshift",
+        "Right Shift" => "key_rshift",
+        "Left Ctrl" => "key_lctrl",
+        "Right Ctrl" => "key_rctrl",
+        "Left Alt" => "key_lalt",
+        "Right Alt" => "key_ralt",
+        "Left GUI" => "key_lgui",
+        "Right GUI" => "key_rgui",
+        "NonUSBackslash" => "key_nonusbackslash",
+        "Application" => "key_application",
+        _ => return raw.to_string(),
+    };
+    t!(key).to_string()
 }
 
 /// Convert an egui::Key to an SDL_Scancode.
@@ -193,15 +273,61 @@ pub fn egui_key_to_scancode(key: egui::Key) -> Option<SDL_Scancode> {
         Key::F10 => SDL_SCANCODE_F10,
         Key::F11 => SDL_SCANCODE_F11,
         Key::F12 => SDL_SCANCODE_F12,
+        // Punctuation — physical positions on a US QWERTY keyboard.
+        // These are what egui delivers via `physical_key` regardless of
+        // keyboard layout.
         Key::Minus => SDL_SCANCODE_MINUS,
+        Key::Equals => SDL_SCANCODE_EQUALS,
         Key::Comma => SDL_SCANCODE_COMMA,
         Key::Period => SDL_SCANCODE_PERIOD,
+        Key::Slash => SDL_SCANCODE_SLASH,
+        Key::Semicolon => SDL_SCANCODE_SEMICOLON,
+        Key::Quote => SDL_SCANCODE_APOSTROPHE,
+        Key::Backslash => SDL_SCANCODE_BACKSLASH,
+        Key::Backtick => SDL_SCANCODE_GRAVE,
+        Key::OpenBracket => SDL_SCANCODE_LEFTBRACKET,
+        Key::CloseBracket => SDL_SCANCODE_RIGHTBRACKET,
+        // Shifted-logical fallbacks — if for some reason only the logical
+        // `key` is available (no physical), map to the un-shifted physical
+        // scancode of the key that produces that character on US QWERTY.
+        // Example: user pressed Shift+1 → logical key is Exclamationmark,
+        // the underlying physical key is Num1 → SDL_SCANCODE_1.
+        Key::Exclamationmark => SDL_SCANCODE_1,
+        Key::Questionmark => SDL_SCANCODE_SLASH,
+        Key::Pipe => SDL_SCANCODE_BACKSLASH,
+        Key::Colon => SDL_SCANCODE_SEMICOLON,
+        Key::Plus => SDL_SCANCODE_EQUALS,
+        Key::OpenCurlyBracket => SDL_SCANCODE_LEFTBRACKET,
+        Key::CloseCurlyBracket => SDL_SCANCODE_RIGHTBRACKET,
+
+        // Physical L/R modifier keys — our egui fork surfaces these
+        // distinctly so we no longer need device_query to resolve the
+        // side from global OS state.
+        Key::ShiftLeft => SDL_SCANCODE_LSHIFT,
+        Key::ShiftRight => SDL_SCANCODE_RSHIFT,
+        Key::ControlLeft => SDL_SCANCODE_LCTRL,
+        Key::ControlRight => SDL_SCANCODE_RCTRL,
+        Key::AltLeft => SDL_SCANCODE_LALT,
+        Key::AltRight => SDL_SCANCODE_RALT,
+        Key::SuperLeft => SDL_SCANCODE_LGUI,
+        Key::SuperRight => SDL_SCANCODE_RGUI,
+
+        // ISO 102nd key — FR AZERTY `<>|`, UK `\|`.
+        Key::IntlBackslash => SDL_SCANCODE_NONUSBACKSLASH,
+
         _ => return None,
     };
     Some(sc)
 }
 
-/// Check for modifier keys pressed in egui and return matching scancode.
+/// Check for modifier keys pressed in egui and return the matching SDL
+/// scancode. Kept as a fallback for the case where the capture code
+/// sees `modifiers.shift/ctrl/alt` set but no `Event::Key` with the
+/// corresponding `Key::ShiftLeft/Right/...` reached us (e.g. a very old
+/// winit build, or a platform where physical keys aren't surfaced).
+/// With the current egui fork, `Event::Key` should always carry the
+/// distinct side, so this path is rarely hit — when it is, we default
+/// to the left variant.
 pub fn egui_modifiers_to_scancode(modifiers: &egui::Modifiers) -> Option<SDL_Scancode> {
     if modifiers.shift && !modifiers.ctrl && !modifiers.alt {
         Some(SDL_SCANCODE_LSHIFT)
@@ -613,13 +739,32 @@ pub fn pinscape_button_defaults(profile: usize) -> &'static [(&'static str, u8)]
 }
 
 /// Check if any two actions share the same key binding.
+/// Pairs of action ids that are *expected* to share the same physical
+/// key — pincab staged flippers are literally a second switch on the
+/// same flipper button stack, so the default mapping collides with the
+/// flipper by design. Skip these in conflict reporting so the wizard
+/// doesn't flag them as errors.
+const INTENTIONAL_COLLISIONS: &[(&str, &str)] = &[
+    ("LeftFlipper", "LeftStagedFlipper"),
+    ("RightFlipper", "RightStagedFlipper"),
+];
+
+fn is_intentional_collision(a: &str, b: &str) -> bool {
+    INTENTIONAL_COLLISIONS
+        .iter()
+        .any(|&(x, y)| (a == x && b == y) || (a == y && b == x))
+}
+
 pub fn find_conflicts(actions: &[InputAction]) -> Vec<(usize, usize)> {
     let mut conflicts = Vec::new();
     for i in 0..actions.len() {
         for j in (i + 1)..actions.len() {
             let a = effective_scancode(&actions[i]);
             let b = effective_scancode(&actions[j]);
-            if a != SDL_SCANCODE_UNKNOWN && a == b {
+            if a != SDL_SCANCODE_UNKNOWN
+                && a == b
+                && !is_intentional_collision(actions[i].setting_id, actions[j].setting_id)
+            {
                 conflicts.push((i, j));
             }
         }
@@ -1139,16 +1284,19 @@ mod tests {
 
     #[test]
     fn default_actions_known_conflicts() {
-        // Per CLAUDE.md, LeftFlipper/LeftStagedFlipper share LSHIFT,
-        // RightFlipper/RightStagedFlipper share RSHIFT,
-        // VolumeDown/Service7 share MINUS, Credit4/Service5 share 6
+        // Flipper/StagedFlipper sharing the same shift key is intentional
+        // on a pincab (staged flippers are literally a second switch on
+        // the same flipper button stack) — those collisions are filtered
+        // out by `is_intentional_collision`, so they must NOT surface.
+        // The two remaining unintentional collisions inherited from VPX's
+        // own defaults (VolumeDown/Service7 on `-`, Credit4/Service5 on
+        // `6`) must still be reported until upstream fixes them.
         let actions = default_actions();
         let conflicts = find_conflicts(&actions);
         assert!(
             !conflicts.is_empty(),
-            "expected known default conflicts (LSHIFT, RSHIFT, MINUS, 6)"
+            "expected known default conflicts (MINUS, 6) inherited from VPX"
         );
-        // Verify specific known conflicts exist
         let find_pair = |id_a: &str, id_b: &str| -> bool {
             conflicts.iter().any(|&(i, j)| {
                 (actions[i].setting_id == id_a && actions[j].setting_id == id_b)
@@ -1156,12 +1304,12 @@ mod tests {
             })
         };
         assert!(
-            find_pair("LeftFlipper", "LeftStagedFlipper"),
-            "LSHIFT conflict missing"
+            !find_pair("LeftFlipper", "LeftStagedFlipper"),
+            "LSHIFT flipper+staged collision should be whitelisted (intentional)"
         );
         assert!(
-            find_pair("RightFlipper", "RightStagedFlipper"),
-            "RSHIFT conflict missing"
+            !find_pair("RightFlipper", "RightStagedFlipper"),
+            "RSHIFT flipper+staged collision should be whitelisted (intentional)"
         );
         assert!(
             find_pair("VolumeDown", "Service7"),
