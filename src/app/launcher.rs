@@ -277,9 +277,13 @@ impl App {
                                 }
                                 Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
                                     if startup_done {
-                                        // After startup, silence is normal (game is running)
-                                        // Wait for process exit instead
-                                        break;
+                                        // After startup, silence is normal (in-game VPX
+                                        // logs sparsely). We must keep draining stdout —
+                                        // dropping `line_rx` would close the read side of
+                                        // the pipe, and VPX's next write triggers SIGPIPE
+                                        // and kills the game mid-play. Wait for VPX to
+                                        // close stdout naturally (→ Disconnected).
+                                        continue;
                                     }
                                     log::error!(
                                         "VPX stdout timeout (30s without output during loading)"
