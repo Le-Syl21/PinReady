@@ -16,10 +16,28 @@
 //! extraction + classification logic lives in a later commit.
 
 use anyhow::{Context, Result};
+use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::io::Read;
 use std::path::Path;
+
+/// AsciiSet covering everything that is NOT safe inside a URL path
+/// segment: spaces + the standard RFC 3986 "query" delimiters + the
+/// few characters GitHub's CDN occasionally rejects. Alphanumerics,
+/// `-._~`, and RFC 3986 sub-delims (including `(`, `)`, `'`) are left
+/// as-is — GitHub serves them fine, and re-encoding them would break
+/// the few URLs in jsm174's catalog that rely on literal parens.
+const URL_PATH_SEGMENT: &AsciiSet = &CONTROLS
+    .add(b' ')
+    .add(b'"')
+    .add(b'#')
+    .add(b'<')
+    .add(b'>')
+    .add(b'?')
+    .add(b'`')
+    .add(b'{')
+    .add(b'}');
 
 /// GitHub repo coordinates. Kept as constants so tests can substitute
 /// fixtures if we ever add integration tests against a mock server.
@@ -254,13 +272,46 @@ pub fn decision_status(decision: &PatchDecision) -> &'static str {
     }
 }
 
+/// Percent-encode each `/`-separated segment of a URL's path so spaces
+/// and similar unsafe characters inside the table-folder name don't
+/// trip up the HTTP client. jsm174's filenames frequently contain
+/// spaces ("AC-DC LUCI Premium VR") and those reach us raw in the
+/// catalog's `url` field. ureq's HTTP client refuses a raw space in
+/// the request line and returns a "malformed URL" error — we pre-
+/// encode to avoid that.
+///
+/// Input is expected to be `scheme://host/path`; the scheme+host are
+/// passed through verbatim, only path segments are encoded.
+fn encode_url(url: &str) -> String {
+    let Some((scheme_end, _)) = url.match_indices("://").next() else {
+        return url.to_string();
+    };
+    let (scheme, rest) = url.split_at(scheme_end + 3);
+    let Some(first_slash) = rest.find('/') else {
+        return url.to_string();
+    };
+    let (host, path_with_query) = rest.split_at(first_slash);
+    // Split path from query/fragment — encode only the path.
+    let (path, tail) = match path_with_query.find(['?', '#']) {
+        Some(i) => path_with_query.split_at(i),
+        None => (path_with_query, ""),
+    };
+    let encoded_path: String = path
+        .split('/')
+        .map(|seg| utf8_percent_encode(seg, URL_PATH_SEGMENT).to_string())
+        .collect::<Vec<_>>()
+        .join("/");
+    format!("{scheme}{host}{encoded_path}{tail}")
+}
+
 /// Download the patched `.vbs` from jsm174 + verify its SHA256 against
 /// `expected_sha`. Fails loudly (returns `Err`) on network failure or
 /// hash mismatch — callers must not write anything to disk in either
 /// case. Files on jsm174 are small (a few KB each), so we buffer the
 /// whole body in memory before hashing.
 pub fn download_and_verify(url: &str, expected_sha: &str) -> Result<Vec<u8>> {
-    let response = ureq::get(url)
+    let encoded = encode_url(url);
+    let response = ureq::get(&encoded)
         .header("User-Agent", "PinReady")
         .call()
         .with_context(|| format!("Failed to GET {url}"))?;
@@ -434,6 +485,43 @@ mod tests {
     fn parse_catalog_rejects_malformed() {
         assert!(parse_catalog("not json").is_err());
         assert!(parse_catalog("{}").is_err());
+    }
+
+    #[test]
+    fn encode_url_spaces_get_percent_encoded() {
+        let raw =
+            "https://raw.githubusercontent.com/foo/bar/master/AC-DC LUCI Premium VR/AC-DC LUCI.vbs";
+        let encoded = encode_url(raw);
+        assert!(
+            encoded.contains("AC-DC%20LUCI%20Premium%20VR"),
+            "got: {encoded}"
+        );
+        assert!(encoded.contains("AC-DC%20LUCI.vbs"), "got: {encoded}");
+        assert!(encoded.starts_with("https://raw.githubusercontent.com/foo/bar/"));
+    }
+
+    #[test]
+    fn encode_url_preserves_parens_apostrophes_unreserved() {
+        // GitHub raw CDN serves these fine without encoding; keep verbatim
+        // so we don't double-encode characters jsm174's URLs already accept.
+        let raw = "https://x.example/folder/Baby's (2023) v1.0.vbs";
+        let encoded = encode_url(raw);
+        assert!(encoded.contains("Baby's"));
+        assert!(encoded.contains("(2023)"));
+        assert!(encoded.contains(".vbs"));
+    }
+
+    #[test]
+    fn encode_url_no_path_is_passthrough() {
+        assert_eq!(encode_url("https://example.com"), "https://example.com");
+    }
+
+    #[test]
+    fn encode_url_idempotent_on_already_encoded() {
+        let already = "https://x/foo/bar%20baz.vbs";
+        let out = encode_url(already);
+        // %20 should remain %20, not become %2520.
+        assert_eq!(out, already);
     }
 
     #[test]

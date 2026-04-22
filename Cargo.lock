@@ -3531,6 +3531,7 @@ dependencies = [
  "ini-preserve",
  "log",
  "noto-fonts-dl",
+ "percent-encoding",
  "regex",
  "rfd",
  "rusqlite",

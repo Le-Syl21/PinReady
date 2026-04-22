@@ -93,6 +93,12 @@ regex = "1"
 # directly from vbs_patches.rs.
 sha2 = "0.10"
 
+# Percent-encode URL path segments. jsm174 patch URLs embed the table
+# folder name, which often contains spaces (e.g. "AC-DC LUCI Premium
+# VR"); ureq's HTTP client refuses raw spaces, so we pre-encode.
+# Already pulled transitively; declared explicitly.
+percent-encoding = "2"
+
 # USB HID for output board discovery (Pinscape KL25Z / Pico, DudesCab, PinOne).
 # linux-static-hidraw statically compiles the hidraw backend → zero runtime
 # deps on Linux; native backends on macOS (IOKit) and Windows (Win32 HID API).
