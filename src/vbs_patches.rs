@@ -39,9 +39,14 @@ const URL_PATH_SEGMENT: &AsciiSet = &CONTROLS
     .add(b'{')
     .add(b'}');
 
-/// GitHub repo coordinates. Kept as constants so tests can substitute
-/// fixtures if we ever add integration tests against a mock server.
-const REPO: &str = "jsm174/vpx-standalone-scripts";
+/// GitHub repo coordinates. Points at our curated fork of
+/// `jsm174/vpx-standalone-scripts` — we pull from our own master so we
+/// can integrate patches jsm174 won't accept (e.g. `vpminit me` for
+/// B2S polling race, per vpinball/vpinball#1783) and cherry-pick
+/// community PRs still pending upstream. Kept as constants so tests
+/// can substitute fixtures if we ever add integration tests against a
+/// mock server.
+const REPO: &str = "Le-Syl21/vpx-standalone-scripts";
 const BRANCH: &str = "master";
 
 /// A single entry in jsm174's `hashes.json`. We only decode the fields

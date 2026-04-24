@@ -1,6 +1,6 @@
 [package]
 name = "pinready"
-version = "0.6.7"
+version = "0.7.0"
 edition = "2021"
 description = "Cross-platform configurator and launcher supporting the adoption of Visual Pinball 10.8.1 — for testers and early adopters, not a replacement for a stable production setup"
 license = "GPL-3.0-or-later"

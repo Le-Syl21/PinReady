@@ -25,6 +25,13 @@ impl App {
 
         // Keyboard nav — same actions as joystick for a single source of
         // truth. Arrows = flipper/magna, Enter = launch, Escape = quit.
+        // Physical Shift/Ctrl also map to flipper/magna so a pincab user
+        // with a keyboard wired to the cab buttons (default VPX bindings:
+        // LShift=LeftFlipper, RShift=RightFlipper, LCtrl=LeftMagna,
+        // RCtrl=RightMagna) can navigate with the same physical buttons
+        // they use in-game. Suppressed while a text field is focused so
+        // Shift+letter and Ctrl+key combos in the search box don't leak
+        // into grid navigation.
         // Mouse wheel is NOT mapped to navigation: it falls through to
         // egui's ScrollArea (native smooth scrolling + acceleration tuned
         // below). On pincab, navigation is done via joystick buttons and
@@ -44,6 +51,7 @@ impl App {
                     })
                     .collect()
             });
+            let text_focused = ui.ctx().text_edit_focused();
 
             for input in inputs {
                 match input {
@@ -57,6 +65,18 @@ impl App {
                         self.apply_nav_action("LeftMagna");
                     }
                     NavInput::Key(egui::Key::ArrowDown) => {
+                        self.apply_nav_action("RightMagna");
+                    }
+                    NavInput::Key(egui::Key::ShiftLeft) if !text_focused => {
+                        self.apply_nav_action("LeftFlipper");
+                    }
+                    NavInput::Key(egui::Key::ShiftRight) if !text_focused => {
+                        self.apply_nav_action("RightFlipper");
+                    }
+                    NavInput::Key(egui::Key::ControlLeft) if !text_focused => {
+                        self.apply_nav_action("LeftMagna");
+                    }
+                    NavInput::Key(egui::Key::ControlRight) if !text_focused => {
                         self.apply_nav_action("RightMagna");
                     }
                     NavInput::Key(egui::Key::Enter) => {
