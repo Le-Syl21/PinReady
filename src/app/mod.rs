@@ -281,6 +281,12 @@ pub struct App {
     // enable this deliberately from the Tables wizard page.
     jsm174_patching: bool,
 
+    // Opt-in: VPSDB + VPinMediaDB enrichment at scan. Off by default
+    // because the first sync downloads ~7 MB of JSON + per-table
+    // media. Persisted in `config.catalog_enrichment_enabled`. Same
+    // wizard page as the VBS patcher toggle.
+    catalog_enrichment: bool,
+
     // Deadline for sending `ViewportCommand::Close` after finalize_wizard.
     // Absolute wall-clock instant = knocker playback end + small buffer.
     // Compared with `Instant::now()` every frame; no ms hardcoding.
@@ -377,6 +383,7 @@ impl App {
             Self::spawn_update_check(&vpx_fork_repo)
         };
         let jsm174_patching = db.jsm174_patching_enabled();
+        let catalog_enrichment = db.catalog_enrichment_enabled();
 
         let mut s = Self {
             mode: if start_in_wizard {
@@ -446,6 +453,7 @@ impl App {
             vpx_error_log: None,
             autostart: is_autostart_enabled(),
             jsm174_patching,
+            catalog_enrichment,
             close_at: None,
             focus_reset_at: None,
             rescan_flash: None,
@@ -807,6 +815,7 @@ impl App {
 
 mod audio_page;
 mod autostart;
+mod catalog_worker;
 mod inputs_page;
 mod launcher;
 mod launcher_ui;

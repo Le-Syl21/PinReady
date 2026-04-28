@@ -12,12 +12,14 @@ mod config;
 mod db;
 mod i18n;
 mod inputs;
+mod mediadb;
 mod outputs_hid;
 mod pidlock;
 mod screens;
 mod tilt;
 mod updater;
 mod vbs_patches;
+mod vpsdb;
 
 use anyhow::Result;
 use std::io::Write;

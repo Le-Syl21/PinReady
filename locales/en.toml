@@ -390,6 +390,10 @@ tables_vbs_patch_desc = "Some tables use Windows-only VBScript APIs that break o
 tables_vbs_patch_toggle = "Auto-apply VBS patches from Le-Syl21/vpx-standalone-scripts"
 tables_vbs_patch_backup = "If you had your own customized <table>.vbs sidecar, it is preserved as <table>.pre_standalone.vbs (VPX won't auto-load that filename) before the patch is applied — a working table, with your old script safely backed up. Off by default: the catalog occasionally ships patches that regress specific tables, so enable it deliberately."
 
+tables_catalog_title = "Catalog enrichment (VPSDB + VPinMediaDB)"
+tables_catalog_desc = "Match each installed table against the Virtual Pinball Spreadsheet catalog (~2500 games) and download backglass + audio + wheel previews from VPinMediaDB into <table>/medias/. First sync transfers ~7 MB of catalog JSON plus a few MB per matched table. Required for hover preview and update-available badges in the launcher grid."
+tables_catalog_toggle = "Auto-sync VPSDB + VPinMediaDB at scan time"
+
 # Autostart
 autostart_label = "Launch PinReady automatically at startup"
 autostart_hint = "Recommended for a dedicated pincab. PinReady will start when the system boots."

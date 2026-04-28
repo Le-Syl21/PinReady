@@ -390,6 +390,10 @@ tables_vbs_patch_desc = "Certaines tables utilisent des APIs VBScript spécifiqu
 tables_vbs_patch_toggle = "Appliquer automatiquement les patches VBS de Le-Syl21/vpx-standalone-scripts"
 tables_vbs_patch_backup = "Si vous aviez un fichier <table>.vbs personnalisé, il est conservé sous <table>.pre_standalone.vbs (VPX ne charge pas ce nom) avant application du patch — vous récupérez une table fonctionnelle, avec votre script d'origine sauvegardé. Désactivé par défaut : le catalog contient occasionnellement des patches qui régressent certaines tables, activez-le en connaissance de cause."
 
+tables_catalog_title = "Enrichissement catalog (VPSDB + VPinMediaDB)"
+tables_catalog_desc = "Identifie chaque table installée dans la base Virtual Pinball Spreadsheet (~2500 jeux) et télécharge backglass + audio + wheel depuis VPinMediaDB dans <table>/medias/. La première synchro transfère ~7 Mo de JSON plus quelques Mo par table identifiée. Indispensable pour le preview au survol et les badges 'mise à jour disponible' dans la grille launcher."
+tables_catalog_toggle = "Synchroniser VPSDB + VPinMediaDB au scan"
+
 # Démarrage automatique
 autostart_label = "Lancer PinReady automatiquement au démarrage"
 autostart_hint = "Recommandé pour un pincab dédié. PinReady se lancera au démarrage du système."

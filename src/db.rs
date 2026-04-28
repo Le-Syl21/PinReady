@@ -163,6 +163,34 @@ impl Database {
                 sidecar_sha256     TEXT,
                 status             TEXT    NOT NULL,
                 last_checked_mtime INTEGER NOT NULL DEFAULT 0
+            );
+
+            -- Catalog enrichment from Virtual Pinball Spreadsheet
+            -- (`vps-db`) + VPinMediaDB. Keyed on the same `rel_path` as
+            -- `backglass`/`vbs_patches` so the three caches age together.
+            -- `vps_id` is the stable VPS-assigned game ID (joined against
+            -- `vpsdb.json[*].id`); `vps_table_id` pins the specific table
+            -- variant inside that game tableFiles[*]. confidence is
+            -- one of high/medium/low from the matcher; lower
+            -- confidences may want a user confirmation step before we
+            -- treat the link as authoritative. vps_updated_at is the
+            -- catalog updatedAt at link time — when the live VPS DB
+            -- moves past it, the launcher can flag update-available.
+            -- `media_*_md5` records the catalog-declared md5 of each
+            -- asset we pulled, so a re-scan only re-downloads when the
+            -- catalog publishes a fresher copy. Per-rel_path so moving
+            -- a table folder doesn't lose the link.
+            CREATE TABLE IF NOT EXISTS vps_link (
+                rel_path        TEXT    PRIMARY KEY,
+                vps_id          TEXT    NOT NULL,
+                vps_table_id    TEXT,
+                confidence      TEXT    NOT NULL,
+                strategy        TEXT    NOT NULL,
+                vps_updated_at  INTEGER NOT NULL DEFAULT 0,
+                media_bg_md5    TEXT,
+                media_audio_md5 TEXT,
+                media_wheel_md5 TEXT,
+                last_synced_at  INTEGER NOT NULL DEFAULT 0
             );",
             )
             .context("Failed to initialize database schema")?;
@@ -355,6 +383,118 @@ impl Database {
             "jsm174_patching_enabled",
             if enabled { "true" } else { "false" },
         )
+    }
+
+    /// Catalog enrichment opt-in: VPSDB sync + VPinMediaDB media fetch
+    /// at scan time. Off by default — first sync downloads ~7 MB of
+    /// JSON plus per-matched-table assets (a few MB more), and we
+    /// don't want to surprise users on metered networks.
+    pub fn catalog_enrichment_enabled(&self) -> bool {
+        matches!(
+            self.get_config("catalog_enrichment_enabled").as_deref(),
+            Some("true")
+        )
+    }
+    pub fn set_catalog_enrichment_enabled(&self, enabled: bool) -> Result<()> {
+        self.set_config(
+            "catalog_enrichment_enabled",
+            if enabled { "true" } else { "false" },
+        )
+    }
+
+    // --- vps_link (table ↔ VPS DB binding) ---
+
+    /// What we already know about this rel_path's VPS link, if any.
+    /// Returned as `(vps_id, vps_table_id, confidence, strategy,
+    /// vps_updated_at, media_bg_md5, media_audio_md5, media_wheel_md5)`.
+    #[allow(clippy::type_complexity)]
+    pub fn get_vps_link(
+        &self,
+        rel_path: &str,
+    ) -> Option<(
+        String,
+        Option<String>,
+        String,
+        String,
+        i64,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+    )> {
+        self.conn
+            .query_row(
+                "SELECT vps_id, vps_table_id, confidence, strategy, vps_updated_at,
+                        media_bg_md5, media_audio_md5, media_wheel_md5
+                 FROM vps_link WHERE rel_path = ?1",
+                [rel_path],
+                |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, Option<String>>(1)?,
+                        r.get::<_, String>(2)?,
+                        r.get::<_, String>(3)?,
+                        r.get::<_, i64>(4)?,
+                        r.get::<_, Option<String>>(5)?,
+                        r.get::<_, Option<String>>(6)?,
+                        r.get::<_, Option<String>>(7)?,
+                    ))
+                },
+            )
+            .ok()
+    }
+
+    /// Upsert the link record. Called both on first match and after a
+    /// media refresh.
+    #[allow(clippy::too_many_arguments)]
+    pub fn set_vps_link(
+        &self,
+        rel_path: &str,
+        vps_id: &str,
+        vps_table_id: Option<&str>,
+        confidence: &str,
+        strategy: &str,
+        vps_updated_at: i64,
+        media_bg_md5: Option<&str>,
+        media_audio_md5: Option<&str>,
+        media_wheel_md5: Option<&str>,
+    ) -> Result<()> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        self.conn
+            .execute(
+                "INSERT INTO vps_link (
+                     rel_path, vps_id, vps_table_id, confidence, strategy,
+                     vps_updated_at, media_bg_md5, media_audio_md5, media_wheel_md5,
+                     last_synced_at
+                 )
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+                 ON CONFLICT(rel_path) DO UPDATE
+                 SET vps_id          = excluded.vps_id,
+                     vps_table_id    = excluded.vps_table_id,
+                     confidence      = excluded.confidence,
+                     strategy        = excluded.strategy,
+                     vps_updated_at  = excluded.vps_updated_at,
+                     media_bg_md5    = COALESCE(excluded.media_bg_md5,    media_bg_md5),
+                     media_audio_md5 = COALESCE(excluded.media_audio_md5, media_audio_md5),
+                     media_wheel_md5 = COALESCE(excluded.media_wheel_md5, media_wheel_md5),
+                     last_synced_at  = excluded.last_synced_at",
+                rusqlite::params![
+                    rel_path,
+                    vps_id,
+                    vps_table_id,
+                    confidence,
+                    strategy,
+                    vps_updated_at,
+                    media_bg_md5,
+                    media_audio_md5,
+                    media_wheel_md5,
+                    now,
+                ],
+            )
+            .context("Failed to upsert vps_link")?;
+        Ok(())
     }
 
     /// Get the tables root directory.

@@ -260,6 +260,45 @@ impl App {
         // thread: separate mtime tracking (sidecar + .vpx only, no
         // media/launcher.*), separate DB table, separate worker.
         self.scan_vbs_patches(dir_path);
+
+        // Catalog enrichment (VPSDB + VPinMediaDB). Opt-in like the
+        // VBS patcher — first sync downloads ~7 MB of JSON plus
+        // per-table media (a few MB each). Runs in its own thread so
+        // a slow GitHub raw-CDN response doesn't block the launcher.
+        if self.db.catalog_enrichment_enabled() {
+            self.spawn_catalog_enrichment(dir_path);
+        }
+    }
+
+    /// Build the per-table job list and hand it to the worker thread.
+    /// We snapshot the data the worker needs upfront (rel_path,
+    /// table_dir, vpx_path, folder_name) so the thread doesn't have
+    /// to borrow `App` or share locks with the UI.
+    fn spawn_catalog_enrichment(&self, dir_path: &std::path::Path) {
+        let mut jobs = Vec::with_capacity(self.tables.len());
+        for t in &self.tables {
+            let rel_path = t
+                .path
+                .strip_prefix(dir_path)
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_else(|_| t.path.to_string_lossy().into_owned());
+            let table_dir = t
+                .path
+                .parent()
+                .map(|p| p.to_path_buf())
+                .unwrap_or_else(|| dir_path.to_path_buf());
+            let folder_name = table_dir
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            jobs.push(super::catalog_worker::EnrichmentJob {
+                rel_path,
+                table_dir,
+                vpx_path: t.path.clone(),
+                folder_name,
+            });
+        }
+        super::catalog_worker::spawn(jobs);
     }
 
     /// Classify each table's VBS state and apply patches from the

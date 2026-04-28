@@ -124,6 +124,31 @@ impl App {
         ui.add_space(16.0);
         ui.separator();
         ui.add_space(8.0);
+
+        // Catalog enrichment opt-in (VPSDB + VPinMediaDB). Off by
+        // default — first sync downloads ~7 MB of catalog JSON plus
+        // per-matched-table media (a few MB more per table). Enables
+        // hover preview (backglass + audio jingle) and update-available
+        // badges in the launcher grid.
+        ui.label(egui::RichText::new(t!("tables_catalog_title")).strong());
+        ui.add_space(4.0);
+        ui.label(t!("tables_catalog_desc"));
+        ui.add_space(6.0);
+        if ui
+            .checkbox(&mut self.catalog_enrichment, t!("tables_catalog_toggle"))
+            .changed()
+        {
+            if let Err(e) = self
+                .db
+                .set_catalog_enrichment_enabled(self.catalog_enrichment)
+            {
+                log::error!("Failed to persist catalog_enrichment_enabled: {e}");
+            }
+        }
+
+        ui.add_space(16.0);
+        ui.separator();
+        ui.add_space(8.0);
         ui.checkbox(&mut self.autostart, t!("autostart_label"));
         ui.label(egui::RichText::new(t!("autostart_hint")).weak());
     }
