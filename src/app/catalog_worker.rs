@@ -119,14 +119,13 @@ fn run(jobs: Vec<EnrichmentJob>) -> anyhow::Result<()> {
 
         // 3. Media fetch (only if MediaDb available + match present).
         let Some(ref mdb) = media_db else { continue };
-        let table_basename = job
-            .vpx_path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or(&job.folder_name);
-
-        // Fetch each asset type if (a) URL exists, (b) md5 differs from
-        // what we last stored, (c) target file isn't already on disk.
+        // Fetch the two assets we care about for hover preview —
+        // `bg.png` and `audio.mp3`. Other types in vpinmediadb (wheel,
+        // dmd, table, fss, video, …) are deliberately skipped. We
+        // re-DL only when (a) URL exists, (b) md5 differs from what we
+        // last stored, (c) target file isn't already on disk under the
+        // user's hand. Filenames mirror the catalog's factory names —
+        // no parenthesized labels.
         let cur_link = db.get_vps_link(&job.rel_path);
         let cur_bg_md5 = cur_link.as_ref().and_then(|l| l.5.clone());
         let cur_audio_md5 = cur_link.as_ref().and_then(|l| l.6.clone());
@@ -134,19 +133,10 @@ fn run(jobs: Vec<EnrichmentJob>) -> anyhow::Result<()> {
 
         let mut new_bg_md5 = cur_bg_md5.clone();
         let mut new_audio_md5 = cur_audio_md5.clone();
-        let mut new_wheel_md5 = cur_wheel_md5.clone();
 
         if let Some((url, md5)) = mdb.bg_url_md5(&vps_id) {
-            if try_install_asset(
-                cur_bg_md5.as_deref(),
-                md5,
-                url,
-                &job.table_dir,
-                table_basename,
-                "Backglass",
-                "png",
-            )
-            .unwrap_or(false)
+            if try_install_asset(cur_bg_md5.as_deref(), md5, url, &job.table_dir, "bg.png")
+                .unwrap_or(false)
             {
                 new_bg_md5 = Some(md5.to_string());
                 media_dl += 1;
@@ -158,9 +148,7 @@ fn run(jobs: Vec<EnrichmentJob>) -> anyhow::Result<()> {
                 md5,
                 url,
                 &job.table_dir,
-                table_basename,
-                "Audio",
-                "mp3",
+                "audio.mp3",
             )
             .unwrap_or(false)
             {
@@ -168,28 +156,9 @@ fn run(jobs: Vec<EnrichmentJob>) -> anyhow::Result<()> {
                 media_dl += 1;
             }
         }
-        if let Some((url, md5)) = mdb.wheel_url_md5(&vps_id) {
-            if try_install_asset(
-                cur_wheel_md5.as_deref(),
-                md5,
-                url,
-                &job.table_dir,
-                table_basename,
-                "Wheel",
-                "png",
-            )
-            .unwrap_or(false)
-            {
-                new_wheel_md5 = Some(md5.to_string());
-                media_dl += 1;
-            }
-        }
 
         // Update md5s if any changed.
-        if new_bg_md5 != cur_bg_md5
-            || new_audio_md5 != cur_audio_md5
-            || new_wheel_md5 != cur_wheel_md5
-        {
+        if new_bg_md5 != cur_bg_md5 || new_audio_md5 != cur_audio_md5 {
             db.set_vps_link(
                 &job.rel_path,
                 &vps_id,
@@ -199,7 +168,7 @@ fn run(jobs: Vec<EnrichmentJob>) -> anyhow::Result<()> {
                 vps_updated_at,
                 new_bg_md5.as_deref(),
                 new_audio_md5.as_deref(),
-                new_wheel_md5.as_deref(),
+                cur_wheel_md5.as_deref(),
             )?;
         }
     }
@@ -221,27 +190,24 @@ fn try_install_asset(
     remote_md5: &str,
     url: &str,
     table_dir: &Path,
-    table_basename: &str,
-    label: &str,
-    ext: &str,
+    filename: &str,
 ) -> anyhow::Result<bool> {
     if cached_md5 == Some(remote_md5) {
         return Ok(false);
     }
     // Also skip if the file exists on disk but our DB lost track —
     // user may have hand-placed something they want to keep.
-    let target = table_dir
-        .join("medias")
-        .join(format!("({label}) {table_basename}.{ext}"));
+    let target = table_dir.join("medias").join(filename);
     if target.exists() && cached_md5.is_none() {
         log::debug!(
-            "MediaDb skip {label} for {table_basename}: file exists, no md5 in DB → assume user-managed"
+            "MediaDb skip {filename} in {}: file exists, no md5 in DB → assume user-managed",
+            table_dir.display()
         );
         return Ok(false);
     }
     let bytes = mediadb::fetch_asset(url, remote_md5)?;
-    mediadb::install_asset(table_dir, table_basename, label, ext, &bytes)?;
-    log::info!("MediaDb installed {label} for {table_basename}");
+    mediadb::install_asset(table_dir, filename, &bytes)?;
+    log::info!("MediaDb installed {filename} in {}", table_dir.display());
     Ok(true)
 }
 

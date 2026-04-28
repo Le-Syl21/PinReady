@@ -385,14 +385,17 @@ impl Database {
         )
     }
 
-    /// Catalog enrichment opt-in: VPSDB sync + VPinMediaDB media fetch
-    /// at scan time. Off by default — first sync downloads ~7 MB of
-    /// JSON plus per-matched-table assets (a few MB more), and we
-    /// don't want to surprise users on metered networks.
+    /// Catalog enrichment: VPSDB sync + VPinMediaDB media fetch at
+    /// scan time. **On by default** — the first sync downloads ~7 MB
+    /// of JSON plus per-matched-table media (a few MB each), but the
+    /// hover-preview experience is so tied to it that the feature is
+    /// effectively part of the launcher's baseline. Users on metered
+    /// connections can opt out from the Tables wizard page.
     pub fn catalog_enrichment_enabled(&self) -> bool {
-        matches!(
+        // Default true: only the explicit string "false" disables it.
+        !matches!(
             self.get_config("catalog_enrichment_enabled").as_deref(),
-            Some("true")
+            Some("false")
         )
     }
     pub fn set_catalog_enrichment_enabled(&self, enabled: bool) -> Result<()> {

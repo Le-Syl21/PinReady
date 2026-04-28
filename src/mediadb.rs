@@ -6,10 +6,14 @@
 //! (`bg`, `dmd`, `table`, `fss`, `wheel`, `cab`, `realdmd`, `flyer`,
 //! `audio`, `table_video`) in 1k and 4k resolutions.
 //!
-//! PinReady currently consumes two assets per matched table — the
-//! launcher cell uses these on hover:
+//! PinReady currently consumes only the two assets used by the
+//! launcher hover preview — wheel/dmd/table/video/etc. are skipped
+//! to keep per-table disk usage minimal:
 //!   * `1k/bg.png`    → backglass preview
 //!   * `audio.mp3`    → table jingle / call-out
+//!
+//! Both files keep their factory upstream names when installed
+//! locally (see [`install_asset`]), so a re-sync replaces in place.
 //!
 //! Caching strategy mirrors [`crate::vpsdb`]: pull `vpinmdb.json`
 //! (~few MB) once and keep it on disk; only re-fetch when its content
@@ -171,25 +175,17 @@ pub fn fetch_asset(url: &str, expected_md5: &str) -> Result<Vec<u8>> {
     Ok(buf)
 }
 
-/// Drop an asset into a table folder under the VPX-standard
-/// `medias/` subdir. Naming follows the VPX 10.8.1 convention:
-///   * `(Backglass) <table_name>.<ext>`
-///   * `(Audio) <table_name>.<ext>`
-///   * `(Wheel) <table_name>.<ext>`
-///
-/// The `table_name` is derived from the `.vpx` basename so
-/// frontends with strict prefix-matching pick it up.
-pub fn install_asset(
-    table_dir: &Path,
-    table_basename: &str,
-    label: &str,
-    ext: &str,
-    bytes: &[u8],
-) -> Result<PathBuf> {
+/// Drop an asset into a table folder under `medias/` using the
+/// catalog's factory filename verbatim — `bg.png`, `audio.mp3`,
+/// `wheel.png`. Keeping the upstream names lets us refresh in place
+/// without juggling per-table-renamed copies, and the hover-preview
+/// loader on the UI side just looks for fixed filenames per table
+/// dir. No parenthesized labels, no per-table basenames mixed in.
+pub fn install_asset(table_dir: &Path, filename: &str, bytes: &[u8]) -> Result<PathBuf> {
     let media_dir = table_dir.join("medias");
     std::fs::create_dir_all(&media_dir)
         .with_context(|| format!("Failed to create {}", media_dir.display()))?;
-    let target = media_dir.join(format!("({label}) {table_basename}.{ext}"));
+    let target = media_dir.join(filename);
     std::fs::write(&target, bytes)
         .with_context(|| format!("Failed to write {}", target.display()))?;
     Ok(target)
@@ -281,7 +277,8 @@ mod tests {
     #[test]
     fn md5_known_vectors() {
         // RFC 1321 test vectors.
-        let hex = |bytes: [u8; 16]| -> String { bytes.iter().map(|b| format!("{b:02x}")).collect() };
+        let hex =
+            |bytes: [u8; 16]| -> String { bytes.iter().map(|b| format!("{b:02x}")).collect() };
         assert_eq!(hex(md5_digest(b"")), "d41d8cd98f00b204e9800998ecf8427e");
         assert_eq!(hex(md5_digest(b"abc")), "900150983cd24fb0d6963f7d28e17f72");
         assert_eq!(
