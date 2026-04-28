@@ -18,6 +18,8 @@ use crate::db::Database;
 use crate::mediadb::{self, MediaDb};
 use crate::vpsdb::{self, fetch::SyncOutcome, matcher::MatchConfidence};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 /// One row from the launcher's `tables` Vec, materialised so we can
 /// hand it off to the worker thread without holding any borrows on
@@ -34,18 +36,24 @@ pub struct EnrichmentJob {
 /// thread does its own DB writes; the launcher doesn't need a
 /// receiver — the next scan picks up `vps_link` rows and any media
 /// files dropped on disk via the regular file scan.
-pub fn spawn(jobs: Vec<EnrichmentJob>) {
+///
+/// `cancel` is a one-shot signal flipped to `true` by the launcher
+/// when a fresh `scan_tables()` supersedes this run. The worker
+/// checks it between table iterations and bails out gracefully —
+/// this avoids 4× concurrent workers spamming the same DLs when the
+/// user clicks Rebuild a few times in a row.
+pub fn spawn(jobs: Vec<EnrichmentJob>, cancel: Arc<AtomicBool>) {
     if jobs.is_empty() {
         return;
     }
     std::thread::spawn(move || {
-        if let Err(e) = run(jobs) {
+        if let Err(e) = run(jobs, cancel) {
             log::error!("Catalog enrichment worker failed: {e}");
         }
     });
 }
 
-fn run(jobs: Vec<EnrichmentJob>) -> anyhow::Result<()> {
+fn run(jobs: Vec<EnrichmentJob>, cancel: Arc<AtomicBool>) -> anyhow::Result<()> {
     let db = Database::open(None)?;
 
     // 1. VPSDB
@@ -78,6 +86,15 @@ fn run(jobs: Vec<EnrichmentJob>) -> anyhow::Result<()> {
     let mut unmatched = 0usize;
 
     for job in &jobs {
+        // Bail out if a fresh scan superseded us.
+        if cancel.load(Ordering::SeqCst) {
+            log::info!(
+                "Catalog enrichment canceled mid-run after {} matched ({} unmatched)",
+                matched_high + matched_low,
+                unmatched
+            );
+            return Ok(());
+        }
         // Re-use existing link if present.
         let existing = db.get_vps_link(&job.rel_path);
 

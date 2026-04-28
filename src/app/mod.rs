@@ -287,6 +287,17 @@ pub struct App {
     // wizard page as the VBS patcher toggle.
     catalog_enrichment: bool,
 
+    // Cancellation token for the catalog enrichment worker. Each
+    // scan_tables() flips the previous token to `true` (signalling
+    // the in-flight worker to bail out gracefully at its next
+    // table-loop iteration) and replaces it with a fresh token for
+    // the new worker. This keeps "click Rebuild 4× in a row" from
+    // launching 4 concurrent workers that re-DL the same files
+    // (which produced 4× duplicate "MediaDb installed" log lines on
+    // initial sync). The newest scan always wins; older runs exit
+    // cleanly without finishing their queue.
+    catalog_cancel_token: Option<Arc<AtomicBool>>,
+
     // Deadline for sending `ViewportCommand::Close` after finalize_wizard.
     // Absolute wall-clock instant = knocker playback end + small buffer.
     // Compared with `Instant::now()` every frame; no ms hardcoding.
@@ -454,6 +465,7 @@ impl App {
             autostart: is_autostart_enabled(),
             jsm174_patching,
             catalog_enrichment,
+            catalog_cancel_token: None,
             close_at: None,
             focus_reset_at: None,
             rescan_flash: None,

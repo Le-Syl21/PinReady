@@ -261,10 +261,10 @@ impl App {
         // media/launcher.*), separate DB table, separate worker.
         self.scan_vbs_patches(dir_path);
 
-        // Catalog enrichment (VPSDB + VPinMediaDB). Opt-in like the
-        // VBS patcher — first sync downloads ~7 MB of JSON plus
-        // per-table media (a few MB each). Runs in its own thread so
-        // a slow GitHub raw-CDN response doesn't block the launcher.
+        // Catalog enrichment (VPSDB + VPinMediaDB). On by default —
+        // first sync downloads ~7 MB of JSON plus per-table media.
+        // Runs in its own thread so a slow GitHub raw-CDN response
+        // doesn't block the launcher.
         if self.db.catalog_enrichment_enabled() {
             self.spawn_catalog_enrichment(dir_path);
         }
@@ -274,7 +274,18 @@ impl App {
     /// We snapshot the data the worker needs upfront (rel_path,
     /// table_dir, vpx_path, folder_name) so the thread doesn't have
     /// to borrow `App` or share locks with the UI.
-    fn spawn_catalog_enrichment(&self, dir_path: &std::path::Path) {
+    ///
+    /// Cancel-and-replace semantics: the previous worker's cancel
+    /// token (if any) is flipped to `true`, signalling that worker
+    /// to bail out at its next loop iteration. A fresh token is then
+    /// installed for the new worker, so the latest scan always wins.
+    fn spawn_catalog_enrichment(&mut self, dir_path: &std::path::Path) {
+        // Cancel the previous run, if any.
+        if let Some(prev) = self.catalog_cancel_token.take() {
+            prev.store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+        let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        self.catalog_cancel_token = Some(cancel.clone());
         let mut jobs = Vec::with_capacity(self.tables.len());
         for t in &self.tables {
             let rel_path = t
@@ -298,7 +309,7 @@ impl App {
                 folder_name,
             });
         }
-        super::catalog_worker::spawn(jobs);
+        super::catalog_worker::spawn(jobs, cancel);
     }
 
     /// Classify each table's VBS state and apply patches from the
