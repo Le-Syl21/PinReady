@@ -124,8 +124,11 @@ pub struct ResourceFile {
 #[serde(rename_all = "camelCase")]
 pub struct TableFile {
     pub id: String,
-    /// `"VPX"`, `"VP9"`, `"FP"`, `"FX"`, `"FX3"`, ...
-    pub table_format: String,
+    /// `"VPX"`, `"VP9"`, `"FP"`, `"FX"`, `"FX3"`, ... A handful of
+    /// catalog entries (e.g. "Ignition", "Steel Wheel", "Beat Box")
+    /// have an explicit `null` here, so the field is optional.
+    #[serde(default)]
+    pub table_format: Option<String>,
     #[serde(default)]
     pub version: Option<String>,
     #[serde(default)]
