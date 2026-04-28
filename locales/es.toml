@@ -384,10 +384,10 @@ tables_invalid = "Este directorio no existe"
 
 # Rebuild button + VBS patch explainer (tables page)
 tables_rebuild_title = "Botón Reconstruir (en el lanzador de tablas)"
-tables_rebuild_desc = "Haga clic para borrar todas las imágenes de backglass en caché y el estado de los parches VBS, y luego reescanear el directorio de tablas desde cero. Úselo cuando PinReady parezca desincronizado con su disco — tras reorganizar tablas, o para recibir un parche jsm174 recién publicado."
+tables_rebuild_desc = "Haga clic para borrar todas las imágenes de backglass en caché y el estado de los parches VBS, y luego reescanear el directorio de tablas desde cero. Úselo cuando PinReady parezca desincronizado con su disco — tras reorganizar tablas, o para recibir un parche Le-Syl21 recién publicado."
 tables_vbs_patch_title = "Compatibilidad con Visual Pinball Standalone"
-tables_vbs_patch_desc = "Algunas tablas utilizan APIs VBScript específicas de Windows que no funcionan en la compilación Standalone para Linux/macOS. Cuando la opción siguiente está activada, PinReady calcula durante el escaneo la huella del VBS embebido en cada tabla y — cuando el proyecto comunitario jsm174/vpx-standalone-scripts dispone de un parche — instala el script parcheado como archivo .vbs junto al .vpx."
-tables_vbs_patch_toggle = "Aplicar automáticamente los parches VBS de jsm174/vpx-standalone-scripts"
+tables_vbs_patch_desc = "Algunas tablas utilizan APIs VBScript específicas de Windows que no funcionan en la compilación Standalone para Linux/macOS. Cuando la opción siguiente está activada, PinReady calcula durante el escaneo la huella del VBS embebido en cada tabla y — cuando el proyecto comunitario Le-Syl21/vpx-standalone-scripts dispone de un parche — instala el script parcheado como archivo .vbs junto al .vpx."
+tables_vbs_patch_toggle = "Aplicar automáticamente los parches VBS de Le-Syl21/vpx-standalone-scripts"
 tables_vbs_patch_backup = "Si tenía su propio archivo <table>.vbs personalizado, se conserva como <table>.pre_standalone.vbs (VPX no cargará automáticamente ese nombre) antes de aplicar el parche — una tabla funcional, con su script original respaldado de forma segura. Desactivado por defecto: el catálogo incluye ocasionalmente parches que causan regresiones en ciertas tablas, así que actívelo de forma consciente."
 
 # Autostart

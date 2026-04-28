@@ -123,7 +123,30 @@ impl App {
     // the dual-render / stale-compositor glitches.
 
     pub(super) fn scan_tables(&mut self) {
+        // Bump the scan generation BEFORE clearing — any in-flight bg
+        // thread from a prior scan will continue running and may still
+        // emit results, but their (gen, idx) tuples will fail the gen
+        // check in `process_bg_extraction` and be discarded. This
+        // prevents stale extractions from writing thumbnails onto the
+        // wrong rows after a rescan that reshuffled the index space.
+        self.scan_generation = self.scan_generation.wrapping_add(1);
+        // Drop the prior receiver so the prior thread's `tx.send`
+        // becomes a no-op (channel closed) — a small CPU optimisation
+        // on top of the gen-check belt-and-suspenders above.
+        self.bg_rx = None;
+        // Force `preload_images_once` to re-register URIs for the
+        // freshly-scanned table set against the new generation.
+        self.images_preloaded = false;
         self.tables.clear();
+        // Forget per-row image cache entries we may have populated for
+        // the previous scan: row 7 used to be Apollo 13, after rescan
+        // it might be Avatar, but egui still has `bytes://bg/7` cached
+        // pointing at the Apollo 13 JPEG. Clearing the loaders here
+        // would be cheaper than a full asset reload, but egui's
+        // ImageButton reads via `image()` which respects the include
+        // map, so flushing per-uri caches is enough — see
+        // `process_bg_extraction` where we re-include with the new
+        // generation.
         if self.tables_dir.is_empty() {
             return;
         }
@@ -202,9 +225,10 @@ impl App {
         //   3. <table_dir>/<base>.vpx internal images (filtered "backglass*")
         let (tx, rx) = crossbeam_channel::unbounded();
         let tables_root = dir_path.to_path_buf();
+        let gen = self.scan_generation;
         if !jobs.is_empty() {
             log::info!(
-                "Extracting {} backglass images in background (media/launcher.* → .directb2s → .vpx)...",
+                "Extracting {} backglass images in background (gen={gen}, media/launcher.* → .directb2s → .vpx)...",
                 jobs.len()
             );
             std::thread::spawn(move || {
@@ -224,10 +248,10 @@ impl App {
                             .strip_prefix(&tables_root)
                             .map(|p| p.to_string_lossy().into_owned())
                             .unwrap_or_else(|_| vpx_path.to_string_lossy().into_owned());
-                        let _ = tx.send((idx, rel_path, bytes, source_mtime));
+                        let _ = tx.send((gen, idx, rel_path, bytes, source_mtime));
                     }
                 }
-                log::info!("Background backglass extraction complete");
+                log::info!("Background backglass extraction complete (gen={gen})");
             });
         }
         self.bg_rx = Some(rx);
@@ -521,15 +545,46 @@ impl App {
                 log::info!("Background backglass extraction channel closed");
                 self.bg_rx = None;
             }
-            for (idx, rel_path, bytes, source_mtime) in drained {
-                if idx >= self.tables.len() {
+            for (msg_gen, idx, rel_path, bytes, source_mtime) in drained {
+                // Drop messages from a prior scan whose index space
+                // no longer matches `self.tables` (the user may have
+                // hit Rescan while this thread was still extracting).
+                if msg_gen != self.scan_generation {
+                    log::debug!(
+                        "Dropping stale BG result gen={msg_gen} (current={}) for {rel_path}",
+                        self.scan_generation
+                    );
                     continue;
                 }
+                // Belt-and-suspenders: the row that was at `idx` in the
+                // bg thread's snapshot may be a *different* table now
+                // (sort order can shift between scans). Look up the
+                // current row by path and trust that over the index.
+                let cur_idx = self
+                    .tables
+                    .iter()
+                    .position(|t| {
+                        t.path
+                            .strip_prefix(&self.tables_dir)
+                            .map(|p| p.to_string_lossy() == *rel_path)
+                            .unwrap_or(false)
+                    })
+                    .or(if idx < self.tables.len() {
+                        Some(idx)
+                    } else {
+                        None
+                    });
+                let Some(idx) = cur_idx else {
+                    continue;
+                };
                 if let Err(e) = self.db.set_backglass(&rel_path, &bytes, source_mtime) {
                     log::error!("Failed to cache backglass for {rel_path}: {e}");
                 }
                 let arc: std::sync::Arc<[u8]> = std::sync::Arc::from(bytes.into_boxed_slice());
-                let uri = format!("bytes://bg/{idx}");
+                // Generation-tagged URI: even if egui's image cache
+                // still holds `bytes://bg/N` from a prior scan, the new
+                // URI guarantees a fresh fetch on the new row.
+                let uri = format!("bytes://bg/{}/{idx}", self.scan_generation);
                 ctx.include_bytes(uri, arc.clone());
                 self.tables[idx].bg_bytes = Some(arc);
                 log::debug!("BG cached for table {idx} ({rel_path})");
@@ -573,7 +628,11 @@ impl App {
         let mut count = 0;
         for (idx, table) in self.tables.iter().enumerate() {
             if let Some(ref arc) = table.bg_bytes {
-                let uri = format!("bytes://bg/{idx}");
+                // Generation-tagged: post-rescan, idx might point at a
+                // different table than before. The new gen forces egui
+                // to refetch and we never reuse a stale `bytes://bg/N`
+                // entry that was registered against the prior scan.
+                let uri = format!("bytes://bg/{}/{idx}", self.scan_generation);
                 ctx.include_bytes(uri, arc.clone());
                 count += 1;
             }

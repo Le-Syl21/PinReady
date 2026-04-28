@@ -384,10 +384,10 @@ tables_invalid = "Deze map bestaat niet"
 
 # Rebuild button + VBS patch explainer (tables page)
 tables_rebuild_title = "Knop Opnieuw opbouwen (in de tabellen-launcher)"
-tables_rebuild_desc = "Klik om alle gecachte backglass-afbeeldingen en VBS-patchstatus te wissen en de tabellenmap opnieuw vanaf nul te scannen. Gebruik dit wanneer PinReady niet meer in sync lijkt met uw schijf — na het herorganiseren van tabellen, of om een nieuw uitgebrachte jsm174-patch op te halen."
+tables_rebuild_desc = "Klik om alle gecachte backglass-afbeeldingen en VBS-patchstatus te wissen en de tabellenmap opnieuw vanaf nul te scannen. Gebruik dit wanneer PinReady niet meer in sync lijkt met uw schijf — na het herorganiseren van tabellen, of om een nieuw uitgebrachte Le-Syl21/vpx-standalone-scripts patch op te halen."
 tables_vbs_patch_title = "Visual Pinball Standalone compatibiliteit"
-tables_vbs_patch_desc = "Sommige tabellen gebruiken Windows-specifieke VBScript-API's die niet werken op de Linux/macOS Standalone-build. Wanneer de onderstaande optie is ingeschakeld, berekent PinReady tijdens het scannen een vingerafdruk van de ingebedde VBS in elke tabel en — wanneer het community-project jsm174/vpx-standalone-scripts een patch heeft — installeert het gepatchte script als een .vbs-sidecar naast het .vpx-bestand."
-tables_vbs_patch_toggle = "VBS-patches van jsm174/vpx-standalone-scripts automatisch toepassen"
+tables_vbs_patch_desc = "Sommige tabellen gebruiken Windows-specifieke VBScript-API's die niet werken op de Linux/macOS Standalone-build. Wanneer de onderstaande optie is ingeschakeld, berekent PinReady tijdens het scannen een vingerafdruk van de ingebedde VBS in elke tabel en — wanneer het community-project Le-Syl21/vpx-standalone-scripts een patch heeft — installeert het gepatchte script als een .vbs-sidecar naast het .vpx-bestand."
+tables_vbs_patch_toggle = "VBS-patches van Le-Syl21/vpx-standalone-scripts automatisch toepassen"
 tables_vbs_patch_backup = "Als u een eigen aangepaste <table>.vbs-sidecar had, wordt deze vóór het toepassen van de patch bewaard als <table>.pre_standalone.vbs (VPX laadt die bestandsnaam niet automatisch) — een werkende tabel, met uw oorspronkelijke script veilig gearchiveerd. Standaard uitgeschakeld: de catalogus bevat soms patches die bepaalde tabellen breken, schakel deze optie dus bewust in."
 
 # Autostart

@@ -384,10 +384,10 @@ tables_invalid = "Direktori ini tidak ada"
 
 # Rebuild button + VBS patch explainer (tables page)
 tables_rebuild_title = "Tombol Bangun ulang (di peluncur tabel)"
-tables_rebuild_desc = "Klik untuk menghapus semua gambar backglass cache dan status patch VBS, lalu pindai ulang direktori tabel dari awal. Gunakan ini ketika PinReady tampak tidak sinkron dengan disk Anda — setelah mengatur ulang tabel, atau untuk mendapatkan patch jsm174 yang baru dirilis."
+tables_rebuild_desc = "Klik untuk menghapus semua gambar backglass cache dan status patch VBS, lalu pindai ulang direktori tabel dari awal. Gunakan ini ketika PinReady tampak tidak sinkron dengan disk Anda — setelah mengatur ulang tabel, atau untuk mendapatkan patch Le-Syl21 yang baru dirilis."
 tables_vbs_patch_title = "Kompatibilitas Visual Pinball Standalone"
-tables_vbs_patch_desc = "Beberapa tabel menggunakan API VBScript khusus Windows yang tidak berfungsi pada build Linux/macOS Standalone. Ketika opsi di bawah ini diaktifkan, PinReady menghitung sidik jari VBS yang tertanam di setiap tabel saat pemindaian dan — ketika proyek komunitas jsm174/vpx-standalone-scripts memiliki patch untuknya — memasang skrip yang telah dipatch sebagai sidecar .vbs di samping file .vpx."
-tables_vbs_patch_toggle = "Terapkan patch VBS secara otomatis dari jsm174/vpx-standalone-scripts"
+tables_vbs_patch_desc = "Beberapa tabel menggunakan API VBScript khusus Windows yang tidak berfungsi pada build Linux/macOS Standalone. Ketika opsi di bawah ini diaktifkan, PinReady menghitung sidik jari VBS yang tertanam di setiap tabel saat pemindaian dan — ketika proyek komunitas Le-Syl21/vpx-standalone-scripts memiliki patch untuknya — memasang skrip yang telah dipatch sebagai sidecar .vbs di samping file .vpx."
+tables_vbs_patch_toggle = "Terapkan patch VBS secara otomatis dari Le-Syl21/vpx-standalone-scripts"
 tables_vbs_patch_backup = "Jika Anda memiliki sidecar <table>.vbs kustom sendiri, itu dipertahankan sebagai <table>.pre_standalone.vbs (VPX tidak akan memuat nama file itu secara otomatis) sebelum patch diterapkan — tabel yang berfungsi, dengan skrip lama Anda dicadangkan dengan aman. Nonaktif secara default: katalog kadang-kadang berisi patch yang menyebabkan regresi pada tabel tertentu, jadi aktifkan dengan sadar."
 
 # Autostart

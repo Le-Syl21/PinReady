@@ -384,10 +384,10 @@ tables_invalid = "Tento adresár neexistuje"
 
 # Rebuild button + VBS patch explainer (tables page)
 tables_rebuild_title = "Tlačidlo Prebudovať (v spúšťači stolov)"
-tables_rebuild_desc = "Kliknutím vymažete všetky backglass v pamäti cache a stav VBS patchov a potom znovu prehľadáte adresár stolov od začiatku. Použite to, keď sa PinReady javí nesynchronizovaný s vaším diskom — po reorganizácii stolov alebo na získanie čerstvo vydaného patcha jsm174."
+tables_rebuild_desc = "Kliknutím vymažete všetky backglass v pamäti cache a stav VBS patchov a potom znovu prehľadáte adresár stolov od začiatku. Použite to, keď sa PinReady javí nesynchronizovaný s vaším diskom — po reorganizácii stolov alebo na získanie čerstvo vydaného patcha Le-Syl21."
 tables_vbs_patch_title = "Kompatibilita s Visual Pinball Standalone"
-tables_vbs_patch_desc = "Niektoré stoly používajú Windows-špecifické VBScript API, ktoré na verzii Linux/macOS Standalone nefungujú. Keď je možnosť nižšie zapnutá, PinReady pri skenovaní vypočíta odtlačok vloženého VBS každého stola a — keď komunitný projekt jsm174/vpx-standalone-scripts má patch — nainštaluje opravený skript ako súbor .vbs vedľa súboru .vpx."
-tables_vbs_patch_toggle = "Automaticky aplikovať patche VBS z jsm174/vpx-standalone-scripts"
+tables_vbs_patch_desc = "Niektoré stoly používajú Windows-špecifické VBScript API, ktoré na verzii Linux/macOS Standalone nefungujú. Keď je možnosť nižšie zapnutá, PinReady pri skenovaní vypočíta odtlačok vloženého VBS každého stola a — keď komunitný projekt Le-Syl21/vpx-standalone-scripts má patch — nainštaluje opravený skript ako súbor .vbs vedľa súboru .vpx."
+tables_vbs_patch_toggle = "Automaticky aplikovať patche VBS z Le-Syl21/vpx-standalone-scripts"
 tables_vbs_patch_backup = "Ak ste mali vlastný prispôsobený súbor <table>.vbs, pred aplikáciou patcha sa uchová ako <table>.pre_standalone.vbs (VPX tento názov automaticky nenačíta) — funkčný stôl a váš pôvodný skript bezpečne zálohovaný. V predvolenom nastavení vypnuté: katalóg občas obsahuje patche, ktoré spôsobujú regresie konkrétnych stolov, preto túto možnosť zapnite uvážene."
 
 # Autostart

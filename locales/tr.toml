@@ -384,10 +384,10 @@ tables_invalid = "Bu dizin mevcut değil"
 
 # Rebuild button + VBS patch explainer (tables page)
 tables_rebuild_title = "Yeniden oluştur düğmesi (tablo başlatıcıda)"
-tables_rebuild_desc = "Tüm önbelleğe alınmış backglass görüntülerini ve VBS yama durumunu silmek ve ardından tablo dizinini sıfırdan yeniden taramak için tıklayın. PinReady diskinizle senkronize değilmiş gibi göründüğünde — tabloları yeniden düzenledikten sonra veya yeni yayınlanan bir jsm174 yamasını almak için — bunu kullanın."
+tables_rebuild_desc = "Tüm önbelleğe alınmış backglass görüntülerini ve VBS yama durumunu silmek ve ardından tablo dizinini sıfırdan yeniden taramak için tıklayın. PinReady diskinizle senkronize değilmiş gibi göründüğünde — tabloları yeniden düzenledikten sonra veya yeni yayınlanan bir Le-Syl21 yamasısını almak için — bunu kullanın."
 tables_vbs_patch_title = "Visual Pinball Standalone uyumluluğu"
-tables_vbs_patch_desc = "Bazı tablolar, Linux/macOS Standalone sürümünde çalışmayan yalnızca Windows'a özgü VBScript API'lerini kullanır. Aşağıdaki seçenek etkinleştirildiğinde, PinReady tarama sırasında her tablonun gömülü VBS'sinin parmak izini hesaplar ve — topluluk projesi jsm174/vpx-standalone-scripts için bir yama mevcut olduğunda — yamalı betiği .vpx dosyasının yanına bir .vbs sidecar dosyası olarak kurar."
-tables_vbs_patch_toggle = "jsm174/vpx-standalone-scripts'ten VBS yamalarını otomatik uygula"
+tables_vbs_patch_desc = "Bazı tablolar, Linux/macOS Standalone sürümünde çalışmayan yalnızca Windows'a özgü VBScript API'lerini kullanır. Aşağıdaki seçenek etkinleştirildiğinde, PinReady tarama sırasında her tablonun gömülü VBS'sinin parmak izini hesaplar ve — topluluk projesi Le-Syl21/vpx-standalone-scripts için bir yama mevcut olduğunda — yamalı betiği .vpx dosyasının yanına bir .vbs sidecar dosyası olarak kurar."
+tables_vbs_patch_toggle = "Le-Syl21/vpx-standalone-scripts'ten VBS yamalarını otomatik uygula"
 tables_vbs_patch_backup = "Kendi özelleştirilmiş <table>.vbs sidecar dosyanız varsa, yama uygulanmadan önce <table>.pre_standalone.vbs olarak korunur (VPX bu dosya adını otomatik yüklemeyecektir) — çalışan bir tablo ve eski betiğiniz güvenli şekilde yedeklenmiş olur. Varsayılan olarak kapalı: katalog zaman zaman belirli tabloları bozan yamalar içerebileceğinden bu seçeneği bilinçli olarak etkinleştirin."
 
 # Autostart

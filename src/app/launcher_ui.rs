@@ -506,7 +506,12 @@ impl App {
                             egui::vec2(card_width - 8.0, img_height - 8.0),
                         );
                         if table.bg_bytes.is_some() {
-                            let uri = format!("bytes://bg/{idx}");
+                            // Generation-tagged URI matches what
+                            // `process_bg_extraction` and the preload
+                            // path register, so post-rescan the cell
+                            // pulls the fresh JPEG instead of whatever
+                            // was at this index in the previous scan.
+                            let uri = format!("bytes://bg/{}/{idx}", self.scan_generation);
                             let img = egui::Image::new(uri)
                                 .shrink_to_fit()
                                 .corner_radius(egui::CornerRadius::same(4));

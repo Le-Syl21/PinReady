@@ -384,10 +384,10 @@ tables_invalid = "Saraka hii haipo"
 
 # Rebuild button + VBS patch explainer (tables page)
 tables_rebuild_title = "Kitufe cha Jenga upya (katika kizinduzi cha meza)"
-tables_rebuild_desc = "Bofya ili kufuta picha zote za backglass zilizohifadhiwa na hali ya viraka vya VBS, kisha changanua upya saraka ya meza kutoka mwanzo. Tumia hii wakati PinReady inaonekana haijasawazishwa na diski yako — baada ya kupanga upya meza, au kupata kiraka kipya cha jsm174 kilichotolewa."
+tables_rebuild_desc = "Bofya ili kufuta picha zote za backglass zilizohifadhiwa na hali ya viraka vya VBS, kisha changanua upya saraka ya meza kutoka mwanzo. Tumia hii wakati PinReady inaonekana haijasawazishwa na diski yako — baada ya kupanga upya meza, au kupata kiraka kipya cha Le-Syl21 kilichotolewa."
 tables_vbs_patch_title = "Uoanifu na Visual Pinball Standalone"
-tables_vbs_patch_desc = "Baadhi ya meza hutumia API za VBScript mahususi kwa Windows ambazo haziwezi kufanya kazi kwenye toleo la Linux/macOS Standalone. Pale chaguo hapa chini kimewashwa, PinReady hukokotoa alama ya kidole ya VBS iliyopachikwa ya kila meza wakati wa uchanganuaji na — wakati mradi wa jumuiya wa jsm174/vpx-standalone-scripts una kiraka kwa ajili yake — husakinisha hati iliyorekebishwa kama faili ya .vbs kando ya faili ya .vpx."
-tables_vbs_patch_toggle = "Tumia viraka vya VBS kiotomatiki kutoka jsm174/vpx-standalone-scripts"
+tables_vbs_patch_desc = "Baadhi ya meza hutumia API za VBScript mahususi kwa Windows ambazo haziwezi kufanya kazi kwenye toleo la Linux/macOS Standalone. Pale chaguo hapa chini kimewashwa, PinReady hukokotoa alama ya kidole ya VBS iliyopachikwa ya kila meza wakati wa uchanganuaji na — wakati mradi wa jumuiya wa Le-Syl21/vpx-standalone-scripts una kiraka kwa ajili yake — husakinisha hati iliyorekebishwa kama faili ya .vbs kando ya faili ya .vpx."
+tables_vbs_patch_toggle = "Tumia viraka vya VBS kiotomatiki kutoka Le-Syl21/vpx-standalone-scripts"
 tables_vbs_patch_backup = "Ikiwa ulikuwa na faili yako mwenyewe ya kubinafsishwa ya <table>.vbs, huhifadhiwa kama <table>.pre_standalone.vbs (VPX haitapakia jina hilo la faili kiotomatiki) kabla ya kiraka kutumika — meza inayofanya kazi, na hati yako ya zamani iliyohifadhiwa salama. Imezimwa kwa chaguo-msingi: katalogi wakati mwingine ina viraka vinavyosababisha matatizo kwa meza fulani, kwa hivyo washa chaguo hili kwa ufahamu."
 
 # Autostart

@@ -384,10 +384,10 @@ tables_invalid = "Tätä hakemistoa ei ole olemassa"
 
 # Rebuild button + VBS patch explainer (tables page)
 tables_rebuild_title = "Rakenna uudelleen -painike (pöytäkäynnistysohjelmassa)"
-tables_rebuild_desc = "Napsauta poistaaksesi kaikki välimuistissa olevat backglass-kuvat ja VBS-korjaustilan, ja skannaa sitten pöytähakemisto alusta alkaen uudelleen. Käytä tätä, kun PinReady vaikuttaa olevan epäsynkronissa levysi kanssa — pöytien uudelleenjärjestelyn jälkeen tai vastajulkaistun jsm174-korjauksen noutamiseksi."
+tables_rebuild_desc = "Napsauta poistaaksesi kaikki välimuistissa olevat backglass-kuvat ja VBS-korjaustilan, ja skannaa sitten pöytähakemisto alusta alkaen uudelleen. Käytä tätä, kun PinReady vaikuttaa olevan epäsynkronissa levysi kanssa — pöytien uudelleenjärjestelyn jälkeen tai vastajulkaistun Le-Syl21-korjauksen noutamiseksi."
 tables_vbs_patch_title = "Visual Pinball Standalone -yhteensopivuus"
-tables_vbs_patch_desc = "Jotkin pöydät käyttävät Windows-kohtaisia VBScript-rajapintoja, jotka eivät toimi Linux/macOS Standalone -versiossa. Kun alla oleva asetus on päällä, PinReady laskee skannauksen aikana kunkin pöydän upotetun VBS:n sormenjäljen ja — kun yhteisöprojektilla jsm174/vpx-standalone-scripts on sille korjaus — asentaa korjatun skriptin .vbs-sidecar-tiedostona .vpx-tiedoston viereen."
-tables_vbs_patch_toggle = "Käytä VBS-korjauksia automaattisesti lähteestä jsm174/vpx-standalone-scripts"
+tables_vbs_patch_desc = "Jotkin pöydät käyttävät Windows-kohtaisia VBScript-rajapintoja, jotka eivät toimi Linux/macOS Standalone -versiossa. Kun alla oleva asetus on päällä, PinReady laskee skannauksen aikana kunkin pöydän upotetun VBS:n sormenjäljen ja — kun yhteisöprojektilla Le-Syl21/vpx-standalone-scripts on sille korjaus — asentaa korjatun skriptin .vbs-sidecar-tiedostona .vpx-tiedoston viereen."
+tables_vbs_patch_toggle = "Käytä VBS-korjauksia automaattisesti lähteestä Le-Syl21/vpx-standalone-scripts"
 tables_vbs_patch_backup = "Jos sinulla oli oma mukautettu <table>.vbs-sidecar, se säilytetään nimellä <table>.pre_standalone.vbs (VPX ei lataa tätä tiedostonimeä automaattisesti) ennen korjauksen käyttämistä — toimiva pöytä, ja vanha skriptisi turvallisesti varmuuskopioitu. Oletuksena pois päältä: katalogissa on ajoittain korjauksia, jotka aiheuttavat regression tietyissä pöydissä, joten ota asetus käyttöön harkitusti."
 
 # Autostart

@@ -384,10 +384,10 @@ tables_invalid = "Este diretório não existe"
 
 # Rebuild button + VBS patch explainer (tables page)
 tables_rebuild_title = "Botão Reconstruir (no lançador de tabelas)"
-tables_rebuild_desc = "Clique para apagar todas as imagens de backglass em cache e o estado dos patches VBS, e depois reescanear o diretório de tabelas a partir do zero. Utilize isto quando o PinReady parecer dessincronizado com o seu disco — após reorganizar tabelas, ou para obter um patch jsm174 recém-lançado."
+tables_rebuild_desc = "Clique para apagar todas as imagens de backglass em cache e o estado dos patches VBS, e depois reescanear o diretório de tabelas a partir do zero. Utilize isto quando o PinReady parecer dessincronizado com o seu disco — após reorganizar tabelas, ou para obter um patch Le-Syl21 recém-lançado."
 tables_vbs_patch_title = "Compatibilidade com Visual Pinball Standalone"
-tables_vbs_patch_desc = "Algumas tabelas usam APIs VBScript específicas do Windows que não funcionam na compilação Linux/macOS Standalone. Quando a opção abaixo está ativada, o PinReady calcula durante o scan a impressão digital do VBS embutido em cada tabela e — quando o projeto comunitário jsm174/vpx-standalone-scripts tem um patch para ela — instala o script corrigido como um ficheiro .vbs ao lado do .vpx."
-tables_vbs_patch_toggle = "Aplicar automaticamente patches VBS de jsm174/vpx-standalone-scripts"
+tables_vbs_patch_desc = "Algumas tabelas usam APIs VBScript específicas do Windows que não funcionam na compilação Linux/macOS Standalone. Quando a opção abaixo está ativada, o PinReady calcula durante o scan a impressão digital do VBS embutido em cada tabela e — quando o projeto comunitário Le-Syl21/vpx-standalone-scripts tem um patch para ela — instala o script corrigido como um ficheiro .vbs ao lado do .vpx."
+tables_vbs_patch_toggle = "Aplicar automaticamente patches VBS de Le-Syl21/vpx-standalone-scripts"
 tables_vbs_patch_backup = "Se tinha o seu próprio ficheiro <table>.vbs personalizado, ele é preservado como <table>.pre_standalone.vbs (o VPX não carregará automaticamente esse nome) antes de o patch ser aplicado — uma tabela funcional, com o seu script antigo salvaguardado em segurança. Desativado por predefinição: o catálogo contém ocasionalmente patches que causam regressões em determinadas tabelas, portanto ative-o de forma consciente."
 
 # Autostart

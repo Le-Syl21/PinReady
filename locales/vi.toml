@@ -383,10 +383,10 @@ tables_invalid = "Thư mục này không tồn tại"
 
 # Rebuild button + VBS patch explainer (tables page)
 tables_rebuild_title = "Nút Xây dựng lại (trong trình khởi chạy bàn)"
-tables_rebuild_desc = "Nhấp để xóa tất cả hình ảnh backglass đã lưu trong bộ nhớ đệm và trạng thái vá VBS, sau đó quét lại thư mục bàn từ đầu. Sử dụng tùy chọn này khi PinReady có vẻ không đồng bộ với đĩa của bạn — sau khi sắp xếp lại các bàn, hoặc để lấy bản vá jsm174 mới phát hành."
+tables_rebuild_desc = "Nhấp để xóa tất cả hình ảnh backglass đã lưu trong bộ nhớ đệm và trạng thái vá VBS, sau đó quét lại thư mục bàn từ đầu. Sử dụng tùy chọn này khi PinReady có vẻ không đồng bộ với đĩa của bạn — sau khi sắp xếp lại các bàn, hoặc để lấy bản vá Le-Syl21 mới phát hành."
 tables_vbs_patch_title = "Khả năng tương thích với Visual Pinball Standalone"
-tables_vbs_patch_desc = "Một số bàn sử dụng các API VBScript dành riêng cho Windows, không hoạt động trên bản dựng Linux/macOS Standalone. Khi tùy chọn bên dưới được bật, PinReady sẽ tính dấu vân tay của VBS nhúng trong từng bàn khi quét và — khi dự án cộng đồng jsm174/vpx-standalone-scripts có bản vá cho nó — cài đặt tập lệnh đã vá dưới dạng tệp .vbs đi kèm bên cạnh tệp .vpx."
-tables_vbs_patch_toggle = "Tự động áp dụng các bản vá VBS từ jsm174/vpx-standalone-scripts"
+tables_vbs_patch_desc = "Một số bàn sử dụng các API VBScript dành riêng cho Windows, không hoạt động trên bản dựng Linux/macOS Standalone. Khi tùy chọn bên dưới được bật, PinReady sẽ tính dấu vân tay của VBS nhúng trong từng bàn khi quét và — khi dự án cộng đồng Le-Syl21/vpx-standalone-scripts có bản vá cho nó — cài đặt tập lệnh đã vá dưới dạng tệp .vbs đi kèm bên cạnh tệp .vpx."
+tables_vbs_patch_toggle = "Tự động áp dụng các bản vá VBS từ Le-Syl21/vpx-standalone-scripts"
 tables_vbs_patch_backup = "Nếu bạn có tệp <table>.vbs tùy chỉnh riêng, nó được giữ lại dưới tên <table>.pre_standalone.vbs (VPX sẽ không tự động tải tên tệp đó) trước khi áp dụng bản vá — một bàn hoạt động được, cùng với tập lệnh cũ của bạn được sao lưu an toàn. Mặc định tắt: đôi khi catalog chứa các bản vá gây lỗi cho một số bàn cụ thể, vì vậy hãy bật nó một cách có chủ đích."
 
 # Autostart

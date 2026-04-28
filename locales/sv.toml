@@ -384,10 +384,10 @@ tables_invalid = "Denna katalog finns inte"
 
 # Rebuild button + VBS patch explainer (tables page)
 tables_rebuild_title = "Knappen Bygg om (i tabellstartprogrammet)"
-tables_rebuild_desc = "Klicka för att radera alla cachade backglass-bilder och VBS-patchstatus, och sedan skanna om tabellkatalogen från grunden. Använd detta när PinReady verkar osynkroniserat med din disk — efter att ha omorganiserat tabeller, eller för att hämta en nyutgiven jsm174-patch."
+tables_rebuild_desc = "Klicka för att radera alla cachade backglass-bilder och VBS-patchstatus, och sedan skanna om tabellkatalogen från grunden. Använd detta när PinReady verkar osynkroniserat med din disk — efter att ha omorganiserat tabeller, eller för att hämta en nyutgiven Le-Syl21/vpx-standalone-scripts patch."
 tables_vbs_patch_title = "Visual Pinball Standalone-kompatibilitet"
-tables_vbs_patch_desc = "Vissa tabeller använder Windows-specifika VBScript-API:er som inte fungerar på Linux/macOS Standalone-versionen. När alternativet nedan är aktiverat beräknar PinReady vid skanning ett fingeravtryck av den inbäddade VBS i varje tabell och — när gemenskapsprojektet jsm174/vpx-standalone-scripts har en patch för den — installerar det patchade skriptet som en .vbs-sidecar bredvid .vpx-filen."
-tables_vbs_patch_toggle = "Tillämpa VBS-patchar automatiskt från jsm174/vpx-standalone-scripts"
+tables_vbs_patch_desc = "Vissa tabeller använder Windows-specifika VBScript-API:er som inte fungerar på Linux/macOS Standalone-versionen. När alternativet nedan är aktiverat beräknar PinReady vid skanning ett fingeravtryck av den inbäddade VBS i varje tabell och — när gemenskapsprojektet Le-Syl21/vpx-standalone-scripts har en patch för den — installerar det patchade skriptet som en .vbs-sidecar bredvid .vpx-filen."
+tables_vbs_patch_toggle = "Tillämpa VBS-patchar automatiskt från Le-Syl21/vpx-standalone-scripts"
 tables_vbs_patch_backup = "Om du hade en egen anpassad <table>.vbs-sidecar bevaras den som <table>.pre_standalone.vbs innan patchen tillämpas (VPX laddar inte automatiskt det filnamnet) — en fungerande tabell, med ditt gamla skript säkert säkerhetskopierat. Avstängt som standard: katalogen innehåller ibland patchar som orsakar regressioner på vissa tabeller, aktivera alternativet medvetet."
 
 # Autostart

@@ -384,10 +384,10 @@ tables_invalid = "このディレクトリは存在しません"
 
 # Rebuild button + VBS patch explainer (tables page)
 tables_rebuild_title = "再構築ボタン（テーブルランチャー内）"
-tables_rebuild_desc = "クリックすると、キャッシュされたすべてのバックグラス画像とVBSパッチ状態を消去し、テーブルディレクトリをゼロから再スキャンします。PinReadyがディスクと同期していないように見える場合 — テーブルを再編成した後、または新しくリリースされたjsm174パッチを取得するために — 使用してください。"
+tables_rebuild_desc = "クリックすると、キャッシュされたすべてのバックグラス画像とVBSパッチ状態を消去し、テーブルディレクトリをゼロから再スキャンします。PinReadyがディスクと同期していないように見える場合 — テーブルを再編成した後、または新しくリリースされたLe-Syl21パッチを取得するために — 使用してください。"
 tables_vbs_patch_title = "Visual Pinball Standalone 互換性"
-tables_vbs_patch_desc = "一部のテーブルはWindows専用のVBScript APIを使用しており、Linux/macOS Standaloneビルドで動作しません。下のオプションが有効になっている場合、PinReadyはスキャン時に各テーブルに埋め込まれたVBSのフィンガープリントを作成し — コミュニティプロジェクトjsm174/vpx-standalone-scriptsにパッチがある場合 — パッチ適用済みスクリプトを.vpxと同じ場所に.vbsサイドカーとしてインストールします。"
-tables_vbs_patch_toggle = "jsm174/vpx-standalone-scripts からVBSパッチを自動適用する"
+tables_vbs_patch_desc = "一部のテーブルはWindows専用のVBScript APIを使用しており、Linux/macOS Standaloneビルドで動作しません。下のオプションが有効になっている場合、PinReadyはスキャン時に各テーブルに埋め込まれたVBSのフィンガープリントを作成し — コミュニティプロジェクトLe-Syl21/vpx-standalone-scriptsにパッチがある場合 — パッチ適用済みスクリプトを.vpxと同じ場所に.vbsサイドカーとしてインストールします。"
+tables_vbs_patch_toggle = "Le-Syl21/vpx-standalone-scripts からVBSパッチを自動適用する"
 tables_vbs_patch_backup = "独自にカスタマイズした<table>.vbsサイドカーがあった場合は、パッチ適用前に<table>.pre_standalone.vbsとして保存されます（VPXはそのファイル名を自動ロードしません） — 動作するテーブルと、安全にバックアップされた元のスクリプトの両方が得られます。デフォルトで無効：カタログには特定のテーブルを不安定にするパッチがまれに含まれるため、意図的に有効化してください。"
 
 # Autostart

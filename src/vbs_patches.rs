@@ -1,14 +1,19 @@
 //! VBS patching pipeline for VPX Standalone compatibility.
 //!
-//! Some VPX tables use VBScript idioms that work under Windows's native
-//! vbscript.dll but break on Wine's reimplementation used by VPX
-//! Standalone (Linux / macOS). The community project
-//! [jsm174/vpx-standalone-scripts](https://github.com/jsm174/vpx-standalone-scripts)
-//! curates patched `.vbs` files for affected tables. At scan time we
-//! fingerprint each table's embedded VBS, consult the catalog, and —
-//! when a patched version exists — install it as a sidecar `.vbs`
-//! alongside the `.vpx`. VPX auto-loads sidecar scripts in preference
-//! to the embedded one.
+//! Some VPX tables use VBScript idioms that worked under the legacy
+//! Windows-only `vpinball.exe` (which used the native `vbscript.dll`)
+//! but break on the Wine-derived VBScript reimplementation embedded
+//! in VPX Standalone 10.8+ — and that reimplementation is the same on
+//! Linux, macOS *and* Windows, so these bugs hit every Standalone
+//! user. PinReady consumes its catalog from
+//! [Le-Syl21/vpx-standalone-scripts](https://github.com/Le-Syl21/vpx-standalone-scripts),
+//! a curated fork of upstream `jsm174/vpx-standalone-scripts` that
+//! integrates patches jsm174 won't accept (e.g. `vpminit me` overlay
+//! for the B2S polling race, vpinball/vpinball#1783) plus pending
+//! community PRs. At scan time we fingerprint each table's embedded
+//! VBS, consult the catalog, and — when a patched version exists —
+//! install it as a sidecar `.vbs` alongside the `.vpx`. VPX auto-loads
+//! sidecar scripts in preference to the embedded one.
 //!
 //! See also: src/db.rs (`vbs_catalog`, `vbs_patches` tables).
 //!
@@ -27,7 +32,7 @@ use std::path::Path;
 /// few characters GitHub's CDN occasionally rejects. Alphanumerics,
 /// `-._~`, and RFC 3986 sub-delims (including `(`, `)`, `'`) are left
 /// as-is — GitHub serves them fine, and re-encoding them would break
-/// the few URLs in jsm174's catalog that rely on literal parens.
+/// the few catalog URLs that rely on literal parens.
 const URL_PATH_SEGMENT: &AsciiSet = &CONTROLS
     .add(b' ')
     .add(b'"')
@@ -39,17 +44,18 @@ const URL_PATH_SEGMENT: &AsciiSet = &CONTROLS
     .add(b'{')
     .add(b'}');
 
-/// GitHub repo coordinates. Points at our curated fork of
-/// `jsm174/vpx-standalone-scripts` — we pull from our own master so we
-/// can integrate patches jsm174 won't accept (e.g. `vpminit me` for
-/// B2S polling race, per vpinball/vpinball#1783) and cherry-pick
-/// community PRs still pending upstream. Kept as constants so tests
-/// can substitute fixtures if we ever add integration tests against a
+/// GitHub repo coordinates. PinReady consumes its catalog from our
+/// curated fork (`Le-Syl21/vpx-standalone-scripts`) — diverged from
+/// upstream `jsm174/vpx-standalone-scripts` so we can integrate
+/// patches jsm174 won't accept (e.g. `vpminit me` overlay for B2S
+/// polling race, vpinball/vpinball#1783) and cherry-pick community
+/// PRs still pending upstream. Kept as constants so tests can
+/// substitute fixtures if we ever add integration tests against a
 /// mock server.
 const REPO: &str = "Le-Syl21/vpx-standalone-scripts";
 const BRANCH: &str = "master";
 
-/// A single entry in jsm174's `hashes.json`. We only decode the fields
+/// A single entry in `hashes.json`. We only decode the fields
 /// we actually use — `serde(default)` keeps extra fields from breaking
 /// the deserializer if upstream adds new ones.
 #[derive(Debug, Clone, Deserialize)]
@@ -67,8 +73,8 @@ pub struct CatalogEntry {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CatalogPatchedInfo {
-    /// Filename on jsm174's repo. Informational — we don't use it for
-    /// lookup. Kept for parity with the upstream JSON shape.
+    /// Filename in the catalog repo. Informational — we don't use it
+    /// for lookup. Kept for parity with the upstream JSON shape.
     #[allow(dead_code)]
     pub file: String,
     /// SHA256 of the patched file — verified post-download.
@@ -86,7 +92,7 @@ pub fn fetch_latest_commit_sha() -> Result<String> {
         .header("User-Agent", "PinReady")
         .header("Accept", "application/vnd.github.v3+json")
         .call()
-        .context("Failed to query jsm174 latest commit")?;
+        .context("Failed to query VBS catalog latest commit")?;
     let body = response.into_body().read_to_string()?;
     let json: serde_json::Value =
         serde_json::from_str(&body).context("Failed to parse commit JSON")?;
@@ -104,7 +110,7 @@ pub fn fetch_hashes_json() -> Result<String> {
     let response = ureq::get(&url)
         .header("User-Agent", "PinReady")
         .call()
-        .context("Failed to fetch jsm174 hashes.json")?;
+        .context("Failed to fetch VBS catalog hashes.json")?;
     let body = response
         .into_body()
         .read_to_string()
@@ -123,7 +129,7 @@ pub fn parse_catalog(hashes_json: &str) -> Result<Vec<CatalogEntry>> {
     serde_json::from_str(hashes_json).context("Failed to parse cached hashes.json")
 }
 
-/// Lowercase hex SHA256 of arbitrary bytes. jsm174's `hashes.json`
+/// Lowercase hex SHA256 of arbitrary bytes. The catalog `hashes.json`
 /// uses 64-char lowercase hex, so we match that convention directly.
 pub fn sha256_hex(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
@@ -134,7 +140,7 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
 /// Read the VBScript embedded inside a `.vpx` file. Uses the `vpin`
 /// crate (same one we use for backglass image extraction) — no
 /// external tool required. Returns the script as a UTF-8 `String`;
-/// `vpin` stores it that way internally, and jsm174's hashes are
+/// `vpin` stores it that way internally, and the catalog's hashes are
 /// computed over the same UTF-8 byte stream that `-extractvbs` writes
 /// to disk, so our hash can be compared directly without any
 /// normalization step.
@@ -152,8 +158,8 @@ pub fn extract_embedded_vbs(vpx_path: &Path) -> Result<String> {
 /// record once in `vbs_patches`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PatchDecision {
-    /// Embedded VBS hash is unknown to jsm174 — either the table is
-    /// fine as-is, or it has a standalone incompat that hasn't been
+    /// Embedded VBS hash is unknown to the catalog — either the table
+    /// is fine as-is, or it has a standalone incompat that hasn't been
     /// catalogued. Either way, we do nothing. DB status: `NotInCatalog`.
     NotInCatalog,
 
@@ -279,7 +285,7 @@ pub fn decision_status(decision: &PatchDecision) -> &'static str {
 
 /// Percent-encode each `/`-separated segment of a URL's path so spaces
 /// and similar unsafe characters inside the table-folder name don't
-/// trip up the HTTP client. jsm174's filenames frequently contain
+/// trip up the HTTP client. Catalog filenames frequently contain
 /// spaces ("AC-DC LUCI Premium VR") and those reach us raw in the
 /// catalog's `url` field. ureq's HTTP client refuses a raw space in
 /// the request line and returns a "malformed URL" error — we pre-
@@ -312,14 +318,15 @@ fn encode_url(url: &str) -> String {
 /// Rewrite a byte buffer so every lone `\n` (not already preceded by
 /// `\r`) becomes `\r\n`. Single-pass, preserves existing CRLF.
 ///
-/// Required because jsm174's `hashes.json` hashes are computed over
-/// the CRLF version of each `.vbs` file — the repo's `.gitattributes`
-/// has `*.vbs text eol=crlf`, so the Linux CI checkout materializes
-/// files as CRLF before `sha256sum` runs. GitHub's raw CDN however
-/// serves files as they are stored internally (LF), so without
-/// normalization our downloaded bytes never match the catalog's
-/// declared `patched.sha256`. As a bonus, the installed sidecar ends
-/// up in CRLF — the traditional, Windows-native format for `.vbs`.
+/// Required because the catalog's `hashes.json` hashes are computed
+/// over the CRLF version of each `.vbs` file — the repo's
+/// `.gitattributes` has `*.vbs text eol=crlf`, so the Linux CI
+/// checkout materializes files as CRLF before `sha256sum` runs.
+/// GitHub's raw CDN however serves files as they are stored
+/// internally (LF), so without normalization our downloaded bytes
+/// never match the catalog's declared `patched.sha256`. As a bonus,
+/// the installed sidecar ends up in CRLF — the traditional,
+/// Windows-native format for `.vbs`.
 fn normalize_to_crlf(bytes: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(bytes.len() + bytes.len() / 50);
     let mut prev = 0u8;
@@ -333,13 +340,13 @@ fn normalize_to_crlf(bytes: &[u8]) -> Vec<u8> {
     out
 }
 
-/// Download the patched `.vbs` from jsm174 + verify its SHA256 against
-/// `expected_sha`. Fails loudly (returns `Err`) on network failure or
-/// hash mismatch — callers must not write anything to disk in either
-/// case. Files on jsm174 are small (a few KB each), so we buffer the
-/// whole body in memory before hashing. Bytes are normalized LF→CRLF
-/// before hashing so the SHA matches jsm174's catalog (see
-/// `normalize_to_crlf`).
+/// Download the patched `.vbs` from the catalog repo + verify its
+/// SHA256 against `expected_sha`. Fails loudly (returns `Err`) on
+/// network failure or hash mismatch — callers must not write anything
+/// to disk in either case. Catalog files are small (a few KB each),
+/// so we buffer the whole body in memory before hashing. Bytes are
+/// normalized LF→CRLF before hashing so the SHA matches the
+/// catalog's recorded value (see `normalize_to_crlf`).
 pub fn download_and_verify(url: &str, expected_sha: &str) -> Result<Vec<u8>> {
     let encoded = encode_url(url);
     let response = ureq::get(&encoded)
@@ -494,8 +501,8 @@ mod tests {
 
     #[test]
     fn parse_catalog_tolerates_unknown_fields() {
-        // jsm174 might add fields later — we must not reject the whole
-        // catalog because of one unrecognized key.
+        // The catalog might add fields later — we must not reject the
+        // whole catalog because of one unrecognized key.
         let sample = r#"[
             {
                 "file": "Foo.vbs.original",
@@ -535,7 +542,7 @@ mod tests {
     #[test]
     fn encode_url_preserves_parens_apostrophes_unreserved() {
         // GitHub raw CDN serves these fine without encoding; keep verbatim
-        // so we don't double-encode characters jsm174's URLs already accept.
+        // so we don't double-encode characters the catalog URLs already accept.
         let raw = "https://x.example/folder/Baby's (2023) v1.0.vbs";
         let encoded = encode_url(raw);
         assert!(encoded.contains("Baby's"));
@@ -578,7 +585,7 @@ mod tests {
     #[test]
     fn normalize_to_crlf_lone_cr_untouched() {
         // A bare \r (classic Mac style, extremely rare) stays bare.
-        // Not something jsm174 produces; just a sanity check.
+        // Not something the catalog produces; just a sanity check.
         assert_eq!(normalize_to_crlf(b"a\rb"), b"a\rb");
     }
 

@@ -384,10 +384,10 @@ tables_invalid = "Tento adresář neexistuje"
 
 # Rebuild button + VBS patch explainer (tables page)
 tables_rebuild_title = "Tlačítko Znovu sestavit (ve spouštěči stolů)"
-tables_rebuild_desc = "Kliknutím smažete všechny backglass v mezipaměti a stav VBS patchů, poté se adresář stolů od začátku znovu prohledá. Použijte tuto funkci, když PinReady vypadá nesynchronně s vaším diskem — po reorganizaci stolů nebo pro získání čerstvě vydaného patche od jsm174."
+tables_rebuild_desc = "Kliknutím smažete všechny backglass v mezipaměti a stav VBS patchů, poté se adresář stolů od začátku znovu prohledá. Použijte tuto funkci, když PinReady vypadá nesynchronně s vaším diskem — po reorganizaci stolů nebo pro získání čerstvě vydaného patche od Le-Syl21."
 tables_vbs_patch_title = "Kompatibilita s Visual Pinball Standalone"
-tables_vbs_patch_desc = "Některé stoly používají VBScript API specifické pro Windows, které na Linux/macOS verzi Standalone nefungují. Pokud je níže uvedená volba zapnutá, PinReady při skenování vypočítá otisk vloženého VBS v každém stole a — pokud má komunitní projekt jsm174/vpx-standalone-scripts patch — nainstaluje opravený skript jako soubor .vbs vedle souboru .vpx."
-tables_vbs_patch_toggle = "Automaticky aplikovat patche VBS z jsm174/vpx-standalone-scripts"
+tables_vbs_patch_desc = "Některé stoly používají VBScript API specifické pro Windows, které na Linux/macOS verzi Standalone nefungují. Pokud je níže uvedená volba zapnutá, PinReady při skenování vypočítá otisk vloženého VBS v každém stole a — pokud má komunitní projekt Le-Syl21/vpx-standalone-scripts patch — nainstaluje opravený skript jako soubor .vbs vedle souboru .vpx."
+tables_vbs_patch_toggle = "Automaticky aplikovat patche VBS z Le-Syl21/vpx-standalone-scripts"
 tables_vbs_patch_backup = "Pokud jste měli vlastní přizpůsobený soubor <table>.vbs, před aplikací patche se uloží jako <table>.pre_standalone.vbs (VPX tento název automaticky nenačte) — funkční stůl a vaše původní skript bezpečně zálohovaný. Ve výchozím stavu vypnuto: katalog občas obsahuje patche, které některé stoly rozbíjí, proto tuto volbu zapněte uvědoměle."
 
 # Autostart

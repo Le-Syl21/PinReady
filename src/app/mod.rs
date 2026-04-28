@@ -67,10 +67,12 @@ const TOPPER_VIEWPORT: &str = "topper_viewport";
 /// VPX logo bytes (embedded at compile time)
 const VPX_LOGO: &[u8] = include_bytes!("../../assets/vpinball_logo.png");
 
-/// A completed background-extraction result: (table index, relative
-/// .vpx path used as DB key, encoded image bytes, source mtime for
-/// cache invalidation).
-pub type BgExtraction = (usize, String, Vec<u8>, i64);
+/// A completed background-extraction result: (scan generation, table
+/// index, relative .vpx path used as DB key, encoded image bytes,
+/// source mtime for cache invalidation). The generation is bumped at
+/// every `scan_tables()` so receiver can drop stale messages from a
+/// previous scan whose indices no longer match the current grid.
+pub type BgExtraction = (u64, usize, String, Vec<u8>, i64);
 
 /// A completed VBS-patch classification+apply result: (rel_path,
 /// embedded_sha256, sidecar_sha256, status, last_checked_mtime).
@@ -246,6 +248,14 @@ pub struct App {
     // stores the bytes in the SQLite cache, and updates the TableEntry +
     // egui image cache.
     bg_rx: Option<crossbeam_channel::Receiver<BgExtraction>>,
+
+    // Scan generation counter. Bumped at every `scan_tables()`; carried
+    // verbatim by every BgExtraction message so the UI can drop stale
+    // results from a prior scan whose indices no longer line up with the
+    // current `tables` Vec. Without this guard, dropping a new .vpx into
+    // tables_dir + clicking Rescan while the previous scan's bg thread
+    // was still running would shuffle thumbnails onto the wrong rows.
+    scan_generation: u64,
 
     // VBS patch classification results — (rel_path, embedded_sha,
     // sidecar_sha, status, last_checked_mtime). Drained into
@@ -426,6 +436,7 @@ impl App {
             kiosk_cursor_warped: false,
             nav_held: None,
             bg_rx: None,
+            scan_generation: 0,
             vbs_rx: None,
             vpx_running: Arc::new(AtomicBool::new(false)),
             vpx_status_rx: None,

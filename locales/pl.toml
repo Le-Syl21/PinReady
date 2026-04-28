@@ -384,10 +384,10 @@ tables_invalid = "Ten katalog nie istnieje"
 
 # Rebuild button + VBS patch explainer (tables page)
 tables_rebuild_title = "Przycisk Przebuduj (w launcherze stołów)"
-tables_rebuild_desc = "Kliknij, aby usunąć wszystkie zbuforowane obrazy backglass oraz stan patchów VBS i ponownie przeskanować katalog stołów od zera. Użyj tej opcji, gdy PinReady wydaje się niezsynchronizowany z dyskiem — po reorganizacji stołów lub w celu pobrania świeżo wydanego patcha jsm174."
+tables_rebuild_desc = "Kliknij, aby usunąć wszystkie zbuforowane obrazy backglass oraz stan patchów VBS i ponownie przeskanować katalog stołów od zera. Użyj tej opcji, gdy PinReady wydaje się niezsynchronizowany z dyskiem — po reorganizacji stołów lub w celu pobrania świeżo wydanego patcha Le-Syl21."
 tables_vbs_patch_title = "Zgodność z Visual Pinball Standalone"
-tables_vbs_patch_desc = "Niektóre stoły używają specyficznych dla Windows API VBScript, które nie działają w wersji Linux/macOS Standalone. Gdy poniższa opcja jest włączona, PinReady podczas skanowania oblicza odcisk palca osadzonego VBS każdego stołu i — jeśli społecznościowy projekt jsm174/vpx-standalone-scripts ma dla niego patch — instaluje zmodyfikowany skrypt jako plik .vbs obok pliku .vpx."
-tables_vbs_patch_toggle = "Automatycznie stosuj patche VBS z jsm174/vpx-standalone-scripts"
+tables_vbs_patch_desc = "Niektóre stoły używają specyficznych dla Windows API VBScript, które nie działają w wersji Linux/macOS Standalone. Gdy poniższa opcja jest włączona, PinReady podczas skanowania oblicza odcisk palca osadzonego VBS każdego stołu i — jeśli społecznościowy projekt Le-Syl21/vpx-standalone-scripts ma dla niego patch — instaluje zmodyfikowany skrypt jako plik .vbs obok pliku .vpx."
+tables_vbs_patch_toggle = "Automatycznie stosuj patche VBS z Le-Syl21/vpx-standalone-scripts"
 tables_vbs_patch_backup = "Jeśli miałeś własny spersonalizowany plik <table>.vbs, przed zastosowaniem patcha zostaje zachowany jako <table>.pre_standalone.vbs (VPX nie załaduje automatycznie tej nazwy pliku) — działający stół i twój oryginalny skrypt bezpiecznie zabezpieczony. Domyślnie wyłączone: katalog czasami zawiera patche powodujące regresje konkretnych stołów, dlatego włącz tę opcję świadomie."
 
 # Autostart
