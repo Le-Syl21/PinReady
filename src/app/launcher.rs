@@ -260,6 +260,56 @@ impl App {
         // thread: separate mtime tracking (sidecar + .vpx only, no
         // media/launcher.*), separate DB table, separate worker.
         self.scan_vbs_patches(dir_path);
+
+        // Catalog enrichment (VPSDB + VPinMediaDB). On by default —
+        // first sync downloads ~7 MB of JSON plus per-table media.
+        // Runs in its own thread so a slow GitHub raw-CDN response
+        // doesn't block the launcher.
+        if self.db.catalog_enrichment_enabled() {
+            self.spawn_catalog_enrichment(dir_path);
+        }
+    }
+
+    /// Build the per-table job list and hand it to the worker thread.
+    /// We snapshot the data the worker needs upfront (rel_path,
+    /// table_dir, vpx_path, folder_name) so the thread doesn't have
+    /// to borrow `App` or share locks with the UI.
+    ///
+    /// Cancel-and-replace semantics: the previous worker's cancel
+    /// token (if any) is flipped to `true`, signalling that worker
+    /// to bail out at its next loop iteration. A fresh token is then
+    /// installed for the new worker, so the latest scan always wins.
+    fn spawn_catalog_enrichment(&mut self, dir_path: &std::path::Path) {
+        // Cancel the previous run, if any.
+        if let Some(prev) = self.catalog_cancel_token.take() {
+            prev.store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+        let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        self.catalog_cancel_token = Some(cancel.clone());
+        let mut jobs = Vec::with_capacity(self.tables.len());
+        for t in &self.tables {
+            let rel_path = t
+                .path
+                .strip_prefix(dir_path)
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_else(|_| t.path.to_string_lossy().into_owned());
+            let table_dir = t
+                .path
+                .parent()
+                .map(|p| p.to_path_buf())
+                .unwrap_or_else(|| dir_path.to_path_buf());
+            let folder_name = table_dir
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            jobs.push(super::catalog_worker::EnrichmentJob {
+                rel_path,
+                table_dir,
+                vpx_path: t.path.clone(),
+                folder_name,
+            });
+        }
+        super::catalog_worker::spawn(jobs, cancel);
     }
 
     /// Classify each table's VBS state and apply patches from the
@@ -672,8 +722,8 @@ impl App {
     /// Unified exit: release cursor capture (otherwise the OS cursor stays
     /// hidden while the window tears down), then request window close.
     /// Called from the Quit button, ExitGame joystick action, and Escape key.
-    pub(super) fn quit_launcher(&self, ctx: &egui::Context) {
-        ctx.set_cursor_lock(false);
+    pub(super) fn quit_launcher(&mut self, ctx: &egui::Context) {
+        self.cursor.set_lock(false);
         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
     }
 
@@ -797,7 +847,7 @@ impl App {
                         // released naturally because the kiosk focus-reclaim
                         // loop is gated on !vpx_running. VPX windows then
                         // z-order on top of PinReady.
-                        ctx.set_cursor_lock(false);
+                        self.cursor.set_lock(false);
                     }
                     VpxStatus::ExitOk => {
                         self.vpx_loading_msg.clear();

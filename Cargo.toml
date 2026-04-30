@@ -1,6 +1,6 @@
 [package]
 name = "pinready"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2021"
 description = "Cross-platform configurator and launcher supporting the adoption of Visual Pinball 10.8.1 — for testers and early adopters, not a replacement for a stable production setup"
 license = "GPL-3.0-or-later"
@@ -107,6 +107,16 @@ hidapi = { version = "2.6", default-features = false, features = ["linux-static-
 # Cross-platform file locking for the single-instance PID lock.
 fs4 = { version = "1.0", features = ["sync"] }
 
+# Localized SDL key labels in the wizard's input-binding page.
+# Static lookup table — feeds rust_i18n::locale() and an SDL_Scancode and
+# returns the right glyph for the user's UI language (Échap, Esc, エスケープ…).
+sdl-keybridge = { version = "0.3", features = ["all-locales"] }
+
+# Viewport rotation (transparent input/output remap + rotated software cursor)
+# for cabinet mode. Drives the `transform_primitives` / `post_platform_output`
+# eframe hooks (Le-Syl21 fork on `pinready-deps`, pending upstream PR #8138).
+egui-rotate = { version = "0.1.2", features = ["software-cursor"] }
+
 [target.'cfg(windows)'.build-dependencies]
 winres = { version = "0.1", optional = true }
 
@@ -129,11 +139,21 @@ lto = false
 codegen-units = 16
 strip = true
 
-# Use Le-Syl21/egui fork with viewport rotation + cursor lock for kiosk/cabinet mode.
-# Remove this block once upstream merges: https://github.com/emilk/egui/issues/4130
+# Le-Syl21/egui fork on the `pinready-deps` branch. Slimmer than the previous
+# full-rotation fork — only contains:
+#   - eframe::App::transform_primitives + post_platform_output hooks
+#     (pending upstream as PR https://github.com/emilk/egui/pull/8138 — when
+#     merged + released, drop the `eframe` patch and depend on the new release)
+#   - ViewportBuilder::with_monitor / ViewportCommand::SetMonitor
+#     (cross-platform target-monitor selection — separate concern, no PR yet)
+#   - Key::ShiftLeft/Right + IntlBackslash physical key variants
+#     (pending upstream as PR https://github.com/emilk/egui/pull/8127)
+#
+# Rotation logic itself lives in the standalone `egui-rotate` crate (above).
 [patch.crates-io]
-egui        = { git = "https://github.com/Le-Syl21/egui", rev = "1eb1b589" }
-eframe      = { git = "https://github.com/Le-Syl21/egui", rev = "1eb1b589" }
-egui_extras = { git = "https://github.com/Le-Syl21/egui", rev = "1eb1b589" }
-emath       = { git = "https://github.com/Le-Syl21/egui", rev = "1eb1b589" }
-epaint      = { git = "https://github.com/Le-Syl21/egui", rev = "1eb1b589" }
+egui        = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-deps" }
+eframe      = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-deps" }
+egui_extras = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-deps" }
+emath       = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-deps" }
+epaint      = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-deps" }
+egui-winit  = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-deps" }

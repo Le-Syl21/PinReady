@@ -12,12 +12,14 @@ mod config;
 mod db;
 mod i18n;
 mod inputs;
+mod mediadb;
 mod outputs_hid;
 mod pidlock;
 mod screens;
 mod tilt;
 mod updater;
 mod vbs_patches;
+mod vpsdb;
 
 use anyhow::Result;
 use std::io::Write;
@@ -251,9 +253,10 @@ fn run_eframe_for_mode(mode: app::AppMode) -> Result<()> {
     let vpx_config = config::VpxConfig::load(None)?;
     let displays = screens::enumerate_displays();
 
-    let (viewport, want_kiosk_cursor) = build_viewport(&displays, mode, &vpx_config);
+    let (viewport, want_kiosk_cursor, rotation) = build_viewport(&displays, mode, &vpx_config);
     let start_in_wizard = matches!(mode, app::AppMode::Wizard);
     let mut app = app::App::new(vpx_config, db, start_in_wizard, displays);
+    app.set_rotation(rotation);
     if want_kiosk_cursor {
         app.enable_kiosk_cursor();
     }
@@ -314,7 +317,7 @@ fn build_viewport(
     displays: &[screens::DisplayInfo],
     mode: app::AppMode,
     vpx_config: &config::VpxConfig,
-) -> (egui::ViewportBuilder, bool) {
+) -> (egui::ViewportBuilder, bool, egui_rotate::Rotation) {
     let primary_idx = displays.iter().position(|d| d.is_primary).unwrap_or(0);
 
     let cabinet_mode =
@@ -358,10 +361,11 @@ fn build_viewport(
         .with_inner_size(initial_size);
 
     let mut want_kiosk_cursor = false;
+    let mut rotation = egui_rotate::Rotation::None;
     if matches!(mode, app::AppMode::Launcher) {
         viewport = viewport.with_decorations(false);
         if cabinet_mode {
-            viewport = viewport.with_rotation(eframe::emath::ViewportRotation::CW90);
+            rotation = egui_rotate::Rotation::CW90;
             if let Some(idx) = playfield_idx {
                 log::info!("Cabinet mode: rotating launcher CW90 on monitor index {idx}");
                 viewport = viewport.with_monitor(idx);
@@ -378,5 +382,5 @@ fn build_viewport(
             viewport = viewport.with_monitor(primary_idx);
         }
     }
-    (viewport, want_kiosk_cursor)
+    (viewport, want_kiosk_cursor, rotation)
 }
