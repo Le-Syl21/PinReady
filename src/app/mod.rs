@@ -868,10 +868,12 @@ use autostart::{is_autostart_enabled, set_autostart};
 impl eframe::App for App {
     /// Rotate input events into logical (rotated) UI space, plus update the
     /// software cursor capture state from raw mouse deltas.
-    /// Only fires for the root viewport — secondary viewports (BG/DMD/Topper)
-    /// are never rotated.
+    /// `raw_input_hook` does not receive a `viewport_id` parameter, but it
+    /// fires before `run_ui` so `ctx.viewport_id()` is still valid here
+    /// (the viewport stack hasn't been popped yet).
     fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
-        if ctx.viewport_id() != egui::ViewportId::ROOT || self.rotation.is_none() {
+        if raw_input.viewport_id != egui::ViewportId::ROOT || self.rotation.is_none() {
+            let _ = ctx;
             return;
         }
         let physical_size = raw_input
@@ -884,13 +886,16 @@ impl eframe::App for App {
     }
 
     /// Rotate tessellated primitives back to physical screen space, so the
-    /// painter sees coordinates aligned with the actual framebuffer.
+    /// painter sees coordinates aligned with the actual framebuffer. Only
+    /// the root viewport gets rotated — secondary viewports (BG/DMD/Topper)
+    /// are landscape and unaffected.
     fn transform_primitives(
         &mut self,
         ctx: &egui::Context,
+        viewport_id: egui::ViewportId,
         primitives: &mut Vec<egui::epaint::ClippedPrimitive>,
     ) {
-        if ctx.viewport_id() != egui::ViewportId::ROOT || self.rotation.is_none() {
+        if viewport_id != egui::ViewportId::ROOT || self.rotation.is_none() {
             return;
         }
         let logical_size = ctx.content_rect().size();
@@ -899,13 +904,14 @@ impl eframe::App for App {
 
     /// Capture the cursor icon for the next frame's software cursor draw,
     /// and suppress it on the OS side so we don't see a real cursor flicker
-    /// on top of the rendered one.
+    /// on top of the rendered one. Root viewport only.
     fn post_platform_output(
         &mut self,
-        ctx: &egui::Context,
+        _ctx: &egui::Context,
+        viewport_id: egui::ViewportId,
         platform_output: &mut egui::PlatformOutput,
     ) {
-        if ctx.viewport_id() != egui::ViewportId::ROOT || self.rotation.is_none() {
+        if viewport_id != egui::ViewportId::ROOT || self.rotation.is_none() {
             return;
         }
         self.last_cursor_icon = platform_output.cursor_icon;
@@ -918,14 +924,15 @@ impl eframe::App for App {
         // Draw the software cursor on top of everything else (rotated viewport
         // only). The icon comes from the previous frame's PlatformOutput,
         // captured in `post_platform_output`. One-frame latency is acceptable.
+        // Pass the icon un-rotated — `SoftwareCursor::draw` renders in logical
+        // space and the inverse rotation at paint time produces the right
+        // visual orientation (cf. egui-rotate 0.1.1 changelog).
         if !self.rotation.is_none() {
-            use egui_rotate::CursorIconExt;
             let painter = ui.ctx().layer_painter(egui::LayerId::new(
                 egui::Order::Foreground,
                 egui::Id::new("egui-rotate-software-cursor"),
             ));
-            let icon = self.last_cursor_icon.rotate(self.rotation);
-            self.cursor.draw(&painter, icon);
+            self.cursor.draw(&painter, self.last_cursor_icon);
         }
 
         // Kiosk cursor: scale + lock + one-shot warp + persistent focus.
