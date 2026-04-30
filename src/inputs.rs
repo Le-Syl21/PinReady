@@ -1,4 +1,3 @@
-use rust_i18n::t;
 use sdl3_sys::everything::*;
 use std::ffi::CStr;
 use std::thread;
@@ -116,14 +115,16 @@ unsafe fn vpx_device_id(joy: *mut sdl3_sys::everything::SDL_Joystick) -> String 
 /// the user's current keyboard layout (character keys) and to their UI
 /// language (named keys like Escape / Home / Shift).
 ///
-/// Two passes:
+/// Pipeline:
 ///   1. `SDL_GetKeyName(SDL_GetKeyFromScancode(...))` — the standard SDL
 ///      layout-aware name. A FR AZERTY user sees `!` / `:` / `<`
 ///      directly for the character keys, instead of the US QWERTY
 ///      labels `/` / `.` / `NonUSBackslash`. VPX uses the same call.
-///   2. `localize_key_name(...)` — post-process to translate the
-///      English-only *named* keys SDL returns ("Escape", "Left Shift",
-///      etc.) via rust-i18n. Character keys fall through unchanged.
+///   2. `sdl_keybridge` — for *named* keys (Escape, Left Shift, ...),
+///      replace SDL's English label with the localized glyph for the
+///      current `rust_i18n::locale()`. Character keys (`a`, `!`, `<`)
+///      pass through unchanged because `keycode_from_name` only resolves
+///      named keys.
 ///
 /// Falls back to the raw scancode name, then to a numeric form, so we
 /// always return something the UI can show.
@@ -160,49 +161,36 @@ pub fn scancode_name(scancode: SDL_Scancode) -> String {
     localize_key_name(&raw)
 }
 
-/// Translate the English named keys SDL returns (e.g. "Escape", "Home",
-/// "Left Shift") via rust-i18n. Character keys and unknown strings pass
-/// through unchanged so the user still sees `!`, `:`, `<`, etc. on
-/// non-US layouts.
+/// Replace SDL's English label for a *named* key (Escape, Left Shift, F5...)
+/// with the localized glyph for the current UI language via `sdl-keybridge`.
+///
+/// Character keys (`a`, `!`, `<`) are not named keys — `keycode_from_name`
+/// returns `None` for them and we pass through SDL's layout-aware label.
 fn localize_key_name(raw: &str) -> String {
-    // Arrow keys — prefer symbols, universal across locales.
-    match raw {
-        "Left" => return "←".to_string(),
-        "Right" => return "→".to_string(),
-        "Up" => return "↑".to_string(),
-        "Down" => return "↓".to_string(),
-        _ => {}
-    }
-    let key = match raw {
-        "Escape" => "key_escape",
-        "Tab" => "key_tab",
-        "Space" => "key_space",
-        "Return" => "key_return",
-        "Backspace" => "key_backspace",
-        "Delete" => "key_delete",
-        "Insert" => "key_insert",
-        "Home" => "key_home",
-        "End" => "key_end",
-        "PageUp" => "key_pageup",
-        "PageDown" => "key_pagedown",
-        "CapsLock" => "key_capslock",
-        "NumLockClear" => "key_numlock",
-        "ScrollLock" => "key_scrolllock",
-        "PrintScreen" => "key_printscreen",
-        "Pause" => "key_pause",
-        "Left Shift" => "key_lshift",
-        "Right Shift" => "key_rshift",
-        "Left Ctrl" => "key_lctrl",
-        "Right Ctrl" => "key_rctrl",
-        "Left Alt" => "key_lalt",
-        "Right Alt" => "key_ralt",
-        "Left GUI" => "key_lgui",
-        "Right GUI" => "key_rgui",
-        "NonUSBackslash" => "key_nonusbackslash",
-        "Application" => "key_application",
-        _ => return raw.to_string(),
+    let Some(keycode) = sdl_keybridge::keycode_from_name(raw) else {
+        return raw.to_string();
     };
-    t!(key).to_string()
+    // Reverse-lookup a scancode for that keycode — we just need *any*
+    // scancode that maps to it on US QWERTY so `resolve` can return the
+    // localized glyph for the named key. Layout choice doesn't matter
+    // for named keys (Escape is Escape on every layout).
+    let Some(scancode) = sdl_keybridge::scancode_for(keycode, "windows/en-t-k0-windows") else {
+        return raw.to_string();
+    };
+    let locale = rust_i18n::locale();
+    let resolved = sdl_keybridge::resolve(
+        scancode,
+        sdl_keybridge::KeyMod(0),
+        "windows/en-t-k0-windows",
+        &locale,
+        sdl_keybridge::LabelStyle::Textual,
+        &sdl_keybridge::MultiLocalizer::new(),
+    );
+    if resolved.glyph_local.is_empty() {
+        raw.to_string()
+    } else {
+        resolved.glyph_local.into_owned()
+    }
 }
 
 /// Convert an egui::Key to an SDL_Scancode.

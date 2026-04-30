@@ -107,6 +107,11 @@ hidapi = { version = "2.6", default-features = false, features = ["linux-static-
 # Cross-platform file locking for the single-instance PID lock.
 fs4 = { version = "1.0", features = ["sync"] }
 
+# Localized SDL key labels in the wizard's input-binding page.
+# Static lookup table — feeds rust_i18n::locale() and an SDL_Scancode and
+# returns the right glyph for the user's UI language (Échap, Esc, エスケープ…).
+sdl-keybridge = { version = "0.3", features = ["all-locales"] }
+
 [target.'cfg(windows)'.build-dependencies]
 winres = { version = "0.1", optional = true }
 
