@@ -1196,7 +1196,7 @@ checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 [[package]]
 name = "ecolor"
 version = "0.34.1"
-source = "git+https://github.com/Le-Syl21/egui?rev=1eb1b589#1eb1b589b706245312c2b2fa96c70303aabb8454"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-deps#7291e7a41899ba5960aa3d7925b73516c3c07e16"
 dependencies = [
  "bytemuck",
  "emath",
@@ -1205,7 +1205,7 @@ dependencies = [
 [[package]]
 name = "eframe"
 version = "0.34.1"
-source = "git+https://github.com/Le-Syl21/egui?rev=1eb1b589#1eb1b589b706245312c2b2fa96c70303aabb8454"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-deps#7291e7a41899ba5960aa3d7925b73516c3c07e16"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1240,7 +1240,7 @@ dependencies = [
 [[package]]
 name = "egui"
 version = "0.34.1"
-source = "git+https://github.com/Le-Syl21/egui?rev=1eb1b589#1eb1b589b706245312c2b2fa96c70303aabb8454"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-deps#7291e7a41899ba5960aa3d7925b73516c3c07e16"
 dependencies = [
  "accesskit",
  "ahash",
@@ -1255,9 +1255,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui-rotate"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "159f95d24f9e328fe3fa701f17917ce24e3a734f824d2da631f53bba75ea0461"
+dependencies = [
+ "egui",
+]
+
+[[package]]
 name = "egui-wgpu"
 version = "0.34.1"
-source = "git+https://github.com/Le-Syl21/egui?rev=1eb1b589#1eb1b589b706245312c2b2fa96c70303aabb8454"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-deps#7291e7a41899ba5960aa3d7925b73516c3c07e16"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1276,7 +1285,7 @@ dependencies = [
 [[package]]
 name = "egui-winit"
 version = "0.34.1"
-source = "git+https://github.com/Le-Syl21/egui?rev=1eb1b589#1eb1b589b706245312c2b2fa96c70303aabb8454"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-deps#7291e7a41899ba5960aa3d7925b73516c3c07e16"
 dependencies = [
  "accesskit_winit",
  "arboard",
@@ -1297,7 +1306,7 @@ dependencies = [
 [[package]]
 name = "egui_extras"
 version = "0.34.1"
-source = "git+https://github.com/Le-Syl21/egui?rev=1eb1b589#1eb1b589b706245312c2b2fa96c70303aabb8454"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-deps#7291e7a41899ba5960aa3d7925b73516c3c07e16"
 dependencies = [
  "ahash",
  "egui",
@@ -1311,7 +1320,7 @@ dependencies = [
 [[package]]
 name = "egui_glow"
 version = "0.34.1"
-source = "git+https://github.com/Le-Syl21/egui?rev=1eb1b589#1eb1b589b706245312c2b2fa96c70303aabb8454"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-deps#7291e7a41899ba5960aa3d7925b73516c3c07e16"
 dependencies = [
  "bytemuck",
  "egui",
@@ -1331,7 +1340,7 @@ checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 [[package]]
 name = "emath"
 version = "0.34.1"
-source = "git+https://github.com/Le-Syl21/egui?rev=1eb1b589#1eb1b589b706245312c2b2fa96c70303aabb8454"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-deps#7291e7a41899ba5960aa3d7925b73516c3c07e16"
 dependencies = [
  "bytemuck",
 ]
@@ -1418,7 +1427,7 @@ dependencies = [
 [[package]]
 name = "epaint"
 version = "0.34.1"
-source = "git+https://github.com/Le-Syl21/egui?rev=1eb1b589#1eb1b589b706245312c2b2fa96c70303aabb8454"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-deps#7291e7a41899ba5960aa3d7925b73516c3c07e16"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1442,7 +1451,7 @@ dependencies = [
 [[package]]
 name = "epaint_default_fonts"
 version = "0.34.1"
-source = "git+https://github.com/Le-Syl21/egui?rev=1eb1b589#1eb1b589b706245312c2b2fa96c70303aabb8454"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-deps#7291e7a41899ba5960aa3d7925b73516c3c07e16"
 
 [[package]]
 name = "equator"
@@ -3522,6 +3531,7 @@ dependencies = [
  "display-info",
  "eframe",
  "egui",
+ "egui-rotate",
  "egui_extras",
  "env_logger",
  "flate2",

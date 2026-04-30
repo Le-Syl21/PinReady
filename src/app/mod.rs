@@ -236,6 +236,17 @@ pub struct App {
     last_scroll_target: Option<f32>, // last forced vertical scroll offset — skip reset when the target hasn't moved
     launcher_cols: usize,            // number of columns in the grid (computed in render)
     images_preloaded: bool,
+    // Viewport rotation for the root window. CW90 in cabinet mode, None
+    // otherwise. Applied via egui-rotate's input/output hooks (see
+    // `eframe::App::raw_input_hook` / `transform_primitives` impls below).
+    rotation: egui_rotate::Rotation,
+    // Software cursor — drawn in logical (rotated) space. Captures the OS
+    // cursor when active, releases at edges (or stays locked in kiosk mode).
+    cursor: egui_rotate::SoftwareCursor,
+    // Last frame's cursor icon (Text, ResizeEast, ...), captured from
+    // PlatformOutput. Used to draw the next frame's software cursor with
+    // the right shape — one frame of latency is fine for visuals.
+    last_cursor_icon: egui::CursorIcon,
     // Kiosk mode: lock the cursor inside the PF window and center it on the grid.
     // Window placement itself is handled at creation via ViewportBuilder::with_monitor.
     kiosk_cursor: bool, // scale + lock the cursor, warp once window is mapped
@@ -450,6 +461,9 @@ impl App {
             last_scroll_target: None,
             launcher_cols: 1,
             images_preloaded: false,
+            rotation: egui_rotate::Rotation::None,
+            cursor: egui_rotate::SoftwareCursor::new(),
+            last_cursor_icon: egui::CursorIcon::Default,
             kiosk_cursor: false,
             kiosk_cursor_warped: false,
             nav_held: None,
@@ -511,12 +525,23 @@ impl App {
         )
     }
 
+    /// Set the viewport rotation for the root window. Called by `main` once,
+    /// at App construction time, before `eframe::run_native`. The rotation
+    /// drives the input/output hooks below — None is a no-op.
+    pub fn set_rotation(&mut self, rotation: egui_rotate::Rotation) {
+        self.rotation = rotation;
+    }
+
     /// Enable kiosk cursor behavior: software-scaled cursor, locked inside the
     /// window, and warped to center once the window is mapped. Window placement
     /// is handled separately via `ViewportBuilder::with_monitor`.
     pub fn enable_kiosk_cursor(&mut self) {
         self.kiosk_cursor = true;
         self.kiosk_cursor_warped = false;
+        // Configure the software cursor for cabinet/kiosk use: bigger glyph
+        // (3x) and locked inside the window so it never escapes to the OS.
+        self.cursor.set_scale(3.0);
+        self.cursor.set_lock(true);
     }
 
     fn load_rendering_config(config: &VpxConfig) -> (f32, i32, i32, i32, i32, i32, i32, f32) {
@@ -841,7 +866,68 @@ mod tilt_page;
 use autostart::{is_autostart_enabled, set_autostart};
 
 impl eframe::App for App {
+    /// Rotate input events into logical (rotated) UI space, plus update the
+    /// software cursor capture state from raw mouse deltas.
+    /// Only fires for the root viewport — secondary viewports (BG/DMD/Topper)
+    /// are never rotated.
+    fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
+        if ctx.viewport_id() != egui::ViewportId::ROOT || self.rotation.is_none() {
+            return;
+        }
+        let physical_size = raw_input
+            .screen_rect
+            .map(|r| r.size())
+            .unwrap_or(egui::Vec2::ZERO);
+        let _ = self
+            .cursor
+            .process_input(raw_input, self.rotation, physical_size);
+    }
+
+    /// Rotate tessellated primitives back to physical screen space, so the
+    /// painter sees coordinates aligned with the actual framebuffer.
+    fn transform_primitives(
+        &mut self,
+        ctx: &egui::Context,
+        primitives: &mut Vec<egui::epaint::ClippedPrimitive>,
+    ) {
+        if ctx.viewport_id() != egui::ViewportId::ROOT || self.rotation.is_none() {
+            return;
+        }
+        let logical_size = ctx.content_rect().size();
+        egui_rotate::transform_clipped_primitives(primitives, self.rotation, logical_size);
+    }
+
+    /// Capture the cursor icon for the next frame's software cursor draw,
+    /// and suppress it on the OS side so we don't see a real cursor flicker
+    /// on top of the rendered one.
+    fn post_platform_output(
+        &mut self,
+        ctx: &egui::Context,
+        platform_output: &mut egui::PlatformOutput,
+    ) {
+        if ctx.viewport_id() != egui::ViewportId::ROOT || self.rotation.is_none() {
+            return;
+        }
+        self.last_cursor_icon = platform_output.cursor_icon;
+        if self.cursor.is_captured() {
+            platform_output.cursor_icon = egui::CursorIcon::None;
+        }
+    }
+
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        // Draw the software cursor on top of everything else (rotated viewport
+        // only). The icon comes from the previous frame's PlatformOutput,
+        // captured in `post_platform_output`. One-frame latency is acceptable.
+        if !self.rotation.is_none() {
+            use egui_rotate::CursorIconExt;
+            let painter = ui.ctx().layer_painter(egui::LayerId::new(
+                egui::Order::Foreground,
+                egui::Id::new("egui-rotate-software-cursor"),
+            ));
+            let icon = self.last_cursor_icon.rotate(self.rotation);
+            self.cursor.draw(&painter, icon);
+        }
+
         // Kiosk cursor: scale + lock + one-shot warp + persistent focus.
         // We reclaim focus every frame when the PF is unfocused, because
         // secondary viewports (BG/DMD/Topper) can steal it on some WMs
@@ -852,8 +938,9 @@ impl eframe::App for App {
         let vpx_running = self.vpx_running.load(Ordering::Relaxed);
         if self.kiosk_cursor && !vpx_running {
             let ctx = ui.ctx();
-            ctx.set_software_cursor_scale(3.0);
-            ctx.set_cursor_lock(true);
+            // Cursor scale + lock are configured once in `enable_kiosk_cursor`,
+            // not here — the SoftwareCursor instance is on App, not Context.
+            self.cursor.set_lock(true);
             let focused = ctx.input(|i| i.viewport().focused).unwrap_or(false);
             if !focused {
                 ctx.send_viewport_cmd(egui::ViewportCommand::Focus);

@@ -603,11 +603,9 @@ impl App {
                         .with_title("PinReady — Backglass")
                         .with_decorations(false)
                         .with_monitor(bg_idx)
-                        .with_rotation(eframe::emath::ViewportRotation::None)
                         .with_active(false),
                     move |ui, _class| {
                         let ctx = ui.ctx().clone();
-                        ctx.set_viewport_rotation(eframe::emath::ViewportRotation::None);
                         egui_extras::install_image_loaders(&ctx);
                         egui::CentralPanel::default()
                             .frame(egui::Frame::NONE.fill(egui::Color32::BLACK))
@@ -638,13 +636,7 @@ impl App {
             .iter()
             .position(|d| d.role == DisplayRole::Dmd)
         {
-            Self::show_logo_viewport(
-                ui,
-                PF_VIEWPORT,
-                "PinReady — DMD",
-                dmd_idx,
-                eframe::emath::ViewportRotation::None,
-            );
+            Self::show_logo_viewport(ui, PF_VIEWPORT, "PinReady — DMD", dmd_idx);
         }
 
         // Topper cover
@@ -653,13 +645,7 @@ impl App {
             .iter()
             .position(|d| d.role == DisplayRole::Topper)
         {
-            Self::show_logo_viewport(
-                ui,
-                TOPPER_VIEWPORT,
-                "PinReady — Topper",
-                tp_idx,
-                eframe::emath::ViewportRotation::None,
-            );
+            Self::show_logo_viewport(ui, TOPPER_VIEWPORT, "PinReady — Topper", tp_idx);
         }
     }
 
@@ -670,7 +656,6 @@ impl App {
         id: &'static str,
         title: &str,
         monitor_idx: usize,
-        rotation: eframe::emath::ViewportRotation,
     ) {
         let viewport_id = egui::ViewportId::from_hash_of(id);
         ui.ctx().show_viewport_deferred(
@@ -679,11 +664,9 @@ impl App {
                 .with_title(title)
                 .with_decorations(false)
                 .with_monitor(monitor_idx)
-                .with_rotation(rotation)
                 .with_active(false),
             move |ui, _class| {
                 let ctx = ui.ctx().clone();
-                ctx.set_viewport_rotation(rotation);
                 egui_extras::install_image_loaders(&ctx);
                 ctx.include_bytes("bytes://vpx_logo", VPX_LOGO);
                 egui::CentralPanel::default()

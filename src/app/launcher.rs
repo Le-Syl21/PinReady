@@ -722,8 +722,8 @@ impl App {
     /// Unified exit: release cursor capture (otherwise the OS cursor stays
     /// hidden while the window tears down), then request window close.
     /// Called from the Quit button, ExitGame joystick action, and Escape key.
-    pub(super) fn quit_launcher(&self, ctx: &egui::Context) {
-        ctx.set_cursor_lock(false);
+    pub(super) fn quit_launcher(&mut self, ctx: &egui::Context) {
+        self.cursor.set_lock(false);
         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
     }
 
@@ -847,7 +847,7 @@ impl App {
                         // released naturally because the kiosk focus-reclaim
                         // loop is gated on !vpx_running. VPX windows then
                         // z-order on top of PinReady.
-                        ctx.set_cursor_lock(false);
+                        self.cursor.set_lock(false);
                     }
                     VpxStatus::ExitOk => {
                         self.vpx_loading_msg.clear();
