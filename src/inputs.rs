@@ -93,22 +93,34 @@ pub enum JoystickEvent {
 }
 
 /// Build the VPX-compatible device ID for an SDL joystick.
-/// Uses serial (`SDLJoy_PSC...`) if available, else GUID.
-/// Single ID used for both buttons and axes — VPX handles the rest.
+/// Format: `SDLJoy_<GUID>_<idIndex>` — `idIndex` is the 1-based count of
+/// joysticks sharing this GUID earlier in `SDL_GetJoysticks` enumeration.
+/// Mirrors VPX's `GetJoySettingId` (vpinball commit 64094acd7); serial is
+/// no longer used because some manufacturers ship duplicate/empty serials.
 unsafe fn vpx_device_id(joy: *mut sdl3_sys::everything::SDL_Joystick) -> String {
-    let serial_ptr = SDL_GetJoystickSerial(joy);
-    if !serial_ptr.is_null() {
-        let serial = CStr::from_ptr(serial_ptr).to_string_lossy();
-        if !serial.is_empty() {
-            return format!("SDLJoy_{serial}");
-        }
-    }
-    // Fallback: use GUID as hex string
     let guid = SDL_GetJoystickGUID(joy);
     let mut buf = [0u8; 64];
     SDL_GUIDToString(guid, buf.as_mut_ptr() as *mut _, buf.len() as i32);
     let guid_str = CStr::from_ptr(buf.as_ptr() as *const _).to_string_lossy();
-    format!("SDLJoy_{guid_str}")
+
+    let mut id_index: u32 = 1;
+    let mut count: i32 = 0;
+    let ids = SDL_GetJoysticks(&mut count);
+    if !ids.is_null() {
+        for i in 0..count as usize {
+            let jid = *ids.add(i);
+            if SDL_GetJoystickFromID(jid) == joy {
+                break;
+            }
+            let other = SDL_GetJoystickGUIDForID(jid);
+            if other == guid {
+                id_index += 1;
+            }
+        }
+        SDL_free(ids as *mut _);
+    }
+
+    format!("SDLJoy_{guid_str}_{id_index}")
 }
 
 /// Get a human-readable label for an SDL scancode, localised both to
@@ -824,8 +836,9 @@ pub fn spawn_joystick_thread() -> crossbeam_channel::Receiver<JoystickEvent> {
                             num_buttons,
                             num_axes
                         );
-                        // Detect pinball controllers
-                        if name.contains("Pinscape") || dev_id.contains("PSC") {
+                        // Detect pinball controllers (device ID is now GUID-based, so we
+                        // can no longer fingerprint by serial substring — match on name).
+                        if name.contains("Pinscape") {
                             log::info!("Pinscape controller detected: {}", dev_id);
                             let _ = evt_tx.send(JoystickEvent::PinscapeDetected {
                                 vpx_id: dev_id.clone(),

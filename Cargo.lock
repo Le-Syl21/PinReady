@@ -1256,9 +1256,9 @@ dependencies = [
 
 [[package]]
 name = "egui-rotate"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcbe5a05f0e1ce8cc6f0afa68ede7668ad90210b5ef4353d3d2799dd1d19723c"
+checksum = "91f50edcc9cb00f484976fb0b56fb0d7d1f31fab1ff6a4fc3d6acb55e2000311"
 dependencies = [
  "egui",
 ]
@@ -3521,7 +3521,7 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
 name = "pinready"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "anyhow",
  "base64",
