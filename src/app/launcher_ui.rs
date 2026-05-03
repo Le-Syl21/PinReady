@@ -651,12 +651,7 @@ impl App {
 
     /// Show a viewport with the VPX logo on a grey background, placed
     /// borderless fullscreen on the given monitor index.
-    fn show_logo_viewport(
-        ui: &mut egui::Ui,
-        id: &'static str,
-        title: &str,
-        monitor_idx: usize,
-    ) {
+    fn show_logo_viewport(ui: &mut egui::Ui, id: &'static str, title: &str, monitor_idx: usize) {
         let viewport_id = egui::ViewportId::from_hash_of(id);
         ui.ctx().show_viewport_deferred(
             viewport_id,
