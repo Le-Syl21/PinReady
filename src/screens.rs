@@ -183,6 +183,38 @@ pub fn enumerate_displays() -> Vec<DisplayInfo> {
     displays
 }
 
+/// Verify that every `*Display=` value persisted in `VPinballX.ini` still
+/// refers to a currently-connected SDL display. Returns the list of names
+/// that no longer resolve — caller falls back to the wizard so the user
+/// can re-assign roles.
+///
+/// Two cases produce a non-empty list:
+/// 1. Switch between X11 and Wayland sessions — `SDL_GetDisplayName` builds
+///    the name differently on each backend (X11 embeds the EDID monitor
+///    name + diagonal, Wayland forwards `xdg_output.description` which on
+///    Mutter expands the PnP vendor instead).
+/// 2. A monitor was unplugged or died.
+///
+/// Cable swaps and port changes do **not** trigger a mismatch — the SDL
+/// name follows the EDID, not the connector, so identity stays stable.
+pub fn check_ini_displays_resolvable(
+    config: &crate::config::VpxConfig,
+    displays: &[DisplayInfo],
+) -> Vec<String> {
+    let connected: std::collections::HashSet<&str> =
+        displays.iter().map(|d| d.name.as_str()).collect();
+    [
+        ("Player", "PlayfieldDisplay"),
+        ("Backglass", "BackglassDisplay"),
+        ("ScoreView", "ScoreViewDisplay"),
+        ("Topper", "TopperDisplay"),
+    ]
+    .iter()
+    .filter_map(|(section, key)| config.get(section, key))
+    .filter(|v| !v.is_empty() && !connected.contains(v.as_str()))
+    .collect()
+}
+
 /// Assign roles positionally: first entry → Playfield, etc. Assumes the slice
 /// is already sorted by desired priority. Kept for tests; production code in
 /// `enumerate_displays` assigns roles without reordering the list.

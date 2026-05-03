@@ -724,6 +724,10 @@ impl App {
     /// Called from the Quit button, ExitGame joystick action, and Escape key.
     pub(super) fn quit_launcher(&mut self, ctx: &egui::Context) {
         self.cursor.set_lock(false);
+        ctx.send_viewport_cmd(egui::ViewportCommand::CursorGrab(
+            egui::viewport::CursorGrab::None,
+        ));
+        ctx.send_viewport_cmd(egui::ViewportCommand::CursorVisible(true));
         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
     }
 
@@ -848,6 +852,10 @@ impl App {
                         // loop is gated on !vpx_running. VPX windows then
                         // z-order on top of PinReady.
                         self.cursor.set_lock(false);
+                        ctx.send_viewport_cmd(egui::ViewportCommand::CursorGrab(
+                            egui::viewport::CursorGrab::None,
+                        ));
+                        ctx.send_viewport_cmd(egui::ViewportCommand::CursorVisible(true));
                     }
                     VpxStatus::ExitOk => {
                         self.vpx_loading_msg.clear();

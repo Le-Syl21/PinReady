@@ -79,10 +79,6 @@ impl App {
             self.config.set_i32("Topper", "TopperOutput", 0);
         }
 
-        if self.screen_count >= 2 {
-            self.config.set_i32("Player", "PlayfieldFullScreen", 1);
-        }
-
         for display in self.displays.iter() {
             match display.role {
                 DisplayRole::Playfield => {

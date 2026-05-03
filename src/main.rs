@@ -215,10 +215,47 @@ fn main() -> Result<()> {
     let initial_mode = {
         let db = db::Database::open(None)?;
         let configured = db.get_config("wizard_completed").as_deref() == Some("true");
-        if force_config || !configured {
+        // The wizard writes VPinballX.ini at completion. If the user (or a
+        // cleanup tool) deleted it later, the wizard_completed flag in the
+        // DB is stale — the launcher would start with no VPX config and
+        // crash or misbehave. Re-run the wizard to regenerate the .ini.
+        let ini_present = config::default_ini_path().is_file();
+        if force_config || !configured || !ini_present {
+            if configured && !ini_present {
+                log::warn!(
+                    "wizard_completed=true but VPinballX.ini not found at {} — re-running wizard",
+                    config::default_ini_path().display()
+                );
+            }
             app::AppMode::Wizard
         } else {
-            app::AppMode::Launcher
+            // Sanity-check the persisted *Display= names in VPinballX.ini
+            // against currently-connected displays. Two cases trigger a
+            // mismatch and force the wizard:
+            //   1. the user switched between X11 and Wayland sessions
+            //      (SDL_GetDisplayName builds the name differently)
+            //   2. a configured monitor is no longer connected.
+            // Cable swaps and port changes are *not* mismatches: the SDL
+            // name follows the EDID, not the connector.
+            match config::VpxConfig::load(None) {
+                Ok(cfg) => {
+                    let connected = screens::enumerate_displays();
+                    let missing = screens::check_ini_displays_resolvable(&cfg, &connected);
+                    if missing.is_empty() {
+                        app::AppMode::Launcher
+                    } else {
+                        log::warn!(
+                            "INI display name(s) not found in current SDL session: {missing:?} \
+                             — likely X11↔Wayland transition or unplugged screen, re-running wizard"
+                        );
+                        app::AppMode::Wizard
+                    }
+                }
+                Err(e) => {
+                    log::error!("Failed to read VPinballX.ini for display sanity check: {e} — re-running wizard");
+                    app::AppMode::Wizard
+                }
+            }
         }
     };
     let mut current_mode = initial_mode;
@@ -261,10 +298,15 @@ fn run_eframe_for_mode(mode: app::AppMode) -> Result<()> {
         app.enable_kiosk_cursor();
     }
 
-    let options = eframe::NativeOptions {
+    let mut options = eframe::NativeOptions {
         viewport,
         ..Default::default()
     };
+    // Glow renderer instead of wgpu — wgpu's Vulkan backend on NVIDIA
+    // Wayland has a known freeze where presents are throttled to a single
+    // initial frame regardless of present_mode hint. Glow uses EGL +
+    // glutin which has different presentation pacing.
+    options.glow_options.vsync = false;
 
     eframe::run_native(
         "PinReady",

@@ -251,6 +251,15 @@ pub struct App {
     // Window placement itself is handled at creation via ViewportBuilder::with_monitor.
     kiosk_cursor: bool, // scale + lock the cursor, warp once window is mapped
     kiosk_cursor_warped: bool, // one-shot: warp cursor after window settles
+    // Last virtual cursor position seen — used to restore the cursor where
+    // it was after a spurious PointerGone (Mutter Wayland drops the
+    // pointer-constraints lock during focus thrashing with secondary
+    // viewports), so the user doesn't perceive it as a teleport-to-centre.
+    kiosk_last_virtual_pos: Option<egui::Pos2>,
+    // Last virtual cursor position injected as a synthetic PointerMoved
+    // event in raw_input_hook. Debounce — only inject when the position
+    // actually changed since the last frame.
+    last_injected_pointer_pos: Option<egui::Pos2>,
     // Launcher joystick nav auto-repeat: track which nav button is held
     nav_held: Option<(u8, String, std::time::Instant, std::time::Instant)>,
     // Background backglass extraction results. Sent by the thread spawned
@@ -466,6 +475,8 @@ impl App {
             last_cursor_icon: egui::CursorIcon::Default,
             kiosk_cursor: false,
             kiosk_cursor_warped: false,
+            kiosk_last_virtual_pos: None,
+            last_injected_pointer_pos: None,
             nav_held: None,
             bg_rx: None,
             scan_generation: 0,
@@ -542,6 +553,7 @@ impl App {
         // (3x) and locked inside the window so it never escapes to the OS.
         self.cursor.set_scale(3.0);
         self.cursor.set_lock(true);
+        log::info!("kiosk_cursor enabled (scale=3.0, lock=true) — bootstrap on first frame");
     }
 
     fn load_rendering_config(config: &VpxConfig) -> (f32, i32, i32, i32, i32, i32, i32, f32) {
@@ -883,6 +895,22 @@ impl eframe::App for App {
         let _ = self
             .cursor
             .process_input(raw_input, self.rotation, physical_size);
+
+        // Inject a synthetic `PointerMoved` at the current virtual cursor
+        // position whenever it changed since last frame. Reason: under
+        // `CursorGrab::Locked` on Wayland, the OS only delivers raw motion
+        // deltas (`Event::MouseMoved`) — no `WindowEvent::CursorMoved`,
+        // hence egui never receives a `PointerMoved` event from the
+        // platform. egui's hover hit-test (and the cursor-icon resolution
+        // it drives) relies on `PointerMoved` to know where the pointer
+        // is, so without this injection the cursor icon would only update
+        // on click (which fires `PointerButton` and re-seeds the position).
+        if let Some(p) = self.cursor.virtual_pos() {
+            if self.last_injected_pointer_pos != Some(p) {
+                raw_input.events.push(egui::Event::PointerMoved(p));
+                self.last_injected_pointer_pos = Some(p);
+            }
+        }
     }
 
     /// Rotate tessellated primitives back to physical screen space, so the
@@ -914,7 +942,17 @@ impl eframe::App for App {
         if viewport_id != egui::ViewportId::ROOT || self.rotation.is_none() {
             return;
         }
-        self.last_cursor_icon = platform_output.cursor_icon;
+        // Only update `last_cursor_icon` with non-None values: egui's
+        // `PlatformOutput::take()` carries `cursor_icon` to the next frame
+        // ("everything else is ephemeral"). Once we've overridden it to
+        // `None` to hide the OS cursor below, every subsequent frame's
+        // platform_output starts as `None` until a widget interaction
+        // re-sets it. Capturing that `None` here would erase our last
+        // valid icon, leading `paint_cursor_shape` to early-return — and
+        // the software cursor disappears completely.
+        if platform_output.cursor_icon != egui::CursorIcon::None {
+            self.last_cursor_icon = platform_output.cursor_icon;
+        }
         if self.cursor.is_captured() {
             platform_output.cursor_icon = egui::CursorIcon::None;
         }
@@ -935,53 +973,93 @@ impl eframe::App for App {
             self.cursor.draw(&painter, self.last_cursor_icon);
         }
 
-        // Kiosk cursor: scale + lock + one-shot warp + persistent focus.
-        // We reclaim focus every frame when the PF is unfocused, because
-        // secondary viewports (BG/DMD/Topper) can steal it on some WMs
-        // despite with_active(false) at creation time.
-        //
-        // DISABLED while VPX is running: we must release the cursor and stop
-        // fighting for focus so VPX can take over keyboard/mouse input.
+        // Kiosk cursor: scale + lock + virtual-pos bootstrap. Disabled while
+        // VPX is running so it can take over keyboard/mouse input cleanly.
         let vpx_running = self.vpx_running.load(Ordering::Relaxed);
         if self.kiosk_cursor && !vpx_running {
             let ctx = ui.ctx();
-            // Cursor scale + lock are configured once in `enable_kiosk_cursor`,
-            // not here — the SoftwareCursor instance is on App, not Context.
+            // Force a repaint every frame. Mutter Wayland skips presenting
+            // surfaces that don't have user-focus even when we submit fresh
+            // frames; without this the cursor visibly freezes although
+            // virtual_pos is updating internally each frame.
+            ctx.request_repaint();
+
+            // Re-assert the SoftwareCursor lock + the OS-level cursor grab
+            // every frame so VPX → resume transitions land in the right state.
+            // `CursorGrab::Locked` is required on Wayland for raw mouse deltas
+            // (DeviceEvent::MouseMotion) to flow via the relative-pointer
+            // protocol; on X11 it's harmless. `CursorVisible(false)` hides
+            // the OS cursor so it doesn't flicker on top of the rendered one.
             self.cursor.set_lock(true);
+            ctx.send_viewport_cmd(egui::ViewportCommand::CursorGrab(
+                egui::viewport::CursorGrab::Locked,
+            ));
+            ctx.send_viewport_cmd(egui::ViewportCommand::CursorVisible(false));
+
+            // Reclaim focus only when the compositor will honour it. On
+            // Wayland, `ViewportCommand::Focus` is a no-op without an
+            // `xdg_activation_v1` token (egui#8142) and may trigger Mutter's
+            // anti-focus-stealing protection, demoting the playfield. Skip
+            // the reclaim entirely there; on X11 it works normally.
             let focused = ctx.input(|i| i.viewport().focused).unwrap_or(false);
-            if !focused {
+            if !focused && std::env::var("WAYLAND_DISPLAY").is_err() {
                 ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
                 ctx.request_repaint();
             }
+
+            // Track the most recent virtual cursor position so we can restore
+            // it after a spurious capture loss (PointerGone fires when Mutter
+            // briefly drops the pointer-constraints lock during focus thrash)
+            // instead of jumping the cursor back to the centre.
+            if let Some(p) = self.cursor.virtual_pos() {
+                self.kiosk_last_virtual_pos = Some(p);
+            }
+
+            // Re-bootstrap if the capture dropped: under CursorGrab::Locked
+            // no PointerMoved fires, so SoftwareCursor's auto-capture path
+            // never refires after PointerGone.
+            if self.kiosk_cursor_warped && !self.cursor.is_captured() {
+                self.kiosk_cursor_warped = false;
+            }
+
             if !self.kiosk_cursor_warped {
-                if let Some(inner) = ctx.input(|i| i.viewport().inner_rect) {
-                    let size = inner.size();
-                    // Double warp: the fork only captures virtual_cursor_pos
-                    // on PointerMoved entering the window, and only if it is
-                    // not already captured. Since the cursor is typically
-                    // already captured at an off-center position from the
-                    // user's pre-launch mouse location, we need to force a
-                    // reset first.
-                    //
-                    // Step 1: move OS cursor outside the window → triggers
-                    // CursorLeft → fork sets cursor_captured=false,
-                    // virtual_cursor_pos=None.
-                    // Step 2: move OS cursor to the window center → triggers
-                    // CursorEntered + PointerMoved → fork captures at the
-                    // rotated center.
-                    // The fork multiplies pos by pixels_per_point before
-                    // sending to winit (PhysicalPosition). With zoom_factor
-                    // = 1.20 we must pre-divide so the cursor lands where
-                    // we expect in native pixel space.
-                    let ppp = ctx.pixels_per_point();
-                    let h_size = (size.x * 0.02).ceil();
-                    ctx.send_viewport_cmd(egui::ViewportCommand::CursorPosition(egui::pos2(
-                        -100.0, -100.0,
-                    )));
-                    ctx.send_viewport_cmd(egui::ViewportCommand::CursorPosition(egui::pos2(
-                        (size.x / 2.0) / ppp + h_size * ppp,
-                        (size.y / 2.0) / ppp,
-                    )));
+                // Bootstrap the SoftwareCursor at the last known position
+                // (or the viewport centre on first run).
+                //
+                // We use `ctx.viewport_rect()` rather than
+                // `viewport().inner_rect` because the latter relies on
+                // `winit::Window::inner_position()`, which returns None
+                // under Wayland (the protocol doesn't expose absolute
+                // window positions to clients).
+                //
+                // Reject the egui placeholder default
+                // `Rect::from_min_size(0, vec2(10_000, 10_000))` — surfaced
+                // as ~8333×8333 after `round_ui` — by detecting a square
+                // viewport_rect with both dimensions ≥ 4000 logical points.
+                // No real cabinet display is perfectly square at that size.
+                let vr = ctx.viewport_rect();
+                let placeholder =
+                    (vr.width() == vr.height() && vr.width() > 4000.0) || vr.area() <= 1.0;
+                if !placeholder {
+                    // Clamp the restore position inside a safe inner rect.
+                    // The cursor arrow is anchored at its tip and extends
+                    // ~60 logical points down-right (scale 3 × 16-20 base);
+                    // under CW90 the inverse rotation maps "down-right" to
+                    // "up-left" physically, so a virtual_pos within ~60
+                    // points of the right or bottom edge clips half the
+                    // arrow off-screen and the cursor disappears visually.
+                    let safe_margin = 64.0;
+                    let safe = vr.shrink(safe_margin);
+                    let target = self
+                        .kiosk_last_virtual_pos
+                        .map(|p| {
+                            egui::pos2(
+                                p.x.clamp(safe.min.x, safe.max.x),
+                                p.y.clamp(safe.min.y, safe.max.y),
+                            )
+                        })
+                        .unwrap_or_else(|| vr.center());
+                    self.cursor.set_virtual_pos(target);
                     self.kiosk_cursor_warped = true;
                 }
                 ctx.request_repaint();
