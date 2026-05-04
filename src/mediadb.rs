@@ -36,6 +36,19 @@ use std::path::{Path, PathBuf};
 
 const INDEX_URL: &str = "https://raw.githubusercontent.com/superhac/vpinmediadb/main/vpinmdb.json";
 
+/// Build the index URL: mirror-rewritten when the user has set
+/// `mirror_base_url`, GitHub raw otherwise. The mirror server already
+/// rewrites every per-asset URL inside the JSON to point at itself,
+/// so once we land on the right index the rest of the consumer code
+/// (which just GETs whatever URL appears in the JSON) needs no other
+/// change.
+fn index_url(base_url: Option<&str>) -> String {
+    match base_url {
+        Some(base) => format!("{base}/vpinmediadb/vpinmdb.json"),
+        None => INDEX_URL.to_string(),
+    }
+}
+
 /// One game's worth of media URLs, keyed by VPS game ID at the
 /// top-level of `vpinmdb.json`. The schema is uneven — some games
 /// only have a `wheel`, some have a full 1k/4k pair plus video.
@@ -98,12 +111,14 @@ impl MediaDb {
     }
 
     /// Sync index. Buffers `vpinmdb.json` to disk and parses; falls
-    /// back to whatever cache exists on network errors.
-    pub fn sync(cache_dir: PathBuf) -> Result<Self> {
+    /// back to whatever cache exists on network errors. `base_url`
+    /// optionally redirects to a self-hosted mirror (cf
+    /// `Database::mirror_base_url`).
+    pub fn sync(cache_dir: PathBuf, base_url: Option<&str>) -> Result<Self> {
         std::fs::create_dir_all(&cache_dir).ok();
         let cache_path = cache_dir.join("vpinmdb.json");
 
-        let bytes = match fetch_index() {
+        let bytes = match fetch_index(base_url) {
             Ok(b) => {
                 if let Err(e) = std::fs::write(&cache_path, &b) {
                     log::warn!("Failed to write mediadb cache: {e}");
@@ -139,8 +154,9 @@ impl MediaDb {
     }
 }
 
-fn fetch_index() -> Result<Vec<u8>> {
-    let resp = ureq::get(INDEX_URL)
+fn fetch_index(base_url: Option<&str>) -> Result<Vec<u8>> {
+    let url = index_url(base_url);
+    let resp = ureq::get(&url)
         .header("User-Agent", "PinReady")
         .call()
         .context("Failed to fetch vpinmdb.json")?;

@@ -55,6 +55,7 @@ pub fn spawn(jobs: Vec<EnrichmentJob>, cancel: Arc<AtomicBool>) {
 
 fn run(jobs: Vec<EnrichmentJob>, cancel: Arc<AtomicBool>) -> anyhow::Result<()> {
     let db = Database::open(None)?;
+    let mirror = db.mirror_base_url();
 
     // 1. VPSDB
     let vps_cache = vpsdb::fetch::VpsDbCache::new(vpsdb::fetch::VpsDbCache::default_dir());
@@ -66,7 +67,7 @@ fn run(jobs: Vec<EnrichmentJob>, cancel: Arc<AtomicBool>) -> anyhow::Result<()> 
     }
 
     // 2. MediaDB
-    let media_db = match MediaDb::sync(MediaDb::default_cache_dir()) {
+    let media_db = match MediaDb::sync(MediaDb::default_cache_dir(), mirror.as_deref()) {
         Ok(m) => Some(m),
         Err(e) => {
             log::warn!("Catalog enrichment: MediaDb sync failed ({e}) — match-only run");

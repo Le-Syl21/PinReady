@@ -102,11 +102,18 @@ pub fn fetch_latest_commit_sha() -> Result<String> {
         .context("Missing 'sha' in commit response")
 }
 
-/// Fetch `hashes.json` from master. Returns the raw JSON string; the
-/// caller stores it verbatim in `vbs_catalog.hashes_json` so future
-/// parse tweaks don't require a re-fetch.
-pub fn fetch_hashes_json() -> Result<String> {
-    let url = format!("https://raw.githubusercontent.com/{REPO}/refs/heads/{BRANCH}/hashes.json");
+/// Fetch `hashes.json` from master, or from the user-configured mirror
+/// when `base_url` is set. The mirror server already rewrites every
+/// `patched.url` field inside the JSON to point back at itself, so
+/// nothing else changes on the client side once we land on the right
+/// `hashes.json`. Returns the raw JSON string; the caller stores it
+/// verbatim in `vbs_catalog.hashes_json` so future parse tweaks don't
+/// require a re-fetch.
+pub fn fetch_hashes_json(base_url: Option<&str>) -> Result<String> {
+    let url = match base_url {
+        Some(base) => format!("{base}/vpx-standalone-scripts/hashes.json"),
+        None => format!("https://raw.githubusercontent.com/{REPO}/refs/heads/{BRANCH}/hashes.json"),
+    };
     let response = ureq::get(&url)
         .header("User-Agent", "PinReady")
         .call()
@@ -441,31 +448,72 @@ pub fn apply_patch(vpx_path: &Path, decision: &PatchDecision) -> Result<()> {
 ///
 /// Returns `Ok(())` on any outcome where the cache is usable (either
 /// fresh or previously-populated). Returns `Err` only on DB errors.
+///
+/// Two staleness-check strategies depending on whether the user
+/// configured a mirror:
+///   * Direct GitHub: fetch the commits API to get the latest commit
+///     SHA, compare to the cached one, only download `hashes.json` if
+///     they differ. Cheap (~200 bytes API response) but rate-limited
+///     to 60 req/h unauthenticated.
+///   * Mirror: GitHub commits API is not exposed by the mirror server.
+///     Fetch `hashes.json` directly (it's small enough), use a hash of
+///     its body as the cache identity. The mirror runs `git pull` once
+///     an hour, so worst-case staleness is bounded.
 pub fn refresh_catalog_if_stale(db: &crate::db::Database) -> Result<()> {
+    let mirror = db.mirror_base_url();
     let cached_sha = db.get_vbs_catalog().map(|(sha, _)| sha);
-    let remote_sha = match fetch_latest_commit_sha() {
-        Ok(sha) => sha,
-        Err(e) => {
-            log::warn!("vbs_patches: offline or GitHub unreachable ({e}); using cached catalog");
-            return Ok(());
+
+    let (remote_sha, json) = match mirror.as_deref() {
+        None => {
+            // GitHub direct: cheap commit-SHA check first.
+            let sha = match fetch_latest_commit_sha() {
+                Ok(s) => s,
+                Err(e) => {
+                    log::warn!(
+                        "vbs_patches: offline or GitHub unreachable ({e}); using cached catalog"
+                    );
+                    return Ok(());
+                }
+            };
+            if cached_sha.as_deref() == Some(sha.as_str()) {
+                log::debug!("vbs_patches: catalog up-to-date (commit {sha})");
+                return Ok(());
+            }
+            let body = match fetch_hashes_json(None) {
+                Ok(j) => j,
+                Err(e) => {
+                    log::warn!("vbs_patches: failed to fetch hashes.json ({e}); keeping old cache");
+                    return Ok(());
+                }
+            };
+            (sha, body)
+        }
+        Some(base) => {
+            // Mirror: download hashes.json and SHA it ourselves as the
+            // cache identity. No commit-API hit needed.
+            let body = match fetch_hashes_json(Some(base)) {
+                Ok(j) => j,
+                Err(e) => {
+                    log::warn!(
+                        "vbs_patches: failed to fetch hashes.json from mirror ({e}); using cached catalog"
+                    );
+                    return Ok(());
+                }
+            };
+            let body_sha = sha256_hex(body.as_bytes());
+            if cached_sha.as_deref() == Some(body_sha.as_str()) {
+                log::debug!("vbs_patches: catalog up-to-date (mirror body sha {body_sha})");
+                return Ok(());
+            }
+            (body_sha, body)
         }
     };
-    if cached_sha.as_deref() == Some(remote_sha.as_str()) {
-        log::debug!("vbs_patches: catalog up-to-date (commit {remote_sha})");
-        return Ok(());
-    }
+
     log::info!(
         "vbs_patches: refreshing catalog (cached={:?}, remote={})",
         cached_sha.as_deref().unwrap_or("<none>"),
         &remote_sha[..8.min(remote_sha.len())]
     );
-    let json = match fetch_hashes_json() {
-        Ok(j) => j,
-        Err(e) => {
-            log::warn!("vbs_patches: failed to fetch hashes.json ({e}); keeping old cache");
-            return Ok(());
-        }
-    };
     db.set_vbs_catalog(&remote_sha, &json)?;
     log::info!(
         "vbs_patches: catalog refreshed, {} bytes stored",

@@ -391,6 +391,30 @@ impl Database {
     /// hover-preview experience is so tied to it that the feature is
     /// effectively part of the launcher's baseline. Users on metered
     /// connections can opt out from the Tables wizard page.
+    /// Optional self-hosted mirror for the VBS catalog and VPin media DB.
+    /// When set (e.g. `https://pinready.syl21.org`), HTTP fetches are
+    /// rewritten to:
+    ///
+    /// * `https://<mirror>/vpx-standalone-scripts/hashes.json` and
+    ///   per-script `<path>/<file>.vbs`
+    /// * `https://<mirror>/vpinmediadb/vpinmdb.json` and per-asset
+    ///   `<game_id>/...`
+    ///
+    /// The mirror server is responsible for rewriting URLs inside the
+    /// JSON manifests so they point back at itself; the client just
+    /// changes the *index* endpoints. Empty string or unset = direct
+    /// GitHub fetch.
+    pub fn mirror_base_url(&self) -> Option<String> {
+        self.get_config("mirror_base_url")
+            .filter(|s| !s.trim().is_empty())
+            .map(|s| s.trim().trim_end_matches('/').to_string())
+    }
+
+    #[allow(dead_code)] // UI exposure deferred; readable via direct sqlite for now
+    pub fn set_mirror_base_url(&self, url: &str) -> Result<()> {
+        self.set_config("mirror_base_url", url.trim())
+    }
+
     pub fn catalog_enrichment_enabled(&self) -> bool {
         // Default true: only the explicit string "false" disables it.
         !matches!(
