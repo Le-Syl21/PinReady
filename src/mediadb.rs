@@ -33,6 +33,19 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
+
+/// Build a ureq agent with a sensible global timeout. 30 s covers the
+/// JSON manifests and per-asset media downloads on any reasonable
+/// connection (the reference deployment is on a 2 Gb/s symmetric link)
+/// while making sure a stalled mirror or DNS timeout doesn't freeze
+/// the rescan worker.
+fn http_agent() -> ureq::Agent {
+    ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(30)))
+        .build()
+        .new_agent()
+}
 
 const INDEX_URL: &str = "https://raw.githubusercontent.com/superhac/vpinmediadb/main/vpinmdb.json";
 
@@ -156,7 +169,8 @@ impl MediaDb {
 
 fn fetch_index(base_url: Option<&str>) -> Result<Vec<u8>> {
     let url = index_url(base_url);
-    let resp = ureq::get(&url)
+    let resp = http_agent()
+        .get(&url)
         .header("User-Agent", "PinReady")
         .call()
         .context("Failed to fetch vpinmdb.json")?;
@@ -172,7 +186,8 @@ fn fetch_index(base_url: Option<&str>) -> Result<Vec<u8>> {
 /// Used by the scan worker — never holds the request open longer
 /// than necessary, no retries (we'll just retry next scan if needed).
 pub fn fetch_asset(url: &str, expected_md5: &str) -> Result<Vec<u8>> {
-    let resp = ureq::get(url)
+    let resp = http_agent()
+        .get(url)
         .header("User-Agent", "PinReady")
         .call()
         .with_context(|| format!("Failed to GET {url}"))?;

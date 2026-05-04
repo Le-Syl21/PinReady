@@ -13,6 +13,15 @@
 
 use anyhow::{Context, Result};
 use std::io::Read;
+use std::time::Duration;
+
+/// 30 s global timeout — see `mediadb::http_agent` for the rationale.
+fn http_agent() -> ureq::Agent {
+    ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(30)))
+        .build()
+        .new_agent()
+}
 use std::path::PathBuf;
 
 use super::models::Game;
@@ -90,7 +99,8 @@ impl VpsDbCache {
 /// Hit `lastUpdated.json` to see if our cached timestamp is current.
 /// Returns the remote timestamp (unix-millis) on success.
 fn fetch_remote_timestamp() -> Result<i64> {
-    let resp = ureq::get(LAST_UPDATED_URL)
+    let resp = http_agent()
+        .get(LAST_UPDATED_URL)
         .header("User-Agent", "PinReady")
         .call()
         .context("Failed to fetch VPS DB lastUpdated.json")?;
@@ -108,7 +118,8 @@ fn fetch_remote_timestamp() -> Result<i64> {
 /// GET the full catalog. Buffers into memory because we want the raw
 /// bytes for both parsing and disk-caching.
 fn fetch_full_payload() -> Result<Vec<u8>> {
-    let resp = ureq::get(VPSDB_URL)
+    let resp = http_agent()
+        .get(VPSDB_URL)
         .header("User-Agent", "PinReady")
         .call()
         .context("Failed to fetch vpsdb.json")?;

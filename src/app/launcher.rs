@@ -285,6 +285,7 @@ impl App {
                 catalog_jobs.len(),
                 bg_jobs.len()
             );
+            let bg_cancel = cancel.clone();
             std::thread::spawn(move || {
                 if !catalog_jobs.is_empty() {
                     if let Err(e) = super::catalog_worker::run(catalog_jobs, cancel) {
@@ -292,6 +293,13 @@ impl App {
                     }
                 }
                 for (idx, table_dir, vpx_path, source_mtime) in bg_jobs {
+                    // A new rescan flipped our cancel flag — bail out so
+                    // the fresh worker is the only one writing to the
+                    // same channel.
+                    if bg_cancel.load(std::sync::atomic::Ordering::SeqCst) {
+                        log::info!("Rescan worker (gen={gen}) cancelled mid-bg-extraction");
+                        return;
+                    }
                     let bytes = crate::assets::extract_backglass_from_launcher_override(&table_dir)
                         .or_else(|| crate::assets::extract_backglass_from_vpinmediadb(&table_dir))
                         .or_else(|| {

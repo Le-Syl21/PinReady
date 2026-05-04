@@ -26,6 +26,18 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::io::Read;
 use std::path::Path;
+use std::time::Duration;
+
+/// Build a ureq agent with a 30 s global timeout — same rationale as
+/// the helper in `mediadb`: bound the worst-case stall on a slow or
+/// unreachable upstream so the scan worker can either succeed
+/// quickly or fall through to its cached copy.
+fn http_agent() -> ureq::Agent {
+    ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(30)))
+        .build()
+        .new_agent()
+}
 
 /// AsciiSet covering everything that is NOT safe inside a URL path
 /// segment: spaces + the standard RFC 3986 "query" delimiters + the
@@ -88,7 +100,8 @@ pub struct CatalogPatchedInfo {
 /// JSON) so we can gate `hashes.json` re-download on it.
 pub fn fetch_latest_commit_sha() -> Result<String> {
     let url = format!("https://api.github.com/repos/{REPO}/commits/{BRANCH}");
-    let response = ureq::get(&url)
+    let response = http_agent()
+        .get(&url)
         .header("User-Agent", "PinReady")
         .header("Accept", "application/vnd.github.v3+json")
         .call()
@@ -114,7 +127,8 @@ pub fn fetch_hashes_json(base_url: Option<&str>) -> Result<String> {
         Some(base) => format!("{base}/vpx-standalone-scripts/hashes.json"),
         None => format!("https://raw.githubusercontent.com/{REPO}/refs/heads/{BRANCH}/hashes.json"),
     };
-    let response = ureq::get(&url)
+    let response = http_agent()
+        .get(&url)
         .header("User-Agent", "PinReady")
         .call()
         .context("Failed to fetch VBS catalog hashes.json")?;
@@ -356,7 +370,8 @@ fn normalize_to_crlf(bytes: &[u8]) -> Vec<u8> {
 /// catalog's recorded value (see `normalize_to_crlf`).
 pub fn download_and_verify(url: &str, expected_sha: &str) -> Result<Vec<u8>> {
     let encoded = encode_url(url);
-    let response = ureq::get(&encoded)
+    let response = http_agent()
+        .get(&encoded)
         .header("User-Agent", "PinReady")
         .call()
         .with_context(|| format!("Failed to GET {url}"))?;
