@@ -58,12 +58,26 @@ pub(super) fn set_autostart(enabled: bool) -> anyhow::Result<()> {
 
     #[cfg(target_os = "linux")]
     {
+        // 3-second delay before launch. On Wayland (Mutter) the desktop
+        // session sometimes hasn't fully advertised every `wl_output`
+        // when autostart fires — PinReady then enumerates fewer screens
+        // than really exist and the launcher places covers wrong /
+        // routes inputs wrong. Sleeping a few seconds lets the
+        // compositor settle. Harmless on X11 where outputs are exposed
+        // synchronously.
+        //
+        // POSIX-shell-quote the binary path: replace `'` with `'\''`
+        // and wrap in single quotes so paths with spaces or other
+        // shell metacharacters survive the `sh -c` re-parse. The
+        // outer `\"…\"` are .desktop's own escaping for the Exec
+        // value (Desktop Entry spec §1.5.3).
+        let exe_quoted = exe_str.replace('\'', r"'\''");
         let content = format!(
             "[Desktop Entry]\n\
              Type=Application\n\
              Name=PinReady\n\
              Comment=Visual Pinball configurator and launcher\n\
-             Exec={exe_str}\n\
+             Exec=sh -c \"sleep 3 && '{exe_quoted}'\"\n\
              Terminal=false\n\
              X-GNOME-Autostart-enabled=true\n"
         );
