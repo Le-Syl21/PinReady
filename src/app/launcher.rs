@@ -1,20 +1,23 @@
 use super::*;
 
 /// Return the most-recent Unix-seconds mtime across every candidate
-/// backglass source for a given table folder: `media/launcher.*`,
-/// `.directb2s`, and the `.vpx` itself. Missing files don't participate.
-/// Used at scan time to invalidate the SQLite cache when the user drops
-/// or updates a source file (especially a launcher.* override added
-/// after the initial scan). Silent on any fs error — a 0 mtime just
-/// means "don't consider this file newer than the cache".
+/// backglass source for a given table folder: `medias/launcher.*`,
+/// `medias/bg.png` (vpinmediadb-installed cache), `.directb2s`, and the
+/// `.vpx` itself. Missing files don't participate.
+/// Used at scan time to invalidate the SQLite cache when any source
+/// changes — especially a `launcher.*` override added after the
+/// initial scan, or a fresh `medias/bg.png` from a catalog enrichment
+/// run. Silent on any fs error — a 0 mtime just means "don't consider
+/// this file newer than the cache".
 fn max_source_mtime(table_dir: &std::path::Path, vpx_path: &std::path::Path) -> i64 {
     let b2s = vpx_path.with_extension("directb2s");
-    let media = table_dir.join("media");
+    let medias = table_dir.join("medias");
     let candidates = [
-        media.join("launcher.png"),
-        media.join("launcher.webp"),
-        media.join("launcher.jpg"),
-        media.join("launcher.jpeg"),
+        medias.join("launcher.png"),
+        medias.join("launcher.webp"),
+        medias.join("launcher.jpg"),
+        medias.join("launcher.jpeg"),
+        medias.join("bg.png"),
         b2s,
         vpx_path.to_path_buf(),
     ];
@@ -220,20 +223,22 @@ impl App {
 
         // Schedule extraction for tables with no valid cached bg. Each
         // job tries sources in priority order:
-        //   1. <table_dir>/media/launcher.(png|webp|jpg|jpeg) — user override
-        //   2. <table_dir>/<base>.directb2s
-        //   3. <table_dir>/<base>.vpx internal images (filtered "backglass*")
+        //   1. <table_dir>/medias/launcher.(png|webp|jpg|jpeg) — user override
+        //   2. <table_dir>/medias/bg.png — vpinmediadb cache (catalog enrichment)
+        //   3. <table_dir>/<base>.directb2s
+        //   4. <table_dir>/<base>.vpx internal images (filtered "backglass*")
         let (tx, rx) = crossbeam_channel::unbounded();
         let tables_root = dir_path.to_path_buf();
         let gen = self.scan_generation;
         if !jobs.is_empty() {
             log::info!(
-                "Extracting {} backglass images in background (gen={gen}, media/launcher.* → .directb2s → .vpx)...",
+                "Extracting {} backglass images in background (gen={gen}, medias/launcher.* → medias/bg.png → .directb2s → .vpx)...",
                 jobs.len()
             );
             std::thread::spawn(move || {
                 for (idx, table_dir, vpx_path, source_mtime) in jobs {
                     let bytes = crate::assets::extract_backglass_from_launcher_override(&table_dir)
+                        .or_else(|| crate::assets::extract_backglass_from_vpinmediadb(&table_dir))
                         .or_else(|| {
                             let b2s = vpx_path.with_extension("directb2s");
                             if b2s.is_file() {

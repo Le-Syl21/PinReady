@@ -111,8 +111,7 @@ fn composite_bulb(base: &mut image::RgbaImage, bulb: &directb2s::Bulb) {
     }
 }
 
-/// Extract the illuminated backglass image from a `.directb2s` file and
-/// User-override sources: check `<table_dir>/media/launcher.(png|webp|jpg|jpeg)`
+/// User-override source: check `<table_dir>/medias/launcher.(png|webp|jpg|jpeg)`
 /// in that priority order. Returns the raw file bytes as-is — we don't
 /// re-encode because (a) the user picked the format deliberately and (b) the
 /// `image` crate's egui loader accepts PNG/WebP/JPEG uniformly.
@@ -121,9 +120,9 @@ fn composite_bulb(base: &mut image::RgbaImage, bulb: &directb2s::Bulb) {
 /// assembled frames); WebP second (modern, often smaller at equal quality);
 /// JPEG last (lossy, but widely supported).
 pub fn extract_backglass_from_launcher_override(table_dir: &Path) -> Option<Vec<u8>> {
-    let media = table_dir.join("media");
+    let medias = table_dir.join("medias");
     for ext in ["png", "webp", "jpg", "jpeg"] {
-        let candidate = media.join(format!("launcher.{ext}"));
+        let candidate = medias.join(format!("launcher.{ext}"));
         if candidate.is_file() {
             match std::fs::read(&candidate) {
                 Ok(bytes) if !bytes.is_empty() => {
@@ -140,6 +139,32 @@ pub fn extract_backglass_from_launcher_override(table_dir: &Path) -> Option<Vec<
         }
     }
     None
+}
+
+/// vpinmediadb-cached source: check `<table_dir>/medias/bg.png`. This is
+/// dropped by the catalog enrichment worker for every successfully-matched
+/// table; reading it is cheap (no XML parse, no .vpx scan, no brightness
+/// normalization — the upstream image is already production-ready).
+/// Returns the raw PNG bytes as-is.
+pub fn extract_backglass_from_vpinmediadb(table_dir: &Path) -> Option<Vec<u8>> {
+    let candidate = table_dir.join("medias").join("bg.png");
+    if !candidate.is_file() {
+        return None;
+    }
+    match std::fs::read(&candidate) {
+        Ok(bytes) if !bytes.is_empty() => {
+            log::info!("Backglass: vpinmediadb cache {}", candidate.display());
+            Some(bytes)
+        }
+        Ok(_) => {
+            log::warn!("Backglass: {} is empty, skipping", candidate.display());
+            None
+        }
+        Err(e) => {
+            log::warn!("Backglass: failed to read {}: {e}", candidate.display());
+            None
+        }
+    }
 }
 
 /// return it as JPEG bytes in memory. The caller stores the bytes in the

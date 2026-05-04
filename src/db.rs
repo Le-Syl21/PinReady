@@ -123,7 +123,8 @@ impl Database {
             -- quality 85 (~5× smaller than PNG, visually lossless on the
             -- photographic backglass content at 1280×1024); PNG/WebP bytes
             -- stored as-is when the source was a user override at
-            -- `<table_dir>/media/launcher.(png|webp|jpg|jpeg)`.
+            -- `<table_dir>/medias/launcher.(png|webp|jpg|jpeg)` or
+            -- `<table_dir>/medias/bg.png` (vpinmediadb).
             -- `cached_at_mtime` is the Unix-seconds mtime of the source
             -- file at extraction time; the scanner re-extracts when any
             -- candidate source file on disk is newer.
