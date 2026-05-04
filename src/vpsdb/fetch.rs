@@ -13,14 +13,18 @@
 
 use anyhow::{Context, Result};
 use std::io::Read;
+use std::sync::OnceLock;
 use std::time::Duration;
 
-/// 30 s global timeout — see `mediadb::http_agent` for the rationale.
-fn http_agent() -> ureq::Agent {
-    ureq::Agent::config_builder()
-        .timeout_global(Some(Duration::from_secs(30)))
-        .build()
-        .new_agent()
+/// Process-wide ureq agent — see `mediadb::http_agent` for rationale.
+fn http_agent() -> &'static ureq::Agent {
+    static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
+    AGENT.get_or_init(|| {
+        ureq::Agent::config_builder()
+            .timeout_global(Some(Duration::from_secs(30)))
+            .build()
+            .new_agent()
+    })
 }
 use std::path::PathBuf;
 

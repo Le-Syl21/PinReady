@@ -89,6 +89,15 @@ pub struct TableEntry {
     /// or nothing could be found. When `None`, the grid renders a
     /// localized placeholder with instructions.
     pub bg_bytes: Option<std::sync::Arc<[u8]>>,
+    /// `true` when the live VPSDB `Game.updated_at` has moved past the
+    /// value we stored at link time → a fresher version of this table
+    /// (or its metadata/media) is published in the catalog. Surfaced in
+    /// the launcher as a "↑" badge + a header counter.
+    pub update_available: bool,
+    /// VPS-assigned game ID stored in `vps_link.vps_id`. Used by the
+    /// outdated-badge click-handler to deep-link into the catalog page
+    /// at `virtualpinballspreadsheet.github.io/games?game=<vps_id>`.
+    pub vps_id: Option<String>,
 }
 
 /// Wizard pages
@@ -224,6 +233,15 @@ pub struct App {
     audio: AudioConfig,
     audio_cmd_tx: Option<crossbeam_channel::Sender<AudioCommand>>,
 
+    // Launcher preview audio. When `selected_table` changes we debounce
+    // ~700ms before firing PreviewStart so quick scrolling doesn't spam
+    // the audio thread. `preview_last_idx` is the table whose audio is
+    // currently playing or queued; `preview_due_at` is the deadline for
+    // the next PreviewStart.
+    preview_last_idx: Option<usize>,
+    preview_due_at: Option<std::time::Instant>,
+    preview_playing: bool,
+
     // Page 5 — Tables dir
     tables_dir: String,
 
@@ -328,11 +346,6 @@ pub struct App {
     // re-stack us on top (plain `Focus` is often refused by focus-stealing
     // prevention); we drop it a few frames later to avoid pinning.
     focus_reset_at: Option<std::time::Instant>,
-
-    // Rebuild feedback flash: (timestamp, _unused). Button briefly
-    // tints red on click so the user has visual confirmation the
-    // wipe-and-rescan was triggered.
-    rescan_flash: Option<(std::time::Instant, bool)>,
 
     // Language
     selected_language: usize,
@@ -461,6 +474,9 @@ impl App {
             tilt,
             audio,
             audio_cmd_tx: Some(audio_cmd_tx),
+            preview_last_idx: None,
+            preview_due_at: None,
+            preview_playing: false,
             tables_dir,
             tables: Vec::new(),
             table_filter: String::new(),
@@ -493,7 +509,6 @@ impl App {
             catalog_cancel_token: None,
             close_at: None,
             focus_reset_at: None,
-            rescan_flash: None,
             selected_language,
             vpx_install_mode,
             vpx_fork_repo,

@@ -28,7 +28,7 @@ launcher_error_title = "Visual Pinball — Błąd"
 launcher_vpx_crashed = "Visual Pinball zakończył się nieoczekiwanie."
 launcher_loading = "Uruchamianie Visual Pinball..."
 launcher_missing_title = "\"%{table}\" — brak obrazu"
-launcher_missing_hint_launcher = "Umieść media/launcher.png"
+launcher_missing_hint_launcher = "Umieść medias/launcher.png"
 launcher_missing_hint_b2s = "lub plik .directb2s"
 launcher_close = "Zamknij"
 
@@ -357,7 +357,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- plik stołu (wymagany)
     ├── Table Name.directb2s          <- backglass B2S (opcjonalnie)
-    ├── media/launcher.png            <- nadpisanie miniatury launchera (opcjonalnie, .png/.webp/.jpg/.jpeg)
+    ├── medias/launcher.png            <- nadpisanie miniatury launchera (opcjonalnie, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- nadpisania dla stołu (opcjonalnie)
     ├── Table Name.vbs                <- patch VBS / nadpisanie skryptu (opcjonalnie)
     ├── altsound/<rom>/               <- pakiet altsound (opcjonalnie)

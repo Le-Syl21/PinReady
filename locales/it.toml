@@ -28,7 +28,7 @@ launcher_error_title = "Visual Pinball — Errore"
 launcher_vpx_crashed = "Visual Pinball si è chiuso inaspettatamente."
 launcher_loading = "Avvio di Visual Pinball..."
 launcher_missing_title = "\"%{table}\" — nessuna immagine"
-launcher_missing_hint_launcher = "Inserisci media/launcher.png"
+launcher_missing_hint_launcher = "Inserisci medias/launcher.png"
 launcher_missing_hint_b2s = "o un file .directb2s"
 launcher_close = "Chiudi"
 
@@ -357,7 +357,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- file tavolo (obbligatorio)
     ├── Table Name.directb2s          <- backglass B2S (opzionale)
-    ├── media/launcher.png            <- override miniatura launcher (opzionale, .png/.webp/.jpg/.jpeg)
+    ├── medias/launcher.png            <- override miniatura launcher (opzionale, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- override per tavolo (opzionale)
     ├── Table Name.vbs                <- patch VBS / override script (opzionale)
     ├── altsound/<rom>/               <- pacchetto altsound (opzionale)

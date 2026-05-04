@@ -21,6 +21,15 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+/// Bump whenever the matcher chain changes (new strategy, cross-check,
+/// confidence shifts). Forces a one-shot re-match of every existing
+/// `vps_link` row on the next worker run, regardless of cached
+/// confidence — a wrong-but-High link from an older matcher (e.g.
+/// "Batman '66" matched to "Flash" via a fake `cGameName`) gets a
+/// chance to flip to the correct vps_id. After re-matching, the worker
+/// stamps the new version into `config.matcher_version`.
+const MATCHER_VERSION: i64 = 2;
+
 /// One row from the launcher's `tables` Vec, materialised so we can
 /// hand it off to the worker thread without holding any borrows on
 /// `App`.
@@ -75,10 +84,26 @@ pub fn run(jobs: Vec<EnrichmentJob>, cancel: Arc<AtomicBool>) -> anyhow::Result<
         if media_db.is_some() { "ON" } else { "OFF" }
     );
 
+    // One-shot re-match: triggered when the persisted matcher version
+    // is older than this binary's. Pays a per-table OLE open on the
+    // upgrade run, then settles back to "low-only re-match" on
+    // subsequent runs.
+    let stored_matcher_version: i64 = db
+        .get_config("matcher_version")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
+    let force_full_rematch = stored_matcher_version < MATCHER_VERSION;
+    if force_full_rematch {
+        log::info!(
+            "Matcher upgraded ({stored_matcher_version} → {MATCHER_VERSION}); re-evaluating every vps_link this run"
+        );
+    }
+
     let mut matched_high = 0usize;
     let mut matched_low = 0usize;
     let mut media_dl = 0usize;
     let mut unmatched = 0usize;
+    let mut update_available_count = 0usize;
 
     for job in &jobs {
         // Bail out if a fresh scan superseded us.
@@ -90,14 +115,41 @@ pub fn run(jobs: Vec<EnrichmentJob>, cancel: Arc<AtomicBool>) -> anyhow::Result<
             );
             return Ok(());
         }
-        // Re-use existing link if present.
+        // Re-use existing link if present and Medium+ confidence. Low
+        // links get re-matched on every run because the matcher chain
+        // keeps growing (new strategies were added: TableName-based) —
+        // a previously "low" folder-fuzzy match may now upgrade to
+        // High via tablename_exact.
         let existing = db.get_vps_link(&job.rel_path);
+        let needs_rematch = if force_full_rematch {
+            true
+        } else {
+            match &existing {
+                Some((_, _, conf, _, _, _, _, _)) => conf.eq_ignore_ascii_case("low"),
+                None => true,
+            }
+        };
 
-        let (vps_id, table_id, confidence, strategy, vps_updated_at) = match existing {
-            Some((id, tid, conf, strat, ts, _, _, _)) => (id, tid, conf, strat, ts),
-            None => match vpsdb::match_table_from_paths(&games, &job.vpx_path, &job.folder_name) {
+        let (vps_id, table_id, confidence, strategy, vps_updated_at) = if needs_rematch {
+            match vpsdb::match_table_from_paths(&games, &job.vpx_path, &job.folder_name) {
                 Some(m) => {
                     let game_ts = m.game.updated_at.unwrap_or(0);
+                    let prev_id = existing.as_ref().map(|e| e.0.as_str());
+                    let prev_conf = existing.as_ref().map(|e| e.2.as_str()).unwrap_or("none");
+                    let vps_id_changed = prev_id.is_some() && Some(m.game.id.as_str()) != prev_id;
+                    if Some(m.game.id.as_str()) != prev_id
+                        || !prev_conf.eq_ignore_ascii_case(&m.confidence.to_string())
+                    {
+                        log::info!(
+                            "Re-match {}: {} ({}) → {} ({}, strategy={})",
+                            job.rel_path,
+                            prev_id.unwrap_or("-"),
+                            prev_conf,
+                            m.game.id,
+                            m.confidence,
+                            m.strategy,
+                        );
+                    }
                     db.set_vps_link(
                         &job.rel_path,
                         &m.game.id,
@@ -109,6 +161,25 @@ pub fn run(jobs: Vec<EnrichmentJob>, cancel: Arc<AtomicBool>) -> anyhow::Result<
                         None,
                         None,
                     )?;
+                    // vps_id flipped → the previously cached media on
+                    // disk are for the wrong game (Batman 66 carrying a
+                    // Williams Flash bg.png is the canonical example).
+                    // Drop the cached md5s + the on-disk files so the
+                    // next mediadb pass re-downloads under the new id.
+                    if vps_id_changed {
+                        db.clear_link_media_md5s(&job.rel_path)?;
+                        db.delete_backglass(&job.rel_path)?;
+                        for stale in ["bg.png", "audio.mp3"] {
+                            let p = job.table_dir.join("medias").join(stale);
+                            if p.is_file() {
+                                if let Err(e) = std::fs::remove_file(&p) {
+                                    log::warn!("Failed to remove stale {}: {e}", p.display());
+                                } else {
+                                    log::info!("Removed stale media {}", p.display());
+                                }
+                            }
+                        }
+                    }
                     if m.confidence >= MatchConfidence::Medium {
                         matched_high += 1;
                     } else {
@@ -122,14 +193,65 @@ pub fn run(jobs: Vec<EnrichmentJob>, cancel: Arc<AtomicBool>) -> anyhow::Result<
                         game_ts,
                     )
                 }
-                None => {
-                    unmatched += 1;
-                    continue;
-                }
-            },
+                None => match existing {
+                    // No new match — keep the existing low link rather
+                    // than orphaning the row.
+                    Some((id, tid, conf, strat, ts, _, _, _)) => (id, tid, conf, strat, ts),
+                    None => {
+                        unmatched += 1;
+                        continue;
+                    }
+                },
+            }
+        } else {
+            let (id, tid, conf, strat, ts, _, _, _) = existing.unwrap();
+            (id, tid, conf, strat, ts)
         };
 
-        // 3. Media fetch (only if MediaDb available + match present).
+        // 3. Update detection — compare the local .vpx mtime against
+        // the most recent `tableFiles[*].updatedAt` published in the
+        // catalog. This catches the real case the user cares about:
+        // "the catalog has a newer version than what's on my disk".
+        //
+        // Earlier iteration compared `Game.updated_at` (catalog-edit
+        // ts) vs the snapshot stored at link time; that's a "did the
+        // catalog entry move?" signal which misses two locally-stored
+        // versions of the same game (both link to the same `vps_id`,
+        // both see the same `Game.updated_at`, neither flagged).
+        //
+        // Stale tolerance: 24h. Author-clock skew + zip-extraction
+        // mtimes that match the publish date by accident shouldn't
+        // trigger phantom updates. Confidence filter dropped — a
+        // "low" match that picked the right `vps_id` is still useful;
+        // a wrong-vps_id match would simply compare against unrelated
+        // `tableFiles` and rarely flag, which is acceptable.
+        // _vps_updated_at is unused by the new logic but kept in DB
+        // for backwards compat with `vps_link` row shape.
+        let _ = vps_updated_at;
+        if let Some(game) = games.iter().find(|g| g.id == vps_id) {
+            let latest_tf_ts: i64 = game
+                .table_files
+                .iter()
+                .filter_map(|tf| tf.updated_at)
+                .max()
+                .unwrap_or(0);
+            let local_mtime_ms: i64 = std::fs::metadata(&job.vpx_path)
+                .ok()
+                .and_then(|m| m.modified().ok())
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_millis() as i64)
+                .unwrap_or(0);
+            let tolerance_ms = 24 * 3600 * 1000;
+            let outdated = latest_tf_ts > 0
+                && local_mtime_ms > 0
+                && latest_tf_ts > local_mtime_ms + tolerance_ms;
+            db.set_update_available(&job.rel_path, outdated)?;
+            if outdated {
+                update_available_count += 1;
+            }
+        }
+
+        // 4. Media fetch (only if MediaDb available + match present).
         let Some(ref mdb) = media_db else { continue };
         // Fetch the two assets we care about for hover preview —
         // `bg.png` and `audio.mp3`. Other types in vpinmediadb (wheel,
@@ -186,12 +308,23 @@ pub fn run(jobs: Vec<EnrichmentJob>, cancel: Arc<AtomicBool>) -> anyhow::Result<
     }
 
     log::info!(
-        "Catalog enrichment done: matched={} (low={}) media={} unmatched={}",
+        "Catalog enrichment done: matched={} (low={}) media={} unmatched={} updates={}",
         matched_high + matched_low,
         matched_low,
         media_dl,
-        unmatched
+        unmatched,
+        update_available_count
     );
+
+    // Persist the matcher version we just settled the cache against
+    // so the next run skips the full re-match unless we bump the
+    // constant again.
+    if force_full_rematch {
+        if let Err(e) = db.set_config("matcher_version", &MATCHER_VERSION.to_string()) {
+            log::warn!("Failed to persist matcher_version: {e}");
+        }
+    }
+
     Ok(())
 }
 

@@ -28,7 +28,7 @@ launcher_error_title = "Visual Pinball — Hitilafu"
 launcher_vpx_crashed = "Visual Pinball imesimama bila kutarajiwa."
 launcher_loading = "Inazindua Visual Pinball..."
 launcher_missing_title = "\"%{table}\" — hakuna picha"
-launcher_missing_hint_launcher = "Weka media/launcher.png"
+launcher_missing_hint_launcher = "Weka medias/launcher.png"
 launcher_missing_hint_b2s = "au faili la .directb2s"
 launcher_close = "Funga"
 
@@ -357,7 +357,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- faili ya meza (inahitajika)
     ├── Table Name.directb2s          <- backglass B2S (hiari)
-    ├── media/launcher.png            <- ubatilishaji wa kijipicha cha launcher (hiari, .png/.webp/.jpg/.jpeg)
+    ├── medias/launcher.png            <- ubatilishaji wa kijipicha cha launcher (hiari, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- ubatilishaji kwa meza (hiari)
     ├── Table Name.vbs                <- VBS patch / ubatilishaji wa skripti (hiari)
     ├── altsound/<rom>/               <- pakiti ya altsound (hiari)

@@ -28,7 +28,7 @@ launcher_error_title = "Visual Pinball — Ошибка"
 launcher_vpx_crashed = "Visual Pinball завершился неожиданно."
 launcher_loading = "Запуск Visual Pinball..."
 launcher_missing_title = "\"%{table}\" — нет изображения"
-launcher_missing_hint_launcher = "Поместите media/launcher.png"
+launcher_missing_hint_launcher = "Поместите medias/launcher.png"
 launcher_missing_hint_b2s = "или файл .directb2s"
 launcher_close = "Закрыть"
 
@@ -357,7 +357,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- файл стола (обязательно)
     ├── Table Name.directb2s          <- backglass B2S (опционально)
-    ├── media/launcher.png            <- переопределение миниатюры лаунчера (опционально, .png/.webp/.jpg/.jpeg)
+    ├── medias/launcher.png            <- переопределение миниатюры лаунчера (опционально, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- переопределения для стола (опционально)
     ├── Table Name.vbs                <- патч VBS / override скрипта (опционально)
     ├── altsound/<rom>/               <- пакет altsound (опционально)

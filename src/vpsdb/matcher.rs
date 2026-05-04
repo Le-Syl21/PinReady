@@ -12,8 +12,14 @@
 //!      `RomFile.version` for some `Game`. The B2S server is independent
 //!      from VPM so this catches tables that don't use PinMAME but ship
 //!      a B2S anyway.
-//!   4. **Low** — basename fuzzy on the table folder name vs `Game.name`
-//!      (case-insensitive Levenshtein-ish). Cheap last-resort.
+//!   4. **High** — embedded `TableInfo.TableName` from the `.vpx` matches
+//!      a `Game.name` exactly after normalisation (lowercase, alnum only).
+//!      The author-set TableName is far more reliable than a folder name
+//!      that may be localised ("2001 L'Odyssée de l'Espace" → "2001 - A
+//!      Space Odyssey").
+//!   5. **Medium** — TableName substring match (either direction).
+//!   6. **Low** — basename fuzzy on the table folder name vs `Game.name`.
+//!      Cheap last-resort, often catches non-localised cabs.
 //!
 //! The caller fingers a confidence level so the UI can hide low-confidence
 //! suggestions until the user confirms (planned).
@@ -48,8 +54,9 @@ pub struct MatchResult<'a> {
 
 /// Do the match. `rom_name` is the embedded `cGameName` from the VBS
 /// (we already extract it for [`crate::vbs_patches`]). `b2s_game_name`
-/// comes from [`directb2s::read`]. `folder_name` is a fallback for
-/// EM/non-PinMAME tables.
+/// comes from [`directb2s::read`]. `table_name` is the author-set
+/// `TableInfo.TableName` baked into the `.vpx`. `folder_name` is the
+/// last-resort fallback.
 ///
 /// Returns `None` only when every strategy strikes out — in practice
 /// this is rare because most tables hit `High` via ROM name.
@@ -57,11 +64,31 @@ pub fn match_table<'a>(
     games: &'a [Game],
     rom_name: Option<&str>,
     b2s_game_name: Option<&str>,
+    table_name: Option<&str>,
     folder_name: &str,
 ) -> Option<MatchResult<'a>> {
+    // Pre-compute the TableName-exact candidate so the ROM strategies
+    // can cross-check against it. Original/MOD tables routinely embed
+    // a *fake* `cGameName` (lifted from a real PinMAME table they
+    // forked from) — e.g. "Batman '66" carrying `flash_l1`, which then
+    // wins ROM-exact against Williams Flash 1979 in High confidence.
+    // The author-set `TableInfo.TableName` is more reliable; if it
+    // points at a different game, we override the ROM match.
+    let tablename_exact: Option<&Game> = table_name.and_then(|tn| find_by_name_exact(games, tn));
+
     // Strategy 1: exact ROM name.
     if let Some(rom) = rom_name {
         if let Some(g) = find_by_rom_exact(games, rom) {
+            // Cross-check: TableName disagrees with ROM → trust TableName.
+            if let Some(tn_g) = tablename_exact {
+                if tn_g.id != g.id {
+                    return Some(MatchResult {
+                        game: tn_g,
+                        confidence: MatchConfidence::High,
+                        strategy: "tablename_overrides_rom",
+                    });
+                }
+            }
             return Some(MatchResult {
                 game: g,
                 confidence: MatchConfidence::High,
@@ -70,6 +97,15 @@ pub fn match_table<'a>(
         }
         // Strategy 2: rom name minus revision suffix
         if let Some(g) = find_by_rom_fuzzy(games, rom) {
+            if let Some(tn_g) = tablename_exact {
+                if tn_g.id != g.id {
+                    return Some(MatchResult {
+                        game: tn_g,
+                        confidence: MatchConfidence::High,
+                        strategy: "tablename_overrides_rom",
+                    });
+                }
+            }
             return Some(MatchResult {
                 game: g,
                 confidence: MatchConfidence::Medium,
@@ -78,9 +114,20 @@ pub fn match_table<'a>(
         }
     }
 
-    // Strategy 3: B2S declared GameName.
+    // Strategy 3: B2S declared GameName. Same cross-check as ROM —
+    // .directb2s files are cargo-culted between author MODs as often
+    // as cGameName.
     if let Some(b2s) = b2s_game_name {
         if let Some(g) = find_by_rom_exact(games, b2s) {
+            if let Some(tn_g) = tablename_exact {
+                if tn_g.id != g.id {
+                    return Some(MatchResult {
+                        game: tn_g,
+                        confidence: MatchConfidence::High,
+                        strategy: "tablename_overrides_b2s",
+                    });
+                }
+            }
             return Some(MatchResult {
                 game: g,
                 confidence: MatchConfidence::Medium,
@@ -89,7 +136,29 @@ pub fn match_table<'a>(
         }
     }
 
-    // Strategy 4: folder-name fuzzy.
+    // Strategy 4: embedded TableName, exact normalised match. Trust
+    // the author's metadata over folder names (which are often
+    // user-localised: "2001 L'Odyssée de l'Espace" hides the catalog
+    // entry "2001 - A Space Odyssey").
+    if let Some(tn) = table_name {
+        if let Some(g) = find_by_name_exact(games, tn) {
+            return Some(MatchResult {
+                game: g,
+                confidence: MatchConfidence::High,
+                strategy: "tablename_exact",
+            });
+        }
+        // Strategy 5: TableName substring (either direction).
+        if let Some(g) = find_by_name_fuzzy(games, tn) {
+            return Some(MatchResult {
+                game: g,
+                confidence: MatchConfidence::Medium,
+                strategy: "tablename_fuzzy",
+            });
+        }
+    }
+
+    // Strategy 6: folder-name fuzzy.
     if let Some(g) = find_by_name_fuzzy(games, folder_name) {
         return Some(MatchResult {
             game: g,
@@ -108,21 +177,38 @@ pub fn match_table_from_paths<'a>(
     vpx_path: &Path,
     folder_name: &str,
 ) -> Option<MatchResult<'a>> {
-    let rom_name = read_rom_name(vpx_path);
+    let (rom_name, table_name) = read_vpx_meta(vpx_path);
     let b2s_name = vpx_path
         .with_extension("directb2s")
         .canonicalize()
         .ok()
         .and_then(|p| read_b2s_game_name(&p));
-    match_table(games, rom_name.as_deref(), b2s_name.as_deref(), folder_name)
+    match_table(
+        games,
+        rom_name.as_deref(),
+        b2s_name.as_deref(),
+        table_name.as_deref(),
+        folder_name,
+    )
 }
 
-/// Run vpxtool-style romname extraction via the `vpin` crate (already
-/// a PinReady dep).
-fn read_rom_name(vpx_path: &Path) -> Option<String> {
-    let mut vpx = vpin::vpx::open(vpx_path).ok()?;
-    let gamedata = vpx.read_gamedata().ok()?;
-    extract_cgamename(&gamedata.code.string)
+/// Open the `.vpx` once and pull both the romname (from the embedded
+/// VBS `cGameName`) and the `TableInfo.TableName`. Cheap to bundle —
+/// we'd otherwise re-open the OLE compound file twice.
+fn read_vpx_meta(vpx_path: &Path) -> (Option<String>, Option<String>) {
+    let Ok(mut vpx) = vpin::vpx::open(vpx_path) else {
+        return (None, None);
+    };
+    let rom_name = vpx
+        .read_gamedata()
+        .ok()
+        .and_then(|g| extract_cgamename(&g.code.string));
+    let table_name = vpx
+        .read_tableinfo()
+        .ok()
+        .and_then(|info| info.table_name)
+        .filter(|s| !s.trim().is_empty());
+    (rom_name, table_name)
 }
 
 /// Pull the first uncommented `Const cGameName = "..."` from a VBS
@@ -208,6 +294,19 @@ fn find_by_rom_fuzzy<'a>(games: &'a [Game], rom: &str) -> Option<&'a Game> {
     })
 }
 
+/// Exact name match after normalisation (alnum-lowercase). Used with
+/// the embedded `TableInfo.TableName` to skip both fuzzy strategies
+/// when the author's title and the catalog title differ only in
+/// punctuation/casing (e.g. `"2001: A Space Odyssey"` vs
+/// `"2001 - A Space Odyssey"`).
+fn find_by_name_exact<'a>(games: &'a [Game], name: &str) -> Option<&'a Game> {
+    let needle = normalize(name);
+    if needle.len() < 3 {
+        return None;
+    }
+    games.iter().find(|g| normalize(&g.name) == needle)
+}
+
 /// Folder-name fuzzy: lowercase, strip non-alphanumeric, substring
 /// match in either direction. Only fires when nothing else worked, so
 /// false positives just downgrade confidence to `Low`.
@@ -276,7 +375,7 @@ mod tests {
             make_game("g1", "Apollo 13", &["apollo13"]),
             make_game("g2", "Attack from Mars", &["afm_113b", "afm_10"]),
         ];
-        let m = match_table(&games, Some("apollo13"), None, "anything").unwrap();
+        let m = match_table(&games, Some("apollo13"), None, None, "anything").unwrap();
         assert_eq!(m.game.id, "g1");
         assert_eq!(m.confidence, MatchConfidence::High);
     }
@@ -285,7 +384,7 @@ mod tests {
     fn fuzzy_falls_back_to_prefix_underscore() {
         let games = vec![make_game("g1", "Medieval Madness", &["mm_l5", "mm_10"])];
         // mm_109c is a hacked variant; mm_l5 is canonical
-        let m = match_table(&games, Some("mm_109c"), None, "anything").unwrap();
+        let m = match_table(&games, Some("mm_109c"), None, None, "anything").unwrap();
         assert_eq!(m.game.id, "g1");
         assert_eq!(m.confidence, MatchConfidence::Medium);
     }
@@ -293,21 +392,21 @@ mod tests {
     #[test]
     fn b2s_match_is_medium() {
         let games = vec![make_game("g1", "Iron Man", &["im_183ve"])];
-        let m = match_table(&games, None, Some("im_183ve"), "Iron Man").unwrap();
+        let m = match_table(&games, None, Some("im_183ve"), None, "Iron Man").unwrap();
         assert_eq!(m.confidence, MatchConfidence::Medium);
     }
 
     #[test]
     fn folder_fuzzy_is_low_confidence() {
         let games = vec![make_game("g1", "Tron Legacy LE", &[])];
-        let m = match_table(&games, None, None, "Tron Legacy").unwrap();
+        let m = match_table(&games, None, None, None, "Tron Legacy").unwrap();
         assert_eq!(m.confidence, MatchConfidence::Low);
     }
 
     #[test]
     fn no_match_when_nothing_lines_up() {
         let games = vec![make_game("g1", "Apollo 13", &["apollo13"])];
-        assert!(match_table(&games, Some("zzz"), None, "Mystery").is_none());
+        assert!(match_table(&games, Some("zzz"), None, None, "Mystery").is_none());
     }
 
     #[test]

@@ -28,7 +28,7 @@ launcher_error_title = "Visual Pinball — Hata"
 launcher_vpx_crashed = "Visual Pinball beklenmedik şekilde kapandı."
 launcher_loading = "Visual Pinball başlatılıyor..."
 launcher_missing_title = "\"%{table}\" — görüntü yok"
-launcher_missing_hint_launcher = "media/launcher.png yerleştirin"
+launcher_missing_hint_launcher = "medias/launcher.png yerleştirin"
 launcher_missing_hint_b2s = "veya bir .directb2s dosyası"
 launcher_close = "Kapat"
 
@@ -357,7 +357,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- masa dosyası (zorunlu)
     ├── Table Name.directb2s          <- backglass B2S (isteğe bağlı)
-    ├── media/launcher.png            <- launcher küçük resmi geçersiz kılma (isteğe bağlı, .png/.webp/.jpg/.jpeg)
+    ├── medias/launcher.png            <- launcher küçük resmi geçersiz kılma (isteğe bağlı, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- masa başına geçersiz kılma (isteğe bağlı)
     ├── Table Name.vbs                <- VBS patch / script geçersiz kılma (isteğe bağlı)
     ├── altsound/<rom>/               <- altsound paketi (isteğe bağlı)

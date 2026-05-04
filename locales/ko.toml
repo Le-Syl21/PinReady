@@ -28,7 +28,7 @@ launcher_error_title = "Visual Pinball — 오류"
 launcher_vpx_crashed = "Visual Pinball가 예기치 않게 종료되었습니다."
 launcher_loading = "Visual Pinball 실행 중..."
 launcher_missing_title = "\"%{table}\" — 이미지 없음"
-launcher_missing_hint_launcher = "media/launcher.png 을 놓으세요"
+launcher_missing_hint_launcher = "medias/launcher.png 을 놓으세요"
 launcher_missing_hint_b2s = "또는 .directb2s 파일"
 launcher_close = "닫기"
 
@@ -357,7 +357,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- 테이블 파일 (필수)
     ├── Table Name.directb2s          <- 백글라스 B2S (선택)
-    ├── media/launcher.png            <- 런처 썸네일 오버라이드 (선택, .png/.webp/.jpg/.jpeg)
+    ├── medias/launcher.png            <- 런처 썸네일 오버라이드 (선택, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- 테이블별 오버라이드 (선택)
     ├── Table Name.vbs                <- VBS 패치 / 스크립트 오버라이드 (선택)
     ├── altsound/<rom>/               <- altsound 팩 (선택)

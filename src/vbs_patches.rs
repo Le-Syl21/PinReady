@@ -26,17 +26,20 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::io::Read;
 use std::path::Path;
+use std::sync::OnceLock;
 use std::time::Duration;
 
-/// Build a ureq agent with a 30 s global timeout — same rationale as
-/// the helper in `mediadb`: bound the worst-case stall on a slow or
-/// unreachable upstream so the scan worker can either succeed
-/// quickly or fall through to its cached copy.
-fn http_agent() -> ureq::Agent {
-    ureq::Agent::config_builder()
-        .timeout_global(Some(Duration::from_secs(30)))
-        .build()
-        .new_agent()
+/// Process-wide ureq agent — see `mediadb::http_agent` for rationale.
+/// Connection pooling matters even more here because the catalog has
+/// 586 entries to download in the worst case.
+fn http_agent() -> &'static ureq::Agent {
+    static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
+    AGENT.get_or_init(|| {
+        ureq::Agent::config_builder()
+            .timeout_global(Some(Duration::from_secs(30)))
+            .build()
+            .new_agent()
+    })
 }
 
 /// AsciiSet covering everything that is NOT safe inside a URL path

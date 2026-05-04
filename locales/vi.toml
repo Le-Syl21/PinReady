@@ -28,7 +28,7 @@ launcher_error_title = "Visual Pinball — Lỗi"
 launcher_vpx_crashed = "Visual Pinball đã thoát bất ngờ."
 launcher_loading = "Đang khởi chạy Visual Pinball..."
 launcher_missing_title = "\"%{table}\" — không có hình ảnh"
-launcher_missing_hint_launcher = "Thả media/launcher.png"
+launcher_missing_hint_launcher = "Thả medias/launcher.png"
 launcher_missing_hint_b2s = "hoặc một tệp .directb2s"
 launcher_close = "Đóng"
 
@@ -356,7 +356,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- tệp bàn (bắt buộc)
     ├── Table Name.directb2s          <- backglass B2S (tùy chọn)
-    ├── media/launcher.png            <- ghi đè hình thu nhỏ của launcher (tùy chọn, .png/.webp/.jpg/.jpeg)
+    ├── medias/launcher.png            <- ghi đè hình thu nhỏ của launcher (tùy chọn, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- ghi đè theo bàn (tùy chọn)
     ├── Table Name.vbs                <- patch VBS / ghi đè script (tùy chọn)
     ├── altsound/<rom>/               <- gói altsound (tùy chọn)

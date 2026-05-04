@@ -85,6 +85,15 @@ pub enum AudioCommand {
         path: String,
         target: SpeakerTarget,
     },
+    /// Play an arbitrary audio file (mp3/ogg) on the front (backglass)
+    /// stereo pair as a table preview. Replaces any previous preview.
+    /// `volume` is 0.0..=1.0.
+    PreviewStart {
+        path: std::path::PathBuf,
+        volume: f32,
+    },
+    /// Stop the current preview (clears the audio stream).
+    PreviewStop,
     /// Play with hold at source, fade, hold at destination
     /// hold_start_ms: time on 'from' before fading
     /// fade_ms: crossfade duration
@@ -333,6 +342,111 @@ fn decode_to_stereo_pcm(name: &str) -> Option<Vec<i16>> {
     }
 }
 
+/// Decode an arbitrary file path (mp3/ogg) to stereo i16 PCM and resample
+/// to the audio thread's 44100Hz target. Used for table preview audio
+/// (`medias/audio.mp3`). Returns None on probe/decode failure.
+fn decode_file_to_stereo_pcm_44100(path: &std::path::Path) -> Option<Vec<i16>> {
+    use symphonia::core::audio::SampleBuffer;
+    use symphonia::core::codecs::DecoderOptions;
+    use symphonia::core::formats::FormatOptions;
+    use symphonia::core::io::MediaSourceStream;
+    use symphonia::core::meta::MetadataOptions;
+    use symphonia::core::probe::Hint;
+
+    let file = std::fs::File::open(path).ok()?;
+    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+    let mut hint = Hint::new();
+    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+        hint.with_extension(ext);
+    }
+
+    let probed = symphonia::default::get_probe()
+        .format(
+            &hint,
+            mss,
+            &FormatOptions::default(),
+            &MetadataOptions::default(),
+        )
+        .ok()?;
+    let mut format = probed.format;
+    let track = format.default_track()?.clone();
+    let src_rate = track.codec_params.sample_rate.unwrap_or(44100);
+    let channels = track
+        .codec_params
+        .channels
+        .map(|c| c.count())
+        .unwrap_or(2)
+        .max(1);
+    let mut decoder = symphonia::default::get_codecs()
+        .make(&track.codec_params, &DecoderOptions::default())
+        .ok()?;
+
+    let mut interleaved: Vec<i16> = Vec::new();
+    while let Ok(packet) = format.next_packet() {
+        if packet.track_id() != track.id {
+            continue;
+        }
+        let decoded = match decoder.decode(&packet) {
+            Ok(d) => d,
+            Err(_) => continue,
+        };
+        let spec = *decoded.spec();
+        let mut buf = SampleBuffer::<i16>::new(decoded.capacity() as u64, spec);
+        buf.copy_interleaved_ref(decoded);
+        interleaved.extend_from_slice(buf.samples());
+    }
+    if interleaved.is_empty() {
+        return None;
+    }
+
+    // Downmix / upmix to stereo.
+    let stereo: Vec<i16> = if channels == 1 {
+        let mut out = Vec::with_capacity(interleaved.len() * 2);
+        for s in &interleaved {
+            out.push(*s);
+            out.push(*s);
+        }
+        out
+    } else if channels == 2 {
+        interleaved
+    } else {
+        let frames = interleaved.len() / channels;
+        let mut out = Vec::with_capacity(frames * 2);
+        for f in 0..frames {
+            let base = f * channels;
+            out.push(interleaved[base]);
+            out.push(interleaved[base + 1]);
+        }
+        out
+    };
+
+    // Linear-interpolation resample to 44100Hz if needed. Pitch-quality
+    // is fine for short table jingles; avoids touching SDL stream format.
+    if src_rate == 44100 {
+        return Some(stereo);
+    }
+    let in_frames = stereo.len() / 2;
+    let out_frames = (in_frames as u64 * 44100 / src_rate as u64) as usize;
+    if out_frames == 0 {
+        return None;
+    }
+    let mut out = Vec::with_capacity(out_frames * 2);
+    let ratio = src_rate as f64 / 44100.0;
+    for i in 0..out_frames {
+        let pos = i as f64 * ratio;
+        let i0 = pos.floor() as usize;
+        let i1 = (i0 + 1).min(in_frames - 1);
+        let t = (pos - i0 as f64) as f32;
+        let l0 = stereo[i0 * 2] as f32;
+        let r0 = stereo[i0 * 2 + 1] as f32;
+        let l1 = stereo[i1 * 2] as f32;
+        let r1 = stereo[i1 * 2 + 1] as f32;
+        out.push((l0 + (l1 - l0) * t) as i16);
+        out.push((r0 + (r1 - r0) * t) as i16);
+    }
+    Some(out)
+}
+
 /// Route mono PCM to 8-channel (7.1) output on specific speakers
 /// Returns 8-channel interleaved i16 data
 pub(crate) fn mono_to_71(mono: &[i16], target: SpeakerTarget) -> Vec<i16> {
@@ -567,6 +681,31 @@ pub fn spawn_audio_thread() -> Sender<AudioCommand> {
                     Ok(AudioCommand::StopMusic) | Ok(AudioCommand::StopAll) => {
                         SDL_ClearAudioStream(stream);
                         music_pcm = None;
+                    }
+                    Ok(AudioCommand::PreviewStart { path, volume }) => {
+                        log::info!("Audio: PreviewStart {} vol={:.2}", path.display(), volume);
+                        SDL_ClearAudioStream(stream);
+                        music_pcm = None;
+                        if let Some(stereo) = decode_file_to_stereo_pcm_44100(&path) {
+                            let v = volume.clamp(0.0, 1.0);
+                            let scaled: Vec<i16> = if (v - 1.0).abs() > 0.01 {
+                                stereo.iter().map(|s| (*s as f32 * v) as i16).collect()
+                            } else {
+                                stereo
+                            };
+                            let data = stereo_to_71_front(&scaled, 0.0);
+                            SDL_PutAudioStreamData(
+                                stream,
+                                data.as_ptr() as *const _,
+                                (data.len() * 2) as i32,
+                            );
+                            SDL_FlushAudioStream(stream);
+                        } else {
+                            log::warn!("Audio: PreviewStart decode failed for {}", path.display());
+                        }
+                    }
+                    Ok(AudioCommand::PreviewStop) => {
+                        SDL_ClearAudioStream(stream);
                     }
                     Ok(AudioCommand::Quit) | Err(_) => break,
                 }

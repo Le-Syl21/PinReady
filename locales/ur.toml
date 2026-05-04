@@ -28,7 +28,7 @@ launcher_error_title = "Visual Pinball — خرابی"
 launcher_vpx_crashed = "Visual Pinball غیر متوقع طور پر بند ہو گیا۔"
 launcher_loading = "Visual Pinball شروع ہو رہا ہے..."
 launcher_missing_title = "\"%{table}\" — کوئی تصویر نہیں"
-launcher_missing_hint_launcher = "media/launcher.png رکھیں"
+launcher_missing_hint_launcher = "medias/launcher.png رکھیں"
 launcher_missing_hint_b2s = "یا ایک .directb2s فائل"
 launcher_close = "بند کریں"
 
@@ -357,7 +357,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- ٹیبل فائل (ضروری)
     ├── Table Name.directb2s          <- backglass B2S (اختیاری)
-    ├── media/launcher.png            <- launcher تھمب نیل اوورائیڈ (اختیاری، .png/.webp/.jpg/.jpeg)
+    ├── medias/launcher.png            <- launcher تھمب نیل اوورائیڈ (اختیاری، .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- فی ٹیبل اوورائیڈ (اختیاری)
     ├── Table Name.vbs                <- VBS patch / اسکرپٹ اوورائیڈ (اختیاری)
     ├── altsound/<rom>/               <- altsound پیک (اختیاری)

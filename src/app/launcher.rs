@@ -201,6 +201,8 @@ impl App {
                 path: vpx_path.clone(),
                 name,
                 bg_bytes: None,
+                update_available: false,
+                vps_id: None,
             });
         }
         self.tables.sort_by_key(|a| a.name.to_lowercase());
@@ -211,6 +213,8 @@ impl App {
                 Some(i) => i,
                 None => continue,
             };
+            self.tables[idx].update_available = self.db.get_update_available(&rel_path);
+            self.tables[idx].vps_id = self.db.get_vps_link(&rel_path).map(|l| l.0);
             match self.db.get_backglass(&rel_path) {
                 Some((bytes, cached_mtime)) if cached_mtime >= source_mtime => {
                     self.tables[idx].bg_bytes =
@@ -434,6 +438,13 @@ impl App {
         if self.vpx_running.load(Ordering::Relaxed) {
             return;
         }
+        if self.preview_playing {
+            if let Some(tx) = &self.audio_cmd_tx {
+                let _ = tx.send(AudioCommand::PreviewStop);
+            }
+            self.preview_playing = false;
+        }
+        self.preview_due_at = None;
         let resolved = updater::resolve_vpx_exe(std::path::Path::new(&self.vpx_exe_path));
         if self.vpx_exe_path.is_empty() || !resolved.is_file() {
             log::error!("Visual Pinball executable not found: {}", self.vpx_exe_path);
@@ -597,6 +608,66 @@ impl App {
             }
             running.store(false, Ordering::Relaxed);
         });
+    }
+
+    /// Drive the per-table audio preview: when `selected_table` changes
+    /// we stop any current preview, schedule a debounced PreviewStart, and
+    /// fire it once the deadline passes. VPX-running suspends previews so
+    /// the table soundtrack doesn't double up with our jingle.
+    pub(super) fn process_preview_audio(&mut self, ctx: &egui::Context) {
+        if self.tables.is_empty() {
+            return;
+        }
+        let vpx_running = self.vpx_running.load(Ordering::Relaxed);
+        if vpx_running {
+            if self.preview_playing {
+                if let Some(tx) = &self.audio_cmd_tx {
+                    let _ = tx.send(AudioCommand::PreviewStop);
+                }
+                self.preview_playing = false;
+            }
+            self.preview_last_idx = None;
+            self.preview_due_at = None;
+            return;
+        }
+
+        let cur = self.selected_table;
+        if Some(cur) != self.preview_last_idx {
+            // Selection changed — stop current, debounce next start.
+            if self.preview_playing {
+                if let Some(tx) = &self.audio_cmd_tx {
+                    let _ = tx.send(AudioCommand::PreviewStop);
+                }
+                self.preview_playing = false;
+            }
+            self.preview_last_idx = Some(cur);
+            self.preview_due_at =
+                Some(std::time::Instant::now() + std::time::Duration::from_millis(700));
+        }
+
+        if let Some(due) = self.preview_due_at {
+            if std::time::Instant::now() >= due {
+                self.preview_due_at = None;
+                if let Some(table) = self.tables.get(cur) {
+                    if let Some(table_dir) = table.path.parent() {
+                        let audio_path = table_dir.join("medias").join("audio.mp3");
+                        if audio_path.is_file() {
+                            if let Some(tx) = &self.audio_cmd_tx {
+                                let volume =
+                                    (self.audio.music_volume as f32 / 100.0).clamp(0.0, 1.0);
+                                let _ = tx.send(AudioCommand::PreviewStart {
+                                    path: audio_path,
+                                    volume,
+                                });
+                                self.preview_playing = true;
+                            }
+                        }
+                    }
+                }
+            } else {
+                ctx.request_repaint_after(due - std::time::Instant::now());
+            }
+        }
     }
 
     pub(super) fn process_bg_extraction(&mut self, ctx: &egui::Context) {

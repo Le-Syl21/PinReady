@@ -8,6 +8,7 @@ impl App {
 
         self.process_bg_extraction(ui.ctx());
         self.process_vbs_extraction();
+        self.process_preview_audio(ui.ctx());
         self.preload_images_once(ui.ctx());
         self.handle_launcher_joystick(ui);
         self.process_vpx_status(ui.ctx());
@@ -106,11 +107,16 @@ impl App {
             egui::vec2(hrow_w, 0.0),
             egui::Layout::left_to_right(egui::Align::Center),
             |ui| {
-                ui.label(
-                    egui::RichText::new(format!("PinReady v{}", env!("CARGO_PKG_VERSION")))
-                        .size(h_size)
-                        .strong(),
-                );
+                // Cabinet/rotated viewports are wider-but-narrower in
+                // logical pixels; the brand name eats space the rest
+                // of the header row needs. Drop the "PinReady" prefix
+                // there and keep just "v0.9.5".
+                let version_label = if self.rotation.is_none() {
+                    format!("PinReady v{}", env!("CARGO_PKG_VERSION"))
+                } else {
+                    format!("v{}", env!("CARGO_PKG_VERSION"))
+                };
+                ui.label(egui::RichText::new(version_label).size(h_size).strong());
                 ui.add_space(16.0);
                 ui.label(egui::RichText::new("🔍").size(h_size));
                 // Search bar font is h_size - 2 so the box sits slightly smaller
@@ -239,34 +245,18 @@ impl App {
                     }
 
                     // Rebuild button: single click, flushes backglass +
-                    // vbs_patches caches and re-scans from scratch. No
-                    // incremental mode — the mtime-invalidation inside
-                    // `scan_tables` already handles "new tables" and
-                    // "source file changed" cases transparently on every
-                    // scan. The button flashes briefly after click so the
-                    // user has visual confirmation something happened.
-                    let btn_color = self.rescan_flash.and_then(|(flash_time, _)| {
-                        let age = flash_time.elapsed().as_secs_f32();
-                        let alpha = ((1.0 - age / 1.0) * 255.0).clamp(0.0, 255.0) as u8;
-                        if alpha > 0 {
-                            ui.ctx().request_repaint();
-                            Some(egui::Color32::from_rgba_unmultiplied(255, 80, 80, alpha))
-                        } else {
-                            self.rescan_flash = None;
-                            None
-                        }
-                    });
+                    // vbs_patches caches and re-scans from scratch. The
+                    // mtime-invalidation inside `scan_tables` already
+                    // handles "new tables" and "source file changed"
+                    // cases transparently on every scan.
                     let label = t!("launcher_rebuild").to_string();
-                    let text = if let Some(color) = btn_color {
-                        egui::RichText::new(&label).color(color).size(h_size)
-                    } else {
-                        egui::RichText::new(&label).size(h_size)
-                    };
-                    if ui.button(text).clicked() {
+                    if ui
+                        .button(egui::RichText::new(&label).size(h_size))
+                        .clicked()
+                    {
                         log::info!(
                             "Rebuild: flushing backglass + vbs_patches caches, full re-scan"
                         );
-                        self.rescan_flash = Some((std::time::Instant::now(), true));
                         if let Err(e) = self.db.clear_backglass() {
                             log::error!("clear_backglass failed: {e}");
                         }
@@ -276,6 +266,20 @@ impl App {
                         self.tables.iter_mut().for_each(|t| t.bg_bytes = None);
                         self.images_preloaded = false;
                         self.scan_tables();
+                    }
+
+                    // Update counter — surfaces tables flagged
+                    // `update_available` by the catalog worker. Sits to
+                    // the left of Rebuild (added after it in this
+                    // right-to-left layout). Click is currently a no-op;
+                    // the per-card badge is the primary affordance.
+                    let updates = self.tables.iter().filter(|t| t.update_available).count();
+                    if updates > 0 {
+                        ui.label(
+                            egui::RichText::new(format!("↑ {updates}"))
+                                .size(h_size)
+                                .color(egui::Color32::from_rgb(80, 170, 240)),
+                        );
                     }
                 });
             },
@@ -563,6 +567,61 @@ impl App {
                                 egui::Color32::WHITE
                             },
                         );
+
+                        // Update-available badge: small "↑" disk in the
+                        // top-right corner of the image area. Set by the
+                        // catalog worker when the live VPSDB Game.updated_at
+                        // has moved past the value recorded at link time.
+                        // Click → open the VPS catalog page for this game
+                        // in the user's browser; allocated AFTER the card
+                        // so egui's hit-testing routes the click here
+                        // instead of triggering the card's launch handler.
+                        if table.update_available {
+                            let badge_radius = 14.0;
+                            let badge_center = egui::pos2(
+                                img_area.max.x - badge_radius - 4.0,
+                                img_area.min.y + badge_radius + 4.0,
+                            );
+                            let badge_rect = egui::Rect::from_center_size(
+                                badge_center,
+                                egui::vec2(badge_radius * 2.0, badge_radius * 2.0),
+                            );
+                            let badge_resp = ui.interact(
+                                badge_rect,
+                                ui.id().with(("update_badge", idx)),
+                                egui::Sense::click(),
+                            );
+                            let bg_color = if badge_resp.hovered() {
+                                egui::Color32::from_rgb(70, 170, 240)
+                            } else {
+                                egui::Color32::from_rgb(40, 140, 220)
+                            };
+                            painter.circle_filled(badge_center, badge_radius, bg_color);
+                            painter.circle_stroke(
+                                badge_center,
+                                badge_radius,
+                                egui::Stroke::new(1.5, egui::Color32::from_rgb(20, 80, 140)),
+                            );
+                            painter.text(
+                                badge_center,
+                                egui::Align2::CENTER_CENTER,
+                                "↑",
+                                egui::FontId::new(20.0, egui::FontFamily::Proportional),
+                                egui::Color32::WHITE,
+                            );
+                            if badge_resp.hovered() {
+                                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                            }
+                            if badge_resp.clicked() {
+                                if let Some(ref vid) = table.vps_id {
+                                    let url = format!(
+                                        "https://virtualpinballspreadsheet.github.io/games?game={vid}"
+                                    );
+                                    log::info!("Opening VPS page: {url}");
+                                    ui.ctx().open_url(egui::OpenUrl::new_tab(url));
+                                }
+                            }
+                        }
                     }
                 });
                 ui.add_space(4.0);

@@ -28,7 +28,7 @@ launcher_error_title = "Visual Pinball — Chyba"
 launcher_vpx_crashed = "Visual Pinball se neočekávaně ukončil."
 launcher_loading = "Spouštění Visual Pinball..."
 launcher_missing_title = "\"%{table}\" — bez obrázku"
-launcher_missing_hint_launcher = "Vložte media/launcher.png"
+launcher_missing_hint_launcher = "Vložte medias/launcher.png"
 launcher_missing_hint_b2s = "nebo soubor .directb2s"
 launcher_close = "Zavřít"
 
@@ -357,7 +357,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- soubor stolu (povinný)
     ├── Table Name.directb2s          <- backglass B2S (volitelný)
-    ├── media/launcher.png            <- přepis miniatury launcheru (volitelné, .png/.webp/.jpg/.jpeg)
+    ├── medias/launcher.png            <- přepis miniatury launcheru (volitelné, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- přepisy pro stůl (volitelné)
     ├── Table Name.vbs                <- patch VBS / přepis skriptu (volitelné)
     ├── altsound/<rom>/               <- balíček altsound (volitelný)

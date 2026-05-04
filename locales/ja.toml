@@ -28,7 +28,7 @@ launcher_error_title = "Visual Pinball — エラー"
 launcher_vpx_crashed = "Visual Pinball が予期せず終了しました。"
 launcher_loading = "Visual Pinball を起動中..."
 launcher_missing_title = "\"%{table}\" — 画像なし"
-launcher_missing_hint_launcher = "media/launcher.png を配置してください"
+launcher_missing_hint_launcher = "medias/launcher.png を配置してください"
 launcher_missing_hint_b2s = "または .directb2s ファイル"
 launcher_close = "閉じる"
 
@@ -357,7 +357,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- テーブルファイル（必須）
     ├── Table Name.directb2s          <- バックグラス B2S（オプション）
-    ├── media/launcher.png            <- ランチャーのサムネイル上書き（オプション、.png/.webp/.jpg/.jpeg）
+    ├── medias/launcher.png            <- ランチャーのサムネイル上書き（オプション、.png/.webp/.jpg/.jpeg）
     ├── Table Name.ini                <- テーブル別オーバーライド（オプション）
     ├── Table Name.vbs                <- VBS パッチ / スクリプトオーバーライド（オプション）
     ├── altsound/<rom>/               <- altsound パック（オプション）

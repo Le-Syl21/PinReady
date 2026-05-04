@@ -95,6 +95,42 @@ impl Database {
                 )
                 .context("Failed to add cached_at_mtime column")?;
         }
+
+        // v3 → v4: add `update_available` to vps_link. Set by the catalog
+        // worker when the live `Game.updated_at` has moved past the value
+        // we stored at link time → surfaced in the launcher as a "↑"
+        // badge. Existing rows get 0 (no signal) until the next worker
+        // run reclassifies them.
+        let vps_link_exists: bool = self
+            .conn
+            .query_row(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='vps_link'",
+                [],
+                |row| row.get::<_, i32>(0),
+            )
+            .map(|_| true)
+            .unwrap_or(false);
+        if vps_link_exists {
+            let has_update_col: bool = self
+                .conn
+                .query_row(
+                    "SELECT 1 FROM pragma_table_info('vps_link')
+                     WHERE name = 'update_available' LIMIT 1",
+                    [],
+                    |row| row.get::<_, i32>(0),
+                )
+                .map(|_| true)
+                .unwrap_or(false);
+            if !has_update_col {
+                log::info!("Adding update_available column (schema upgrade to v4)");
+                self.conn
+                    .execute(
+                        "ALTER TABLE vps_link ADD COLUMN update_available INTEGER NOT NULL DEFAULT 0",
+                        [],
+                    )
+                    .context("Failed to add update_available column")?;
+            }
+        }
         Ok(())
     }
 
@@ -182,16 +218,17 @@ impl Database {
             -- catalog publishes a fresher copy. Per-rel_path so moving
             -- a table folder doesn't lose the link.
             CREATE TABLE IF NOT EXISTS vps_link (
-                rel_path        TEXT    PRIMARY KEY,
-                vps_id          TEXT    NOT NULL,
-                vps_table_id    TEXT,
-                confidence      TEXT    NOT NULL,
-                strategy        TEXT    NOT NULL,
-                vps_updated_at  INTEGER NOT NULL DEFAULT 0,
-                media_bg_md5    TEXT,
-                media_audio_md5 TEXT,
-                media_wheel_md5 TEXT,
-                last_synced_at  INTEGER NOT NULL DEFAULT 0
+                rel_path         TEXT    PRIMARY KEY,
+                vps_id           TEXT    NOT NULL,
+                vps_table_id     TEXT,
+                confidence       TEXT    NOT NULL,
+                strategy         TEXT    NOT NULL,
+                vps_updated_at   INTEGER NOT NULL DEFAULT 0,
+                media_bg_md5     TEXT,
+                media_audio_md5  TEXT,
+                media_wheel_md5  TEXT,
+                last_synced_at   INTEGER NOT NULL DEFAULT 0,
+                update_available INTEGER NOT NULL DEFAULT 0
             );",
             )
             .context("Failed to initialize database schema")?;
@@ -233,6 +270,18 @@ impl Database {
 
     /// Wipe every cached backglass. Called by the long-press rescan so the
     /// next scan re-extracts all images from scratch.
+    /// Drop the cached backglass entry for one rel_path. Used by the
+    /// catalog worker after a re-match flips `vps_id` so the next scan
+    /// re-extracts from the freshly-downloaded `medias/bg.png` instead
+    /// of serving the cached image of the previously-matched (wrong)
+    /// game.
+    pub fn delete_backglass(&self, rel_path: &str) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM backglass WHERE rel_path = ?1", [rel_path])
+            .context("Failed to delete backglass row")?;
+        Ok(())
+    }
+
     pub fn clear_backglass(&self) -> Result<()> {
         self.conn
             .execute("DELETE FROM backglass", [])
@@ -523,6 +572,51 @@ impl Database {
             )
             .context("Failed to upsert vps_link")?;
         Ok(())
+    }
+
+    /// Clear the cached `media_*_md5` columns on a vps_link row.
+    /// Called after a re-match flips `vps_id` so the next media-fetch
+    /// pass treats every asset as never-downloaded and overwrites the
+    /// stale `medias/bg.png` / `medias/audio.mp3` files inherited
+    /// from the wrong game.
+    pub fn clear_link_media_md5s(&self, rel_path: &str) -> Result<()> {
+        self.conn
+            .execute(
+                "UPDATE vps_link
+                 SET media_bg_md5    = NULL,
+                     media_audio_md5 = NULL,
+                     media_wheel_md5 = NULL
+                 WHERE rel_path = ?1",
+                [rel_path],
+            )
+            .context("Failed to clear link media md5s")?;
+        Ok(())
+    }
+
+    /// Update only the `update_available` flag on an existing vps_link
+    /// row. No-op if the row doesn't exist (the catalog worker only
+    /// sets this after a successful match).
+    pub fn set_update_available(&self, rel_path: &str, available: bool) -> Result<()> {
+        self.conn
+            .execute(
+                "UPDATE vps_link SET update_available = ?2 WHERE rel_path = ?1",
+                rusqlite::params![rel_path, if available { 1 } else { 0 }],
+            )
+            .context("Failed to update update_available")?;
+        Ok(())
+    }
+
+    /// Read the `update_available` flag for one rel_path. Returns `false`
+    /// if no link exists or the column wasn't populated yet.
+    pub fn get_update_available(&self, rel_path: &str) -> bool {
+        self.conn
+            .query_row(
+                "SELECT update_available FROM vps_link WHERE rel_path = ?1",
+                [rel_path],
+                |row| row.get::<_, i64>(0),
+            )
+            .map(|v| v != 0)
+            .unwrap_or(false)
     }
 
     /// Get the tables root directory.

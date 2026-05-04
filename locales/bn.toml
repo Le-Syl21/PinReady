@@ -28,7 +28,7 @@ launcher_error_title = "Visual Pinball — ত্রুটি"
 launcher_vpx_crashed = "Visual Pinball অপ্রত্যাশিতভাবে বন্ধ হয়ে গেছে।"
 launcher_loading = "Visual Pinball চালু হচ্ছে..."
 launcher_missing_title = "\"%{table}\" — কোনো ছবি নেই"
-launcher_missing_hint_launcher = "media/launcher.png রাখুন"
+launcher_missing_hint_launcher = "medias/launcher.png রাখুন"
 launcher_missing_hint_b2s = "অথবা একটি .directb2s ফাইল"
 launcher_close = "বন্ধ"
 
@@ -357,7 +357,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- টেবিল ফাইল (আবশ্যক)
     ├── Table Name.directb2s          <- backglass B2S (ঐচ্ছিক)
-    ├── media/launcher.png            <- launcher থাম্বনেইল ওভাররাইড (ঐচ্ছিক, .png/.webp/.jpg/.jpeg)
+    ├── medias/launcher.png            <- launcher থাম্বনেইল ওভাররাইড (ঐচ্ছিক, .png/.webp/.jpg/.jpeg)
     ├── Table Name.ini                <- টেবিল-ভিত্তিক ওভাররাইড (ঐচ্ছিক)
     ├── Table Name.vbs                <- VBS patch / স্ক্রিপ্ট ওভাররাইড (ঐচ্ছিক)
     ├── altsound/<rom>/               <- altsound প্যাক (ঐচ্ছিক)
