@@ -221,22 +221,77 @@ impl App {
         }
         log::info!("Scanned {} tables in {}", self.tables.len(), dir);
 
-        // Schedule extraction for tables with no valid cached bg. Each
-        // job tries sources in priority order:
-        //   1. <table_dir>/medias/launcher.(png|webp|jpg|jpeg) — user override
-        //   2. <table_dir>/medias/bg.png — vpinmediadb cache (catalog enrichment)
-        //   3. <table_dir>/<base>.directb2s
-        //   4. <table_dir>/<base>.vpx internal images (filtered "backglass*")
+        // Build the catalog enrichment jobs upfront on the UI thread
+        // so the worker thread doesn't need to borrow `self`.
+        let catalog_jobs: Vec<super::catalog_worker::EnrichmentJob> =
+            if self.db.catalog_enrichment_enabled() {
+                self.tables
+                    .iter()
+                    .map(|t| {
+                        let rel_path = t
+                            .path
+                            .strip_prefix(dir_path)
+                            .map(|p| p.to_string_lossy().into_owned())
+                            .unwrap_or_else(|_| t.path.to_string_lossy().into_owned());
+                        let table_dir = t
+                            .path
+                            .parent()
+                            .map(|p| p.to_path_buf())
+                            .unwrap_or_else(|| dir_path.to_path_buf());
+                        let folder_name = table_dir
+                            .file_name()
+                            .map(|n| n.to_string_lossy().into_owned())
+                            .unwrap_or_default();
+                        super::catalog_worker::EnrichmentJob {
+                            rel_path,
+                            table_dir,
+                            vpx_path: t.path.clone(),
+                            folder_name,
+                        }
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            };
+
+        // Cancel any prior catalog run so the new chained worker is the
+        // only one writing to `medias/`.
+        if let Some(prev) = self.catalog_cancel_token.take() {
+            prev.store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+        let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        self.catalog_cancel_token = Some(cancel.clone());
+
+        // Single chained worker:
+        //   Phase 1 — Catalog enrichment (vpsdb match + vpinmediadb
+        //             download of `medias/bg.png` and `medias/audio.mp3`)
+        //             runs to completion FIRST so phase 2 sees the
+        //             freshly-downloaded files on disk.
+        //   Phase 2 — Backglass extraction. For each table without a
+        //             valid cached bg, walk the priority chain:
+        //               1. `medias/launcher.(png|webp|jpg|jpeg)` — user override
+        //               2. `medias/bg.png`                       — vpinmediadb cache
+        //               3. `<base>.directb2s`                    — embedded backglass
+        //               4. `<base>.vpx` internal images          — last resort
+        //             Each step short-circuits via `Option::or_else`.
         let (tx, rx) = crossbeam_channel::unbounded();
         let tables_root = dir_path.to_path_buf();
         let gen = self.scan_generation;
-        if !jobs.is_empty() {
+        let bg_jobs = jobs;
+
+        if !bg_jobs.is_empty() || !catalog_jobs.is_empty() {
             log::info!(
-                "Extracting {} backglass images in background (gen={gen}, medias/launcher.* → medias/bg.png → .directb2s → .vpx)...",
-                jobs.len()
+                "Rescan worker (gen={gen}): catalog enrichment ({} tables) → backglass extraction ({} tables, medias/launcher.* → medias/bg.png → .directb2s → .vpx)",
+                catalog_jobs.len(),
+                bg_jobs.len()
             );
             std::thread::spawn(move || {
-                for (idx, table_dir, vpx_path, source_mtime) in jobs {
+                if !catalog_jobs.is_empty() {
+                    if let Err(e) = super::catalog_worker::run(catalog_jobs, cancel) {
+                        log::error!("Catalog enrichment worker failed: {e}");
+                    }
+                }
+                for (idx, table_dir, vpx_path, source_mtime) in bg_jobs {
                     let bytes = crate::assets::extract_backglass_from_launcher_override(&table_dir)
                         .or_else(|| crate::assets::extract_backglass_from_vpinmediadb(&table_dir))
                         .or_else(|| {
@@ -256,65 +311,14 @@ impl App {
                         let _ = tx.send((gen, idx, rel_path, bytes, source_mtime));
                     }
                 }
-                log::info!("Background backglass extraction complete (gen={gen})");
+                log::info!("Rescan worker complete (gen={gen})");
             });
         }
         self.bg_rx = Some(rx);
 
-        // VBS patch pipeline. Runs independently of the backglass
-        // thread: separate mtime tracking (sidecar + .vpx only, no
-        // media/launcher.*), separate DB table, separate worker.
+        // VBS patch pipeline runs independently — separate mtime
+        // tracking (sidecar + .vpx only), separate DB table.
         self.scan_vbs_patches(dir_path);
-
-        // Catalog enrichment (VPSDB + VPinMediaDB). On by default —
-        // first sync downloads ~7 MB of JSON plus per-table media.
-        // Runs in its own thread so a slow GitHub raw-CDN response
-        // doesn't block the launcher.
-        if self.db.catalog_enrichment_enabled() {
-            self.spawn_catalog_enrichment(dir_path);
-        }
-    }
-
-    /// Build the per-table job list and hand it to the worker thread.
-    /// We snapshot the data the worker needs upfront (rel_path,
-    /// table_dir, vpx_path, folder_name) so the thread doesn't have
-    /// to borrow `App` or share locks with the UI.
-    ///
-    /// Cancel-and-replace semantics: the previous worker's cancel
-    /// token (if any) is flipped to `true`, signalling that worker
-    /// to bail out at its next loop iteration. A fresh token is then
-    /// installed for the new worker, so the latest scan always wins.
-    fn spawn_catalog_enrichment(&mut self, dir_path: &std::path::Path) {
-        // Cancel the previous run, if any.
-        if let Some(prev) = self.catalog_cancel_token.take() {
-            prev.store(true, std::sync::atomic::Ordering::SeqCst);
-        }
-        let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-        self.catalog_cancel_token = Some(cancel.clone());
-        let mut jobs = Vec::with_capacity(self.tables.len());
-        for t in &self.tables {
-            let rel_path = t
-                .path
-                .strip_prefix(dir_path)
-                .map(|p| p.to_string_lossy().into_owned())
-                .unwrap_or_else(|_| t.path.to_string_lossy().into_owned());
-            let table_dir = t
-                .path
-                .parent()
-                .map(|p| p.to_path_buf())
-                .unwrap_or_else(|| dir_path.to_path_buf());
-            let folder_name = table_dir
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            jobs.push(super::catalog_worker::EnrichmentJob {
-                rel_path,
-                table_dir,
-                vpx_path: t.path.clone(),
-                folder_name,
-            });
-        }
-        super::catalog_worker::spawn(jobs, cancel);
     }
 
     /// Classify each table's VBS state and apply patches from the

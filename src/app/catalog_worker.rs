@@ -42,18 +42,12 @@ pub struct EnrichmentJob {
 /// checks it between table iterations and bails out gracefully —
 /// this avoids 4× concurrent workers spamming the same DLs when the
 /// user clicks Rebuild a few times in a row.
-pub fn spawn(jobs: Vec<EnrichmentJob>, cancel: Arc<AtomicBool>) {
-    if jobs.is_empty() {
-        return;
-    }
-    std::thread::spawn(move || {
-        if let Err(e) = run(jobs, cancel) {
-            log::error!("Catalog enrichment worker failed: {e}");
-        }
-    });
-}
-
-fn run(jobs: Vec<EnrichmentJob>, cancel: Arc<AtomicBool>) -> anyhow::Result<()> {
+/// Run the enrichment synchronously on the calling thread. Called from
+/// the unified rescan worker (`launcher::scan_tables`) so the backglass
+/// extractor can rely on `medias/bg.png` being on disk before it walks
+/// the priority chain. Returns when every job has been processed (or
+/// the cancel flag was tripped by a fresh rescan).
+pub fn run(jobs: Vec<EnrichmentJob>, cancel: Arc<AtomicBool>) -> anyhow::Result<()> {
     let db = Database::open(None)?;
     let mirror = db.mirror_base_url();
 
