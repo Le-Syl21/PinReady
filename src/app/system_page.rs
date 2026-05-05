@@ -21,6 +21,34 @@ impl App {
         );
         ui.label(egui::RichText::new(t!("desktop_integration_hint")).weak());
 
+        // ---- Self-hosted mirror (VBS catalog + VPin media DB). Empty
+        // = direct GitHub fetch (the default). When set, all index URLs
+        // and per-asset URLs route through the mirror; the server is
+        // responsible for rewriting URLs inside the manifests so they
+        // point back at itself (cf. db.rs::mirror_base_url docs).
+        ui.add_space(16.0);
+        ui.separator();
+        ui.add_space(8.0);
+        ui.label(egui::RichText::new(t!("system_mirror_label")).strong());
+        ui.label(egui::RichText::new(t!("system_mirror_hint")).weak());
+        ui.add_space(4.0);
+        ui.horizontal(|ui| {
+            let resp = ui.add(
+                egui::TextEdit::singleline(&mut self.mirror_base_url)
+                    .hint_text("https://pinready.syl21.org")
+                    .desired_width(420.0),
+            );
+            if resp.changed() {
+                if let Err(e) = self.db.set_mirror_base_url(&self.mirror_base_url) {
+                    log::error!("Failed to persist mirror_base_url: {e}");
+                }
+            }
+            if ui.button(t!("system_mirror_clear")).clicked() {
+                self.mirror_base_url.clear();
+                let _ = self.db.set_mirror_base_url("");
+            }
+        });
+
         // ---- Credits — last wizard page is the natural spot for "thanks
         // to" since it's the screen the user sees just before Finish.
         // Names sorted alphabetically (case-insensitive).

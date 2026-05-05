@@ -470,3 +470,13 @@ merge_apply_disabled_tooltip = "Zuerst eine Vorschau (Dry Run) ausführen; nur v
 
 system_credits_title = "Danke"
 system_credits_intro = "PinReady baut auf der Arbeit dieser Mitwirkenden am erweiterten Visual-Pinball-Ökosystem auf:"
+
+system_detected = "Erkanntes System"
+
+inputs_auto_map = "Alle Eingaben automatisch zuweisen"
+inputs_auto_map_running = "Auto-Zuweisung läuft — Escape überspringt, Abbrechen stoppt."
+inputs_auto_map_cancel = "Auto-Zuweisung abbrechen"
+
+system_mirror_label = "Selbst gehostetes Mirror (optional)"
+system_mirror_hint = "Leitet den VBS-Katalog und die VPin-Media-DB über deinen eigenen Server statt direkt von GitHub. Leer lassen um direkt von GitHub zu laden. Beispiel: https://pinready.syl21.org"
+system_mirror_clear = "Löschen"

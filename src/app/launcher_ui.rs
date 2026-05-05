@@ -327,10 +327,19 @@ impl App {
                     );
                     ui.add_space(8.0);
                     if let Some(ref log) = self.vpx_error_log {
+                        // Force the vertical scrollbar to stay visible so the
+                        // user sees there's more content below — egui's
+                        // default `AlwaysHidden` only shows it on hover, easy
+                        // to miss on a kiosk screen.
                         egui::ScrollArea::vertical()
                             .max_height(300.0)
+                            .auto_shrink([false, false])
+                            .scroll_bar_visibility(
+                                egui::scroll_area::ScrollBarVisibility::AlwaysVisible,
+                            )
                             .show(ui, |ui| {
-                                ui.monospace(log);
+                                let job = highlight_error_keywords(log, ui.style());
+                                ui.label(job);
                             });
                     }
                     ui.add_space(8.0);
@@ -736,4 +745,109 @@ impl App {
             },
         );
     }
+}
+
+/// Build a `LayoutJob` from a multi-line log, painting common
+/// crash/error vocabulary in red so the user can spot the meaningful
+/// lines at a glance. Case-insensitive matching, longest-keyword-wins
+/// to avoid double-coloring "segmentation" then "fault" separately.
+fn highlight_error_keywords(text: &str, style: &egui::Style) -> egui::text::LayoutJob {
+    use egui::text::{LayoutJob, TextFormat};
+    // Sorted longest-first so e.g. "segmentation fault" wins over "fault".
+    const KEYWORDS: &[&str] = &[
+        "segmentation fault",
+        "stack overflow",
+        "buffer overrun",
+        "heap corruption",
+        "core dumped",
+        "core dump",
+        "access violation",
+        "killed by",
+        "panicked",
+        "panic",
+        "exception",
+        "assertion",
+        "assert",
+        "segfault",
+        "coredump",
+        "aborted",
+        "abort",
+        "crashed",
+        "crash",
+        "failed",
+        "failure",
+        "fatal",
+        "errors",
+        "errored",
+        "error",
+        "warning",
+        "warn",
+    ];
+    let font = egui::FontId::monospace(style.text_styles[&egui::TextStyle::Monospace].size);
+    let normal = TextFormat {
+        font_id: font.clone(),
+        color: style.visuals.text_color(),
+        ..Default::default()
+    };
+    let highlight = TextFormat {
+        font_id: font,
+        color: egui::Color32::from_rgb(255, 110, 110),
+        ..Default::default()
+    };
+
+    let mut job = LayoutJob::default();
+    let lower = text.to_ascii_lowercase();
+    let bytes = text.as_bytes();
+    let mut i = 0;
+    while i < text.len() {
+        // Try to match a keyword at this byte offset.
+        let mut matched: Option<usize> = None;
+        for kw in KEYWORDS {
+            if i + kw.len() <= lower.len() && lower[i..i + kw.len()].eq_ignore_ascii_case(kw) {
+                // Word-ish boundary: don't highlight inside another word
+                // (so "panicked" doesn't paint on "panickedness", and
+                // "warn" stops short of "warning" handling above since
+                // we sort longest-first).
+                let before_ok = i == 0 || !is_word_char(bytes[i - 1]);
+                let after_ok = i + kw.len() == bytes.len() || !is_word_char(bytes[i + kw.len()]);
+                if before_ok && after_ok {
+                    matched = Some(kw.len());
+                    break;
+                }
+            }
+        }
+        if let Some(len) = matched {
+            job.append(&text[i..i + len], 0.0, highlight.clone());
+            i += len;
+        } else {
+            // Walk forward one char (UTF-8 safe) into the normal segment,
+            // batched until we hit the next keyword start.
+            let start = i;
+            let next_char_len = text[i..].chars().next().map(|c| c.len_utf8()).unwrap_or(1);
+            i += next_char_len;
+            // Greedy fast-path: extend as long as no keyword starts here.
+            'extend: while i < text.len() {
+                for kw in KEYWORDS {
+                    if i + kw.len() <= lower.len()
+                        && lower[i..i + kw.len()].eq_ignore_ascii_case(kw)
+                    {
+                        let before_ok = !is_word_char(bytes[i - 1]);
+                        let after_ok =
+                            i + kw.len() == bytes.len() || !is_word_char(bytes[i + kw.len()]);
+                        if before_ok && after_ok {
+                            break 'extend;
+                        }
+                    }
+                }
+                let step = text[i..].chars().next().map(|c| c.len_utf8()).unwrap_or(1);
+                i += step;
+            }
+            job.append(&text[start..i], 0.0, normal.clone());
+        }
+    }
+    job
+}
+
+fn is_word_char(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || b == b'_'
 }

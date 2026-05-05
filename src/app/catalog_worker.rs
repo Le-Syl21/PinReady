@@ -329,7 +329,14 @@ pub fn run(jobs: Vec<EnrichmentJob>, cancel: Arc<AtomicBool>) -> anyhow::Result<
 }
 
 /// Returns Ok(true) if the asset was downloaded + installed; Ok(false)
-/// if skipped (md5 matches or already on disk); Err on hard failure.
+/// if skipped (file already on disk, or remote md5 matches the cached
+/// one); Err on hard failure.
+///
+/// **Short-circuit on file existence**: if `medias/<filename>` is on
+/// disk we never re-download. The user's perspective is "if I have it,
+/// I have it" — flaky upstream md5 changes (server-side rebuild,
+/// regenerated manifest, schema migration) shouldn't trigger pointless
+/// network round-trips. To force a refresh: delete the file and re-scan.
 fn try_install_asset(
     cached_md5: Option<&str>,
     remote_md5: &str,
@@ -337,17 +344,15 @@ fn try_install_asset(
     table_dir: &Path,
     filename: &str,
 ) -> anyhow::Result<bool> {
-    if cached_md5 == Some(remote_md5) {
-        return Ok(false);
-    }
-    // Also skip if the file exists on disk but our DB lost track —
-    // user may have hand-placed something they want to keep.
     let target = table_dir.join("medias").join(filename);
-    if target.exists() && cached_md5.is_none() {
+    if target.exists() {
         log::debug!(
-            "MediaDb skip {filename} in {}: file exists, no md5 in DB → assume user-managed",
+            "MediaDb skip {filename} in {}: already on disk",
             table_dir.display()
         );
+        return Ok(false);
+    }
+    if cached_md5 == Some(remote_md5) {
         return Ok(false);
     }
     let bytes = mediadb::fetch_asset(url, remote_md5)?;

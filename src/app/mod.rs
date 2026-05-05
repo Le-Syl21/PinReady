@@ -20,6 +20,23 @@ pub enum AppMode {
     Launcher,
 }
 
+/// True when the running session uses Wayland. We use it to gate
+/// OS-level cursor-grab calls — winit's `set_cursor_grab` returns
+/// `NotSupported` on Wayland, so issuing it there only spams
+/// `WARN egui_winit] CursorGrab(...)` every frame without doing
+/// anything useful. Detection prefers `XDG_SESSION_TYPE` (set by logind)
+/// and falls back to `WAYLAND_DISPLAY` for sessions started outside a
+/// systemd-logind setup (e.g. nested compositors, embedded boards).
+pub fn is_wayland() -> bool {
+    if !cfg!(target_os = "linux") {
+        return false;
+    }
+    if let Ok(t) = std::env::var("XDG_SESSION_TYPE") {
+        return t == "wayland";
+    }
+    std::env::var("WAYLAND_DISPLAY").is_ok()
+}
+
 /// Cross-session signal for `main.rs` to know what to do after the current
 /// eframe session exits. Set by UI click handlers (Finish, Config, etc.) just
 /// before they send `ViewportCommand::Close`; `main.rs` reads it after
@@ -220,7 +237,14 @@ pub struct App {
     // Page 3 — Inputs
     actions: Vec<InputAction>,
     capture_state: CaptureState,
+    #[allow(dead_code)]
+    // kept for backwards compat with persisted DB; UI dropped in favour of the unified inputs list
     show_advanced_inputs: bool,
+    /// Auto-map mode: when true, the inputs page advances to the next
+    /// unmapped action automatically after each successful capture (or
+    /// Escape, which leaves that action's binding unchanged). Stops
+    /// when reaching the end of the list or when the user clicks Cancel.
+    auto_map_active: bool,
     joystick_rx: Option<crossbeam_channel::Receiver<JoystickEvent>>,
     pinscape_id: Option<String>, // VPX device ID if pinball controller detected
     pinscape_profile: usize,     // 0 = KL25Z, 1 = Pico, 2 = DudesCab
@@ -321,6 +345,13 @@ pub struct App {
     // .vpx file association. Mirrors `autostart` — flipped from the wizard's
     // tables_dir page, applied in finalize_wizard.
     desktop_integration: bool,
+
+    // Self-hosted mirror for the VBS catalog and VPin media DB. Empty
+    // string = direct GitHub fetch (default). Edited from the System
+    // wizard page; persisted to `Database::set_mirror_base_url` on
+    // every change so subsequent runs pick it up immediately without
+    // waiting for finalize_wizard.
+    mirror_base_url: String,
 
     // Asset bundling ("merge") — optional import step that lives on the
     // Tables wizard page. The three source paths point at legacy
@@ -460,6 +491,7 @@ impl App {
         let merge_section_open = merge_src_vpinmame.is_empty()
             && merge_src_pupvideos.is_empty()
             && merge_src_music.is_empty();
+        let mirror_base_url = db.mirror_base_url().unwrap_or_default();
 
         let mut s = Self {
             mode: if start_in_wizard {
@@ -497,6 +529,7 @@ impl App {
             max_framerate,
             capture_state: CaptureState::Idle,
             show_advanced_inputs: false,
+            auto_map_active: false,
             joystick_rx: Some(joystick_rx),
             pinscape_id: None,
             pinscape_profile,
@@ -537,6 +570,7 @@ impl App {
             vpx_error_log: None,
             autostart: is_autostart_enabled(),
             desktop_integration: is_desktop_integration_installed(),
+            mirror_base_url,
             merge_src_vpinmame,
             merge_src_pupvideos,
             merge_src_music,
@@ -878,7 +912,10 @@ impl App {
                                 name: name.clone(),
                             });
                         }
-                        self.capture_state = CaptureState::Idle;
+                        // In auto-map mode, advance to the next action;
+                        // otherwise just go Idle. Mirrors the keyboard-
+                        // capture path in inputs_page.rs.
+                        self.advance_capture_or_finish();
                     }
                 }
                 JoystickEvent::ButtonUp { .. } => {}
@@ -1051,14 +1088,26 @@ impl eframe::App for App {
 
             // Re-assert the SoftwareCursor lock + the OS-level cursor grab
             // every frame so VPX → resume transitions land in the right state.
-            // `CursorGrab::Locked` is required on Wayland for raw mouse deltas
-            // (DeviceEvent::MouseMotion) to flow via the relative-pointer
-            // protocol; on X11 it's harmless. `CursorVisible(false)` hides
-            // the OS cursor so it doesn't flicker on top of the rendered one.
+            // The SoftwareCursor lock is pure software (fork-only feature)
+            // and works on every platform.
+            //
+            // The OS-level `CursorGrab::Locked` is forwarded by egui_winit
+            // to `winit::Window::set_cursor_grab` which on **Wayland is a
+            // hard NotSupported** (the relative-pointer protocol isn't
+            // wired into winit). We skip the call there to avoid a per-frame
+            // `WARN egui_winit] CursorGrab(Locked)` spam in the log; on X11,
+            // macOS and Windows the call confines the OS pointer to the
+            // window and is genuinely useful.
+            //
+            // `CursorVisible(false)` is honoured everywhere — keep it
+            // unconditional so the OS pointer doesn't flicker on top of
+            // the rendered software cursor.
             self.cursor.set_lock(true);
-            ctx.send_viewport_cmd(egui::ViewportCommand::CursorGrab(
-                egui::viewport::CursorGrab::Locked,
-            ));
+            if !is_wayland() {
+                ctx.send_viewport_cmd(egui::ViewportCommand::CursorGrab(
+                    egui::viewport::CursorGrab::Locked,
+                ));
+            }
             ctx.send_viewport_cmd(egui::ViewportCommand::CursorVisible(false));
 
             // Reclaim focus only when the compositor will honour it. On

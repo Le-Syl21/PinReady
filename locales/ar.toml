@@ -469,3 +469,13 @@ merge_apply_disabled_tooltip = "شغّل المعاينة (dry run) أولاً؛
 
 system_credits_title = "شكر وتقدير"
 system_credits_intro = "يعتمد PinReady على عمل هؤلاء المساهمين في نظام Visual Pinball البيئي بشكل عام:"
+
+system_detected = "النظام المكتشف"
+
+inputs_auto_map = "تعيين كل المدخلات تلقائيًا"
+inputs_auto_map_running = "التعيين التلقائي قيد التشغيل — Escape لتخطي، إلغاء للتوقف."
+inputs_auto_map_cancel = "إلغاء التعيين التلقائي"
+
+system_mirror_label = "مرآة مستضافة ذاتيًا (اختياري)"
+system_mirror_hint = "يوجه كتالوج VBS وقاعدة وسائط VPin عبر خادمك الخاص بدلاً من GitHub. اترك فارغًا للوصول إلى GitHub مباشرة. مثال: https://pinready.syl21.org"
+system_mirror_clear = "مسح"

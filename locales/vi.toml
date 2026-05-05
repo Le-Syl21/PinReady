@@ -469,3 +469,13 @@ merge_apply_disabled_tooltip = "Chạy xem trước (dry run) trước; bạn ch
 
 system_credits_title = "Lời cảm ơn"
 system_credits_intro = "PinReady được xây dựng trên công sức của những người đóng góp này cho hệ sinh thái Visual Pinball rộng lớn hơn:"
+
+system_detected = "Hệ thống được phát hiện"
+
+inputs_auto_map = "Tự động gán tất cả đầu vào"
+inputs_auto_map_running = "Đang tự động gán — Escape để bỏ qua, Hủy để dừng."
+inputs_auto_map_cancel = "Hủy tự động gán"
+
+system_mirror_label = "Máy chủ gương tự host (tùy chọn)"
+system_mirror_hint = "Định tuyến danh mục VBS và cơ sở dữ liệu media VPin qua máy chủ của bạn thay vì GitHub. Để trống để tải trực tiếp từ GitHub. Ví dụ: https://pinready.syl21.org"
+system_mirror_clear = "Xóa"

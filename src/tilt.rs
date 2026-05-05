@@ -17,11 +17,13 @@ pub struct TiltConfig {
 impl Default for TiltConfig {
     fn default() -> Self {
         Self {
-            tilt_sensitivity_pct: 55.0,
+            // User-tuned defaults: scale 50, deadzone 10, sensitivity 50
+            // — matches the slider order on the tilt wizard page.
+            tilt_sensitivity_pct: 50.0,
             plumb_inertia: 0.35,
             nudge_filter: true,
-            nudge_scale_pct: 40.0,
-            nudge_deadzone_pct: 20.0,
+            nudge_scale_pct: 50.0,
+            nudge_deadzone_pct: 10.0,
         }
     }
 }

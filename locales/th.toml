@@ -469,3 +469,13 @@ merge_apply_disabled_tooltip = "เรียกใช้พรีวิว (dry 
 
 system_credits_title = "ขอบคุณ"
 system_credits_intro = "PinReady ตั้งอยู่บนผลงานของผู้มีส่วนร่วมเหล่านี้ในระบบนิเวศ Visual Pinball ที่กว้างขึ้น:"
+
+system_detected = "ระบบที่ตรวจพบ"
+
+inputs_auto_map = "กำหนดอินพุตทั้งหมดอัตโนมัติ"
+inputs_auto_map_running = "กำลังกำหนดอัตโนมัติ — Escape เพื่อข้าม, ยกเลิก เพื่อหยุด"
+inputs_auto_map_cancel = "ยกเลิกการกำหนดอัตโนมัติ"
+
+system_mirror_label = "เซิร์ฟเวอร์มิเรอร์ของตนเอง (ไม่บังคับ)"
+system_mirror_hint = "ส่งคำขอแคตตาล็อก VBS และฐานข้อมูลสื่อ VPin ผ่านเซิร์ฟเวอร์ของคุณเองแทน GitHub เว้นว่างไว้เพื่อดึงตรงจาก GitHub ตัวอย่าง: https://pinready.syl21.org"
+system_mirror_clear = "ล้าง"

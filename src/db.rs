@@ -460,7 +460,6 @@ impl Database {
             .map(|s| s.trim().trim_end_matches('/').to_string())
     }
 
-    #[allow(dead_code)] // UI exposure deferred; readable via direct sqlite for now
     pub fn set_mirror_base_url(&self, url: &str) -> Result<()> {
         self.set_config("mirror_base_url", url.trim())
     }

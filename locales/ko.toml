@@ -470,3 +470,13 @@ merge_apply_disabled_tooltip = "먼저 미리보기(dry run)를 실행하세요.
 
 system_credits_title = "감사의 말"
 system_credits_intro = "PinReady는 더 넓은 Visual Pinball 생태계에 기여한 이들의 작업을 기반으로 합니다:"
+
+system_detected = "감지된 시스템"
+
+inputs_auto_map = "모든 입력 자동 할당"
+inputs_auto_map_running = "자동 할당 진행 중 — Escape로 건너뛰기, 취소로 중단."
+inputs_auto_map_cancel = "자동 할당 취소"
+
+system_mirror_label = "자체 호스팅 미러 (선택사항)"
+system_mirror_hint = "VBS 카탈로그와 VPin 미디어 DB를 GitHub 대신 자체 서버로 라우팅합니다. GitHub에서 직접 가져오려면 비워 두세요. 예: https://pinready.syl21.org"
+system_mirror_clear = "지우기"

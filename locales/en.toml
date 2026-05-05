@@ -45,6 +45,7 @@ pinready_update_error = "PinReady update error: %{msg}"
 
 # Screens page — VPX installation
 screens_heading = "Screen configuration"
+system_detected = "Detected system"
 vpx_install_title = "Visual Pinball installation"
 vpx_auto_install = "Install automatically (recommended)"
 vpx_version_available = "Available version: %{tag}"
@@ -154,6 +155,9 @@ inputs_instructions = "Click \"Map\" then press a key or button. Escape = keep c
 inputs_essential = "Essential actions"
 inputs_show_advanced = "Show advanced actions"
 inputs_advanced = "Advanced actions"
+inputs_auto_map = "Auto-map all inputs"
+inputs_auto_map_running = "Auto-map running — press Escape to skip the current action, Cancel to stop."
+inputs_auto_map_cancel = "Cancel auto-map"
 inputs_col_action = "Action"
 inputs_col_binding = "Current binding"
 inputs_capturing = "[...] Press a key..."
@@ -408,6 +412,9 @@ system_heading = "System integration"
 system_desc = "Optional convenience features. Toggle these on a dedicated pincab; leave them off when sharing the machine with a regular desktop user."
 system_credits_title = "Thanks"
 system_credits_intro = "PinReady stands on the work of these contributors to the wider Visual Pinball ecosystem:"
+system_mirror_label = "Self-hosted mirror (optional)"
+system_mirror_hint = "Routes the VBS catalog (jsm174/vpx-standalone-scripts) and VPin media DB (superhac/vpinmediadb) through your own server instead of GitHub. Leave empty to fetch directly from GitHub. Example: https://pinready.syl21.org"
+system_mirror_clear = "Clear"
 
 # Tables page — mandatory tables_dir + collapsibles
 tables_path_required = "Required — pick the folder where your tables live before continuing."

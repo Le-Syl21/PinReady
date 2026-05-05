@@ -603,6 +603,17 @@ sudo apt install build-essential cmake pkg-config \
 cargo build --release
 ```
 
+**For iteration / pincab redeploy, use `--profile=fast` instead of `--release`.**
+The `release` profile bundles full LTO + single codegen unit (~3 min, 40 MB
+stripped binary, only worth paying when shipping a tagged release). The
+`debug` default produces a runnable binary in ~30 s but it weighs 200+ MB
+which makes scp-to-pincab painfully slow over Wi-Fi. The `fast` profile
+(defined in `Cargo.toml`) inherits `release` but disables LTO and uses 16
+codegen units — same `opt-level=3`, same stripped output, ~60 s build,
+~80 MB binary. That's the right default for the develop → scp-pincab →
+test loop. Output lands in `target/fast/pinready`. Keep `--release` for
+the actual `git tag vX.Y.Z` build.
+
 ---
 
 ## External tools

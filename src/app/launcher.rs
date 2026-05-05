@@ -56,6 +56,175 @@ fn max_vbs_mtime(vpx_path: &std::path::Path) -> i64 {
 
 /// Parse a percentage from a VPX SetProgress message.
 /// Examples: "Initializing Visuals... 10%" → Some(0.10), "Loading..." → None
+/// Describe an abnormal child-process exit (signal / crash / fault) and
+/// point the user at where the OS stored the dump. Cross-platform:
+///
+///   - **Linux**: `core_pattern` (systemd-coredump or literal file).
+///   - **macOS**: same signal info, plus `~/Library/Logs/DiagnosticReports/`.
+///   - **Windows**: NTSTATUS-style exit code + Windows Error Reporting
+///     (`%LOCALAPPDATA%\CrashDumps\`).
+///
+/// Returns `None` if the exit doesn't look like a crash (clean exit).
+#[cfg(target_os = "linux")]
+fn describe_coredump(child_pid: u32, status: &std::process::ExitStatus) -> Option<String> {
+    use std::os::unix::process::ExitStatusExt;
+    let signal = status.signal()?;
+    let signal_name = signal_name(signal);
+    let mut out = format!("Killed by {signal_name} (signal {signal}).\n");
+    if !status.core_dumped() {
+        out.push_str(
+            "No core dump generated (ulimit -c is likely 0 — `ulimit -c unlimited` to enable).\n",
+        );
+        return Some(out);
+    }
+    out.push_str("A core dump was generated.\n\n");
+
+    let pattern = std::fs::read_to_string("/proc/sys/kernel/core_pattern")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default();
+    if pattern.starts_with('|') && pattern.contains("systemd-coredump") {
+        out.push_str("Captured by systemd-coredump.\n");
+        out.push_str(&format!(
+            "  list:           coredumpctl list\n  open in gdb:    coredumpctl debug {child_pid}\n  raw file:       coredumpctl info {child_pid}\n  storage:        /var/lib/systemd/coredump/\n"
+        ));
+    } else if pattern.starts_with('|') {
+        out.push_str(&format!("Core piped to handler: {pattern}\n"));
+    } else if !pattern.is_empty() {
+        out.push_str(&format!("Core file pattern: {pattern}\n"));
+        out.push_str("(%p=PID, %e=exe-name, %t=epoch — see core(5))\n");
+    } else {
+        out.push_str("Core file location is unknown (empty core_pattern).\n");
+    }
+    out.push_str("\nHow to inspect a core file:\n");
+    out.push_str("  https://wiki.archlinux.org/title/Core_dump\n");
+    out.push_str("  https://www.freedesktop.org/software/systemd/man/coredumpctl.html\n");
+    Some(out)
+}
+
+#[cfg(target_os = "macos")]
+fn describe_coredump(child_pid: u32, status: &std::process::ExitStatus) -> Option<String> {
+    use std::os::unix::process::ExitStatusExt;
+    let signal = status.signal()?;
+    let signal_name = signal_name(signal);
+    let mut out = format!("Killed by {signal_name} (signal {signal}).\n\n");
+    let _ = child_pid;
+    let home = std::env::var("HOME").unwrap_or_else(|_| "~".into());
+    out.push_str("macOS writes a crash report instead of a Unix-style core file.\n");
+    out.push_str(&format!(
+        "  per-user reports: {home}/Library/Logs/DiagnosticReports/\n"
+    ));
+    out.push_str("  system reports:   /Library/Logs/DiagnosticReports/\n");
+    out.push_str("  view in GUI:      Console.app → Crash Reports\n");
+    out.push_str("\nIf you actually need a core file (rare), enable it with:\n");
+    out.push_str("  ulimit -c unlimited        (per-shell)\n");
+    out.push_str("  sudo chmod 1777 /cores     (one-time, system-wide)\n");
+    out.push_str("\nDocs:\n");
+    out.push_str("  https://developer.apple.com/documentation/xcode/diagnosing-issues-using-crash-reports-and-device-logs\n");
+    Some(out)
+}
+
+#[cfg(target_os = "windows")]
+fn describe_coredump(child_pid: u32, status: &std::process::ExitStatus) -> Option<String> {
+    let code = status.code()?;
+    // Common NTSTATUS values that indicate a crash. Negative i32 ↔ 0x8…
+    // / 0xC… NTSTATUS — interpret as u32 hex for clarity.
+    let unsigned = code as u32;
+    let label = match unsigned {
+        0xC0000005 => Some("EXCEPTION_ACCESS_VIOLATION"),
+        0xC000001D => Some("EXCEPTION_ILLEGAL_INSTRUCTION"),
+        0xC0000094 => Some("EXCEPTION_INT_DIVIDE_BY_ZERO"),
+        0xC00000FD => Some("EXCEPTION_STACK_OVERFLOW"),
+        0xC0000409 => Some("STATUS_STACK_BUFFER_OVERRUN"),
+        0xC0000374 => Some("STATUS_HEAP_CORRUPTION"),
+        0xC000013A => Some("STATUS_CONTROL_C_EXIT"),
+        _ => None,
+    };
+    // Anything matching the NTSTATUS severity bits 0xC… looks like a crash.
+    let looks_like_crash = label.is_some() || unsigned >= 0xC000_0000;
+    if !looks_like_crash {
+        return None;
+    }
+    let mut out = match label {
+        Some(name) => format!("Crashed with {name} (exit code 0x{unsigned:08X}).\n"),
+        None => format!("Crashed with exit code 0x{unsigned:08X} (NTSTATUS-like).\n"),
+    };
+    out.push_str(&format!("PID was: {child_pid}\n\n"));
+    out.push_str("Windows Error Reporting (if enabled) writes a minidump to:\n");
+    out.push_str("  %LOCALAPPDATA%\\CrashDumps\\VPinballX_BGFX*.dmp\n\n");
+    out.push_str("Enable user-mode minidumps if not already (one-off, run as admin):\n");
+    out.push_str("  reg add \"HKLM\\SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting\\LocalDumps\" /v DumpType /t REG_DWORD /d 2\n\n");
+    out.push_str("Open the .dmp with WinDbg or Visual Studio.\n");
+    out.push_str("\nDocs:\n");
+    out.push_str(
+        "  https://learn.microsoft.com/en-us/windows/win32/wer/collecting-user-mode-dumps\n",
+    );
+    out.push_str(
+        "  https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/windbg-overview\n",
+    );
+    Some(out)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+fn describe_coredump(_child_pid: u32, _status: &std::process::ExitStatus) -> Option<String> {
+    None
+}
+
+#[cfg(unix)]
+fn signal_name(signal: i32) -> &'static str {
+    match signal {
+        4 => "SIGILL",
+        6 => "SIGABRT",
+        7 => "SIGBUS",
+        8 => "SIGFPE",
+        9 => "SIGKILL",
+        11 => "SIGSEGV",
+        13 => "SIGPIPE",
+        15 => "SIGTERM",
+        _ => "unknown",
+    }
+}
+
+/// True when the exit looks like a crash (signal or NTSTATUS-style
+/// error). Used to decide whether to surface an error popup even after
+/// the user reached gameplay — a mid-game crash should never be silent.
+fn is_abnormal_exit(status: &std::process::ExitStatus) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        if status.signal().is_some() {
+            return true;
+        }
+    }
+    #[cfg(target_os = "windows")]
+    {
+        match status.code() {
+            Some(c) => return (c as u32) >= 0xC000_0000,
+            None => return true, // no code = abnormal termination
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = status;
+        false
+    }
+}
+
+/// POSIX-shell quote a path or argument: wrap in single quotes and
+/// escape embedded `'` as `'\''`. Result is a string the user can paste
+/// into a shell to re-run the exact same command.
+fn shell_quote(s: &str) -> String {
+    if !s.is_empty()
+        && s.chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '/' | '.' | ':' | '='))
+    {
+        // Safe-looking — no quoting needed, keeps the line readable.
+        s.to_string()
+    } else {
+        format!("'{}'", s.replace('\'', r"'\''"))
+    }
+}
+
 fn parse_progress_pct(msg: &str) -> Option<f32> {
     // Look for a number followed by '%'
     let pct_pos = msg.find('%')?;
@@ -474,6 +643,25 @@ impl App {
 
         std::thread::spawn(move || {
             use std::io::BufRead;
+            // Reproducible call header: same shell line a user could run
+            // by hand, plus the cwd we spawned from and the host system
+            // summary. Prepended to every error string so the popup
+            // carries enough context to file a bug without going back to
+            // re-derive paths or `uname -a` info.
+            let call_header = || -> String {
+                let cwd = std::env::current_dir()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|_| "?".into());
+                let sys = crate::system_info::detect().one_liner();
+                format!(
+                    "$ {} -Play {}\n  cwd:    {}\n  system: {}\n  client: PinReady v{}\n\n",
+                    shell_quote(&exe),
+                    shell_quote(&path.display().to_string()),
+                    cwd,
+                    sys,
+                    crate::VERSION,
+                )
+            };
             let child = std::process::Command::new(&exe)
                 .arg("-Play")
                 .arg(&path)
@@ -498,8 +686,47 @@ impl App {
                     });
 
                     let stdout = child.stdout.take();
-                    let mut log_lines: Vec<String> = Vec::new();
+                    // Two-tier log buffer: the loading phase is kept in
+                    // full (header + every line up to "Startup done"),
+                    // then post-startup lines flow into a ring of the
+                    // last 100. This gives the user always-meaningful
+                    // diagnostics in the error popup — even if a table
+                    // crashes mid-game (which used to be silent because
+                    // `startup_done` short-circuited to ExitOk).
+                    const INGAME_TAIL: usize = 100;
+                    let mut loading_log: Vec<String> = Vec::new();
+                    let mut ingame_log: std::collections::VecDeque<String> =
+                        std::collections::VecDeque::with_capacity(INGAME_TAIL);
                     let mut startup_done = false;
+                    // Build the full log we hand to ExitError. Always
+                    // contains the call header and every loading-phase
+                    // line; if startup_done was reached, also a visible
+                    // separator and the in-game tail.
+                    let build_error_log = |reason: &str,
+                                           loading: &[String],
+                                           ingame: &std::collections::VecDeque<String>|
+                     -> String {
+                        let mut out = call_header();
+                        if !reason.is_empty() {
+                            out.push_str(reason);
+                            out.push_str("\n\n");
+                        }
+                        if !loading.is_empty() {
+                            out.push_str("----- loading -----\n");
+                            out.push_str(&loading.join("\n"));
+                            out.push('\n');
+                        }
+                        if !ingame.is_empty() {
+                            out.push_str("\n----- in-game (last ");
+                            out.push_str(&ingame.len().to_string());
+                            out.push_str(" lines) -----\n");
+                            for l in ingame {
+                                out.push_str(l);
+                                out.push('\n');
+                            }
+                        }
+                        out
+                    };
 
                     if let Some(so) = stdout {
                         let reader = std::io::BufReader::new(so);
@@ -546,9 +773,18 @@ impl App {
                                         }
                                     } else if line.contains("Startup done") {
                                         startup_done = true;
+                                        loading_log.push(line);
                                         let _ = tx.send(VpxStatus::Started);
+                                        continue;
                                     }
-                                    log_lines.push(line);
+                                    if !startup_done {
+                                        loading_log.push(line);
+                                    } else {
+                                        if ingame_log.len() == INGAME_TAIL {
+                                            ingame_log.pop_front();
+                                        }
+                                        ingame_log.push_back(line);
+                                    }
                                 }
                                 Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
                                     if startup_done {
@@ -564,10 +800,11 @@ impl App {
                                         "VPX stdout timeout (30s without output during loading)"
                                     );
                                     let _ = child.kill();
-                                    let mut err = "Timeout: Visual Pinball stopped responding during loading (no output for 30s).\n\n".to_string();
-                                    let tail: Vec<String> =
-                                        log_lines.iter().rev().take(50).rev().cloned().collect();
-                                    err.push_str(&tail.join("\n"));
+                                    let err = build_error_log(
+                                        "Timeout: Visual Pinball stopped responding during loading (no output for 30s).",
+                                        &loading_log,
+                                        &ingame_log,
+                                    );
                                     let _ = tx.send(VpxStatus::ExitError(err));
                                     running.store(false, Ordering::Relaxed);
                                     return;
@@ -585,32 +822,55 @@ impl App {
                         .and_then(|h| h.join().ok())
                         .unwrap_or_default();
 
+                    let child_pid = child.id();
                     match child.wait() {
                         Ok(status) => {
                             log::info!("Visual Pinball exited with status: {status}");
-                            if status.success() || startup_done {
+                            // Decide whether to show the error popup. We
+                            // diverge from "any non-zero after startup is
+                            // OK": a table that closes mid-game without a
+                            // popup is exactly the frustrating thing the
+                            // user wants to avoid. Silent only when:
+                            //   - exit code 0, OR
+                            //   - exited cleanly (no signal, no NTSTATUS
+                            //     crash) AND the user reached gameplay.
+                            let abnormal = is_abnormal_exit(&status);
+                            if status.success() || (startup_done && !abnormal) {
                                 let _ = tx.send(VpxStatus::ExitOk);
                             } else {
-                                let mut combined = String::new();
-                                let tail: Vec<String> =
-                                    log_lines.iter().rev().take(50).rev().cloned().collect();
-                                combined.push_str(&tail.join("\n"));
+                                let mut reason =
+                                    format!("Visual Pinball exited with status: {status}");
+                                if let Some(desc) = describe_coredump(child_pid, &status) {
+                                    reason.push_str("\n\n");
+                                    reason.push_str(&desc);
+                                }
+                                let mut combined =
+                                    build_error_log(&reason, &loading_log, &ingame_log);
                                 if !stderr_lines.is_empty() {
-                                    combined.push_str("\n\n--- stderr ---\n");
+                                    combined.push_str("\n----- stderr -----\n");
                                     combined.push_str(&stderr_lines.join("\n"));
+                                    combined.push('\n');
                                 }
                                 let _ = tx.send(VpxStatus::ExitError(combined));
                             }
                         }
                         Err(e) => {
                             log::error!("Failed to wait for Visual Pinball: {e}");
-                            let _ = tx.send(VpxStatus::ExitError(format!("Process error: {e}")));
+                            let combined = build_error_log(
+                                &format!("Process error: {e}"),
+                                &loading_log,
+                                &ingame_log,
+                            );
+                            let _ = tx.send(VpxStatus::ExitError(combined));
                         }
                     }
                 }
                 Err(e) => {
                     log::error!("Failed to launch Visual Pinball: {e}");
-                    let _ = tx.send(VpxStatus::LaunchError(format!("{e}")));
+                    let _ = tx.send(VpxStatus::LaunchError(format!(
+                        "{}Failed to launch: {e}",
+                        call_header()
+                    )));
                 }
             }
             running.store(false, Ordering::Relaxed);
@@ -819,9 +1079,14 @@ impl App {
     /// Called from the Quit button, ExitGame joystick action, and Escape key.
     pub(super) fn quit_launcher(&mut self, ctx: &egui::Context) {
         self.cursor.set_lock(false);
-        ctx.send_viewport_cmd(egui::ViewportCommand::CursorGrab(
-            egui::viewport::CursorGrab::None,
-        ));
+        // Symmetric with the kiosk loop: we only ever grab on non-Wayland,
+        // so we only need to release there too. Sending CursorGrab::None
+        // on Wayland would trigger the same winit "not supported" warn.
+        if !crate::app::is_wayland() {
+            ctx.send_viewport_cmd(egui::ViewportCommand::CursorGrab(
+                egui::viewport::CursorGrab::None,
+            ));
+        }
         ctx.send_viewport_cmd(egui::ViewportCommand::CursorVisible(true));
         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
     }
@@ -947,9 +1212,11 @@ impl App {
                         // loop is gated on !vpx_running. VPX windows then
                         // z-order on top of PinReady.
                         self.cursor.set_lock(false);
-                        ctx.send_viewport_cmd(egui::ViewportCommand::CursorGrab(
-                            egui::viewport::CursorGrab::None,
-                        ));
+                        if !crate::app::is_wayland() {
+                            ctx.send_viewport_cmd(egui::ViewportCommand::CursorGrab(
+                                egui::viewport::CursorGrab::None,
+                            ));
+                        }
                         ctx.send_viewport_cmd(egui::ViewportCommand::CursorVisible(true));
                     }
                     VpxStatus::ExitOk => {

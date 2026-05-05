@@ -4,6 +4,7 @@ use std::thread;
 
 /// An input action that can be mapped to a key or button.
 #[derive(Clone)]
+#[allow(dead_code)] // `essential` carries the historical split that the unified inputs list no longer reads
 pub struct InputAction {
     pub setting_id: &'static str,
     pub label: &'static str,

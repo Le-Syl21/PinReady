@@ -45,6 +45,7 @@ pinready_update_error = "Erreur mise à jour PinReady : %{msg}"
 
 # Page Ecrans — Installation VPX
 screens_heading = "Configuration des écrans"
+system_detected = "Système détecté"
 vpx_install_title = "Installation de Visual Pinball"
 vpx_auto_install = "Installer automatiquement (recommandé)"
 vpx_version_available = "Version disponible : %{tag}"
@@ -154,6 +155,9 @@ inputs_instructions = "Cliquez sur \"Mapper\" puis appuyez sur une touche ou un 
 inputs_essential = "Actions essentielles"
 inputs_show_advanced = "Afficher les actions avancées"
 inputs_advanced = "Actions avancées"
+inputs_auto_map = "Auto-assigner toutes les entrées"
+inputs_auto_map_running = "Auto-assignation en cours — Échap pour passer l'action en cours, Annuler pour arrêter."
+inputs_auto_map_cancel = "Annuler l'auto-assignation"
 inputs_col_action = "Action"
 inputs_col_binding = "Touche actuelle"
 inputs_capturing = "[...] Appuyez sur une touche..."
@@ -408,6 +412,9 @@ system_heading = "Intégration au système"
 system_desc = "Options de confort optionnelles. À activer sur un pincab dédié ; à laisser désactivées si vous partagez la machine avec un usage bureautique."
 system_credits_title = "Remerciements"
 system_credits_intro = "PinReady s'appuie sur le travail de ces contributeurs de l'écosystème Visual Pinball au sens large :"
+system_mirror_label = "Miroir auto-hébergé (optionnel)"
+system_mirror_hint = "Route le catalogue VBS (jsm174/vpx-standalone-scripts) et la base de médias VPin (superhac/vpinmediadb) via ton propre serveur au lieu de GitHub. Laisse vide pour aller directement à GitHub. Exemple : https://pinready.syl21.org"
+system_mirror_clear = "Effacer"
 
 # Page Tables — dossier obligatoire + collapsibles
 tables_path_required = "Obligatoire — choisissez le dossier où se trouvent vos tables avant de continuer."

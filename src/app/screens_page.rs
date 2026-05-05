@@ -3,6 +3,18 @@ use super::*;
 impl App {
     pub(super) fn render_screens_page(&mut self, ui: &mut egui::Ui) {
         ui.heading(t!("screens_heading"));
+        ui.add_space(2.0);
+
+        // System probe — shown only on the first wizard page so users
+        // filing a bug report can screenshot the very first screen and
+        // already have OS / display server / desktop pinned to it.
+        let sys = crate::system_info::detect();
+        ui.label(format!(
+            "🖥 {}: {} · PinReady v{}",
+            t!("system_detected"),
+            sys.one_liner(),
+            crate::VERSION,
+        ));
         ui.add_space(8.0);
 
         // Language selector

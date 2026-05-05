@@ -470,3 +470,13 @@ merge_apply_disabled_tooltip = "Najpierw uruchom podgląd (dry run); zastosować
 
 system_credits_title = "Podziękowania"
 system_credits_intro = "PinReady opiera się na pracy tych współtwórców szerszego ekosystemu Visual Pinball:"
+
+system_detected = "Wykryty system"
+
+inputs_auto_map = "Automatycznie przypisz wszystkie wejścia"
+inputs_auto_map_running = "Auto-przypisywanie trwa — Escape pomija, Anuluj zatrzymuje."
+inputs_auto_map_cancel = "Anuluj auto-przypisywanie"
+
+system_mirror_label = "Własny serwer lustrzany (opcjonalnie)"
+system_mirror_hint = "Przekierowuje katalog VBS i bazę mediów VPin przez Twój własny serwer zamiast GitHub. Pozostaw puste, aby pobierać bezpośrednio z GitHub. Przykład: https://pinready.syl21.org"
+system_mirror_clear = "Wyczyść"

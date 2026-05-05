@@ -470,3 +470,13 @@ merge_apply_disabled_tooltip = "पहले पूर्वावलोकन (
 
 system_credits_title = "धन्यवाद"
 system_credits_intro = "PinReady व्यापक Visual Pinball पारिस्थितिकी तंत्र के इन योगदानकर्ताओं के काम पर आधारित है:"
+
+system_detected = "पता लगाया गया सिस्टम"
+
+inputs_auto_map = "सभी इनपुट स्वतः असाइन करें"
+inputs_auto_map_running = "ऑटो-असाइनमेंट चालू है — छोड़ने के लिए Escape, रोकने के लिए रद्द करें।"
+inputs_auto_map_cancel = "ऑटो-असाइनमेंट रद्द करें"
+
+system_mirror_label = "स्व-होस्टेड मिरर (वैकल्पिक)"
+system_mirror_hint = "VBS कैटलॉग और VPin मीडिया DB को GitHub के बजाय आपके अपने सर्वर के माध्यम से रूट करता है। सीधे GitHub से लाने के लिए खाली छोड़ दें। उदाहरण: https://pinready.syl21.org"
+system_mirror_clear = "साफ़ करें"

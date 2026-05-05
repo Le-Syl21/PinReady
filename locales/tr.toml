@@ -471,3 +471,13 @@ merge_apply_disabled_tooltip = "Önce bir önizleme (dry run) çalıştırın; y
 
 system_credits_title = "Teşekkürler"
 system_credits_intro = "PinReady, geniş Visual Pinball ekosistemine katkı sağlayan bu kişilerin çalışmaları üzerine inşa edilmiştir:"
+
+system_detected = "Algılanan sistem"
+
+inputs_auto_map = "Tüm girişleri otomatik ata"
+inputs_auto_map_running = "Otomatik atama devam ediyor — Esc atlamak, İptal durdurmak için."
+inputs_auto_map_cancel = "Otomatik atamayı iptal et"
+
+system_mirror_label = "Kendi kendine barındırılan ayna (isteğe bağlı)"
+system_mirror_hint = "VBS kataloğunu ve VPin media DByi GitHub yerine kendi sunucunuz üzerinden yönlendirir. Doğrudan GitHubdan almak için boş bırakın. Örnek: https://pinready.syl21.org"
+system_mirror_clear = "Temizle"

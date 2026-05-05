@@ -470,3 +470,13 @@ merge_apply_disabled_tooltip = "Voer eerst een voorvertoning (dry run) uit; alle
 
 system_credits_title = "Met dank aan"
 system_credits_intro = "PinReady bouwt voort op het werk van deze bijdragers aan het bredere Visual Pinball-ecosysteem:"
+
+system_detected = "Gedetecteerd systeem"
+
+inputs_auto_map = "Alle invoer automatisch koppelen"
+inputs_auto_map_running = "Automatische koppeling actief — Escape om over te slaan, Annuleren om te stoppen."
+inputs_auto_map_cancel = "Automatische koppeling annuleren"
+
+system_mirror_label = "Zelf gehoste mirror (optioneel)"
+system_mirror_hint = "Routeert de VBS-catalogus en VPin media-DB via je eigen server in plaats van GitHub. Laat leeg om direct van GitHub te downloaden. Voorbeeld: https://pinready.syl21.org"
+system_mirror_clear = "Wissen"

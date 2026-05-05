@@ -1,5 +1,35 @@
 use super::*;
 
+// Row sizing for the manually-laid-out action list. Fixed widths so every
+// row aligns; per-row backgrounds (striping + hover + capturing) work
+// because we know the exact rect each row occupies.
+// Wide enough to fit the longest realistic binding without wrapping —
+// SDL3 spits out things like
+// `SDLJoy_03004c8009120000eaea000011010000_1 ; Button 7` (≈ 50 chars).
+// Anything narrower made short/long bindings render at different visual
+// heights and the table looked broken. Fixed widths keep the column
+// edges glued in place no matter what value lands in them.
+const COL_ACTION_WIDTH: f32 = 280.0;
+const COL_BINDING_WIDTH: f32 = 560.0;
+const COL_BUTTON_WIDTH: f32 = 140.0;
+const COL_SPACING: f32 = 8.0;
+const ROW_HEIGHT: f32 = 28.0;
+/// Total list width = sum of columns + 2 inter-cell gaps. Used to clamp
+/// the row rendering so the action list doesn't stretch edge-to-edge on
+/// wide windows (which made the per-row borders look insignificant).
+const LIST_WIDTH: f32 = COL_ACTION_WIDTH + COL_BINDING_WIDTH + COL_BUTTON_WIDTH + 2.0 * COL_SPACING;
+
+// Higher-contrast stripes than the previous (40/28) — a 4K cabinet
+// playfield washes out subtle deltas, so we go full ±8 around mid-grey.
+const BG_EVEN: egui::Color32 = egui::Color32::from_rgb(48, 48, 54);
+const BG_ODD: egui::Color32 = egui::Color32::from_rgb(22, 22, 26);
+const BG_HOVER: egui::Color32 = egui::Color32::from_rgb(78, 78, 92);
+const BG_CAPTURING: egui::Color32 = egui::Color32::from_rgb(60, 110, 200);
+const BG_CONFLICT: egui::Color32 = egui::Color32::from_rgb(140, 70, 35);
+/// Thin horizontal divider painted between every row so the eye gets a
+/// clean rule line, not just a colour gradient.
+const ROW_BORDER: egui::Color32 = egui::Color32::from_rgb(95, 95, 110);
+
 impl App {
     pub(super) fn render_inputs_page(&mut self, ui: &mut egui::Ui) {
         ui.heading(t!("inputs_heading"));
@@ -19,9 +49,7 @@ impl App {
                         }
                     });
                 if self.pinscape_profile != prev_profile {
-                    // Re-apply defaults with new profile
                     if let Some(vpx_id) = self.pinscape_id.clone() {
-                        // Clear existing joystick mappings before re-applying
                         for action in &mut self.actions {
                             if matches!(&action.mapping, Some(CapturedInput::JoystickButton { .. }))
                             {
@@ -41,18 +69,38 @@ impl App {
         ui.label(t!("inputs_instructions").to_string());
         ui.add_space(8.0);
 
+        // Auto-map controls — single button that walks every action in
+        // turn. Escape skips one (keeps the existing default), the
+        // "Cancel" button bails entirely.
+        ui.horizontal(|ui| {
+            if !self.auto_map_active {
+                if ui
+                    .button(egui::RichText::new(t!("inputs_auto_map")).strong())
+                    .clicked()
+                {
+                    self.auto_map_active = true;
+                    if !self.actions.is_empty() {
+                        self.capture_state = CaptureState::Capturing(0);
+                    }
+                }
+            } else {
+                ui.colored_label(
+                    egui::Color32::from_rgb(255, 200, 80),
+                    t!("inputs_auto_map_running"),
+                );
+                if ui.button(t!("inputs_auto_map_cancel")).clicked() {
+                    self.auto_map_active = false;
+                    self.capture_state = CaptureState::Idle;
+                }
+            }
+        });
+        ui.add_space(8.0);
+
         // Process keyboard input via egui (has window focus)
         if let CaptureState::Capturing(idx) = self.capture_state {
-            // Check for modifier-only presses (Shift, Ctrl, Alt)
             let modifiers = ui.input(|i| i.modifiers);
-            let mut captured = false;
+            let mut captured_or_skipped = false;
 
-            // Check key events. We capture both the logical key (what the
-            // user sees — e.g. "!" when pressing Shift+1 on QWERTY) and
-            // the physical key (the unshifted position — Num1 in that
-            // example). The physical key gets priority: it's what VPX
-            // stores in the ini as an SDL scancode, and it's layout-
-            // independent so users on AZERTY keep a consistent binding.
             let key_events: Vec<(egui::Key, Option<egui::Key>, bool)> = ui.input(|i| {
                 i.events
                     .iter()
@@ -74,8 +122,8 @@ impl App {
             for &(key, physical_key, pressed) in &key_events {
                 if pressed {
                     if key == egui::Key::Escape {
-                        self.capture_state = CaptureState::Idle;
-                        captured = true;
+                        // Skip this one — leaves the binding unchanged.
+                        captured_or_skipped = true;
                         break;
                     }
                     let sc = physical_key
@@ -88,123 +136,200 @@ impl App {
                                 name: inputs::scancode_name(sc),
                             });
                         }
-                        self.capture_state = CaptureState::Idle;
-                        captured = true;
+                        captured_or_skipped = true;
                         break;
                     }
                 }
             }
 
-            // Check modifier-only press (e.g., just Shift pressed alone)
-            if !captured && (modifiers.shift || modifiers.ctrl || modifiers.alt) {
-                // Wait for a key event to pair with the modifier, or capture modifier alone
-                // We only capture modifier alone if no other key event came through
-                if key_events.is_empty() {
-                    if let Some(sc) = inputs::egui_modifiers_to_scancode(&modifiers) {
-                        if idx < self.actions.len() {
-                            self.actions[idx].mapping = Some(CapturedInput::Keyboard {
-                                scancode: sc,
-                                name: inputs::scancode_name(sc),
-                            });
-                        }
-                        self.capture_state = CaptureState::Idle;
+            // Modifier-only press fallback (Shift/Ctrl/Alt by themselves).
+            if !captured_or_skipped
+                && (modifiers.shift || modifiers.ctrl || modifiers.alt)
+                && key_events.is_empty()
+            {
+                if let Some(sc) = inputs::egui_modifiers_to_scancode(&modifiers) {
+                    if idx < self.actions.len() {
+                        self.actions[idx].mapping = Some(CapturedInput::Keyboard {
+                            scancode: sc,
+                            name: inputs::scancode_name(sc),
+                        });
                     }
+                    captured_or_skipped = true;
                 }
             }
 
-            // Joystick events are processed in the main ui() method
+            if captured_or_skipped {
+                self.advance_capture_or_finish();
+            }
 
-            // Request repaint while capturing to stay responsive
+            // Joystick events are processed in the main ui() method.
+
+            // Request repaint while capturing to stay responsive.
             ui.ctx().request_repaint();
         }
 
         // Conflicts
         let conflicts = inputs::find_conflicts(&self.actions);
 
-        // Essential actions
-        ui.strong(t!("inputs_essential").to_string());
-        self.render_action_list(ui, true, &conflicts);
-
-        ui.add_space(8.0);
-        ui.checkbox(
-            &mut self.show_advanced_inputs,
-            t!("inputs_show_advanced").to_string(),
-        );
-        if self.show_advanced_inputs {
-            ui.add_space(4.0);
-            ui.strong(t!("inputs_advanced").to_string());
-            self.render_action_list(ui, false, &conflicts);
-        }
+        // Single unified action list — no more "advanced" toggle.
+        ui.add_space(4.0);
+        self.render_action_list_unified(ui, &conflicts);
     }
 
-    pub(super) fn render_action_list(
-        &mut self,
-        ui: &mut egui::Ui,
-        essential: bool,
-        conflicts: &[(usize, usize)],
-    ) {
-        egui::Grid::new(if essential {
-            "essential_inputs"
-        } else {
-            "advanced_inputs"
-        })
-        .striped(true)
-        .min_col_width(120.0)
-        .show(ui, |ui| {
-            ui.strong(t!("inputs_col_action").to_string());
-            ui.strong(t!("inputs_col_binding").to_string());
-            ui.strong("");
-            ui.end_row();
-
-            for (idx, action) in self.actions.iter().enumerate() {
-                if action.essential != essential {
-                    continue;
+    /// Move to the next action in auto-map mode, or fall back to Idle.
+    /// Called after a successful capture or an Escape skip.
+    pub(super) fn advance_capture_or_finish(&mut self) {
+        if self.auto_map_active {
+            if let CaptureState::Capturing(idx) = self.capture_state {
+                let next = idx + 1;
+                if next < self.actions.len() {
+                    self.capture_state = CaptureState::Capturing(next);
+                    return;
                 }
-
-                ui.label(t!(action.label));
-
-                // Current binding display
-                let is_capturing = self.capture_state == CaptureState::Capturing(idx);
-                let binding_text = if is_capturing {
-                    t!("inputs_capturing").to_string()
-                } else if let Some(captured) = &action.mapping {
-                    captured.display_name().to_string()
-                } else if action.default_scancode != sdl3_sys::everything::SDL_SCANCODE_UNKNOWN {
-                    format!(
-                        "{}{}",
-                        inputs::scancode_name(action.default_scancode),
-                        t!("inputs_default_suffix")
-                    )
-                } else {
-                    t!("inputs_unassigned").to_string()
-                };
-
-                // Conflict warning
-                let has_conflict = conflicts.iter().any(|(a, b)| *a == idx || *b == idx);
-                if has_conflict {
-                    ui.colored_label(
-                        egui::Color32::from_rgb(255, 165, 0),
-                        format!("/!\\ {binding_text}"),
-                    );
-                } else {
-                    ui.label(&binding_text);
-                }
-
-                // Capture button
-                let btn_label = if is_capturing {
-                    t!("inputs_cancel").to_string()
-                } else {
-                    t!("inputs_map").to_string()
-                };
-                if ui.button(btn_label).clicked() {
-                    if is_capturing {
-                        self.capture_state = CaptureState::Idle;
-                    } else {
-                        self.capture_state = CaptureState::Capturing(idx);
-                    }
-                }
-                ui.end_row();
+                self.auto_map_active = false;
             }
+        }
+        self.capture_state = CaptureState::Idle;
+    }
+
+    fn render_action_list_unified(&mut self, ui: &mut egui::Ui, conflicts: &[(usize, usize)]) {
+        // Wrap the whole list in a fixed-width vertical so rows don't
+        // stretch to the full window. Tighter gap between cells too —
+        // egui's default `item_spacing` is 8 and our column widths
+        // already include their own padding.
+        ui.allocate_ui_with_layout(
+            egui::vec2(LIST_WIDTH, 0.0),
+            egui::Layout::top_down(egui::Align::LEFT),
+            |ui| {
+                ui.spacing_mut().item_spacing = egui::vec2(COL_SPACING, 0.0);
+                self.render_action_list_inner(ui, conflicts);
+            },
+        );
+    }
+
+    fn render_action_list_inner(&mut self, ui: &mut egui::Ui, conflicts: &[(usize, usize)]) {
+        // Header row.
+        ui.horizontal(|ui| {
+            ui.add_sized(
+                [COL_ACTION_WIDTH, ROW_HEIGHT],
+                egui::Label::new(egui::RichText::new(t!("inputs_col_action")).strong()),
+            );
+            ui.add_sized(
+                [COL_BINDING_WIDTH, ROW_HEIGHT],
+                egui::Label::new(egui::RichText::new(t!("inputs_col_binding")).strong()),
+            );
+            ui.add_sized([COL_BUTTON_WIDTH, ROW_HEIGHT], egui::Label::new(""));
         });
+
+        let n = self.actions.len();
+        for idx in 0..n {
+            // Snapshot what we need from this action so we can take
+            // `&mut self` later for the click handler.
+            let label = self.actions[idx].label;
+            let mapping = self.actions[idx].mapping.clone();
+            let default_scancode = self.actions[idx].default_scancode;
+            let is_capturing = self.capture_state == CaptureState::Capturing(idx);
+            let has_conflict = conflicts.iter().any(|(a, b)| *a == idx || *b == idx);
+
+            // Reserve a paint slot before the row so we can fill the
+            // background based on hover / capturing state once we know
+            // the row's rect.
+            let bg_idx = ui.painter().add(egui::Shape::Noop);
+
+            let row_resp = ui
+                .horizontal(|ui| {
+                    ui.set_min_height(ROW_HEIGHT);
+
+                    let action_text = if is_capturing {
+                        egui::RichText::new(t!(label))
+                            .strong()
+                            .color(egui::Color32::WHITE)
+                    } else {
+                        egui::RichText::new(t!(label))
+                    };
+                    ui.add_sized(
+                        [COL_ACTION_WIDTH, ROW_HEIGHT],
+                        egui::Label::new(action_text),
+                    );
+
+                    // Binding column.
+                    let binding_text = if is_capturing {
+                        t!("inputs_capturing").to_string()
+                    } else if let Some(ref captured) = mapping {
+                        captured.display_name().to_string()
+                    } else if default_scancode != sdl3_sys::everything::SDL_SCANCODE_UNKNOWN {
+                        format!(
+                            "{}{}",
+                            inputs::scancode_name(default_scancode),
+                            t!("inputs_default_suffix")
+                        )
+                    } else {
+                        t!("inputs_unassigned").to_string()
+                    };
+                    let binding_rich = if is_capturing {
+                        egui::RichText::new(binding_text)
+                            .strong()
+                            .color(egui::Color32::WHITE)
+                    } else if has_conflict {
+                        egui::RichText::new(format!("/!\\ {binding_text}"))
+                            .color(egui::Color32::from_rgb(255, 165, 0))
+                    } else {
+                        egui::RichText::new(binding_text)
+                    };
+                    ui.add_sized(
+                        [COL_BINDING_WIDTH, ROW_HEIGHT],
+                        egui::Label::new(binding_rich),
+                    );
+
+                    // Capture button.
+                    let btn_label = if is_capturing {
+                        t!("inputs_cancel").to_string()
+                    } else {
+                        t!("inputs_map").to_string()
+                    };
+                    let btn = egui::Button::new(btn_label)
+                        .min_size(egui::vec2(COL_BUTTON_WIDTH, ROW_HEIGHT - 4.0));
+                    if ui.add(btn).clicked() {
+                        if is_capturing {
+                            // Manual cancel — also bails out of auto-map.
+                            self.auto_map_active = false;
+                            self.capture_state = CaptureState::Idle;
+                        } else {
+                            self.auto_map_active = false;
+                            self.capture_state = CaptureState::Capturing(idx);
+                        }
+                    }
+                })
+                .response;
+
+            // Row background: capturing > conflict > hover > stripe,
+            // plus a 1 px bottom rule between rows so the boundaries
+            // are visible even on a glossy 4K playfield.
+            let hovered = ui.rect_contains_pointer(row_resp.rect);
+            let bg = if is_capturing {
+                BG_CAPTURING
+            } else if has_conflict {
+                BG_CONFLICT
+            } else if hovered {
+                BG_HOVER
+            } else if idx % 2 == 0 {
+                BG_EVEN
+            } else {
+                BG_ODD
+            };
+            // Build a two-shape group: filled rect + bottom rule.
+            // Using `Shape::Vec` keeps the single bg_idx slot we reserved.
+            let group = vec![
+                egui::Shape::rect_filled(row_resp.rect, 0.0, bg),
+                egui::Shape::line_segment(
+                    [
+                        egui::pos2(row_resp.rect.left() + 2.0, row_resp.rect.bottom()),
+                        egui::pos2(row_resp.rect.right() - 2.0, row_resp.rect.bottom()),
+                    ],
+                    egui::Stroke::new(1.0, ROW_BORDER),
+                ),
+            ];
+            ui.painter().set(bg_idx, egui::Shape::Vec(group));
+        }
     }
 }

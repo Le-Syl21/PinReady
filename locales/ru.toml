@@ -471,3 +471,13 @@ merge_apply_disabled_tooltip = "Сначала запустите предпро
 
 system_credits_title = "Благодарности"
 system_credits_intro = "PinReady основан на работе этих участников более широкой экосистемы Visual Pinball:"
+
+system_detected = "Обнаруженная система"
+
+inputs_auto_map = "Авто-назначить все входы"
+inputs_auto_map_running = "Авто-назначение идёт — Escape пропускает, Отмена останавливает."
+inputs_auto_map_cancel = "Отменить авто-назначение"
+
+system_mirror_label = "Самостоятельно размещаемое зеркало (опционально)"
+system_mirror_hint = "Маршрутизирует каталог VBS и VPin media DB через ваш собственный сервер вместо GitHub. Оставьте пустым для прямой загрузки с GitHub. Пример: https://pinready.syl21.org"
+system_mirror_clear = "Очистить"

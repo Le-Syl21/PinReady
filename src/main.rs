@@ -17,6 +17,7 @@ mod merge;
 mod outputs_hid;
 mod pidlock;
 mod screens;
+mod system_info;
 mod tilt;
 mod updater;
 mod vbs_patches;
@@ -63,6 +64,13 @@ fn init_logging() {
 
     // Default to `info` so launcher diagnostics (kiosk bounds, display roles, etc.)
     // land in the log file. RUST_LOG env var still overrides if set.
+    //
+    // We previously had `egui_winit=error` here to silence the per-frame
+    // `WARN egui_winit] CursorGrab(Locked): the requested operation is
+    // not supported by Winit` on Wayland. The cleaner fix is in place
+    // now: `app::is_wayland()` gates the `ViewportCommand::CursorGrab`
+    // calls so the unsupported syscall is never made on Wayland to
+    // begin with — egui_winit warns at default `warn` level once again.
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
         .format(move |buf, record| {
             let ts = time::OffsetDateTime::now_local()
