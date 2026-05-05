@@ -90,6 +90,13 @@ impl App {
             log::error!("Failed to set autostart: {e}");
         }
 
+        // Apply desktop integration (menu shortcuts + .vpx file association).
+        // Pass the resolved VPX path so the .vpx handler points to the right
+        // binary; if empty, only PinReady's own shortcut is installed.
+        if let Err(e) = set_desktop_integration(self.desktop_integration, &self.vpx_exe_path) {
+            log::error!("Failed to set desktop integration: {e}");
+        }
+
         // Knocker surprise — compute its exact playback duration from the
         // decoded PCM so the close deadline matches the real end of the
         // sound (not an arbitrary 800ms timeout).

@@ -426,3 +426,45 @@ key_lgui = "Super izquierdo"
 key_rgui = "Super derecho"
 key_nonusbackslash = "Tecla ISO (entre Mayús izquierda y Z)"
 key_application = "Menú"
+
+# Desktop integration (menu shortcuts + .vpx file association)
+desktop_integration_label = "Añadir PinReady y Visual Pinball al menú del sistema, con asociación de archivos .vpx"
+desktop_integration_hint = "Instala accesos directos en el menú de aplicaciones del escritorio (GNOME/KDE/XFCE en Linux, Launchpad en macOS, Menú Inicio en Windows) y registra los archivos .vpx para que se abran con Visual Pinball X. Reversible: desmarque la opción y vuelva a finalizar el asistente."
+
+page_system = "Sistema"
+
+# System wizard page (autostart + desktop integration)
+system_heading = "Integración con el sistema"
+system_desc = "Opciones de comodidad opcionales. Actívelas en un pincab dedicado; déjelas desactivadas si comparte el equipo con un uso de escritorio normal."
+
+# Asset bundling / merge (Tables wizard page — Import section)
+merge_section_title = "Importar recursos desde carpetas antiguas (opcional)"
+merge_section_desc = "Si sus ROMs, paquetes PUP, música o archivos alt-color están dispersos en antiguas carpetas globales, indíquelos aquí y PinReady los moverá/copiará al diseño moderno de carpeta por mesa. Omita esta sección si sus mesas ya son autocontenidas."
+merge_section_optional = "Opcional — dejar vacío para omitir."
+merge_src_vpinmame = "Carpeta VPINMAME (roms / nvram / cfg / altsound / altcolor):"
+merge_src_pupvideos = "Carpeta PUP videos:"
+merge_src_music = "Carpeta Music:"
+merge_strategy_label = "Cómo colocar los archivos en cada carpeta de mesa:"
+merge_strategy_copy = "Copiar (seguro, duplica el uso de disco)"
+merge_strategy_move = "Mover (libera el origen, destructivo)"
+merge_strategy_symlink = "Enlace simbólico (sin copia, los orígenes deben mantenerse)"
+merge_symlink_windows_warning = "Windows requiere el Modo Desarrollador o privilegios de administrador para los enlaces simbólicos. De lo contrario, la importación fallará."
+merge_symlink_unavailable = "Los enlaces simbólicos no están disponibles en este sistema. Reintente con Copiar o Mover."
+merge_dry_run = "Vista previa (dry run)"
+merge_run = "Iniciar importación"
+merge_confirm_apply = "Aplicar cambios"
+merge_cancel = "Cancelar"
+merge_progress = "Mesas: %{tables} · Encontrados: %{found} · Aplicados: %{applied} · Omitidos: %{skipped}"
+merge_log_done = "Hecho —"
+
+# Tables page — mandatory tables_dir + collapsibles
+tables_path_required = "Obligatorio — elija la carpeta donde residen sus mesas antes de continuar."
+tables_path_required_inline = "⚠ Elija una carpeta de mesas antes de continuar."
+tables_help_section = "¿Cómo debo organizar mis mesas?"
+tables_maintenance_section = "Mantenimiento"
+merge_destination_notice = "Los archivos detectados se colocarán dentro de la carpeta de mesas seleccionada arriba, una subcarpeta por mesa."
+merge_destination_notice_path = "Los archivos detectados se colocarán dentro de %{path}, una subcarpeta por mesa."
+merge_sources_none = "ninguna fuente configurada"
+merge_sources_configured = "%{count} fuente(s) configurada(s)"
+merge_run_disabled_tooltip = "Elija primero una carpeta de mesas válida arriba."
+merge_apply_disabled_tooltip = "Ejecute primero una vista previa (dry run); solo se pueden aplicar cambios ya previsualizados."

@@ -8,6 +8,7 @@ page_outputs = "Outputs"
 page_tilt = "Tilt / Nudge"
 page_audio = "Audio"
 page_tables = "Tables"
+page_system = "Système"
 
 # Navigation du wizard
 wizard_previous = "< Précédent"
@@ -397,6 +398,46 @@ tables_catalog_toggle = "Synchroniser VPSDB + VPinMediaDB au scan"
 # Démarrage automatique
 autostart_label = "Lancer PinReady automatiquement au démarrage"
 autostart_hint = "Recommandé pour un pincab dédié. PinReady se lancera au démarrage du système."
+
+# Intégration au bureau (raccourcis menu + association .vpx)
+desktop_integration_label = "Ajouter PinReady et Visual Pinball au menu système, avec association des fichiers .vpx"
+desktop_integration_hint = "Installe des raccourcis dans le menu d'applications du bureau (GNOME/KDE/XFCE sous Linux, Launchpad sous macOS, Menu Démarrer sous Windows) et enregistre les fichiers .vpx pour qu'ils s'ouvrent avec Visual Pinball X. Réversible : décochez et terminez à nouveau l'assistant pour tout retirer."
+
+# Page wizard Système (autostart + intégration au bureau)
+system_heading = "Intégration au système"
+system_desc = "Options de confort optionnelles. À activer sur un pincab dédié ; à laisser désactivées si vous partagez la machine avec un usage bureautique."
+
+# Page Tables — dossier obligatoire + collapsibles
+tables_path_required = "Obligatoire — choisissez le dossier où se trouvent vos tables avant de continuer."
+tables_path_required_inline = "⚠ Choisissez un dossier des tables avant de continuer."
+tables_help_section = "Comment organiser mes tables ?"
+tables_maintenance_section = "Maintenance"
+
+# Import / merge d'assets (page Tables — section Import)
+merge_section_title = "Importer des assets depuis d'anciens dossiers (optionnel)"
+merge_destination_notice = "Les fichiers détectés seront placés dans le dossier des tables sélectionné ci-dessus, un sous-dossier par table."
+merge_destination_notice_path = "Les fichiers détectés seront placés dans %{path}, un sous-dossier par table."
+merge_sources_none = "aucune source configurée"
+merge_sources_configured = "%{count} source(s) configurée(s)"
+merge_run_disabled_tooltip = "Choisissez d'abord un dossier des tables valide."
+merge_apply_disabled_tooltip = "Lancez d'abord un aperçu (dry run) ; on n'applique que ce qui a été pré-visualisé."
+merge_section_desc = "Si vos ROMs, PUP packs, musiques ou fichiers alt-color sont éparpillés dans des dossiers globaux à l'ancienne, indiquez-les ici et PinReady les déplacera/copiera dans le dossier de chaque table au format moderne. Ignorez cette section si vos tables sont déjà autonomes."
+merge_section_optional = "Optionnel — laissez vide pour ignorer."
+merge_src_vpinmame = "Dossier VPINMAME (roms / nvram / cfg / altsound / altcolor) :"
+merge_src_pupvideos = "Dossier PUP videos :"
+merge_src_music = "Dossier Music :"
+merge_strategy_label = "Comment placer les fichiers dans chaque dossier de table :"
+merge_strategy_copy = "Copier (sûr, double l'espace disque)"
+merge_strategy_move = "Déplacer (libère la source, destructif)"
+merge_strategy_symlink = "Lien symbolique (pas de copie, les sources doivent rester en place)"
+merge_symlink_windows_warning = "Windows exige le mode développeur ou des droits admin pour créer des liens. Sinon l'import échouera."
+merge_symlink_unavailable = "Les liens symboliques ne sont pas disponibles sur ce système. Relancez en Copie ou Déplacement."
+merge_dry_run = "Aperçu (dry run)"
+merge_run = "Lancer l'import"
+merge_confirm_apply = "Appliquer les changements"
+merge_cancel = "Annuler"
+merge_progress = "Tables : %{tables} · Trouvés : %{found} · Appliqués : %{applied} · Ignorés : %{skipped}"
+merge_log_done = "Terminé —"
 
 # Labels des touches nommées — SDL retourne les noms anglais pour les
 # touches non-caractère (Escape, Home, Left Shift…). On les localise ici.

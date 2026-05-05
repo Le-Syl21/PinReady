@@ -653,9 +653,15 @@ pub fn download_pinready_and_replace(
         .context("Failed to swap the running PinReady binary")?;
 
     // Spawn a fresh instance using the *new* binary (now at current_exe()).
-    // The caller is expected to exit(0) so this new process becomes the user-facing one.
+    // The caller is expected to exit(0) so this new process becomes the
+    // user-facing one. We pass `--from-update` so the new process knows
+    // to retry the PID-lock acquisition for ~5 s — without that, the new
+    // process races against this one's flock release, sees AlreadyRunning,
+    // sends a focus request to us (we're about to exit), and quits
+    // silently. End result: no PinReady running after update.
     let exe = std::env::current_exe().context("Failed to resolve current exe")?;
     std::process::Command::new(exe)
+        .arg("--from-update")
         .spawn()
         .context("Failed to relaunch PinReady")?;
 

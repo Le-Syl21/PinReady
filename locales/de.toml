@@ -425,3 +425,45 @@ key_lgui = "Super links"
 key_rgui = "Super rechts"
 key_nonusbackslash = "ISO-Taste (zwischen Umschalt links und Y)"
 key_application = "Menü"
+
+# Desktop integration (menu shortcuts + .vpx file association)
+desktop_integration_label = "PinReady und Visual Pinball ins Systemmenü aufnehmen, inkl. .vpx-Dateizuordnung"
+desktop_integration_hint = "Legt Anwendungsverknüpfungen im Anwendungsmenü des Desktops an (GNOME/KDE/XFCE unter Linux, Launchpad unter macOS, Startmenü unter Windows) und registriert .vpx-Dateien zum Öffnen mit Visual Pinball X. Reversibel: Häkchen entfernen und Assistenten erneut abschließen."
+
+page_system = "System"
+
+# System wizard page (autostart + desktop integration)
+system_heading = "Systemintegration"
+system_desc = "Optionale Komfortfunktionen. Auf einem dedizierten Pincab aktivieren; deaktiviert lassen, wenn der Rechner auch als normaler Desktop genutzt wird."
+
+# Asset bundling / merge (Tables wizard page — Import section)
+merge_section_title = "Assets aus alten Ordnern importieren (optional)"
+merge_section_desc = "Wenn Ihre ROMs, PUP-Packs, Musik oder Alt-Color-Dateien in alten globalen Ordnern verstreut sind, geben Sie diese hier an. PinReady verschiebt/kopiert sie dann in das moderne Pro-Tabelle-Layout jeder Tabelle. Überspringen Sie diesen Abschnitt, wenn Ihre Tabellen bereits eigenständig sind."
+merge_section_optional = "Optional — leer lassen zum Überspringen."
+merge_src_vpinmame = "VPINMAME-Ordner (roms / nvram / cfg / altsound / altcolor):"
+merge_src_pupvideos = "PUP-Videos-Ordner:"
+merge_src_music = "Musik-Ordner:"
+merge_strategy_label = "Wie sollen die Dateien im jeweiligen Tabellenordner platziert werden:"
+merge_strategy_copy = "Kopieren (sicher, doppelter Speicherbedarf)"
+merge_strategy_move = "Verschieben (gibt die Quelle frei, destruktiv)"
+merge_strategy_symlink = "Symlink (keine Kopie, Quellen müssen erhalten bleiben)"
+merge_symlink_windows_warning = "Windows erfordert für Symlinks den Entwicklermodus oder Administratorrechte. Andernfalls schlägt der Import fehl."
+merge_symlink_unavailable = "Symlinks sind auf diesem System nicht verfügbar. Bitte mit Kopieren oder Verschieben erneut versuchen."
+merge_dry_run = "Vorschau (Dry Run)"
+merge_run = "Import starten"
+merge_confirm_apply = "Änderungen übernehmen"
+merge_cancel = "Abbrechen"
+merge_progress = "Tabellen: %{tables} · Gefunden: %{found} · Angewendet: %{applied} · Übersprungen: %{skipped}"
+merge_log_done = "Fertig —"
+
+# Tables page — mandatory tables_dir + collapsibles
+tables_path_required = "Erforderlich — wählen Sie den Ordner mit Ihren Tabellen, bevor Sie fortfahren."
+tables_path_required_inline = "⚠ Bitte zuerst einen Tabellenordner auswählen."
+tables_help_section = "Wie sollte ich meine Tabellen organisieren?"
+tables_maintenance_section = "Wartung"
+merge_destination_notice = "Gefundene Dateien werden in den oben gewählten Tabellenordner abgelegt, je ein Unterordner pro Tabelle."
+merge_destination_notice_path = "Gefundene Dateien werden in %{path} abgelegt, je ein Unterordner pro Tabelle."
+merge_sources_none = "keine Quelle konfiguriert"
+merge_sources_configured = "%{count} Quelle(n) konfiguriert"
+merge_run_disabled_tooltip = "Bitte zuerst einen gültigen Tabellenordner auswählen."
+merge_apply_disabled_tooltip = "Zuerst eine Vorschau (Dry Run) ausführen; nur vorschau-bestätigte Änderungen können angewendet werden."

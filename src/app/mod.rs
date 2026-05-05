@@ -110,6 +110,7 @@ pub enum WizardPage {
     Tilt,
     Audio,
     TablesDir,
+    System,
 }
 
 impl WizardPage {
@@ -122,6 +123,7 @@ impl WizardPage {
             Self::Tilt => t!("page_tilt"),
             Self::Audio => t!("page_audio"),
             Self::TablesDir => t!("page_tables"),
+            Self::System => t!("page_system"),
         }
         .to_string()
     }
@@ -135,6 +137,7 @@ impl WizardPage {
             Self::Tilt => 4,
             Self::Audio => 5,
             Self::TablesDir => 6,
+            Self::System => 7,
         }
     }
 
@@ -147,12 +150,13 @@ impl WizardPage {
             4 => Some(Self::Tilt),
             5 => Some(Self::Audio),
             6 => Some(Self::TablesDir),
+            7 => Some(Self::System),
             _ => None,
         }
     }
 
     fn count() -> usize {
-        7
+        8
     }
 }
 
@@ -313,6 +317,27 @@ pub struct App {
     // Autostart on boot
     autostart: bool,
 
+    // Desktop integration: app-menu shortcuts (PinReady + VPinballX) and
+    // .vpx file association. Mirrors `autostart` — flipped from the wizard's
+    // tables_dir page, applied in finalize_wizard.
+    desktop_integration: bool,
+
+    // Asset bundling ("merge") — optional import step that lives on the
+    // Tables wizard page. The three source paths point at legacy
+    // VPINMAME/PUPVIDEOS/Music dirs; the merge engine in `crate::merge`
+    // walks each .vpx in tables_dir and places companion files into the
+    // 10.8.1 folder-per-table layout.
+    merge_src_vpinmame: String,
+    merge_src_pupvideos: String,
+    merge_src_music: String,
+    merge_strategy: crate::merge::MergeStrategy,
+    merge_progress_rx: Option<crossbeam_channel::Receiver<crate::merge::MergeEvent>>,
+    merge_cancel: Option<Arc<AtomicBool>>,
+    merge_log: Vec<crate::merge::MergeEvent>,
+    merge_dry_run_report: Option<crate::merge::MergeReport>,
+    merge_running: bool,
+    merge_section_open: bool,
+
     // Opt-in: auto-patch VBS scripts at scan from
     // jsm174/vpx-standalone-scripts. Off by default — the catalog
     // sometimes introduces regressions on specific tables, so users
@@ -428,6 +453,13 @@ impl App {
         };
         let jsm174_patching = db.jsm174_patching_enabled();
         let catalog_enrichment = db.catalog_enrichment_enabled();
+        let merge_src_vpinmame = db.get_merge_source("vpinmame");
+        let merge_src_pupvideos = db.get_merge_source("pupvideos");
+        let merge_src_music = db.get_merge_source("music");
+        let merge_strategy = crate::merge::MergeStrategy::from_db_str(&db.get_merge_strategy());
+        let merge_section_open = merge_src_vpinmame.is_empty()
+            && merge_src_pupvideos.is_empty()
+            && merge_src_music.is_empty();
 
         let mut s = Self {
             mode: if start_in_wizard {
@@ -504,6 +536,17 @@ impl App {
             vpx_hide_covers: false,
             vpx_error_log: None,
             autostart: is_autostart_enabled(),
+            desktop_integration: is_desktop_integration_installed(),
+            merge_src_vpinmame,
+            merge_src_pupvideos,
+            merge_src_music,
+            merge_strategy,
+            merge_progress_rx: None,
+            merge_cancel: None,
+            merge_log: Vec::new(),
+            merge_dry_run_report: None,
+            merge_running: false,
+            merge_section_open,
             jsm174_patching,
             catalog_enrichment,
             catalog_cancel_token: None,
@@ -801,6 +844,10 @@ impl App {
             WizardPage::TablesDir => {
                 self.tables_dir = String::new();
             }
+            WizardPage::System => {
+                self.autostart = false;
+                self.desktop_integration = false;
+            }
         }
     }
 
@@ -880,6 +927,7 @@ impl App {
 mod audio_page;
 mod autostart;
 mod catalog_worker;
+mod desktop_integration;
 mod inputs_page;
 mod launcher;
 mod launcher_ui;
@@ -887,10 +935,12 @@ mod outputs_page;
 mod rendering_page;
 mod save;
 mod screens_page;
+mod system_page;
 mod tables_dir_page;
 mod tilt_page;
 
 use autostart::{is_autostart_enabled, set_autostart};
+use desktop_integration::{is_desktop_integration_installed, set_desktop_integration};
 
 impl eframe::App for App {
     /// Rotate input events into logical (rotated) UI space, plus update the
@@ -1184,7 +1234,14 @@ impl eframe::App for App {
                             updater::resolve_vpx_exe(std::path::Path::new(&self.vpx_exe_path));
                         self.vpx_exe_path.is_empty() || !resolved.is_file()
                     };
-                    let blocked = downloading || vpx_missing;
+                    // Tables dir is mandatory before leaving the Tables page —
+                    // skipping it would land the user in a launcher that has
+                    // nothing to scan and shows an empty grid.
+                    let on_tables_page = self.page == WizardPage::TablesDir;
+                    let tables_dir_missing = on_tables_page
+                        && (self.tables_dir.is_empty()
+                            || !std::path::Path::new(&self.tables_dir).is_dir());
+                    let blocked = downloading || vpx_missing || tables_dir_missing;
 
                     if self.page.index() < WizardPage::count() - 1 {
                         let btn = egui::Button::new(t!("wizard_next"));
@@ -1199,6 +1256,12 @@ impl eframe::App for App {
                     }
                     if vpx_missing && !downloading {
                         ui.colored_label(egui::Color32::from_rgb(255, 180, 50), t!("vpx_required"));
+                    }
+                    if tables_dir_missing {
+                        ui.colored_label(
+                            egui::Color32::from_rgb(255, 180, 50),
+                            t!("tables_path_required_inline"),
+                        );
                     }
                     if downloading {
                         let (current, total) = self.update_progress;
@@ -1258,6 +1321,7 @@ impl eframe::App for App {
                             WizardPage::Tilt => self.render_tilt_page(ui),
                             WizardPage::Audio => self.render_audio_page(ui),
                             WizardPage::TablesDir => self.render_tables_dir_page(ui),
+                            WizardPage::System => self.render_system_page(ui),
                         }
                     });
             });

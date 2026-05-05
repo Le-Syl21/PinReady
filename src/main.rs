@@ -13,6 +13,7 @@ mod db;
 mod i18n;
 mod inputs;
 mod mediadb;
+mod merge;
 mod outputs_hid;
 mod pidlock;
 mod screens;
@@ -133,15 +134,23 @@ fn main() -> Result<()> {
     }
     let force_config = args.iter().any(|a| a == "--config" || a == "-c");
     if args.iter().any(|a| a == "--help" || a == "-h") {
-        println!("PinReady v{VERSION} — Visual Pinball configurator & launcher");
-        println!();
-        println!("Usage: pinready [OPTIONS]");
-        println!();
-        println!("Options:");
-        println!("  --config, -c    Force configuration wizard mode");
-        println!("  --version, -v   Show version and license");
-        println!("  --help, -h      Show this help");
+        print_help();
         return Ok(());
+    }
+    if args.iter().any(|a| a == "--print-paths") {
+        return run_print_paths_cli();
+    }
+    if args.iter().any(|a| a == "--list-tables") {
+        return run_list_tables_cli();
+    }
+    if args.iter().any(|a| a == "--merge-dry-run") {
+        return run_merge_cli(&args, merge::MergeMode::DryRun);
+    }
+    if args.iter().any(|a| a == "--merge") {
+        return run_merge_cli(&args, merge::MergeMode::Commit);
+    }
+    if args.iter().any(|a| a == "--reset-wizard") {
+        return run_reset_wizard_cli();
     }
 
     // Acquire the single-instance PID lock BEFORE init_logging: the log
@@ -153,37 +162,54 @@ fn main() -> Result<()> {
         .parent()
         .unwrap_or(std::path::Path::new("."))
         .to_path_buf();
-    let _pid_lock = match pidlock::PidLock::acquire_in(&lock_dir) {
-        Ok(lock) => lock,
-        Err(pidlock::PidLockError::AlreadyRunning { path, pid }) => {
-            // Another PinReady is live. Politely ask it to bring its window
-            // to the front (via the focus-on-relaunch Unix socket) and exit
-            // cleanly. Only stderr here — init_logging isn't set up yet,
-            // which is intentional: leaves the running instance's log
-            // intact.
-            if pidlock::try_notify_focus(&lock_dir) {
-                eprintln!("PinReady already running — asked it to focus and exiting.");
-                return Ok(());
+    // After a self-update the previous instance is *still alive* for the
+    // brief window between `self_replace::self_replace` and its `exit(0)`.
+    // The freshly-spawned new instance receives `--from-update` so it can
+    // retry acquiring the flock instead of bailing on the first
+    // AlreadyRunning the way a normal second launch should.
+    let from_update = args.iter().any(|a| a == "--from-update");
+    let _pid_lock = {
+        let mut retry_count = 0u32;
+        const MAX_RETRIES: u32 = 50; // 50 × 100 ms = 5 s
+        loop {
+            match pidlock::PidLock::acquire_in(&lock_dir) {
+                Ok(lock) => break lock,
+                Err(pidlock::PidLockError::AlreadyRunning { path, pid }) => {
+                    if from_update && retry_count < MAX_RETRIES {
+                        retry_count += 1;
+                        std::thread::sleep(std::time::Duration::from_millis(100));
+                        continue;
+                    }
+                    // Another PinReady is live. Politely ask it to bring
+                    // its window to the front (via the focus-on-relaunch
+                    // Unix socket) and exit cleanly. Only stderr here —
+                    // init_logging isn't set up yet, which is intentional:
+                    // leaves the running instance's log intact.
+                    if pidlock::try_notify_focus(&lock_dir) {
+                        eprintln!("PinReady already running — asked it to focus and exiting.");
+                        return Ok(());
+                    }
+                    let pid_display = pid
+                        .map(|p| p.to_string())
+                        .unwrap_or_else(|| "?".to_string());
+                    eprintln!(
+                        "PinReady is already running (PID {pid_display}).\n\
+                         Lock file: {}\n\
+                         To stop the running instance: kill {pid_display}",
+                        path.display()
+                    );
+                    std::process::exit(1);
+                }
+                Err(pidlock::PidLockError::OpenFailed(e)) => {
+                    eprintln!(
+                        "PID lock file could not be opened ({e}). \
+                         This typically means a permissions problem on {}. \
+                         Aborting to avoid running two PinReady in parallel.",
+                        lock_dir.display()
+                    );
+                    std::process::exit(1);
+                }
             }
-            let pid_display = pid
-                .map(|p| p.to_string())
-                .unwrap_or_else(|| "?".to_string());
-            eprintln!(
-                "PinReady is already running (PID {pid_display}).\n\
-                 Lock file: {}\n\
-                 To stop the running instance: kill {pid_display}",
-                path.display()
-            );
-            std::process::exit(1);
-        }
-        Err(pidlock::PidLockError::OpenFailed(e)) => {
-            eprintln!(
-                "PID lock file could not be opened ({e}). \
-                 This typically means a permissions problem on {}. \
-                 Aborting to avoid running two PinReady in parallel.",
-                lock_dir.display()
-            );
-            std::process::exit(1);
         }
     };
 
@@ -279,6 +305,245 @@ fn main() -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+fn print_help() {
+    println!("PinReady v{VERSION} — Visual Pinball configurator & launcher");
+    println!();
+    println!("Usage: pinready [OPTIONS]");
+    println!();
+    println!("Run with no options to launch the wizard or table launcher.");
+    println!();
+    println!("Wizard / launcher control");
+    println!("  --config, -c                    Force configuration wizard mode");
+    println!("  --reset-wizard                  Mark wizard as not completed and exit");
+    println!("                                  (next launch goes back to the wizard).");
+    println!();
+    println!("Asset merge (legacy folder import)");
+    println!("  --merge-dry-run TABLES VPINMAME PUPVIDEOS MUSIC [--strategy MODE]");
+    println!("                                  Detect what would be placed; touch nothing.");
+    println!("  --merge TABLES VPINMAME PUPVIDEOS MUSIC [--strategy MODE] [--yes]");
+    println!("                                  Same, but actually apply. --yes skips the");
+    println!("                                  interactive confirmation. MODE is one of");
+    println!("                                  copy (default), move, symlink.");
+    println!("                                  Use \"\" to skip a source root.");
+    println!();
+    println!("Diagnostics");
+    println!("  --print-paths                   Print resolved DB / log / ini / tables /");
+    println!("                                  VPX-binary paths and exit.");
+    println!("  --list-tables                   Print one line per detected table folder");
+    println!("                                  (folder name + .vpx filename if present).");
+    println!();
+    println!("Internal");
+    println!("  --from-update                   Relaunch from auto-update (retries the PID");
+    println!("                                  lock for 5 s while the previous instance");
+    println!("                                  finishes exiting). Set automatically by the");
+    println!("                                  updater — you should not need it.");
+    println!();
+    println!("General");
+    println!("  --version, -v                   Show version and license");
+    println!("  --help, -h                      Show this help");
+}
+
+/// Print resolved paths PinReady operates on.
+fn run_print_paths_cli() -> Result<()> {
+    let db_path = db::default_db_path();
+    let log_dir = db_path
+        .parent()
+        .unwrap_or(std::path::Path::new("."))
+        .to_path_buf();
+    let log_path = log_dir.join("PinReady.log");
+    let ini_path = config::default_ini_path();
+    let pid_path = log_dir.join("PinReady.pid");
+
+    let (tables_dir, vpx_exe_path) = match db::Database::open(None) {
+        Ok(db) => (
+            db.get_tables_dir().unwrap_or_default(),
+            db.get_config("vpx_exe_path").unwrap_or_default(),
+        ),
+        Err(_) => (String::new(), String::new()),
+    };
+    let bin = std::env::current_exe().unwrap_or_default();
+
+    println!("binary           = {}", bin.display());
+    println!("database         = {}", db_path.display());
+    println!("log              = {}", log_path.display());
+    println!("pid lock         = {}", pid_path.display());
+    println!("VPinballX.ini    = {}", ini_path.display());
+    println!("tables_dir       = {tables_dir}");
+    println!("vpx_exe_path     = {vpx_exe_path}");
+    Ok(())
+}
+
+/// Print one line per table detected under the configured `tables_dir`.
+fn run_list_tables_cli() -> Result<()> {
+    let db = db::Database::open(None)?;
+    let tables_dir = db.get_tables_dir().unwrap_or_default();
+    if tables_dir.is_empty() {
+        eprintln!("tables_dir is not configured. Run `pinready --config` first.");
+        std::process::exit(1);
+    }
+    let root = std::path::Path::new(&tables_dir);
+    if !root.is_dir() {
+        eprintln!("tables_dir does not exist: {tables_dir}");
+        std::process::exit(1);
+    }
+    let mut entries: Vec<_> = std::fs::read_dir(root)?
+        .flatten()
+        .filter(|e| e.file_type().is_ok_and(|t| t.is_dir()))
+        .collect();
+    entries.sort_by_key(|e| e.file_name());
+    for e in entries {
+        let folder = e.file_name().to_string_lossy().into_owned();
+        let vpx = std::fs::read_dir(e.path())
+            .ok()
+            .into_iter()
+            .flatten()
+            .flatten()
+            .find(|f| f.path().extension().and_then(|s| s.to_str()) == Some("vpx"))
+            .map(|f| f.file_name().to_string_lossy().into_owned())
+            .unwrap_or_else(|| "(no .vpx)".into());
+        println!("{folder}\t{vpx}");
+    }
+    Ok(())
+}
+
+/// Mark the wizard as not completed so the next normal launch lands
+/// back in the wizard.
+fn run_reset_wizard_cli() -> Result<()> {
+    let db = db::Database::open(None)?;
+    db.set_config("wizard_completed", "false")?;
+    println!("wizard_completed = false. Next launch will start the wizard.");
+    Ok(())
+}
+
+/// Headless merge runner — dry-run or commit. Skips PID lock, SDL, eframe.
+/// Positional args: TABLES VPINMAME PUPVIDEOS MUSIC. Optional `--strategy
+/// copy|move|symlink` (default copy). `--yes` skips the commit-mode
+/// confirmation prompt.
+fn run_merge_cli(args: &[String], mode: merge::MergeMode) -> Result<()> {
+    let flag = match mode {
+        merge::MergeMode::DryRun => "--merge-dry-run",
+        merge::MergeMode::Commit => "--merge",
+    };
+    let pos = args.iter().position(|a| a == flag).unwrap();
+
+    let mut positional = Vec::with_capacity(4);
+    let mut i = pos + 1;
+    while positional.len() < 4 {
+        let Some(arg) = args.get(i) else {
+            break;
+        };
+        if arg.starts_with("--") {
+            break;
+        }
+        positional.push(arg.clone());
+        i += 1;
+    }
+    if positional.len() < 4 {
+        anyhow::bail!(
+            "{flag}: expected 4 positional args (TABLES VPINMAME PUPVIDEOS MUSIC), got {}",
+            positional.len()
+        );
+    }
+
+    let strategy = match args
+        .iter()
+        .position(|a| a == "--strategy")
+        .and_then(|p| args.get(p + 1))
+        .map(|s| s.as_str())
+    {
+        None | Some("copy") => merge::MergeStrategy::Copy,
+        Some("move") => merge::MergeStrategy::Move,
+        Some("symlink") => merge::MergeStrategy::Symlink,
+        Some(other) => {
+            anyhow::bail!("--strategy: unknown value '{other}' (expected copy, move, or symlink)")
+        }
+    };
+    let assume_yes = args.iter().any(|a| a == "--yes" || a == "-y");
+
+    let opt = |s: &str| -> Option<std::path::PathBuf> {
+        if s.trim().is_empty() {
+            None
+        } else {
+            Some(std::path::PathBuf::from(s))
+        }
+    };
+    let tables = std::path::PathBuf::from(&positional[0]);
+    let sources = merge::MergeSources {
+        vpinmame: opt(&positional[1]),
+        pupvideos: opt(&positional[2]),
+        music: opt(&positional[3]),
+    };
+
+    let mode_label = match mode {
+        merge::MergeMode::DryRun => "dry-run",
+        merge::MergeMode::Commit => "commit",
+    };
+    println!("[merge {mode_label}] tables    = {}", tables.display());
+    println!(
+        "[merge {mode_label}] sources   = vpinmame={:?} pupvideos={:?} music={:?}",
+        sources.vpinmame, sources.pupvideos, sources.music
+    );
+    println!("[merge {mode_label}] strategy  = {}", strategy.as_db_str());
+
+    if matches!(mode, merge::MergeMode::Commit) && !assume_yes {
+        eprint!(
+            "About to {} files into table folders. Continue? [y/N] ",
+            strategy.as_db_str()
+        );
+        use std::io::Write as _;
+        let _ = std::io::stderr().flush();
+        let mut buf = String::new();
+        std::io::stdin().read_line(&mut buf)?;
+        let answer = buf.trim().to_ascii_lowercase();
+        if answer != "y" && answer != "yes" {
+            eprintln!("Aborted.");
+            return Ok(());
+        }
+    }
+
+    let (rx, _cancel, handle) = merge::spawn(tables, sources, strategy, mode);
+
+    use merge::MergeEvent::*;
+    let mut errored = 0usize;
+    while let Ok(ev) = rx.recv() {
+        match ev {
+            TableStarted { name } => println!("▸ {name}"),
+            AssetFound { kind, src, dst } => println!(
+                "  + {} : {} -> {}",
+                kind.label(),
+                src.display(),
+                dst.display()
+            ),
+            AssetSkipped { kind, reason } => {
+                println!("  · {} ({})", kind.label(), reason.label())
+            }
+            AssetApplied { kind, dst } => {
+                println!("  ✓ {} -> {}", kind.label(), dst.display())
+            }
+            AssetError { kind, msg } => {
+                println!("  ! {} : {msg}", kind.label());
+                errored += 1;
+            }
+            TableDone { .. } => {}
+            Done(report) => {
+                println!(
+                    "[merge {mode_label}] done — tables={} found={} applied={} skipped={} errors={}",
+                    report.tables_processed,
+                    report.assets_found,
+                    report.assets_applied,
+                    report.assets_skipped,
+                    report.assets_errored
+                );
+            }
+        }
+    }
+    let _ = handle.join();
+    if errored > 0 {
+        std::process::exit(2);
+    }
     Ok(())
 }
 

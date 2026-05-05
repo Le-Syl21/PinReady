@@ -425,3 +425,45 @@ key_lgui = "Lewy Super"
 key_rgui = "Prawy Super"
 key_nonusbackslash = "Klawisz ISO (między lewym Shift a Z)"
 key_application = "Menu"
+
+# Desktop integration (menu shortcuts + .vpx file association)
+desktop_integration_label = "Dodaj PinReady i Visual Pinball do menu systemowego oraz powiąż pliki .vpx"
+desktop_integration_hint = "Tworzy skróty w menu aplikacji pulpitu (GNOME/KDE/XFCE w Linuksie, Launchpad w macOS, menu Start w Windows) i rejestruje pliki .vpx do otwierania w Visual Pinball X. Odwracalne: odznacz pole i ponownie ukończ kreator."
+
+page_system = "System"
+
+# System wizard page (autostart + desktop integration)
+system_heading = "Integracja z systemem"
+system_desc = "Opcjonalne udogodnienia. Włącz na dedykowanym pincabie; pozostaw wyłączone, jeśli komputer służy też do zwykłej pracy biurowej."
+
+# Asset bundling / merge (Tables wizard page — Import section)
+merge_section_title = "Importuj zasoby ze starych folderów (opcjonalne)"
+merge_section_desc = "Jeśli twoje ROM-y, paczki PUP, muzyka lub pliki alt-color są rozproszone w starych folderach globalnych, wskaż je tutaj, a PinReady przeniesie/skopiuje je do nowoczesnego układu folder-na-stół dla każdego stołu. Pomiń tę sekcję, jeśli twoje stoły są już samodzielne."
+merge_section_optional = "Opcjonalne — pozostaw puste, aby pominąć."
+merge_src_vpinmame = "Folder VPINMAME (roms / nvram / cfg / altsound / altcolor):"
+merge_src_pupvideos = "Folder PUP videos:"
+merge_src_music = "Folder Music:"
+merge_strategy_label = "Jak umieścić pliki w folderze każdego stołu:"
+merge_strategy_copy = "Skopiuj (bezpieczne, podwaja zużycie dysku)"
+merge_strategy_move = "Przenieś (zwalnia źródło, destrukcyjne)"
+merge_strategy_symlink = "Dowiązanie symboliczne (bez kopii, źródła muszą pozostać)"
+merge_symlink_windows_warning = "Windows wymaga trybu deweloperskiego lub uprawnień administratora dla dowiązań symbolicznych. W przeciwnym razie import nie powiedzie się."
+merge_symlink_unavailable = "Dowiązania symboliczne nie są dostępne w tym systemie. Uruchom ponownie z opcją Skopiuj lub Przenieś."
+merge_dry_run = "Podgląd (dry run)"
+merge_run = "Uruchom import"
+merge_confirm_apply = "Zastosuj zmiany"
+merge_cancel = "Anuluj"
+merge_progress = "Stoły: %{tables} · Znaleziono: %{found} · Zastosowano: %{applied} · Pominięto: %{skipped}"
+merge_log_done = "Gotowe —"
+
+# Tables page — mandatory tables_dir + collapsibles
+tables_path_required = "Wymagane — wybierz folder ze stołami przed kontynuacją."
+tables_path_required_inline = "⚠ Wybierz folder ze stołami, zanim przejdziesz dalej."
+tables_help_section = "Jak zorganizować moje stoły?"
+tables_maintenance_section = "Konserwacja"
+merge_destination_notice = "Wykryte pliki zostaną umieszczone w folderze stołów wybranym powyżej, jeden podfolder na stół."
+merge_destination_notice_path = "Wykryte pliki zostaną umieszczone w %{path}, jeden podfolder na stół."
+merge_sources_none = "brak skonfigurowanego źródła"
+merge_sources_configured = "Skonfigurowane źródła: %{count}"
+merge_run_disabled_tooltip = "Najpierw wybierz powyżej prawidłowy folder ze stołami."
+merge_apply_disabled_tooltip = "Najpierw uruchom podgląd (dry run); zastosować można tylko zmiany, które zostały wcześniej podejrzane."

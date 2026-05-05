@@ -426,3 +426,45 @@ key_lgui = "Левый Super"
 key_rgui = "Правый Super"
 key_nonusbackslash = "Клавиша ISO (между левым Shift и Z)"
 key_application = "Меню"
+
+# Desktop integration (menu shortcuts + .vpx file association)
+desktop_integration_label = "Добавить PinReady и Visual Pinball в системное меню, с привязкой файлов .vpx"
+desktop_integration_hint = "Создаёт ярлыки в меню приложений рабочего стола (GNOME/KDE/XFCE в Linux, Launchpad в macOS, меню «Пуск» в Windows) и регистрирует файлы .vpx для открытия в Visual Pinball X. Обратимо: снимите галочку и завершите мастер заново."
+
+page_system = "Система"
+
+# System wizard page (autostart + desktop integration)
+system_heading = "Интеграция с системой"
+system_desc = "Необязательные функции для удобства. Включайте на выделенном пинкабе; оставьте выключенными, если компьютер используется и как обычный десктоп."
+
+# Asset bundling / merge (Tables wizard page — Import section)
+merge_section_title = "Импорт ресурсов из старых папок (необязательно)"
+merge_section_desc = "Если ваши ROM-ы, PUP-паки, музыка или alt-color файлы разбросаны по старым глобальным папкам, укажите их здесь — PinReady перенесёт/скопирует их в современную раскладку «папка на стол» для каждого стола. Пропустите этот раздел, если ваши столы уже автономны."
+merge_section_optional = "Необязательно — оставьте пустым, чтобы пропустить."
+merge_src_vpinmame = "Папка VPINMAME (roms / nvram / cfg / altsound / altcolor):"
+merge_src_pupvideos = "Папка PUP videos:"
+merge_src_music = "Папка Music:"
+merge_strategy_label = "Как размещать файлы в папке каждого стола:"
+merge_strategy_copy = "Копировать (безопасно, удваивает использование диска)"
+merge_strategy_move = "Переместить (освобождает источник, разрушительно)"
+merge_strategy_symlink = "Симв. ссылка (без копирования, источники должны остаться)"
+merge_symlink_windows_warning = "Для символических ссылок Windows требует режим разработчика или права администратора. Иначе импорт завершится с ошибкой."
+merge_symlink_unavailable = "Символические ссылки недоступны в этой системе. Запустите снова в режиме «Копировать» или «Переместить»."
+merge_dry_run = "Предпросмотр (dry run)"
+merge_run = "Запустить импорт"
+merge_confirm_apply = "Применить изменения"
+merge_cancel = "Отмена"
+merge_progress = "Столы: %{tables} · Найдено: %{found} · Применено: %{applied} · Пропущено: %{skipped}"
+merge_log_done = "Готово —"
+
+# Tables page — mandatory tables_dir + collapsibles
+tables_path_required = "Обязательно — выберите папку со столами перед продолжением."
+tables_path_required_inline = "⚠ Выберите папку со столами, прежде чем продолжить."
+tables_help_section = "Как организовать мои столы?"
+tables_maintenance_section = "Обслуживание"
+merge_destination_notice = "Найденные файлы будут размещены в выбранной выше папке столов, по одной подпапке на стол."
+merge_destination_notice_path = "Найденные файлы будут размещены в %{path}, по одной подпапке на стол."
+merge_sources_none = "источник не настроен"
+merge_sources_configured = "Настроено источников: %{count}"
+merge_run_disabled_tooltip = "Сначала выберите выше корректную папку со столами."
+merge_apply_disabled_tooltip = "Сначала запустите предпросмотр (dry run); применить можно только просмотренные изменения."

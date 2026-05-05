@@ -195,7 +195,7 @@ pub fn match_table_from_paths<'a>(
 /// Open the `.vpx` once and pull both the romname (from the embedded
 /// VBS `cGameName`) and the `TableInfo.TableName`. Cheap to bundle —
 /// we'd otherwise re-open the OLE compound file twice.
-fn read_vpx_meta(vpx_path: &Path) -> (Option<String>, Option<String>) {
+pub(crate) fn read_vpx_meta(vpx_path: &Path) -> (Option<String>, Option<String>) {
     let Ok(mut vpx) = vpin::vpx::open(vpx_path) else {
         return (None, None);
     };
@@ -214,7 +214,7 @@ fn read_vpx_meta(vpx_path: &Path) -> (Option<String>, Option<String>) {
 /// Pull the first uncommented `Const cGameName = "..."` from a VBS
 /// blob. Mirrors the heuristic used by [`crate::vbs_patches`] but
 /// scoped to one regex.
-fn extract_cgamename(vbs: &str) -> Option<String> {
+pub(crate) fn extract_cgamename(vbs: &str) -> Option<String> {
     for line in vbs.lines() {
         let s = line.trim_start();
         if s.starts_with('\'') || s.to_ascii_lowercase().starts_with("rem ") {

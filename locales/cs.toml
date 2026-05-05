@@ -425,3 +425,45 @@ key_lgui = "Levý Super"
 key_rgui = "Pravý Super"
 key_nonusbackslash = "Klávesa ISO (mezi levým Shiftem a Z)"
 key_application = "Menu"
+
+# Desktop integration (menu shortcuts + .vpx file association)
+desktop_integration_label = "Přidat PinReady a Visual Pinball do systémové nabídky, včetně asociace souborů .vpx"
+desktop_integration_hint = "Nainstaluje zástupce do nabídky aplikací (GNOME/KDE/XFCE na Linuxu, Launchpad na macOS, nabídka Start na Windows) a zaregistruje soubory .vpx pro otevírání ve Visual Pinball X. Vratné: zrušte zaškrtnutí a znovu dokončete průvodce."
+
+page_system = "Systém"
+
+# System wizard page (autostart + desktop integration)
+system_heading = "Integrace se systémem"
+system_desc = "Volitelné funkce pro pohodlí. Zapněte na vyhrazeném pincabu; ponechte vypnuté, pokud počítač sdílíte s běžným desktopovým použitím."
+
+# Asset bundling / merge (Tables wizard page — Import section)
+merge_section_title = "Importovat data ze starých složek (volitelné)"
+merge_section_desc = "Pokud máte ROM, PUP balíčky, hudbu nebo alt-color soubory rozptýlené ve starých globálních složkách, zadejte je sem a PinReady je přesune/zkopíruje do moderního rozložení složka-na-stůl pro každý stůl. Pokud jsou vaše stoly už samostatné, tuto sekci přeskočte."
+merge_section_optional = "Volitelné — pro přeskočení nechte prázdné."
+merge_src_vpinmame = "Složka VPINMAME (roms / nvram / cfg / altsound / altcolor):"
+merge_src_pupvideos = "Složka PUP videos:"
+merge_src_music = "Složka Music:"
+merge_strategy_label = "Jak umístit soubory do každé složky stolu:"
+merge_strategy_copy = "Zkopírovat (bezpečné, zdvojnásobí využití disku)"
+merge_strategy_move = "Přesunout (uvolní zdroj, destruktivní)"
+merge_strategy_symlink = "Symbolický odkaz (bez kopírování, zdroje musí zůstat)"
+merge_symlink_windows_warning = "Windows vyžadují pro symbolické odkazy režim vývojáře nebo oprávnění správce. Jinak import selže."
+merge_symlink_unavailable = "Symbolické odkazy nejsou v tomto systému dostupné. Spusťte znovu s volbou Zkopírovat nebo Přesunout."
+merge_dry_run = "Náhled (dry run)"
+merge_run = "Spustit import"
+merge_confirm_apply = "Použít změny"
+merge_cancel = "Zrušit"
+merge_progress = "Stoly: %{tables} · Nalezeno: %{found} · Použito: %{applied} · Přeskočeno: %{skipped}"
+merge_log_done = "Hotovo —"
+
+# Tables page — mandatory tables_dir + collapsibles
+tables_path_required = "Povinné — před pokračováním vyberte složku se stoly."
+tables_path_required_inline = "⚠ Před pokračováním vyberte složku se stoly."
+tables_help_section = "Jak mám stoly uspořádat?"
+tables_maintenance_section = "Údržba"
+merge_destination_notice = "Nalezené soubory budou umístěny do složky stolů zvolené výše, jedna podsložka na stůl."
+merge_destination_notice_path = "Nalezené soubory budou umístěny do %{path}, jedna podsložka na stůl."
+merge_sources_none = "žádný zdroj nenastaven"
+merge_sources_configured = "Nastavené zdroje: %{count}"
+merge_run_disabled_tooltip = "Nejprve výše vyberte platnou složku se stoly."
+merge_apply_disabled_tooltip = "Nejprve spusťte náhled (dry run); použít lze pouze změny, které jste si prohlédli."

@@ -425,3 +425,45 @@ key_lgui = "Super kiri"
 key_rgui = "Super kanan"
 key_nonusbackslash = "Tombol ISO (antara Shift kiri dan Z)"
 key_application = "Menu"
+
+# Desktop integration (menu shortcuts + .vpx file association)
+desktop_integration_label = "Tambahkan PinReady & Visual Pinball ke menu sistem, dengan asosiasi berkas .vpx"
+desktop_integration_hint = "Memasang pintasan aplikasi di menu desktop (GNOME/KDE/XFCE di Linux, Launchpad di macOS, Menu Mulai di Windows) dan mendaftarkan berkas .vpx agar dibuka dengan Visual Pinball X. Dapat dibatalkan: hapus centang dan selesaikan wizard lagi."
+
+page_system = "Sistem"
+
+# System wizard page (autostart + desktop integration)
+system_heading = "Integrasi sistem"
+system_desc = "Fitur kenyamanan opsional. Aktifkan pada pincab khusus; matikan jika mesin juga digunakan sebagai desktop biasa."
+
+# Asset bundling / merge (Tables wizard page — Import section)
+merge_section_title = "Impor aset dari folder lama (opsional)"
+merge_section_desc = "Jika ROM, paket PUP, musik atau berkas alt-color Anda tersebar di folder global lama, tentukan di sini dan PinReady akan memindahkan/menyalinnya ke tata letak modern folder-per-meja untuk setiap meja. Lewati bagian ini jika meja Anda sudah mandiri."
+merge_section_optional = "Opsional — biarkan kosong untuk melewati."
+merge_src_vpinmame = "Folder VPINMAME (roms / nvram / cfg / altsound / altcolor):"
+merge_src_pupvideos = "Folder PUP videos:"
+merge_src_music = "Folder Music:"
+merge_strategy_label = "Cara menempatkan berkas di setiap folder meja:"
+merge_strategy_copy = "Salin (aman, menggandakan penggunaan disk)"
+merge_strategy_move = "Pindahkan (membebaskan sumber, destruktif)"
+merge_strategy_symlink = "Symlink (tanpa salinan, sumber harus tetap)"
+merge_symlink_windows_warning = "Windows memerlukan Developer Mode atau hak admin untuk symlink. Jika tidak, impor akan gagal."
+merge_symlink_unavailable = "Symlink tidak tersedia di sistem ini. Jalankan ulang dengan Salin atau Pindahkan."
+merge_dry_run = "Pratinjau (dry run)"
+merge_run = "Mulai impor"
+merge_confirm_apply = "Terapkan perubahan"
+merge_cancel = "Batal"
+merge_progress = "Meja: %{tables} · Ditemukan: %{found} · Diterapkan: %{applied} · Dilewati: %{skipped}"
+merge_log_done = "Selesai —"
+
+# Tables page — mandatory tables_dir + collapsibles
+tables_path_required = "Wajib — pilih folder tempat meja Anda berada sebelum melanjutkan."
+tables_path_required_inline = "⚠ Pilih folder meja sebelum melanjutkan."
+tables_help_section = "Bagaimana cara mengatur meja saya?"
+tables_maintenance_section = "Pemeliharaan"
+merge_destination_notice = "Berkas yang terdeteksi akan ditempatkan di folder meja yang dipilih di atas, satu subfolder per meja."
+merge_destination_notice_path = "Berkas yang terdeteksi akan ditempatkan di %{path}, satu subfolder per meja."
+merge_sources_none = "tidak ada sumber yang dikonfigurasi"
+merge_sources_configured = "%{count} sumber dikonfigurasi"
+merge_run_disabled_tooltip = "Pilih folder meja yang valid di atas terlebih dahulu."
+merge_apply_disabled_tooltip = "Jalankan pratinjau (dry run) terlebih dahulu; hanya perubahan yang sudah dipratinjau yang dapat diterapkan."

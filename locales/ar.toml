@@ -424,3 +424,45 @@ key_lgui = "Super الأيسر"
 key_rgui = "Super الأيمن"
 key_nonusbackslash = "مفتاح ISO (بين Shift الأيسر و Z)"
 key_application = "قائمة"
+
+# Desktop integration (menu shortcuts + .vpx file association)
+desktop_integration_label = "إضافة PinReady و Visual Pinball إلى قائمة النظام، مع ربط ملفات .vpx"
+desktop_integration_hint = "يثبّت اختصارات التطبيقات في قائمة تطبيقات سطح المكتب (GNOME/KDE/XFCE على Linux، Launchpad على macOS، قائمة Start على Windows) ويسجّل ملفات .vpx لتفتح مع Visual Pinball X. قابل للتراجع: ألغِ التحديد وأكمل المعالج مجدّداً."
+
+page_system = "النظام"
+
+# System wizard page (autostart + desktop integration)
+system_heading = "تكامل النظام"
+system_desc = "ميزات راحة اختيارية. فعّلها على ماكينة pincab مخصّصة؛ اتركها مغلقة إذا كان الجهاز يُستخدم أيضاً كحاسوب مكتبي عادي."
+
+# Asset bundling / merge (Tables wizard page — Import section)
+merge_section_title = "استيراد الموارد من المجلدات القديمة (اختياري)"
+merge_section_desc = "إذا كانت ملفات ROM وحزم PUP والموسيقى وملفات alt-color مبعثرة في مجلدات عامة قديمة، حدّدها هنا وسيقوم PinReady بنقلها/نسخها إلى التخطيط الحديث «مجلد لكل طاولة» لكل طاولة. تخطَّ هذا القسم إذا كانت طاولاتك مكتفية بذاتها بالفعل."
+merge_section_optional = "اختياري — اتركه فارغاً للتخطّي."
+merge_src_vpinmame = "مجلد VPINMAME (roms / nvram / cfg / altsound / altcolor):"
+merge_src_pupvideos = "مجلد PUP videos:"
+merge_src_music = "مجلد Music:"
+merge_strategy_label = "كيفية وضع الملفات في كل مجلد طاولة:"
+merge_strategy_copy = "نسخ (آمن، يضاعف استخدام القرص)"
+merge_strategy_move = "نقل (يفرّغ المصدر، إجراء هدّام)"
+merge_strategy_symlink = "رابط رمزي (دون نسخ، يجب الإبقاء على المصادر)"
+merge_symlink_windows_warning = "يتطلّب Windows وضع المطوّر أو صلاحيات المسؤول لإنشاء روابط رمزية. خلاف ذلك سيفشل الاستيراد."
+merge_symlink_unavailable = "الروابط الرمزية غير متاحة على هذا النظام. أعد التشغيل مع النسخ أو النقل."
+merge_dry_run = "معاينة (dry run)"
+merge_run = "بدء الاستيراد"
+merge_confirm_apply = "تطبيق التغييرات"
+merge_cancel = "إلغاء"
+merge_progress = "الطاولات: %{tables} · مكتشَفة: %{found} · مطبَّقة: %{applied} · متخطَّاة: %{skipped}"
+merge_log_done = "تمّ —"
+
+# Tables page — mandatory tables_dir + collapsibles
+tables_path_required = "إلزامي — اختر المجلد الذي توجد فيه طاولاتك قبل المتابعة."
+tables_path_required_inline = "⚠ اختر مجلد طاولات قبل المتابعة."
+tables_help_section = "كيف أنظّم طاولاتي؟"
+tables_maintenance_section = "الصيانة"
+merge_destination_notice = "ستوضع الملفات المكتشَفة داخل مجلد الطاولات المختار أعلاه، مجلّد فرعي لكل طاولة."
+merge_destination_notice_path = "ستوضع الملفات المكتشَفة داخل %{path}، مجلّد فرعي لكل طاولة."
+merge_sources_none = "لا يوجد مصدر مُكوَّن"
+merge_sources_configured = "تم تكوين %{count} مصدر/مصادر"
+merge_run_disabled_tooltip = "اختر أولاً مجلد طاولات صالح في الأعلى."
+merge_apply_disabled_tooltip = "شغّل المعاينة (dry run) أولاً؛ لا يمكن تطبيق سوى التغييرات التي عاينتها."

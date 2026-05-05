@@ -10,6 +10,7 @@ impl App {
             WizardPage::Tilt => self.save_tilt(),
             WizardPage::Audio => self.save_audio(),
             WizardPage::TablesDir => self.save_tables_dir(),
+            WizardPage::System => {} // autostart/desktop_integration applied in finalize_wizard
         }
     }
 

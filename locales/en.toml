@@ -8,6 +8,7 @@ page_outputs = "Outputs"
 page_tilt = "Tilt / Nudge"
 page_audio = "Audio"
 page_tables = "Tables"
+page_system = "System"
 
 # Wizard navigation
 wizard_previous = "< Previous"
@@ -397,6 +398,46 @@ tables_catalog_toggle = "Auto-sync VPSDB + VPinMediaDB at scan time"
 # Autostart
 autostart_label = "Launch PinReady automatically at startup"
 autostart_hint = "Recommended for a dedicated pincab. PinReady will start when the system boots."
+
+# Desktop integration (menu shortcuts + .vpx file association)
+desktop_integration_label = "Add PinReady & Visual Pinball to the system menu, with .vpx file association"
+desktop_integration_hint = "Installs application shortcuts in your desktop's app menu (GNOME/KDE/XFCE on Linux, Launchpad on macOS, Start Menu on Windows) and registers .vpx files to open with Visual Pinball X. Reversible by unticking this and finishing the wizard again."
+
+# System wizard page (autostart + desktop integration)
+system_heading = "System integration"
+system_desc = "Optional convenience features. Toggle these on a dedicated pincab; leave them off when sharing the machine with a regular desktop user."
+
+# Tables page — mandatory tables_dir + collapsibles
+tables_path_required = "Required — pick the folder where your tables live before continuing."
+tables_path_required_inline = "⚠ Pick a tables folder before going further."
+tables_help_section = "How should I organise my tables?"
+tables_maintenance_section = "Maintenance"
+
+# Asset bundling / merge (Tables wizard page — Import section)
+merge_section_title = "Import assets from legacy folders (optional)"
+merge_destination_notice = "Detected files will be placed inside the tables folder selected above, one subfolder per table."
+merge_destination_notice_path = "Detected files will be placed inside %{path}, one subfolder per table."
+merge_sources_none = "no source configured"
+merge_sources_configured = "%{count} source(s) configured"
+merge_run_disabled_tooltip = "Pick a valid tables folder above first."
+merge_apply_disabled_tooltip = "Run a dry run first; you can only apply changes you have previewed."
+merge_section_desc = "If your ROMs, PUP packs, music or alt-color files are scattered in legacy global folders, point them here and PinReady will move/copy them into each table's modern folder-per-table layout. Skip this section if your tables are already self-contained."
+merge_section_optional = "Optional — leave blank to skip."
+merge_src_vpinmame = "VPINMAME folder (roms / nvram / cfg / altsound / altcolor):"
+merge_src_pupvideos = "PUP videos folder:"
+merge_src_music = "Music folder:"
+merge_strategy_label = "How to place files in each table folder:"
+merge_strategy_copy = "Copy (safe, doubles disk usage)"
+merge_strategy_move = "Move (frees the source, destructive)"
+merge_strategy_symlink = "Symlink (no copy, sources must stay in place)"
+merge_symlink_windows_warning = "Windows requires Developer Mode or admin privileges for symlinks. The merge will fail otherwise."
+merge_symlink_unavailable = "Symlinks are not available on this system. Re-run with Copy or Move."
+merge_dry_run = "Dry run (preview)"
+merge_run = "Run import"
+merge_confirm_apply = "Apply changes"
+merge_cancel = "Cancel"
+merge_progress = "Tables: %{tables} · Found: %{found} · Applied: %{applied} · Skipped: %{skipped}"
+merge_log_done = "Done —"
 
 # Named key labels — SDL returns English-only names for non-character
 # keys (Escape, Home, Left Shift, ...). These override the defaults for

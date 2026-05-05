@@ -465,6 +465,24 @@ impl Database {
         self.set_config("mirror_base_url", url.trim())
     }
 
+    /// Persisted source paths for the merge/import step in the Tables
+    /// wizard page. Empty string = unset. The user-picked I/O strategy
+    /// (`copy` | `move` | `symlink`) is stored under the same scheme.
+    pub fn get_merge_source(&self, kind: &str) -> String {
+        self.get_config(&format!("merge_source_{kind}"))
+            .unwrap_or_default()
+    }
+    pub fn set_merge_source(&self, kind: &str, path: &str) -> Result<()> {
+        self.set_config(&format!("merge_source_{kind}"), path)
+    }
+    pub fn get_merge_strategy(&self) -> String {
+        self.get_config("merge_strategy")
+            .unwrap_or_else(|| "copy".to_string())
+    }
+    pub fn set_merge_strategy(&self, strategy: &str) -> Result<()> {
+        self.set_config("merge_strategy", strategy)
+    }
+
     pub fn catalog_enrichment_enabled(&self) -> bool {
         // Default true: only the explicit string "false" disables it.
         !matches!(

@@ -425,3 +425,45 @@ key_lgui = "Ľavý Super"
 key_rgui = "Pravý Super"
 key_nonusbackslash = "Klávesa ISO (medzi ľavým Shift a Z)"
 key_application = "Menu"
+
+# Desktop integration (menu shortcuts + .vpx file association)
+desktop_integration_label = "Pridať PinReady a Visual Pinball do systémovej ponuky, vrátane priradenia súborov .vpx"
+desktop_integration_hint = "Nainštaluje zástupcov do aplikačnej ponuky pracovnej plochy (GNOME/KDE/XFCE na Linuxe, Launchpad na macOS, ponuka Štart na Windows) a zaregistruje súbory .vpx na otváranie pomocou Visual Pinball X. Vratné: zrušte začiarknutie a znova dokončite sprievodcu."
+
+page_system = "Systém"
+
+# System wizard page (autostart + desktop integration)
+system_heading = "Integrácia so systémom"
+system_desc = "Voliteľné komfortné funkcie. Zapnite na vyhradenom pincabe; nechajte vypnuté, ak počítač zdieľate s bežným desktopovým používaním."
+
+# Asset bundling / merge (Tables wizard page — Import section)
+merge_section_title = "Importovať dáta zo starých priečinkov (voliteľné)"
+merge_section_desc = "Ak máte ROM, PUP balíky, hudbu alebo alt-color súbory roztrúsené v starých globálnych priečinkoch, zadajte ich sem a PinReady ich presunie/skopíruje do moderného rozloženia priečinok-na-stôl pre každý stôl. Túto sekciu preskočte, ak sú vaše stoly už samostatné."
+merge_section_optional = "Voliteľné — na preskočenie nechajte prázdne."
+merge_src_vpinmame = "Priečinok VPINMAME (roms / nvram / cfg / altsound / altcolor):"
+merge_src_pupvideos = "Priečinok PUP videos:"
+merge_src_music = "Priečinok Music:"
+merge_strategy_label = "Ako umiestniť súbory do každého priečinka stola:"
+merge_strategy_copy = "Skopírovať (bezpečné, zdvojnásobí využitie disku)"
+merge_strategy_move = "Presunúť (uvoľní zdroj, deštruktívne)"
+merge_strategy_symlink = "Symbolický odkaz (bez kopírovania, zdroje musia zostať)"
+merge_symlink_windows_warning = "Windows vyžaduje pre symbolické odkazy vývojársky režim alebo oprávnenia administrátora. Inak import zlyhá."
+merge_symlink_unavailable = "Symbolické odkazy nie sú v tomto systéme dostupné. Spustite znova s voľbou Skopírovať alebo Presunúť."
+merge_dry_run = "Náhľad (dry run)"
+merge_run = "Spustiť import"
+merge_confirm_apply = "Použiť zmeny"
+merge_cancel = "Zrušiť"
+merge_progress = "Stoly: %{tables} · Nájdené: %{found} · Použité: %{applied} · Preskočené: %{skipped}"
+merge_log_done = "Hotovo —"
+
+# Tables page — mandatory tables_dir + collapsibles
+tables_path_required = "Povinné — pred pokračovaním vyberte priečinok so stolmi."
+tables_path_required_inline = "⚠ Pred pokračovaním vyberte priečinok so stolmi."
+tables_help_section = "Ako mám stoly usporiadať?"
+tables_maintenance_section = "Údržba"
+merge_destination_notice = "Nájdené súbory budú umiestnené do vyššie zvoleného priečinka stolov, jeden podpriečinok na stôl."
+merge_destination_notice_path = "Nájdené súbory budú umiestnené do %{path}, jeden podpriečinok na stôl."
+merge_sources_none = "žiadny zdroj nenastavený"
+merge_sources_configured = "Nastavené zdroje: %{count}"
+merge_run_disabled_tooltip = "Najprv vyššie vyberte platný priečinok so stolmi."
+merge_apply_disabled_tooltip = "Najprv spustite náhľad (dry run); použiť možno len zmeny, ktoré ste si prezreli."

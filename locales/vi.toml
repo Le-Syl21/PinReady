@@ -424,3 +424,45 @@ key_lgui = "Super trái"
 key_rgui = "Super phải"
 key_nonusbackslash = "Phím ISO (giữa Shift trái và Z)"
 key_application = "Menu"
+
+# Desktop integration (menu shortcuts + .vpx file association)
+desktop_integration_label = "Thêm PinReady và Visual Pinball vào menu hệ thống, kèm liên kết tệp .vpx"
+desktop_integration_hint = "Cài đặt lối tắt vào menu ứng dụng của desktop (GNOME/KDE/XFCE trên Linux, Launchpad trên macOS, Start Menu trên Windows) và đăng ký tệp .vpx để mở bằng Visual Pinball X. Có thể hoàn tác: bỏ chọn ô này và hoàn tất trình hướng dẫn lại."
+
+page_system = "Hệ thống"
+
+# System wizard page (autostart + desktop integration)
+system_heading = "Tích hợp hệ thống"
+system_desc = "Các tính năng tiện lợi tùy chọn. Bật trên một pincab chuyên dụng; tắt nếu máy còn dùng cho công việc desktop thông thường."
+
+# Asset bundling / merge (Tables wizard page — Import section)
+merge_section_title = "Nhập tài nguyên từ thư mục cũ (tùy chọn)"
+merge_section_desc = "Nếu ROM, gói PUP, nhạc hoặc tệp alt-color của bạn nằm rải rác trong các thư mục toàn cục cũ, chỉ định ở đây và PinReady sẽ di chuyển/sao chép chúng vào bố cục thư mục-trên-bàn hiện đại của từng bàn. Bỏ qua phần này nếu các bàn của bạn đã độc lập."
+merge_section_optional = "Tùy chọn — để trống để bỏ qua."
+merge_src_vpinmame = "Thư mục VPINMAME (roms / nvram / cfg / altsound / altcolor):"
+merge_src_pupvideos = "Thư mục PUP videos:"
+merge_src_music = "Thư mục Music:"
+merge_strategy_label = "Cách đặt tệp trong từng thư mục bàn:"
+merge_strategy_copy = "Sao chép (an toàn, gấp đôi dung lượng đĩa)"
+merge_strategy_move = "Di chuyển (giải phóng nguồn, không hoàn tác được)"
+merge_strategy_symlink = "Symlink (không sao chép, nguồn phải giữ nguyên)"
+merge_symlink_windows_warning = "Windows yêu cầu Developer Mode hoặc quyền quản trị để dùng symlink. Nếu không, việc nhập sẽ thất bại."
+merge_symlink_unavailable = "Symlink không khả dụng trên hệ thống này. Hãy chạy lại với Sao chép hoặc Di chuyển."
+merge_dry_run = "Xem trước (dry run)"
+merge_run = "Bắt đầu nhập"
+merge_confirm_apply = "Áp dụng thay đổi"
+merge_cancel = "Hủy"
+merge_progress = "Bàn: %{tables} · Đã tìm: %{found} · Đã áp dụng: %{applied} · Đã bỏ qua: %{skipped}"
+merge_log_done = "Hoàn tất —"
+
+# Tables page — mandatory tables_dir + collapsibles
+tables_path_required = "Bắt buộc — chọn thư mục chứa các bàn của bạn trước khi tiếp tục."
+tables_path_required_inline = "⚠ Hãy chọn thư mục bàn trước khi tiếp tục."
+tables_help_section = "Tôi nên tổ chức các bàn như thế nào?"
+tables_maintenance_section = "Bảo trì"
+merge_destination_notice = "Các tệp được phát hiện sẽ được đặt vào thư mục bàn đã chọn ở trên, mỗi bàn một thư mục con."
+merge_destination_notice_path = "Các tệp được phát hiện sẽ được đặt vào %{path}, mỗi bàn một thư mục con."
+merge_sources_none = "chưa cấu hình nguồn nào"
+merge_sources_configured = "%{count} nguồn đã được cấu hình"
+merge_run_disabled_tooltip = "Hãy chọn một thư mục bàn hợp lệ ở trên trước."
+merge_apply_disabled_tooltip = "Chạy xem trước (dry run) trước; bạn chỉ có thể áp dụng các thay đổi đã được xem trước."

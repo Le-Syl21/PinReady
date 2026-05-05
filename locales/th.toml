@@ -424,3 +424,45 @@ key_lgui = "Super ซ้าย"
 key_rgui = "Super ขวา"
 key_nonusbackslash = "คีย์ ISO (ระหว่าง Shift ซ้ายและ Z)"
 key_application = "เมนู"
+
+# Desktop integration (menu shortcuts + .vpx file association)
+desktop_integration_label = "เพิ่ม PinReady และ Visual Pinball ลงในเมนูระบบ พร้อมเชื่อมโยงไฟล์ .vpx"
+desktop_integration_hint = "ติดตั้งทางลัดในเมนูแอปของเดสก์ท็อป (GNOME/KDE/XFCE บน Linux, Launchpad บน macOS, เมนู Start บน Windows) และลงทะเบียนไฟล์ .vpx ให้เปิดด้วย Visual Pinball X ย้อนกลับได้: ยกเลิกการติ๊กแล้วจบตัวช่วยอีกครั้ง"
+
+page_system = "ระบบ"
+
+# System wizard page (autostart + desktop integration)
+system_heading = "การผสานรวมกับระบบ"
+system_desc = "คุณสมบัติเสริมตามต้องการ เปิดใช้บนตู้พินบอลเฉพาะทาง ปิดไว้หากใช้เครื่องร่วมกับการใช้งานเดสก์ท็อปทั่วไป"
+
+# Asset bundling / merge (Tables wizard page — Import section)
+merge_section_title = "นำเข้าไฟล์จากโฟลเดอร์เก่า (ไม่บังคับ)"
+merge_section_desc = "หาก ROM, แพ็ก PUP, เพลง หรือไฟล์ alt-color กระจายอยู่ในโฟลเดอร์ส่วนกลางแบบเก่า ระบุที่นี่แล้ว PinReady จะย้าย/คัดลอกไปยังเลย์เอาต์โฟลเดอร์ต่อโต๊ะสมัยใหม่ของแต่ละโต๊ะ ข้ามส่วนนี้ได้หากโต๊ะของคุณเป็นแบบสมบูรณ์ในตัวอยู่แล้ว"
+merge_section_optional = "ไม่บังคับ — เว้นว่างไว้เพื่อข้าม"
+merge_src_vpinmame = "โฟลเดอร์ VPINMAME (roms / nvram / cfg / altsound / altcolor):"
+merge_src_pupvideos = "โฟลเดอร์ PUP videos:"
+merge_src_music = "โฟลเดอร์ Music:"
+merge_strategy_label = "วิธีวางไฟล์ในแต่ละโฟลเดอร์ของโต๊ะ:"
+merge_strategy_copy = "คัดลอก (ปลอดภัย ใช้พื้นที่เพิ่มเป็นสองเท่า)"
+merge_strategy_move = "ย้าย (ปลดปล่อยต้นทาง กู้คืนไม่ได้)"
+merge_strategy_symlink = "Symlink (ไม่มีการคัดลอก ต้นทางต้องอยู่ที่เดิม)"
+merge_symlink_windows_warning = "Windows ต้องใช้ Developer Mode หรือสิทธิ์ผู้ดูแลระบบเพื่อสร้าง symlink มิฉะนั้นการนำเข้าจะล้มเหลว"
+merge_symlink_unavailable = "ไม่สามารถใช้ symlink บนระบบนี้ได้ โปรดเรียกใช้ใหม่ด้วย คัดลอก หรือ ย้าย"
+merge_dry_run = "พรีวิว (dry run)"
+merge_run = "เริ่มนำเข้า"
+merge_confirm_apply = "ใช้การเปลี่ยนแปลง"
+merge_cancel = "ยกเลิก"
+merge_progress = "โต๊ะ: %{tables} · พบ: %{found} · ใช้แล้ว: %{applied} · ข้าม: %{skipped}"
+merge_log_done = "เสร็จสิ้น —"
+
+# Tables page — mandatory tables_dir + collapsibles
+tables_path_required = "จำเป็น — เลือกโฟลเดอร์ที่มีโต๊ะของคุณก่อนดำเนินการต่อ"
+tables_path_required_inline = "⚠ เลือกโฟลเดอร์ของโต๊ะก่อนดำเนินการต่อ"
+tables_help_section = "ฉันควรจัดระเบียบโต๊ะอย่างไร?"
+tables_maintenance_section = "การบำรุงรักษา"
+merge_destination_notice = "ไฟล์ที่ตรวจพบจะถูกวางไว้ในโฟลเดอร์โต๊ะที่เลือกด้านบน หนึ่งโฟลเดอร์ย่อยต่อโต๊ะ"
+merge_destination_notice_path = "ไฟล์ที่ตรวจพบจะถูกวางไว้ใน %{path} หนึ่งโฟลเดอร์ย่อยต่อโต๊ะ"
+merge_sources_none = "ยังไม่ได้กำหนดแหล่งที่มา"
+merge_sources_configured = "กำหนดแหล่งที่มาแล้ว %{count} แห่ง"
+merge_run_disabled_tooltip = "โปรดเลือกโฟลเดอร์โต๊ะที่ถูกต้องด้านบนก่อน"
+merge_apply_disabled_tooltip = "เรียกใช้พรีวิว (dry run) ก่อน คุณสามารถใช้ได้เฉพาะการเปลี่ยนแปลงที่พรีวิวแล้วเท่านั้น"

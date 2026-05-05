@@ -145,7 +145,7 @@ impl App {
                                     )
                                     .size(search_font),
                                 )
-                                .desired_width(h_size * 9.0),
+                                .desired_width(h_size * 7.0),
                         )
                     })
                     .inner;
