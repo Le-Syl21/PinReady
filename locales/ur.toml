@@ -480,3 +480,5 @@ inputs_auto_map_cancel = "خود کار تفویض منسوخ کریں"
 system_mirror_label = "سیلف ہوسٹڈ مرر (اختیاری)"
 system_mirror_hint = "VBS کیٹلاگ اور VPin میڈیا ڈی بی کو GitHub کے بجائے آپ کے اپنے سرور کے ذریعے روٹ کرتا ہے۔ براہ راست GitHub سے لانے کے لیے خالی چھوڑیں۔ مثال: https://pinready.syl21.org"
 system_mirror_clear = "صاف کریں"
+
+launcher_update_badge_tooltip = "دستیاب اپڈیٹس دیکھیں"

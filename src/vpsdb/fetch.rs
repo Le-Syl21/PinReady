@@ -37,6 +37,7 @@ const LAST_UPDATED_URL: &str =
 
 /// What happened during a `sync_if_stale` call.
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)] // payload fields are kept for future log/UI surfacing — exact counts may matter even though no code reads them today
 pub enum SyncOutcome {
     /// First sync — full catalog downloaded.
     Fresh { games: usize, bytes: usize },

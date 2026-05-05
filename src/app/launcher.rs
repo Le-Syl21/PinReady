@@ -401,108 +401,133 @@ impl App {
         }
         log::info!("Scanned {} tables in {}", self.tables.len(), dir);
 
-        // Build the catalog enrichment jobs upfront on the UI thread
-        // so the worker thread doesn't need to borrow `self`.
-        let catalog_jobs: Vec<super::catalog_worker::EnrichmentJob> =
-            if self.db.catalog_enrichment_enabled() {
-                self.tables
-                    .iter()
-                    .map(|t| {
-                        let rel_path = t
-                            .path
-                            .strip_prefix(dir_path)
-                            .map(|p| p.to_string_lossy().into_owned())
-                            .unwrap_or_else(|_| t.path.to_string_lossy().into_owned());
-                        let table_dir = t
-                            .path
-                            .parent()
-                            .map(|p| p.to_path_buf())
-                            .unwrap_or_else(|| dir_path.to_path_buf());
-                        let folder_name = table_dir
-                            .file_name()
-                            .map(|n| n.to_string_lossy().into_owned())
-                            .unwrap_or_default();
-                        super::catalog_worker::EnrichmentJob {
-                            rel_path,
-                            table_dir,
-                            vpx_path: t.path.clone(),
-                            folder_name,
-                        }
-                    })
-                    .collect()
-            } else {
-                Vec::new()
-            };
-
-        // Cancel any prior catalog run so the new chained worker is the
-        // only one writing to `medias/`.
+        // Cancel any prior scan so the new pool is the only one writing
+        // to `medias/` and the DB.
         if let Some(prev) = self.catalog_cancel_token.take() {
             prev.store(true, std::sync::atomic::Ordering::SeqCst);
         }
         let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         self.catalog_cancel_token = Some(cancel.clone());
 
-        // Single chained worker:
-        //   Phase 1 — Catalog enrichment (vpsdb match + vpinmediadb
-        //             download of `medias/bg.png` and `medias/audio.mp3`)
-        //             runs to completion FIRST so phase 2 sees the
-        //             freshly-downloaded files on disk.
-        //   Phase 2 — Backglass extraction. For each table without a
-        //             valid cached bg, walk the priority chain:
-        //               1. `medias/launcher.(png|webp|jpg|jpeg)` — user override
-        //               2. `medias/bg.png`                       — vpinmediadb cache
-        //               3. `<base>.directb2s`                    — embedded backglass
-        //               4. `<base>.vpx` internal images          — last resort
-        //             Each step short-circuits via `Option::or_else`.
+        // Build the per-table scan jobs. Each job is a self-contained
+        // pipeline: VPSDB match → media install → backglass extract →
+        // DB write → UI signal. Workers run them in parallel, sequential
+        // within each job — so the same worker that may have just
+        // installed `medias/bg.png` is the one that reads it back in
+        // the priority chain. No cross-thread file race.
+        let scan_jobs: Vec<crate::scan_worker::ScanJob> = jobs
+            .into_iter()
+            .map(|(idx, table_dir, vpx_path, source_mtime)| {
+                let rel_path = vpx_path
+                    .strip_prefix(dir_path)
+                    .map(|p| p.to_string_lossy().into_owned())
+                    .unwrap_or_else(|_| vpx_path.to_string_lossy().into_owned());
+                let folder_name = table_dir
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                crate::scan_worker::ScanJob {
+                    idx,
+                    rel_path,
+                    table_dir,
+                    vpx_path,
+                    folder_name,
+                    source_mtime,
+                }
+            })
+            .collect();
+
         let (tx, rx) = crossbeam_channel::unbounded();
+        self.bg_rx = Some(rx);
+
+        if scan_jobs.is_empty() {
+            return;
+        }
+
         let tables_root = dir_path.to_path_buf();
         let gen = self.scan_generation;
-        let bg_jobs = jobs;
+        let enrichment_on = self.db.catalog_enrichment_enabled();
 
-        if !bg_jobs.is_empty() || !catalog_jobs.is_empty() {
-            log::info!(
-                "Rescan worker (gen={gen}): catalog enrichment ({} tables) → backglass extraction ({} tables, medias/launcher.* → medias/bg.png → .directb2s → .vpx)",
-                catalog_jobs.len(),
-                bg_jobs.len()
-            );
-            let bg_cancel = cancel.clone();
-            std::thread::spawn(move || {
-                if !catalog_jobs.is_empty() {
-                    if let Err(e) = super::catalog_worker::run(catalog_jobs, cancel) {
-                        log::error!("Catalog enrichment worker failed: {e}");
-                    }
-                }
-                for (idx, table_dir, vpx_path, source_mtime) in bg_jobs {
-                    // A new rescan flipped our cancel flag — bail out so
-                    // the fresh worker is the only one writing to the
-                    // same channel.
-                    if bg_cancel.load(std::sync::atomic::Ordering::SeqCst) {
-                        log::info!("Rescan worker (gen={gen}) cancelled mid-bg-extraction");
+        // Sync VPSDB + MediaDb on a small bootstrap thread so we don't
+        // block the UI; once both indices are loaded we hand them
+        // (Arc-shared) to the worker pool.
+        std::thread::Builder::new()
+            .name(format!("pinready-scan-bootstrap-{gen}"))
+            .spawn(move || {
+                use crate::vpsdb;
+                use std::sync::Arc;
+
+                let db = match crate::db::Database::open(None) {
+                    Ok(db) => db,
+                    Err(e) => {
+                        log::error!("scan bootstrap: cannot open DB: {e}");
                         return;
                     }
-                    let bytes = crate::assets::extract_backglass_from_launcher_override(&table_dir)
-                        .or_else(|| crate::assets::extract_backglass_from_vpinmediadb(&table_dir))
-                        .or_else(|| {
-                            let b2s = vpx_path.with_extension("directb2s");
-                            if b2s.is_file() {
-                                crate::assets::extract_backglass_from_b2s(&b2s)
-                            } else {
-                                None
-                            }
-                        })
-                        .or_else(|| crate::assets::extract_backglass_from_vpx(&vpx_path));
-                    if let Some(bytes) = bytes {
-                        let rel_path = vpx_path
-                            .strip_prefix(&tables_root)
-                            .map(|p| p.to_string_lossy().into_owned())
-                            .unwrap_or_else(|_| vpx_path.to_string_lossy().into_owned());
-                        let _ = tx.send((gen, idx, rel_path, bytes, source_mtime));
+                };
+                let mirror = db.mirror_base_url();
+
+                let games: Arc<Vec<vpsdb::models::Game>> = if enrichment_on {
+                    let cache = vpsdb::fetch::VpsDbCache::new(vpsdb::fetch::VpsDbCache::default_dir());
+                    match vpsdb::fetch::sync_if_stale(&cache) {
+                        Ok((games, _outcome)) => Arc::new(games),
+                        Err(e) => {
+                            log::warn!("scan bootstrap: VPSDB sync failed ({e}) — match-only");
+                            Arc::new(Vec::new())
+                        }
                     }
+                } else {
+                    Arc::new(Vec::new())
+                };
+
+                let media_db: Option<Arc<crate::mediadb::MediaDb>> = if enrichment_on {
+                    match crate::mediadb::MediaDb::sync(
+                        crate::mediadb::MediaDb::default_cache_dir(),
+                        mirror.as_deref(),
+                    ) {
+                        Ok(m) => Some(Arc::new(m)),
+                        Err(e) => {
+                            log::warn!("scan bootstrap: MediaDb sync failed ({e}) — match-only");
+                            None
+                        }
+                    }
+                } else {
+                    None
+                };
+
+                // matcher_version upgrade: bumped when the matcher chain
+                // changes (new strategy / confidence shift). Forces a
+                // one-shot full re-evaluation of every link this run.
+                let stored_matcher_version: i64 = db
+                    .get_config("matcher_version")
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(0);
+                let force_full_rematch = stored_matcher_version < crate::scan_worker::MATCHER_VERSION;
+                if force_full_rematch {
+                    log::info!(
+                        "Matcher upgraded ({stored_matcher_version} → {}); re-evaluating every vps_link this run",
+                        crate::scan_worker::MATCHER_VERSION
+                    );
                 }
-                log::info!("Rescan worker complete (gen={gen})");
-            });
-        }
-        self.bg_rx = Some(rx);
+
+                crate::scan_worker::spawn_pool(
+                    scan_jobs,
+                    games,
+                    media_db,
+                    tx,
+                    cancel,
+                    tables_root,
+                    gen,
+                    force_full_rematch,
+                );
+
+                if force_full_rematch {
+                    let _ = db.set_config(
+                        "matcher_version",
+                        &crate::scan_worker::MATCHER_VERSION.to_string(),
+                    );
+                }
+            })
+            .ok();
 
         // VBS patch pipeline runs independently — separate mtime
         // tracking (sidecar + .vpx only), separate DB table.

@@ -481,3 +481,5 @@ inputs_auto_map_cancel = "Otomatik atamayı iptal et"
 system_mirror_label = "Kendi kendine barındırılan ayna (isteğe bağlı)"
 system_mirror_hint = "VBS kataloğunu ve VPin media DByi GitHub yerine kendi sunucunuz üzerinden yönlendirir. Doğrudan GitHubdan almak için boş bırakın. Örnek: https://pinready.syl21.org"
 system_mirror_clear = "Temizle"
+
+launcher_update_badge_tooltip = "Mevcut güncellemeleri gör"

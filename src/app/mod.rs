@@ -963,7 +963,6 @@ impl App {
 
 mod audio_page;
 mod autostart;
-mod catalog_worker;
 mod desktop_integration;
 mod inputs_page;
 mod launcher;

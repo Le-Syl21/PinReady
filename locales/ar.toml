@@ -479,3 +479,5 @@ inputs_auto_map_cancel = "إلغاء التعيين التلقائي"
 system_mirror_label = "مرآة مستضافة ذاتيًا (اختياري)"
 system_mirror_hint = "يوجه كتالوج VBS وقاعدة وسائط VPin عبر خادمك الخاص بدلاً من GitHub. اترك فارغًا للوصول إلى GitHub مباشرة. مثال: https://pinready.syl21.org"
 system_mirror_clear = "مسح"
+
+launcher_update_badge_tooltip = "عرض التحديثات المتاحة"

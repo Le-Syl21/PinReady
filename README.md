@@ -35,6 +35,29 @@ PinReady replaces the non-existent native configuration tools for VPX standalone
 - 🔄 **Auto-update** -- Checks for new Visual Pinball releases on startup, one-click update from the launcher
 - 🕹️ **Input navigation** -- Browse and launch tables with joystick (flippers, start) or keyboard
 
+**📦 Asset bundling & enrichment**
+
+- 🔁 **Legacy folder merge** (Tables wizard page, opt-in) -- Point to your old `~/VPINMAME`, `~/PUPVIDEOS`, `~/Music` folders and PinReady migrates ROM, altsound, altcolor (`.vni`), Serum (`.crz`), PUP packs, NVRAM, CFG, music, `.directb2s` and POV `.ini` into the modern folder-per-table layout. Three I/O strategies: copy, move, symlink. Dry-run mode shows what *would* be placed before you commit.
+- 🌐 **Self-hosted mirror** (System wizard page) -- Route the VBS catalog and VPin media DB through your own server (e.g. `https://pinready.syl21.org`) instead of GitHub. Useful for offline cabs and bandwidth control.
+- 🧩 **Catalog enrichment** -- Match each installed table against the [Virtual Pinball Spreadsheet](https://github.com/VirtualPinballSpreadsheet/vps-db) and auto-fetch backglass thumbnails + audio jingles from [`superhac/vpinmediadb`](https://github.com/superhac/vpinmediadb). Drives hover preview and the "↑ update available" badge.
+- 🖥️ **Desktop integration** (System wizard page) -- Cross-platform menu shortcuts and `.vpx` file association: freedesktop on Linux (GNOME / KDE / XFCE), `.app` bundle on macOS, Start Menu + HKCU registry on Windows.
+
+**🛡️ Diagnostics & robustness**
+
+- 🩺 **Detected-system banner** at the top of the wizard's first page (`Detected system: Ubuntu 24.04 LTS · X11 · GNOME (Mutter) · PinReady v0.12`) — bug reports always carry their context.
+- 💥 **Cross-OS crash diagnostics** -- When VPX exits abnormally the popup shows a POSIX shell-quoted reproduction command, the cwd, the system info, the loading-phase log + the last 100 in-game lines, and **the exact path to the OS coredump** (systemd-coredump on Linux, `~/Library/Logs/DiagnosticReports/` on macOS, `%LOCALAPPDATA%\CrashDumps\` on Windows) plus links to inspect them.
+- ⚡ **Parallel rescan** -- Per-table pipeline (match → install media → extract backglass → write DB → push to UI) running in parallel across `num_cpus` workers. Each table is fully self-contained: same worker writes `medias/bg.png` and reads it back, no cross-thread file race.
+- 🔄 **Robust auto-update** -- The new instance retries the PID lock for 5 s while the previous one finishes exiting (used to silently fail on race).
+
+**⌨️ Command-line tools**
+
+- `pinready --print-paths` -- Resolved DB / log / ini / tables / VPX-binary paths.
+- `pinready --list-tables` -- One line per detected table folder (scriptable).
+- `pinready --merge-dry-run TABLES VPINMAME PUPVIDEOS MUSIC [--strategy copy|move|symlink]` -- Headless preview of what the legacy-folder import would do.
+- `pinready --merge ... [--yes]` -- Same but commit-mode.
+- `pinready --reset-wizard` -- Re-arm the configuration wizard for the next launch.
+- `pinready --config` -- Force-launch the wizard.
+
 ### 🎯 Target
 
 - 🎰 **Visual Pinball 10.8.1** -- Uses the folder-per-table layout
@@ -298,6 +321,29 @@ PinReady remplace les outils de configuration natifs inexistants pour les builds
 - ⚡ **Intégration VPX** -- Lancement des tables avec overlay de progression, lecture du stdout VPX pour le statut en temps réel
 - 🔄 **Mise à jour automatique** -- Vérifie les nouvelles releases Visual Pinball au démarrage, mise à jour en un clic depuis le lanceur
 - 🕹️ **Navigation aux contrôles** -- Parcourir et lancer les tables au joystick (flippers, start) ou au clavier
+
+**📦 Import & enrichissement d'assets**
+
+- 🔁 **Import depuis dossiers legacy** (page Tables, optionnel) -- Indiquez vos anciens dossiers `~/VPINMAME`, `~/PUPVIDEOS`, `~/Music` et PinReady migre ROM, altsound, altcolor (`.vni`), Serum (`.crz`), PUP packs, NVRAM, CFG, musique, `.directb2s` et POV `.ini` vers le format dossier-par-table moderne. Trois stratégies d'I/O : copie, déplacement, lien symbolique. Aperçu (dry-run) avant validation.
+- 🌐 **Miroir auto-hébergé** (page Système) -- Route le catalogue VBS et la base de médias VPin via votre propre serveur (ex : `https://pinready.syl21.org`) au lieu de GitHub. Utile pour cabs hors-ligne et contrôle de bande passante.
+- 🧩 **Enrichissement catalogue** -- Match chaque table installée contre le [Virtual Pinball Spreadsheet](https://github.com/VirtualPinballSpreadsheet/vps-db) et récupère automatiquement miniatures backglass + jingles audio depuis [`superhac/vpinmediadb`](https://github.com/superhac/vpinmediadb). Alimente le hover preview et le badge "↑ mise à jour disponible".
+- 🖥️ **Intégration au bureau** (page Système) -- Raccourcis menu cross-platform et association des fichiers `.vpx` : freedesktop sous Linux (GNOME / KDE / XFCE), bundle `.app` sous macOS, Menu Démarrer + registre HKCU sous Windows.
+
+**🛡️ Diagnostic & robustesse**
+
+- 🩺 **Bandeau "système détecté"** en haut de la première page du wizard (`Système détecté : Ubuntu 24.04 LTS · X11 · GNOME (Mutter) · PinReady v0.12`) — les bug reports portent leur contexte.
+- 💥 **Diagnostic crash multi-OS** -- Quand VPX se ferme anormalement, le popup affiche une commande de reproduction shell-quotée, le cwd, l'info système, le log de loading + les 100 dernières lignes de jeu, et **le chemin exact du coredump OS** (systemd-coredump sous Linux, `~/Library/Logs/DiagnosticReports/` sous macOS, `%LOCALAPPDATA%\CrashDumps\` sous Windows) avec les liens pour les inspecter.
+- ⚡ **Rescan parallèle** -- Pipeline par-table (match → install médias → extraction backglass → write DB → push UI) en parallèle sur `num_cpus` workers. Chaque table est auto-suffisante : le même worker écrit `medias/bg.png` et le relit, pas de race FS cross-thread.
+- 🔄 **Auto-update robuste** -- La nouvelle instance retry le PID lock 5 s pendant que l'ancienne finit de quitter (avant ça échouait silencieusement sur race).
+
+**⌨️ Outils en ligne de commande**
+
+- `pinready --print-paths` -- Chemins résolus DB / log / ini / tables / binaire VPX.
+- `pinready --list-tables` -- Une ligne par dossier de table détecté (scriptable).
+- `pinready --merge-dry-run TABLES VPINMAME PUPVIDEOS MUSIC [--strategy copy|move|symlink]` -- Aperçu headless de l'import legacy.
+- `pinready --merge ... [--yes]` -- Même chose en mode commit.
+- `pinready --reset-wizard` -- Réamorce le wizard pour le prochain lancement.
+- `pinready --config` -- Force le lancement du wizard.
 
 ### 🎯 Cible
 

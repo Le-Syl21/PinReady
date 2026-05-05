@@ -481,3 +481,5 @@ inputs_auto_map_cancel = "Cancelar atribuição automática"
 system_mirror_label = "Espelho auto-hospedado (opcional)"
 system_mirror_hint = "Encaminha o catálogo VBS e a base de mídias VPin através do seu próprio servidor em vez do GitHub. Deixe vazio para baixar direto do GitHub. Exemplo: https://pinready.syl21.org"
 system_mirror_clear = "Limpar"
+
+launcher_update_badge_tooltip = "Ver atualizações disponíveis"

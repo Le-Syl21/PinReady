@@ -481,3 +481,5 @@ inputs_auto_map_cancel = "Ghairi upangaji wa kiotomatiki"
 system_mirror_label = "Kioo cha kujishikilia (si lazima)"
 system_mirror_hint = "Inaelekeza katalogi ya VBS na hifadhidata ya vyombo vya habari vya VPin kupitia seva yako mwenyewe badala ya GitHub. Acha tupu kupakua moja kwa moja kutoka GitHub. Mfano: https://pinready.syl21.org"
 system_mirror_clear = "Futa"
+
+launcher_update_badge_tooltip = "Tazama masasisho yanayopatikana"

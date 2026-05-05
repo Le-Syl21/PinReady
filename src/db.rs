@@ -29,6 +29,22 @@ impl Database {
         let conn = Connection::open(&path)
             .with_context(|| format!("Failed to open database: {}", path.display()))?;
 
+        // WAL mode: lets the per-table scan workers each open their own
+        // Database::open(None) and write to disjoint rows concurrently
+        // without queueing on the file-level exclusive lock that the
+        // default DELETE journal mode would impose. Readers also stop
+        // blocking writers (catalog read while bg-worker writes).
+        // Idempotent: PRAGMA journal_mode=WAL only flips when the DB is
+        // not already in WAL.
+        conn.pragma_update(None, "journal_mode", "WAL")
+            .context("Failed to enable WAL journal mode")?;
+        // synchronous=NORMAL is the WAL recommendation: durable across
+        // app crashes, fsync only at checkpoint (much faster than FULL,
+        // which fsyncs on every commit). PinReady's data is rebuildable
+        // from .vpx + .directb2s anyway so we don't need FULL guarantees.
+        conn.pragma_update(None, "synchronous", "NORMAL")
+            .context("Failed to set synchronous=NORMAL")?;
+
         let db = Self { conn };
         db.migrate()?;
         db.init_schema()?;
@@ -596,6 +612,7 @@ impl Database {
     /// pass treats every asset as never-downloaded and overwrites the
     /// stale `medias/bg.png` / `medias/audio.mp3` files inherited
     /// from the wrong game.
+    #[allow(dead_code)] // pre-v0.12 helper; the new scan_worker stops at delete_backglass + on-disk file removal, so the md5 columns are never read
     pub fn clear_link_media_md5s(&self, rel_path: &str) -> Result<()> {
         self.conn
             .execute(

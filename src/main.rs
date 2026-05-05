@@ -16,6 +16,7 @@ mod mediadb;
 mod merge;
 mod outputs_hid;
 mod pidlock;
+mod scan_worker;
 mod screens;
 mod system_info;
 mod tilt;

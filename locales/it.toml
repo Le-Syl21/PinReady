@@ -480,3 +480,5 @@ inputs_auto_map_cancel = "Annulla auto-assegnazione"
 system_mirror_label = "Mirror auto-ospitato (opzionale)"
 system_mirror_hint = "Instrada il catalogo VBS e il VPin media DB tramite il tuo server invece di GitHub. Lascia vuoto per scaricare direttamente da GitHub. Esempio: https://pinready.syl21.org"
 system_mirror_clear = "Cancella"
+
+launcher_update_badge_tooltip = "Vedi gli aggiornamenti disponibili"

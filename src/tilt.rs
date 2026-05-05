@@ -101,11 +101,11 @@ mod tests {
     #[test]
     fn default_values() {
         let tilt = TiltConfig::default();
-        assert!((tilt.tilt_sensitivity_pct - 55.0).abs() < f32::EPSILON);
+        assert!((tilt.tilt_sensitivity_pct - 50.0).abs() < f32::EPSILON);
         assert!((tilt.plumb_inertia - 0.35).abs() < f32::EPSILON);
         assert!(tilt.nudge_filter);
-        assert!((tilt.nudge_scale_pct - 40.0).abs() < f32::EPSILON);
-        assert!((tilt.nudge_deadzone_pct - 20.0).abs() < f32::EPSILON);
+        assert!((tilt.nudge_scale_pct - 50.0).abs() < f32::EPSILON);
+        assert!((tilt.nudge_deadzone_pct - 10.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -129,7 +129,7 @@ mod tests {
         let cfg = config_from_str("");
         let mut tilt = TiltConfig::default();
         tilt.load_from_config(&cfg);
-        assert!((tilt.tilt_sensitivity_pct - 55.0).abs() < f32::EPSILON);
+        assert!((tilt.tilt_sensitivity_pct - 50.0).abs() < f32::EPSILON);
         assert!(tilt.nudge_filter);
     }
 

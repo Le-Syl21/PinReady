@@ -621,6 +621,14 @@ impl App {
                             if badge_resp.hovered() {
                                 ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
                             }
+                            // Tooltip on hover — replaces the previous
+                            // bare circle with a friendly hint that
+                            // explains what clicking does. The egui
+                            // tooltip uses the response's hover state
+                            // and renders a small floating panel near
+                            // the cursor.
+                            let badge_resp = badge_resp
+                                .on_hover_text(t!("launcher_update_badge_tooltip"));
                             if badge_resp.clicked() {
                                 if let Some(ref vid) = table.vps_id {
                                     let url = format!(

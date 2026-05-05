@@ -480,3 +480,5 @@ inputs_auto_map_cancel = "Avbryt auto-tilldelning"
 system_mirror_label = "Självhostad spegel (valfritt)"
 system_mirror_hint = "Dirigerar VBS-katalogen och VPin media-DB via din egen server istället för GitHub. Lämna tomt för att hämta direkt från GitHub. Exempel: https://pinready.syl21.org"
 system_mirror_clear = "Rensa"
+
+launcher_update_badge_tooltip = "Visa tillgängliga uppdateringar"

@@ -480,3 +480,5 @@ inputs_auto_map_cancel = "自動割り当てをキャンセル"
 system_mirror_label = "セルフホスト ミラー (任意)"
 system_mirror_hint = "VBS カタログと VPin メディア DB を GitHub の代わりに自前のサーバーを経由します。空欄で GitHub から直接取得します。例: https://pinready.syl21.org"
 system_mirror_clear = "クリア"
+
+launcher_update_badge_tooltip = "利用可能なアップデートを見る"

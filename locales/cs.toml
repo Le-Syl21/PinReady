@@ -480,3 +480,5 @@ inputs_auto_map_cancel = "Zrušit automatické přiřazování"
 system_mirror_label = "Vlastní zrcadlo (volitelné)"
 system_mirror_hint = "Směruje katalog VBS a VPin media DB přes váš vlastní server místo GitHubu. Ponechte prázdné pro přímé stahování z GitHubu. Příklad: https://pinready.syl21.org"
 system_mirror_clear = "Vymazat"
+
+launcher_update_badge_tooltip = "Zobrazit dostupné aktualizace"

@@ -478,3 +478,5 @@ inputs_auto_map_cancel = "取消自动映射"
 system_mirror_label = "自托管镜像(可选)"
 system_mirror_hint = "通过您自己的服务器路由 VBS 目录和 VPin 媒体数据库,而不是直接访问 GitHub。留空则直接从 GitHub 拉取。示例: https://pinready.syl21.org"
 system_mirror_clear = "清除"
+
+launcher_update_badge_tooltip = "查看可用更新"

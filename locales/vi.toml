@@ -479,3 +479,5 @@ inputs_auto_map_cancel = "Hủy tự động gán"
 system_mirror_label = "Máy chủ gương tự host (tùy chọn)"
 system_mirror_hint = "Định tuyến danh mục VBS và cơ sở dữ liệu media VPin qua máy chủ của bạn thay vì GitHub. Để trống để tải trực tiếp từ GitHub. Ví dụ: https://pinready.syl21.org"
 system_mirror_clear = "Xóa"
+
+launcher_update_badge_tooltip = "Xem các bản cập nhật có sẵn"
