@@ -406,6 +406,8 @@ desktop_integration_hint = "Installs application shortcuts in your desktop's app
 # System wizard page (autostart + desktop integration)
 system_heading = "System integration"
 system_desc = "Optional convenience features. Toggle these on a dedicated pincab; leave them off when sharing the machine with a regular desktop user."
+system_credits_title = "Thanks"
+system_credits_intro = "PinReady stands on the work of these contributors to the wider Visual Pinball ecosystem:"
 
 # Tables page — mandatory tables_dir + collapsibles
 tables_path_required = "Required — pick the folder where your tables live before continuing."

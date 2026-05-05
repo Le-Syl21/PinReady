@@ -467,3 +467,6 @@ merge_sources_none = "tidak ada sumber yang dikonfigurasi"
 merge_sources_configured = "%{count} sumber dikonfigurasi"
 merge_run_disabled_tooltip = "Pilih folder meja yang valid di atas terlebih dahulu."
 merge_apply_disabled_tooltip = "Jalankan pratinjau (dry run) terlebih dahulu; hanya perubahan yang sudah dipratinjau yang dapat diterapkan."
+
+system_credits_title = "Terima kasih"
+system_credits_intro = "PinReady berdiri di atas karya para kontributor ekosistem Visual Pinball yang lebih luas ini:"

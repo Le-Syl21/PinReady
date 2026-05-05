@@ -467,3 +467,6 @@ merge_sources_none = "ei lähdettä määritetty"
 merge_sources_configured = "%{count} lähdettä määritetty"
 merge_run_disabled_tooltip = "Valitse ensin kelvollinen pöytäkansio yllä."
 merge_apply_disabled_tooltip = "Suorita ensin esikatselu (dry run); voit toteuttaa vain esikatsellut muutokset."
+
+system_credits_title = "Kiitokset"
+system_credits_intro = "PinReady nojaa näiden Visual Pinball -ekosysteemin laajemman kehittäjäyhteisön työhön:"

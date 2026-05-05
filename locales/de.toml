@@ -467,3 +467,6 @@ merge_sources_none = "keine Quelle konfiguriert"
 merge_sources_configured = "%{count} Quelle(n) konfiguriert"
 merge_run_disabled_tooltip = "Bitte zuerst einen gültigen Tabellenordner auswählen."
 merge_apply_disabled_tooltip = "Zuerst eine Vorschau (Dry Run) ausführen; nur vorschau-bestätigte Änderungen können angewendet werden."
+
+system_credits_title = "Danke"
+system_credits_intro = "PinReady baut auf der Arbeit dieser Mitwirkenden am erweiterten Visual-Pinball-Ökosystem auf:"

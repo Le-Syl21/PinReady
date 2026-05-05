@@ -465,3 +465,6 @@ merge_sources_none = "未配置任何源"
 merge_sources_configured = "已配置 %{count} 个源"
 merge_run_disabled_tooltip = "请先在上方选择一个有效的球台文件夹。"
 merge_apply_disabled_tooltip = "请先运行预览（dry run）；只能应用已预览的更改。"
+
+system_credits_title = "致谢"
+system_credits_intro = "PinReady 建立在 Visual Pinball 大型生态系统中这些贡献者的工作之上:"

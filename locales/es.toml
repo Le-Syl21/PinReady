@@ -468,3 +468,6 @@ merge_sources_none = "ninguna fuente configurada"
 merge_sources_configured = "%{count} fuente(s) configurada(s)"
 merge_run_disabled_tooltip = "Elija primero una carpeta de mesas válida arriba."
 merge_apply_disabled_tooltip = "Ejecute primero una vista previa (dry run); solo se pueden aplicar cambios ya previsualizados."
+
+system_credits_title = "Agradecimientos"
+system_credits_intro = "PinReady se apoya en el trabajo de estos colaboradores del ecosistema más amplio de Visual Pinball:"

@@ -467,3 +467,6 @@ merge_sources_none = "ソースが設定されていません"
 merge_sources_configured = "%{count} 件のソースが設定済み"
 merge_run_disabled_tooltip = "まず上で有効なテーブルフォルダを選択してください。"
 merge_apply_disabled_tooltip = "先にプレビュー（dry run）を実行してください。プレビュー済みの変更のみ適用できます。"
+
+system_credits_title = "謝辞"
+system_credits_intro = "PinReady は Visual Pinball エコシステム全体に貢献している以下の方々の仕事の上に成り立っています："

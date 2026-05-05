@@ -468,3 +468,6 @@ merge_sources_none = "nenhuma origem configurada"
 merge_sources_configured = "%{count} origem(ns) configurada(s)"
 merge_run_disabled_tooltip = "Escolha primeiro uma pasta de mesas válida acima."
 merge_apply_disabled_tooltip = "Execute primeiro uma pré-visualização (dry run); só é possível aplicar alterações já pré-visualizadas."
+
+system_credits_title = "Agradecimentos"
+system_credits_intro = "O PinReady apoia-se no trabalho destes contribuidores do ecossistema mais amplo de Visual Pinball:"

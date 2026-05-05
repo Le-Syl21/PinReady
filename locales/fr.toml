@@ -406,6 +406,8 @@ desktop_integration_hint = "Installe des raccourcis dans le menu d'applications 
 # Page wizard Système (autostart + intégration au bureau)
 system_heading = "Intégration au système"
 system_desc = "Options de confort optionnelles. À activer sur un pincab dédié ; à laisser désactivées si vous partagez la machine avec un usage bureautique."
+system_credits_title = "Remerciements"
+system_credits_intro = "PinReady s'appuie sur le travail de ces contributeurs de l'écosystème Visual Pinball au sens large :"
 
 # Page Tables — dossier obligatoire + collapsibles
 tables_path_required = "Obligatoire — choisissez le dossier où se trouvent vos tables avant de continuer."

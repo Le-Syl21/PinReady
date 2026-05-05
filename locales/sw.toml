@@ -468,3 +468,6 @@ merge_sources_none = "hakuna chanzo kilichowekwa"
 merge_sources_configured = "vyanzo %{count} vimewekwa"
 merge_run_disabled_tooltip = "Chagua kwanza folda halali ya meza hapo juu."
 merge_apply_disabled_tooltip = "Endesha hakikisho (dry run) kwanza; unaweza kutumia tu mabadiliko uliyoyahakiki."
+
+system_credits_title = "Asante"
+system_credits_intro = "PinReady inategemea kazi ya wachangiaji hawa wa mfumo mpana wa Visual Pinball:"

@@ -467,3 +467,6 @@ merge_sources_none = "žádný zdroj nenastaven"
 merge_sources_configured = "Nastavené zdroje: %{count}"
 merge_run_disabled_tooltip = "Nejprve výše vyberte platnou složku se stoly."
 merge_apply_disabled_tooltip = "Nejprve spusťte náhled (dry run); použít lze pouze změny, které jste si prohlédli."
+
+system_credits_title = "Poděkování"
+system_credits_intro = "PinReady stojí na práci těchto přispěvatelů širšího ekosystému Visual Pinball:"

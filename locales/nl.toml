@@ -467,3 +467,6 @@ merge_sources_none = "geen bron geconfigureerd"
 merge_sources_configured = "%{count} bron(nen) geconfigureerd"
 merge_run_disabled_tooltip = "Kies eerst een geldige tafelmap hierboven."
 merge_apply_disabled_tooltip = "Voer eerst een voorvertoning (dry run) uit; alleen voorvertoonde wijzigingen kunnen worden toegepast."
+
+system_credits_title = "Met dank aan"
+system_credits_intro = "PinReady bouwt voort op het werk van deze bijdragers aan het bredere Visual Pinball-ecosysteem:"

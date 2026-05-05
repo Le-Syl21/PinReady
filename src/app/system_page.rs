@@ -20,5 +20,29 @@ impl App {
             t!("desktop_integration_label"),
         );
         ui.label(egui::RichText::new(t!("desktop_integration_hint")).weak());
+
+        // ---- Credits — last wizard page is the natural spot for "thanks
+        // to" since it's the screen the user sees just before Finish.
+        // Names sorted alphabetically (case-insensitive).
+        ui.add_space(24.0);
+        ui.separator();
+        ui.add_space(8.0);
+        ui.label(egui::RichText::new(format!("💖 {}", t!("system_credits_title"))).strong());
+        ui.add_space(4.0);
+        ui.label(egui::RichText::new(t!("system_credits_intro")).weak());
+        ui.add_space(4.0);
+        for name in [
+            "Caviar4456",
+            "Francisdb",
+            "Jsm174",
+            "Major Frenchy",
+            "Somatik",
+            "Spielfool",
+            "Superhac",
+            "Toxie",
+            "Vbousquet",
+        ] {
+            ui.label(format!("• {name}"));
+        }
     }
 }

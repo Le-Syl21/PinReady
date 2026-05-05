@@ -468,3 +468,6 @@ merge_sources_none = "источник не настроен"
 merge_sources_configured = "Настроено источников: %{count}"
 merge_run_disabled_tooltip = "Сначала выберите выше корректную папку со столами."
 merge_apply_disabled_tooltip = "Сначала запустите предпросмотр (dry run); применить можно только просмотренные изменения."
+
+system_credits_title = "Благодарности"
+system_credits_intro = "PinReady основан на работе этих участников более широкой экосистемы Visual Pinball:"

@@ -467,3 +467,6 @@ merge_sources_none = "کوئی ماخذ ترتیب نہیں دیا گیا"
 merge_sources_configured = "%{count} ماخذ ترتیب دیے گئے"
 merge_run_disabled_tooltip = "پہلے اوپر ایک درست ٹیبلز فولڈر منتخب کریں۔"
 merge_apply_disabled_tooltip = "پہلے پیش منظر (dry run) چلائیں؛ صرف وہی تبدیلیاں لاگو کی جا سکتی ہیں جنہیں پیش منظر کر چکے ہوں۔"
+
+system_credits_title = "شکریہ"
+system_credits_intro = "PinReady وسیع تر Visual Pinball ایکوسسٹم میں ان معاونین کے کام پر کھڑا ہے:"

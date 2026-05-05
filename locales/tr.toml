@@ -468,3 +468,6 @@ merge_sources_none = "yapılandırılmış kaynak yok"
 merge_sources_configured = "%{count} kaynak yapılandırıldı"
 merge_run_disabled_tooltip = "Önce yukarıda geçerli bir masa klasörü seçin."
 merge_apply_disabled_tooltip = "Önce bir önizleme (dry run) çalıştırın; yalnızca önizlediğiniz değişiklikleri uygulayabilirsiniz."
+
+system_credits_title = "Teşekkürler"
+system_credits_intro = "PinReady, geniş Visual Pinball ekosistemine katkı sağlayan bu kişilerin çalışmaları üzerine inşa edilmiştir:"

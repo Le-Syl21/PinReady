@@ -467,3 +467,6 @@ merge_sources_none = "ingen källa konfigurerad"
 merge_sources_configured = "%{count} källa/källor konfigurerad/e"
 merge_run_disabled_tooltip = "Välj först en giltig bordsmapp ovan."
 merge_apply_disabled_tooltip = "Kör först en förhandsgranskning (dry run); du kan bara tillämpa ändringar du har förhandsgranskat."
+
+system_credits_title = "Tack"
+system_credits_intro = "PinReady bygger på arbetet av dessa bidragsgivare till det bredare Visual Pinball-ekosystemet:"

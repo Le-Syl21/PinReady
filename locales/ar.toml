@@ -466,3 +466,6 @@ merge_sources_none = "لا يوجد مصدر مُكوَّن"
 merge_sources_configured = "تم تكوين %{count} مصدر/مصادر"
 merge_run_disabled_tooltip = "اختر أولاً مجلد طاولات صالح في الأعلى."
 merge_apply_disabled_tooltip = "شغّل المعاينة (dry run) أولاً؛ لا يمكن تطبيق سوى التغييرات التي عاينتها."
+
+system_credits_title = "شكر وتقدير"
+system_credits_intro = "يعتمد PinReady على عمل هؤلاء المساهمين في نظام Visual Pinball البيئي بشكل عام:"

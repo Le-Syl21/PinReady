@@ -466,3 +466,6 @@ merge_sources_none = "chưa cấu hình nguồn nào"
 merge_sources_configured = "%{count} nguồn đã được cấu hình"
 merge_run_disabled_tooltip = "Hãy chọn một thư mục bàn hợp lệ ở trên trước."
 merge_apply_disabled_tooltip = "Chạy xem trước (dry run) trước; bạn chỉ có thể áp dụng các thay đổi đã được xem trước."
+
+system_credits_title = "Lời cảm ơn"
+system_credits_intro = "PinReady được xây dựng trên công sức của những người đóng góp này cho hệ sinh thái Visual Pinball rộng lớn hơn:"

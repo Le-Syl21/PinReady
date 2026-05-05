@@ -467,3 +467,6 @@ merge_sources_none = "কোনো উৎস কনফিগার করা ন
 merge_sources_configured = "%{count}টি উৎস কনফিগার করা হয়েছে"
 merge_run_disabled_tooltip = "প্রথমে উপরে একটি বৈধ টেবিল ফোল্ডার নির্বাচন করুন।"
 merge_apply_disabled_tooltip = "প্রথমে প্রিভিউ (dry run) চালান; শুধু প্রিভিউ করা পরিবর্তনগুলিই প্রয়োগ করা যায়।"
+
+system_credits_title = "কৃতজ্ঞতা"
+system_credits_intro = "PinReady বৃহত্তর Visual Pinball ইকোসিস্টেমে এই অবদানকারীদের কাজের উপর দাঁড়িয়ে আছে:"
