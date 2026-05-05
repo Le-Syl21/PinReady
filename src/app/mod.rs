@@ -20,21 +20,24 @@ pub enum AppMode {
     Launcher,
 }
 
-/// True when the running session uses Wayland. We use it to gate
-/// OS-level cursor-grab calls — winit's `set_cursor_grab` returns
-/// `NotSupported` on Wayland, so issuing it there only spams
-/// `WARN egui_winit] CursorGrab(...)` every frame without doing
-/// anything useful. Detection prefers `XDG_SESSION_TYPE` (set by logind)
-/// and falls back to `WAYLAND_DISPLAY` for sessions started outside a
-/// systemd-logind setup (e.g. nested compositors, embedded boards).
-pub fn is_wayland() -> bool {
-    if !cfg!(target_os = "linux") {
-        return false;
-    }
-    if let Ok(t) = std::env::var("XDG_SESSION_TYPE") {
-        return t == "wayland";
-    }
-    std::env::var("WAYLAND_DISPLAY").is_ok()
+/// True when we should **skip** the OS-level cursor-grab call
+/// (`ViewportCommand::CursorGrab(Locked|None)`).
+///
+/// History: this used to be `skip_os_cursor_grab()` because winit explicitly
+/// refuses cursor grab on Wayland (relative-pointer protocol unsupported)
+/// and emits a `WARN egui_winit] CursorGrab(...) NotSupported` per-frame
+/// spam. On X11 the call technically *works* but in PinReady's kiosk
+/// flow (borderless-fullscreen + rotated viewport on a 4K playfield) the
+/// confine-pointer behaviour is unreliable and users report it
+/// "doesn't really grab" anyway. So we skip the grab on the whole
+/// Linux family (X11 + Wayland) and rely solely on the egui-rotate
+/// SoftwareCursor's lock for cursor confinement — which works
+/// regardless of windowing system.
+///
+/// macOS and Windows still get the real OS grab; no reason to drop it
+/// there.
+pub fn skip_os_cursor_grab() -> bool {
+    cfg!(target_os = "linux")
 }
 
 /// Cross-session signal for `main.rs` to know what to do after the current
@@ -1102,7 +1105,7 @@ impl eframe::App for App {
             // unconditional so the OS pointer doesn't flicker on top of
             // the rendered software cursor.
             self.cursor.set_lock(true);
-            if !is_wayland() {
+            if !skip_os_cursor_grab() {
                 ctx.send_viewport_cmd(egui::ViewportCommand::CursorGrab(
                     egui::viewport::CursorGrab::Locked,
                 ));

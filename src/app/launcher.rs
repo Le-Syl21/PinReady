@@ -1107,7 +1107,7 @@ impl App {
         // Symmetric with the kiosk loop: we only ever grab on non-Wayland,
         // so we only need to release there too. Sending CursorGrab::None
         // on Wayland would trigger the same winit "not supported" warn.
-        if !crate::app::is_wayland() {
+        if !crate::app::skip_os_cursor_grab() {
             ctx.send_viewport_cmd(egui::ViewportCommand::CursorGrab(
                 egui::viewport::CursorGrab::None,
             ));
@@ -1237,7 +1237,7 @@ impl App {
                         // loop is gated on !vpx_running. VPX windows then
                         // z-order on top of PinReady.
                         self.cursor.set_lock(false);
-                        if !crate::app::is_wayland() {
+                        if !crate::app::skip_os_cursor_grab() {
                             ctx.send_viewport_cmd(egui::ViewportCommand::CursorGrab(
                                 egui::viewport::CursorGrab::None,
                             ));

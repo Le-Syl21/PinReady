@@ -69,7 +69,7 @@ fn init_logging() {
     // We previously had `egui_winit=error` here to silence the per-frame
     // `WARN egui_winit] CursorGrab(Locked): the requested operation is
     // not supported by Winit` on Wayland. The cleaner fix is in place
-    // now: `app::is_wayland()` gates the `ViewportCommand::CursorGrab`
+    // now: `app::skip_os_cursor_grab()` gates the `ViewportCommand::CursorGrab`
     // calls so the unsupported syscall is never made on Wayland to
     // begin with — egui_winit warns at default `warn` level once again.
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))

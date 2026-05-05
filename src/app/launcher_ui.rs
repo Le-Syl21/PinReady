@@ -807,19 +807,32 @@ fn highlight_error_keywords(text: &str, style: &egui::Style) -> egui::text::Layo
     let lower = text.to_ascii_lowercase();
     let bytes = text.as_bytes();
     let mut i = 0;
+    // Compare in byte-space: all keywords are pure ASCII so byte-level
+    // `eq_ignore_ascii_case` is correct, and unlike `&str[i..j]` slicing
+    // it does NOT panic when `j` falls inside a multibyte UTF-8 char
+    // (the `·` separators in the system header are 2-byte chars and
+    // triggered exactly that panic on non-ASCII content). We only
+    // re-enter `&str` when we know both ends are valid char boundaries —
+    // in `job.append(&text[start..end], …)`, where `start`/`end` are
+    // either 0, `text.len()`, a position we walked to via
+    // `chars().next().len_utf8()`, or `i + kw.len()` (kw is ASCII =
+    // ends on a char boundary because we scan from a char boundary).
+    let lower_bytes = lower.as_bytes();
     while i < text.len() {
         // Try to match a keyword at this byte offset.
         let mut matched: Option<usize> = None;
         for kw in KEYWORDS {
-            if i + kw.len() <= lower.len() && lower[i..i + kw.len()].eq_ignore_ascii_case(kw) {
+            let kw_bytes = kw.as_bytes();
+            let end = i + kw_bytes.len();
+            if end <= lower_bytes.len() && lower_bytes[i..end].eq_ignore_ascii_case(kw_bytes) {
                 // Word-ish boundary: don't highlight inside another word
                 // (so "panicked" doesn't paint on "panickedness", and
                 // "warn" stops short of "warning" handling above since
                 // we sort longest-first).
                 let before_ok = i == 0 || !is_word_char(bytes[i - 1]);
-                let after_ok = i + kw.len() == bytes.len() || !is_word_char(bytes[i + kw.len()]);
+                let after_ok = end == bytes.len() || !is_word_char(bytes[end]);
                 if before_ok && after_ok {
-                    matched = Some(kw.len());
+                    matched = Some(kw_bytes.len());
                     break;
                 }
             }
@@ -836,12 +849,13 @@ fn highlight_error_keywords(text: &str, style: &egui::Style) -> egui::text::Layo
             // Greedy fast-path: extend as long as no keyword starts here.
             'extend: while i < text.len() {
                 for kw in KEYWORDS {
-                    if i + kw.len() <= lower.len()
-                        && lower[i..i + kw.len()].eq_ignore_ascii_case(kw)
+                    let kw_bytes = kw.as_bytes();
+                    let end = i + kw_bytes.len();
+                    if end <= lower_bytes.len()
+                        && lower_bytes[i..end].eq_ignore_ascii_case(kw_bytes)
                     {
                         let before_ok = !is_word_char(bytes[i - 1]);
-                        let after_ok =
-                            i + kw.len() == bytes.len() || !is_word_char(bytes[i + kw.len()]);
+                        let after_ok = end == bytes.len() || !is_word_char(bytes[end]);
                         if before_ok && after_ok {
                             break 'extend;
                         }
@@ -858,4 +872,36 @@ fn highlight_error_keywords(text: &str, style: &egui::Style) -> egui::text::Layo
 
 fn is_word_char(b: u8) -> bool {
     b.is_ascii_alphanumeric() || b == b'_'
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Regression: the system header contains middle-dot `·` (2 bytes
+    /// in UTF-8). The previous implementation sliced `&str` directly
+    /// and panicked when a keyword's byte window happened to end inside
+    /// a `·`. The byte-space comparison fixes it; this test pins the
+    /// behaviour so we don't regress.
+    #[test]
+    fn highlight_does_not_panic_on_multibyte_separators() {
+        let style = egui::Style::default();
+        let text = "$ /home/nico/visual_pinball/vpinballx_bgfx -play /home/nico/tables/avatar/avatar.vpx\n  cwd:    /home/nico\n  system: ubuntu 24.04.4 lts · x11 · gnome (mutter)\n  client: pinready v0.12.1\n\nvisual pinball exited with status: signal: 11 (sigsegv) (core dumped)\n";
+        let _ = highlight_error_keywords(text, &style);
+    }
+
+    #[test]
+    fn highlight_finds_keywords_in_ascii_text() {
+        let style = egui::Style::default();
+        let _ = highlight_error_keywords("error: panicked at foo.rs", &style);
+    }
+
+    #[test]
+    fn highlight_handles_french_accents_in_path() {
+        let style = egui::Style::default();
+        let _ = highlight_error_keywords(
+            "cwd: /home/sylvain/Téléchargements/Apollo 13/error.log\n",
+            &style,
+        );
+    }
 }
