@@ -1,5 +1,7 @@
 use sdl3_sys::everything::*;
 use std::ffi::CStr;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::thread;
 
 /// An input action that can be mapped to a key or button.
@@ -797,11 +799,20 @@ struct OpenedJoystick {
 /// Spawn the SDL3 joystick polling thread (keyboard is handled via egui).
 /// Uses direct state polling (SDL_GetJoystickButton/Axis) instead of SDL_PollEvent
 /// to avoid the SDL3 main-thread assertion on event pumping.
-/// Returns a receiver for joystick events.
-pub fn spawn_joystick_thread() -> crossbeam_channel::Receiver<JoystickEvent> {
+/// Returns the event receiver, the running flag (set to false to stop the
+/// thread), and the JoinHandle. The thread does no SDL3 teardown of its
+/// own — `App::shutdown_sdl_threads` runs `SDL_Quit()` once both worker
+/// threads have joined.
+pub fn spawn_joystick_thread() -> (
+    crossbeam_channel::Receiver<JoystickEvent>,
+    Arc<AtomicBool>,
+    thread::JoinHandle<()>,
+) {
     let (evt_tx, evt_rx) = crossbeam_channel::unbounded::<JoystickEvent>();
+    let running = Arc::new(AtomicBool::new(true));
+    let running_thread = running.clone();
 
-    thread::spawn(move || {
+    let handle = thread::spawn(move || {
         unsafe {
             // Init joystick subsystem in this thread
             if !SDL_InitSubSystem(SDL_INIT_JOYSTICK) {
@@ -887,7 +898,7 @@ pub fn spawn_joystick_thread() -> crossbeam_channel::Receiver<JoystickEvent> {
                 joysticks.len()
             );
 
-            loop {
+            while running_thread.load(Ordering::Relaxed) {
                 // Update joystick state (required before reading)
                 SDL_UpdateJoysticks();
 
@@ -934,10 +945,18 @@ pub fn spawn_joystick_thread() -> crossbeam_channel::Receiver<JoystickEvent> {
 
                 std::thread::sleep(std::time::Duration::from_millis(10));
             }
+
+            // Just exit. No SDL_CloseJoystick / SDL_QuitSubSystem here:
+            // `App::shutdown_sdl_threads` calls `SDL_Quit()` on the main
+            // thread once both worker threads have joined, which nukes
+            // every subsystem + handle in one shot. No need for refcount
+            // bookkeeping per thread.
+            let _ = joysticks; // kept alive for the loop, dropped on exit
+            log::info!("Joystick thread: exited polling loop");
         }
     });
 
-    evt_rx
+    (evt_rx, running, handle)
 }
 
 #[cfg(test)]

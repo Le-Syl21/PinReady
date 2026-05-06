@@ -78,6 +78,37 @@ impl App {
                 ui.end_row();
             });
 
+        // Auto-detect the playfield device's native channel count and
+        // pre-select the matching Sound3D mode. Stereo → mode 1 (rear
+        // stereo). 5.1 → mode 3 (surround front at lockbar). 7.1 →
+        // mode 5 (SSF new). The user can still override with the
+        // radio buttons below.
+        //
+        // Two trigger conditions:
+        //   1. The user picks a different playfield device (run again).
+        //   2. The ini didn't provide a `Sound3D` value (typically a
+        //      first-install with no ini yet) — fall back to detection
+        //      so the user lands on a sensible default instead of the
+        //      hard-coded FrontStereo enum default. Cleared after the
+        //      first run so we don't keep overriding the user's later
+        //      manual radio-button picks.
+        let device_changed = self.audio.device_pf != self.audio.prev_device_pf;
+        let need_first_detect = !self.audio.sound_3d_from_ini;
+        if device_changed || need_first_detect {
+            self.audio.prev_device_pf = self.audio.device_pf.clone();
+            self.audio.sound_3d_from_ini = true;
+            if let Some(channels) = AudioConfig::detect_native_channels(&self.audio.device_pf) {
+                let suggested = AudioConfig::recommended_sound_3d_mode(channels);
+                log::info!(
+                    "Audio: device '{}' reports {} channels → suggesting Sound3D mode {:?}",
+                    self.audio.device_pf,
+                    channels,
+                    suggested
+                );
+                self.audio.sound_3d_mode = suggested;
+            }
+        }
+
         ui.add_space(12.0);
 
         // Sound3D mode

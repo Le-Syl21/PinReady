@@ -635,22 +635,86 @@ impl App {
         self.vbs_rx = Some(rx);
     }
 
+    /// Nuke PinReady's entire SDL3 footprint before spawning VPX.
+    /// Drop the audio sender + flip the joystick running flag, join
+    /// both worker threads (guarantees nobody is mid-call into SDL3),
+    /// then call `SDL_Quit()` to slam every subsystem + open device
+    /// down in one go. After this PinReady's process holds zero SDL3
+    /// state — VPX spawns into a fresh SDL3 universe.
+    pub(super) fn shutdown_sdl_threads(&mut self) {
+        self.audio_cmd_tx = None;
+        if let Some(handle) = self.audio_thread.take() {
+            let _ = handle.join();
+        }
+
+        if let Some(running) = self.joystick_running.take() {
+            running.store(false, Ordering::Relaxed);
+        }
+        self.joystick_rx = None;
+        if let Some(handle) = self.joystick_thread.take() {
+            let _ = handle.join();
+        }
+
+        unsafe {
+            sdl3_sys::everything::SDL_Quit();
+        }
+
+        // Confirm SDL has fully wound down before we hand off to VPX.
+        // `SDL_WasInit(0)` returns the bitmask of currently-initialized
+        // subsystems and should hit zero immediately after `SDL_Quit`
+        // (https://wiki.libsdl.org/SDL3/SDL_WasInit). On Linux some
+        // teardown is observably async (PipeWire audio session
+        // retention, joystick hotplug worker) so we poll for up to
+        // 300 ms just to be sure.
+        let poll_deadline = std::time::Instant::now() + std::time::Duration::from_millis(300);
+        let zero = sdl3_sys::init::SDL_InitFlags(0);
+        let mut residual = unsafe { sdl3_sys::everything::SDL_WasInit(zero) };
+        while residual.0 != 0 && std::time::Instant::now() < poll_deadline {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            residual = unsafe { sdl3_sys::everything::SDL_WasInit(zero) };
+        }
+        if residual.0 != 0 {
+            log::warn!(
+                "SDL_WasInit still reports {:#x} 300 ms after SDL_Quit — proceeding anyway",
+                residual.0
+            );
+        } else {
+            log::info!("SDL_Quit() complete — all subsystems fully released");
+        }
+    }
+
+    /// Re-spawn audio + joystick threads after VPX exits. New SDL3
+    /// subsystem inits happen inside each thread, so the launcher is
+    /// fully responsive again as soon as this returns.
+    pub(super) fn respawn_sdl_threads(&mut self) {
+        let (rx, running, handle) = crate::inputs::spawn_joystick_thread();
+        self.joystick_rx = Some(rx);
+        self.joystick_running = Some(running);
+        self.joystick_thread = Some(handle);
+
+        let (tx, handle) = crate::audio::spawn_audio_thread();
+        self.audio_cmd_tx = Some(tx);
+        self.audio_thread = Some(handle);
+    }
+
     pub(super) fn launch_table(&mut self, table_path: &std::path::Path) {
         if self.vpx_running.load(Ordering::Relaxed) {
             return;
         }
-        if self.preview_playing {
-            if let Some(tx) = &self.audio_cmd_tx {
-                let _ = tx.send(AudioCommand::PreviewStop);
-            }
-            self.preview_playing = false;
-        }
+        // Preview audio stops automatically when we tear down the audio
+        // thread below — no explicit PreviewStop needed.
+        self.preview_playing = false;
         self.preview_due_at = None;
         let resolved = updater::resolve_vpx_exe(std::path::Path::new(&self.vpx_exe_path));
         if self.vpx_exe_path.is_empty() || !resolved.is_file() {
             log::error!("Visual Pinball executable not found: {}", self.vpx_exe_path);
             return;
         }
+        // Release every SDL3 subsystem PinReady is holding (audio
+        // device + open joystick handles + their respective subsystem
+        // counters) so VPX can claim them cleanly. They'll be re-spawned
+        // when VPX exits — see `process_vpx_status`.
+        self.shutdown_sdl_threads();
         log::info!(
             "Launching: {} -Play {}",
             resolved.display(),
@@ -945,8 +1009,12 @@ impl App {
                         let audio_path = table_dir.join("medias").join("audio.mp3");
                         if audio_path.is_file() {
                             if let Some(tx) = &self.audio_cmd_tx {
+                                // Preview clips are halved so they sit
+                                // below the in-game soundtrack baseline —
+                                // hovering over a card shouldn't be louder
+                                // than the table the user is browsing for.
                                 let volume =
-                                    (self.audio.music_volume as f32 / 100.0).clamp(0.0, 1.0);
+                                    (self.audio.music_volume as f32 / 100.0 * 0.5).clamp(0.0, 1.0);
                                 let _ = tx.send(AudioCommand::PreviewStart {
                                     path: audio_path,
                                     volume,
@@ -1099,8 +1167,29 @@ impl App {
         None
     }
 
+    /// Send `Close` to every cover viewport we may have spawned
+    /// (BG/DMD/Topper). Must run *before* closing the root viewport
+    /// when exiting the launcher: if the root dies first eframe
+    /// theoretically tears the rest down in cascade, but on
+    /// Wayland/Mutter this leaves the cover windows behind as
+    /// compositor ghosts. Closing them ourselves makes the
+    /// destruction order deterministic. Sending Close to a viewport
+    /// that doesn't exist is a no-op, so addressing all three
+    /// unconditionally is safe.
+    pub(super) fn close_cover_viewports(ctx: &egui::Context) {
+        for cover_id in [
+            crate::app::BG_VIEWPORT,
+            crate::app::PF_VIEWPORT,
+            crate::app::TOPPER_VIEWPORT,
+        ] {
+            let viewport_id = egui::ViewportId::from_hash_of(cover_id);
+            ctx.send_viewport_cmd_to(viewport_id, egui::ViewportCommand::Close);
+        }
+    }
+
     /// Unified exit: release cursor capture (otherwise the OS cursor stays
-    /// hidden while the window tears down), then request window close.
+    /// hidden while the window tears down), close every cover viewport
+    /// (BG/DMD/Topper) explicitly, then request the root viewport close.
     /// Called from the Quit button, ExitGame joystick action, and Escape key.
     pub(super) fn quit_launcher(&mut self, ctx: &egui::Context) {
         self.cursor.set_lock(false);
@@ -1113,51 +1202,101 @@ impl App {
             ));
         }
         ctx.send_viewport_cmd(egui::ViewportCommand::CursorVisible(true));
+
+        Self::close_cover_viewports(ctx);
         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
     }
 
-    /// Apply a repeatable launcher navigation action. Returns true if applied.
-    pub(super) fn apply_nav_action(&mut self, action: &str) -> bool {
-        let len = self.tables.len();
-        let cols = self.launcher_cols.max(1);
+    /// Indices into `self.tables` of the currently-visible cards
+    /// (matches the grid the user actually sees). Empty filter →
+    /// every table; non-empty → tables whose name contains the
+    /// lowercased filter.
+    pub(super) fn visible_indices(&self) -> Vec<usize> {
+        if self.table_filter_lower.is_empty() {
+            return (0..self.tables.len()).collect();
+        }
+        let f = self.table_filter_lower.as_str();
+        (0..self.tables.len())
+            .filter(|&i| self.tables[i].name.to_lowercase().contains(f))
+            .collect()
+    }
+
+    /// Dispatch a launcher action. Navigation actions loop over the
+    /// currently-visible (filtered) tables only; Launch and Cancel
+    /// drive table launch and search-clear/quit respectively. Returns
+    /// `true` when a directional action moved the selection — used by
+    /// the joystick repeat scheduler to decide whether to keep firing.
+    pub(super) fn apply_launcher_action(
+        &mut self,
+        action: launcher_input::LauncherAction,
+        ctx: &egui::Context,
+    ) -> bool {
+        use launcher_input::LauncherAction;
         match action {
-            "LeftFlipper" => {
-                self.selected_table = if self.selected_table > 0 {
-                    self.selected_table - 1
-                } else {
-                    len - 1
+            LauncherAction::PrevCard
+            | LauncherAction::NextCard
+            | LauncherAction::PrevRow
+            | LauncherAction::NextRow => {
+                let visible = self.visible_indices();
+                if visible.is_empty() {
+                    return false;
+                }
+                let cols = self.launcher_cols.max(1);
+                let n = visible.len();
+                let pos = visible
+                    .iter()
+                    .position(|&i| i == self.selected_table)
+                    .unwrap_or(0);
+                let new_pos = match action {
+                    LauncherAction::PrevCard => {
+                        if pos > 0 {
+                            pos - 1
+                        } else {
+                            n - 1
+                        }
+                    }
+                    LauncherAction::NextCard => (pos + 1) % n,
+                    LauncherAction::PrevRow => {
+                        if pos >= cols {
+                            pos - cols
+                        } else {
+                            (n - 1).min(pos + n - cols)
+                        }
+                    }
+                    LauncherAction::NextRow => {
+                        if pos + cols < n {
+                            pos + cols
+                        } else {
+                            pos % cols
+                        }
+                    }
+                    _ => unreachable!(),
                 };
+                self.selected_table = visible[new_pos];
                 self.scroll_to_selected = true;
                 true
             }
-            "RightFlipper" => {
-                self.selected_table = (self.selected_table + 1) % len;
-                self.scroll_to_selected = true;
-                true
+            LauncherAction::Launch => {
+                if !self.tables.is_empty() {
+                    let path = self.tables[self.selected_table].path.clone();
+                    self.launch_table(&path);
+                }
+                false
             }
-            "LeftMagna" => {
-                self.selected_table = if self.selected_table >= cols {
-                    self.selected_table - cols
+            LauncherAction::Cancel => {
+                if !self.table_filter.is_empty() {
+                    self.table_filter.clear();
+                    self.table_filter_lower.clear();
                 } else {
-                    (len - 1).min(self.selected_table + len - cols)
-                };
-                self.scroll_to_selected = true;
-                true
+                    self.quit_launcher(ctx);
+                }
+                false
             }
-            "RightMagna" => {
-                self.selected_table = if self.selected_table + cols < len {
-                    self.selected_table + cols
-                } else {
-                    self.selected_table % cols
-                };
-                self.scroll_to_selected = true;
-                true
-            }
-            _ => false,
         }
     }
 
     pub(super) fn handle_launcher_joystick(&mut self, ui: &mut egui::Ui) {
+        use launcher_input::LauncherAction;
         let vpx_running = self.vpx_running.load(Ordering::Relaxed);
         // Drain joystick events into a local vec to avoid borrow conflict
         let events: Vec<JoystickEvent> = self
@@ -1170,14 +1309,15 @@ impl App {
             return;
         }
 
-        // Key-repeat for held nav button: 400ms initial delay, then 80ms interval
+        // Key-repeat for held directional button: 400ms initial delay,
+        // then 80ms interval — same cadence as a typical OS keyboard.
         const INITIAL_DELAY: std::time::Duration = std::time::Duration::from_millis(400);
         const REPEAT_INTERVAL: std::time::Duration = std::time::Duration::from_millis(80);
-        if let Some((_, action, pressed_at, last_fire)) = self.nav_held.clone() {
+        if let Some((_, action, pressed_at, last_fire)) = self.nav_held {
             let now = std::time::Instant::now();
             if now.duration_since(pressed_at) >= INITIAL_DELAY
                 && now.duration_since(last_fire) >= REPEAT_INTERVAL
-                && self.apply_nav_action(&action)
+                && self.apply_launcher_action(action, ui.ctx())
             {
                 if let Some(held) = self.nav_held.as_mut() {
                     held.3 = now;
@@ -1189,22 +1329,17 @@ impl App {
         for event in events {
             match &event {
                 JoystickEvent::ButtonDown { button, .. } => {
-                    let action = self.action_for_launcher_nav(*button);
-                    match action.as_deref() {
-                        Some(a @ ("LeftFlipper" | "RightFlipper" | "LeftMagna" | "RightMagna"))
-                            if self.apply_nav_action(a) =>
-                        {
-                            let now = std::time::Instant::now();
-                            self.nav_held = Some((*button, a.to_string(), now, now));
-                        }
-                        Some("Start") | Some("LaunchBall") => {
-                            let path = self.tables[self.selected_table].path.clone();
-                            self.launch_table(&path);
-                        }
-                        Some("ExitGame") => {
-                            self.quit_launcher(ui.ctx());
-                        }
-                        _ => {}
+                    let Some(action) = self
+                        .action_for_launcher_nav(*button)
+                        .as_deref()
+                        .and_then(LauncherAction::from_vpx_action)
+                    else {
+                        continue;
+                    };
+                    let applied = self.apply_launcher_action(action, ui.ctx());
+                    if applied && action.is_directional() {
+                        let now = std::time::Instant::now();
+                        self.nav_held = Some((*button, action, now, now));
                     }
                 }
                 JoystickEvent::ButtonUp { button, .. } => {
@@ -1249,6 +1384,7 @@ impl App {
                         self.vpx_loading_pct = None;
                         self.vpx_hide_covers = false;
                         self.vpx_status_rx = None;
+                        self.respawn_sdl_threads();
                         self.restore_kiosk_after_vpx(ctx);
                         return;
                     }
@@ -1257,6 +1393,7 @@ impl App {
                         self.vpx_hide_covers = false;
                         self.vpx_error_log = Some(log);
                         self.vpx_status_rx = None;
+                        self.respawn_sdl_threads();
                         self.restore_kiosk_after_vpx(ctx);
                         return;
                     }
@@ -1265,6 +1402,7 @@ impl App {
                         self.vpx_hide_covers = false;
                         self.vpx_error_log = Some(msg);
                         self.vpx_status_rx = None;
+                        self.respawn_sdl_threads();
                         self.restore_kiosk_after_vpx(ctx);
                         return;
                     }

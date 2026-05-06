@@ -125,7 +125,18 @@ pub struct AudioConfig {
     pub available_devices: Vec<String>,
     pub device_bg: String,
     pub device_pf: String,
+    /// Snapshot of `device_pf` from the previous frame. The audio
+    /// wizard page compares against it: when the user changes the
+    /// playfield device dropdown, we re-detect the device's native
+    /// channel count and pre-select the matching Sound3D mode.
+    pub prev_device_pf: String,
     pub sound_3d_mode: Sound3DMode,
+    /// Was `Sound3D` actually present in `VPinballX.ini`? `false` on
+    /// a first-install (no ini) or a config that's been reset; the
+    /// audio wizard page uses this to run a one-shot auto-detection
+    /// on the first render so the user lands on a sensible mode
+    /// instead of the unconditional `FrontStereo` default.
+    pub sound_3d_from_ini: bool,
     pub music_volume: i32,
     pub sound_volume: i32,
     #[allow(dead_code)]
@@ -140,7 +151,9 @@ impl Default for AudioConfig {
             available_devices: Vec::new(),
             device_bg: String::new(),
             device_pf: String::new(),
+            prev_device_pf: String::new(),
             sound_3d_mode: Sound3DMode::FrontStereo,
+            sound_3d_from_ini: false,
             music_volume: 100,
             sound_volume: 100,
             test_phase: AudioTestPhase::Idle,
@@ -158,14 +171,96 @@ impl AudioConfig {
         if let Some(v) = config.get("Player", "SoundDevice") {
             self.device_pf = v;
         }
+        // Sync the change-tracking snapshot so the wizard's auto-detect
+        // doesn't fire on the first frame just because the field
+        // transitioned from default-empty to the loaded ini value.
+        self.prev_device_pf = self.device_pf.clone();
         if let Some(v) = config.get_i32("Player", "Sound3D") {
             self.sound_3d_mode = Sound3DMode::from_i32(v);
+            self.sound_3d_from_ini = true;
+        } else {
+            self.sound_3d_from_ini = false;
         }
         if let Some(v) = config.get_i32("Player", "MusicVolume") {
             self.music_volume = v;
         }
         if let Some(v) = config.get_i32("Player", "SoundVolume") {
             self.sound_volume = v;
+        }
+    }
+
+    /// Query the OS-reported native channel count for `device_name`
+    /// via SDL3. Empty / "Default" name → the system default device.
+    /// Returns the channel count as reported by PulseAudio/PipeWire on
+    /// Linux, WASAPI on Windows, CoreAudio on macOS — i.e. whatever the
+    /// user has configured in their OS sound settings (Stereo / 5.1 /
+    /// 7.1). `None` if the device can't be queried (disconnected,
+    /// SDL3 audio subsystem not init, etc.).
+    pub fn detect_native_channels(device_name: &str) -> Option<u8> {
+        unsafe {
+            // The audio subsystem must be init for the format query to
+            // work. The audio thread normally owns this, but the wizard
+            // can run before the user has triggered any audio path —
+            // bump the refcount here and quit it on return.
+            let needs_init = (SDL_WasInit(SDL_INIT_AUDIO) & SDL_INIT_AUDIO) == 0;
+            if needs_init && !SDL_InitSubSystem(SDL_INIT_AUDIO) {
+                return None;
+            }
+
+            let target_id = if device_name.is_empty() {
+                SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK
+            } else {
+                let mut count: i32 = 0;
+                let device_ids = SDL_GetAudioPlaybackDevices(&mut count);
+                let mut found = SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK;
+                let mut matched = false;
+                if !device_ids.is_null() {
+                    for i in 0..count as usize {
+                        let id = *device_ids.add(i);
+                        let name_ptr = SDL_GetAudioDeviceName(id);
+                        if name_ptr.is_null() {
+                            continue;
+                        }
+                        if CStr::from_ptr(name_ptr).to_string_lossy() == device_name {
+                            found = id;
+                            matched = true;
+                            break;
+                        }
+                    }
+                    SDL_free(device_ids as *mut _);
+                }
+                if !matched {
+                    if needs_init {
+                        SDL_QuitSubSystem(SDL_INIT_AUDIO);
+                    }
+                    return None;
+                }
+                found
+            };
+
+            let mut spec = std::mem::zeroed::<SDL_AudioSpec>();
+            let ok = SDL_GetAudioDeviceFormat(target_id, &mut spec, std::ptr::null_mut());
+            if needs_init {
+                SDL_QuitSubSystem(SDL_INIT_AUDIO);
+            }
+            if ok && spec.channels > 0 {
+                Some(spec.channels.min(255) as u8)
+            } else {
+                None
+            }
+        }
+    }
+
+    /// Map an OS-reported channel count to the Sound3D mode that best
+    /// matches a typical pincab wiring. Stereo systems → mode 1
+    /// (rear stereo / lockbar); 5.1 → mode 3 (surround front at
+    /// lockbar); 7.1 → mode 5 (SSF new). Anything else falls back to
+    /// rear stereo.
+    pub fn recommended_sound_3d_mode(channels: u8) -> Sound3DMode {
+        match channels {
+            6 => Sound3DMode::SurroundFrontLockbar,
+            8 => Sound3DMode::SsfNew,
+            _ => Sound3DMode::RearStereo,
         }
     }
 
@@ -509,11 +604,16 @@ pub(crate) fn stereo_to_71_front(stereo: &[i16], pan: f32) -> Vec<i16> {
     out
 }
 
-/// Spawn audio thread with 8-channel (7.1) output
-pub fn spawn_audio_thread() -> Sender<AudioCommand> {
+/// Spawn audio thread with 8-channel (7.1) output. Returns the command
+/// sender plus the JoinHandle so the caller can shut the thread down:
+/// drop the sender → recv Err → loop break → thread returns. No
+/// per-thread SDL3 teardown — `App::shutdown_sdl_threads` calls
+/// `SDL_Quit()` once both worker threads have joined, which nukes
+/// every subsystem + open device in one shot.
+pub fn spawn_audio_thread() -> (Sender<AudioCommand>, thread::JoinHandle<()>) {
     let (cmd_tx, cmd_rx) = crossbeam_channel::unbounded::<AudioCommand>();
 
-    thread::spawn(move || {
+    let handle = thread::spawn(move || {
         unsafe {
             if !SDL_InitSubSystem(SDL_INIT_AUDIO) {
                 log::error!(
@@ -541,7 +641,6 @@ pub fn spawn_audio_thread() -> Sender<AudioCommand> {
                     "Audio: OpenAudioDeviceStream 7.1 failed: {:?}",
                     CStr::from_ptr(SDL_GetError())
                 );
-                SDL_QuitSubSystem(SDL_INIT_AUDIO);
                 return;
             }
             SDL_ResumeAudioStreamDevice(stream);
@@ -710,12 +809,16 @@ pub fn spawn_audio_thread() -> Sender<AudioCommand> {
                     Ok(AudioCommand::Quit) | Err(_) => break,
                 }
             }
-            SDL_DestroyAudioStream(stream);
-            SDL_QuitSubSystem(SDL_INIT_AUDIO);
+            // Just exit. No SDL_DestroyAudioStream / SDL_QuitSubSystem
+            // here: `App::shutdown_sdl_threads` calls `SDL_Quit()` on
+            // the main thread once both worker threads have joined,
+            // which nukes every subsystem + open device in one shot.
+            let _ = stream; // kept alive for the loop, dropped on exit
+            log::info!("Audio thread: exited command loop");
         }
     });
 
-    cmd_tx
+    (cmd_tx, handle)
 }
 
 #[cfg(test)]

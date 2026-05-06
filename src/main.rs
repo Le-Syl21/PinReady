@@ -231,15 +231,35 @@ fn main() -> Result<()> {
         lock_dir.join("PinReady.pid").display()
     );
 
-    // Initialize SDL3 for display enumeration only (joystick + audio handled in their threads)
-    unsafe {
-        use sdl3_sys::everything::*;
-        if !SDL_Init(SDL_INIT_VIDEO) {
-            let err = std::ffi::CStr::from_ptr(SDL_GetError()).to_string_lossy();
-            anyhow::bail!("Failed to init SDL3: {err}");
+    // SDL3 is initialized on demand by each consumer:
+    //   - VIDEO: lazy-init inside `screens::enumerate_displays`.
+    //   - JOYSTICK: owned by the joystick polling thread.
+    //   - AUDIO: owned by the audio playback thread.
+    // Teardown is centralized: `App::shutdown_sdl_threads` joins both
+    // worker threads and calls `SDL_Quit()` before each VPX spawn,
+    // wiping every subsystem + open device in one shot. After VPX
+    // exits, the threads are respawned and re-init their subsystems
+    // from scratch.
+
+    // Belt-and-suspenders atexit: on a clean PinReady shutdown (user
+    // closes the launcher, wizard finishes without launching a table,
+    // panic that unwinds main, etc.) the Drop guard runs `SDL_Quit()`
+    // on the main thread one last time. SDL_Quit is documented as
+    // safe to call when SDL is already torn down ("safe to call this
+    // function even in the case of errors in initialization") so it
+    // overlaps cleanly with `App::shutdown_sdl_threads`'s mid-session
+    // SDL_Quit before VPX spawn. The wiki recommends this pattern via
+    // atexit() but warns against it in libraries — PinReady is a
+    // standalone binary so the warning doesn't apply.
+    // https://wiki.libsdl.org/SDL3/SDL_Quit
+    struct SdlQuitGuard;
+    impl Drop for SdlQuitGuard {
+        fn drop(&mut self) {
+            unsafe { sdl3_sys::everything::SDL_Quit() };
+            log::info!("SDL_Quit() called from atexit guard");
         }
     }
-    log::info!("SDL3 initialized (video for display enumeration)");
+    let _sdl_quit_guard = SdlQuitGuard;
 
     // Determine the initial mode once from CLI + DB, then loop: each mode
     // owns its own eframe session with a viewport built at window creation

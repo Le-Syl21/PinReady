@@ -249,6 +249,15 @@ pub struct App {
     /// when reaching the end of the list or when the user clicks Cancel.
     auto_map_active: bool,
     joystick_rx: Option<crossbeam_channel::Receiver<JoystickEvent>>,
+    /// Set to false to ask the joystick thread to drain + exit. The
+    /// thread joins quickly (≤ 10 ms — its sleep granularity), closes
+    /// every `SDL_OpenJoystick` handle, and `SDL_QuitSubSystem(JOYSTICK)`
+    /// before returning.
+    joystick_running: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+    /// JoinHandle for the joystick thread — kept so `launch_table` can
+    /// `.join()` after flipping `joystick_running` to false, ensuring
+    /// SDL3 joystick state is fully released before VPX is spawned.
+    joystick_thread: Option<std::thread::JoinHandle<()>>,
     pinscape_id: Option<String>, // VPX device ID if pinball controller detected
     pinscape_profile: usize,     // 0 = KL25Z, 1 = Pico, 2 = DudesCab
     gamepad_id: Option<String>,  // VPX device ID if generic gamepad detected
@@ -263,6 +272,11 @@ pub struct App {
     // Page 4 — Audio
     audio: AudioConfig,
     audio_cmd_tx: Option<crossbeam_channel::Sender<AudioCommand>>,
+    /// JoinHandle for the audio thread — same shutdown discipline as
+    /// the joystick thread: drop the sender to signal shutdown, then
+    /// `.join()` before launching VPX so the SDL3 audio device is
+    /// fully released.
+    audio_thread: Option<std::thread::JoinHandle<()>>,
 
     // Launcher preview audio. When `selected_table` changes we debounce
     // ~700ms before firing PreviewStart so quick scrolling doesn't spam
@@ -310,7 +324,12 @@ pub struct App {
     // actually changed since the last frame.
     last_injected_pointer_pos: Option<egui::Pos2>,
     // Launcher joystick nav auto-repeat: track which nav button is held
-    nav_held: Option<(u8, String, std::time::Instant, std::time::Instant)>,
+    nav_held: Option<(
+        u8,
+        launcher_input::LauncherAction,
+        std::time::Instant,
+        std::time::Instant,
+    )>,
     // Background backglass extraction results. Sent by the thread spawned
     // in `scan_tables`: (table index, .vpx path relative to tables_dir,
     // JPEG bytes). The UI thread pulls these in `process_bg_extraction`,
@@ -478,8 +497,8 @@ impl App {
             .get_config("pinscape_profile")
             .and_then(|s| s.parse().ok())
             .unwrap_or(0);
-        let joystick_rx = inputs::spawn_joystick_thread();
-        let audio_cmd_tx = audio::spawn_audio_thread();
+        let (joystick_rx, joystick_running, joystick_thread) = inputs::spawn_joystick_thread();
+        let (audio_cmd_tx, audio_thread) = audio::spawn_audio_thread();
         let update_check_rx = if vpx_install_mode == VpxInstallMode::Manual {
             None
         } else {
@@ -534,6 +553,8 @@ impl App {
             show_advanced_inputs: false,
             auto_map_active: false,
             joystick_rx: Some(joystick_rx),
+            joystick_running: Some(joystick_running),
+            joystick_thread: Some(joystick_thread),
             pinscape_id: None,
             pinscape_profile,
             gamepad_id: None,
@@ -542,6 +563,7 @@ impl App {
             tilt,
             audio,
             audio_cmd_tx: Some(audio_cmd_tx),
+            audio_thread: Some(audio_thread),
             preview_last_idx: None,
             preview_due_at: None,
             preview_playing: false,
@@ -969,6 +991,7 @@ mod autostart;
 mod desktop_integration;
 mod inputs_page;
 mod launcher;
+mod launcher_input;
 mod launcher_ui;
 mod outputs_page;
 mod rendering_page;

@@ -24,71 +24,14 @@ impl App {
             ui.ctx().request_repaint();
         }
 
-        // Keyboard nav — same actions as joystick for a single source of
-        // truth. Arrows = flipper/magna, Enter = launch, Escape = quit.
-        // Physical Shift/Ctrl also map to flipper/magna so a pincab user
-        // with a keyboard wired to the cab buttons (default VPX bindings:
-        // LShift=LeftFlipper, RShift=RightFlipper, LCtrl=LeftMagna,
-        // RCtrl=RightMagna) can navigate with the same physical buttons
-        // they use in-game. Suppressed while a text field is focused so
-        // Shift+letter and Ctrl+key combos in the search box don't leak
-        // into grid navigation.
-        // Mouse wheel is NOT mapped to navigation: it falls through to
-        // egui's ScrollArea (native smooth scrolling + acceleration tuned
-        // below). On pincab, navigation is done via joystick buttons and
-        // the search box — the wheel is for viewport scrolling only.
-        enum NavInput {
-            Key(egui::Key),
-        }
+        // Keyboard + (cabinet-only) mouse wheel nav. The collection
+        // and string-vs-enum mapping live in `launcher_input` so this
+        // call site stays a one-liner. Joystick events go through the
+        // same `apply_launcher_action` dispatch from
+        // `handle_launcher_joystick`.
         if !self.tables.is_empty() && !self.vpx_running.load(Ordering::Relaxed) {
-            let inputs: Vec<NavInput> = ui.input(|i| {
-                i.events
-                    .iter()
-                    .filter_map(|e| match e {
-                        egui::Event::Key {
-                            key, pressed: true, ..
-                        } => Some(NavInput::Key(*key)),
-                        _ => None,
-                    })
-                    .collect()
-            });
-            let text_focused = ui.ctx().text_edit_focused();
-
-            for input in inputs {
-                match input {
-                    NavInput::Key(egui::Key::ArrowLeft) => {
-                        self.apply_nav_action("LeftFlipper");
-                    }
-                    NavInput::Key(egui::Key::ArrowRight) => {
-                        self.apply_nav_action("RightFlipper");
-                    }
-                    NavInput::Key(egui::Key::ArrowUp) => {
-                        self.apply_nav_action("LeftMagna");
-                    }
-                    NavInput::Key(egui::Key::ArrowDown) => {
-                        self.apply_nav_action("RightMagna");
-                    }
-                    NavInput::Key(egui::Key::ShiftLeft) if !text_focused => {
-                        self.apply_nav_action("LeftFlipper");
-                    }
-                    NavInput::Key(egui::Key::ShiftRight) if !text_focused => {
-                        self.apply_nav_action("RightFlipper");
-                    }
-                    NavInput::Key(egui::Key::ControlLeft) if !text_focused => {
-                        self.apply_nav_action("LeftMagna");
-                    }
-                    NavInput::Key(egui::Key::ControlRight) if !text_focused => {
-                        self.apply_nav_action("RightMagna");
-                    }
-                    NavInput::Key(egui::Key::Enter) => {
-                        let path = self.tables[self.selected_table].path.clone();
-                        self.launch_table(&path);
-                    }
-                    NavInput::Key(egui::Key::Escape) => {
-                        self.quit_launcher(ui.ctx());
-                    }
-                    _ => {}
-                }
+            for action in launcher_input::collect_actions(ui, self.rotation) {
+                self.apply_launcher_action(action, ui.ctx());
             }
         }
 
@@ -149,8 +92,74 @@ impl App {
                         )
                     })
                     .inner;
+                let mut filter_changed = false;
                 if search_resp.changed() {
                     self.table_filter_lower = self.table_filter.to_lowercase();
+                    filter_changed = true;
+                }
+
+                // Type-anywhere-to-search: when no text field has focus
+                // and a printable character is typed, append it to the
+                // filter and grab focus on the search bar so the next
+                // keystrokes go directly into the field. Skipped while
+                // VPX is running (game owns the input) and while a text
+                // edit already has focus (avoid double-insertion: the
+                // TextEdit will consume the same Event::Text natively).
+                if !ui.ctx().text_edit_focused() && !self.vpx_running.load(Ordering::Relaxed) {
+                    let typed: String = ui.input(|i| {
+                        i.events
+                            .iter()
+                            .filter_map(|e| match e {
+                                egui::Event::Text(s) => Some(s.as_str()),
+                                _ => None,
+                            })
+                            .collect::<Vec<_>>()
+                            .join("")
+                    });
+                    let appended: String = typed.chars().filter(|c| !c.is_control()).collect();
+                    if !appended.is_empty() {
+                        self.table_filter.push_str(&appended);
+                        self.table_filter_lower = self.table_filter.to_lowercase();
+                        filter_changed = true;
+                        // Place the caret at the end of the buffer so
+                        // subsequent typing appends instead of inserting
+                        // before the freshly-typed characters.
+                        let id = search_resp.id;
+                        let mut state =
+                            egui::TextEdit::load_state(ui.ctx(), id).unwrap_or_default();
+                        let end = self.table_filter.chars().count();
+                        state
+                            .cursor
+                            .set_char_range(Some(egui::text::CCursorRange::one(
+                                egui::text::CCursor::new(end),
+                            )));
+                        state.store(ui.ctx(), id);
+                        search_resp.request_focus();
+                    }
+                }
+
+                // When the filter changes, snap the selection to the
+                // first match so Enter launches a table that's actually
+                // visible in the filtered grid. Skip if the current
+                // selection still satisfies the new filter (lets the
+                // user refine without losing their place).
+                if filter_changed && !self.table_filter_lower.is_empty() {
+                    let f = self.table_filter_lower.as_str();
+                    let current_matches = self
+                        .tables
+                        .get(self.selected_table)
+                        .map(|t| t.name.to_lowercase().contains(f))
+                        .unwrap_or(false);
+                    if !current_matches {
+                        if let Some(idx) = self
+                            .tables
+                            .iter()
+                            .position(|t| t.name.to_lowercase().contains(f))
+                        {
+                            self.selected_table = idx;
+                            self.scroll_to_selected = true;
+                        }
+                    }
                 }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui
@@ -165,8 +174,23 @@ impl App {
                     {
                         // Signal main.rs to relaunch this eframe session in
                         // Wizard mode with a fresh viewport (windowed on the
-                        // primary display), then close this one.
+                        // primary display), then close this one. Cover
+                        // viewports go first to keep the Mutter destruction
+                        // order deterministic — same reason as in
+                        // `quit_launcher`.
+                        // Stop any currently-playing table preview audio
+                        // before the mode switch so the user doesn't hear
+                        // it linger into the wizard. The audio thread
+                        // itself stays alive — the wizard needs it for
+                        // its test sequence.
+                        if let Some(tx) = &self.audio_cmd_tx {
+                            let _ = tx.send(AudioCommand::PreviewStop);
+                            let _ = tx.send(AudioCommand::StopAll);
+                        }
+                        self.preview_playing = false;
+                        self.preview_due_at = None;
                         crate::app::request_mode_switch(AppMode::Wizard);
+                        Self::close_cover_viewports(ui.ctx());
                         ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                     }
                     // Update button — visible when a new release is available
@@ -358,7 +382,6 @@ impl App {
         }
 
         // Table grid with backglass images
-        let filter = &self.table_filter_lower;
         let mut launch_idx: Option<usize> = None;
         let card_width = 400.0;
         let card_height = 520.0;
@@ -403,6 +426,8 @@ impl App {
             }
         }
 
+        let filter = &self.table_filter_lower;
+
         // Boost line-based mouse wheel input so stronger wheel flicks scroll farther.
         // Keep trackpad behavior untouched (trackpads usually report point deltas).
         let line_wheel_strength: f32 = ui.input(|i| {
@@ -424,6 +449,17 @@ impl App {
             .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
             .wheel_scroll_multiplier(egui::vec2(1.0, wheel_boost));
 
+        // Compute the filtered grid once — both the scroll-target
+        // calculation and the rendering closure need it. Without this,
+        // `selected_row = self.selected_table / cols` would index into
+        // the unfiltered grid and scroll to the wrong y-offset when a
+        // search is active.
+        let filtered: Vec<usize> = (0..self.tables.len())
+            .filter(|&i| {
+                filter.is_empty() || self.tables[i].name.to_lowercase().contains(filter.as_str())
+            })
+            .collect();
+
         // Auto-scroll to selected table when navigating with joystick.
         // Keep the selected row centered in the viewport; clamp at start/end
         // so we don't scroll past the content. Skip the scroll reset when the
@@ -433,8 +469,12 @@ impl App {
         // causes visible reflow.
         if self.scroll_to_selected {
             self.scroll_to_selected = false;
-            let selected_row = self.selected_table / cols;
-            let total_rows = self.tables.len().div_ceil(cols);
+            let selected_pos = filtered
+                .iter()
+                .position(|&i| i == self.selected_table)
+                .unwrap_or(0);
+            let selected_row = selected_pos / cols;
+            let total_rows = filtered.len().div_ceil(cols);
             let visible_rows = (ui.available_height() / row_height).floor() as usize;
             let half = visible_rows / 2;
             let top_row = selected_row
@@ -448,12 +488,6 @@ impl App {
         }
 
         scroll_area.show(ui, |ui| {
-            let filtered: Vec<usize> = (0..self.tables.len())
-                .filter(|&i| {
-                    filter.is_empty()
-                        || self.tables[i].name.to_lowercase().contains(filter.as_str())
-                })
-                .collect();
 
             for row_start in (0..filtered.len()).step_by(cols) {
                 // Center the row

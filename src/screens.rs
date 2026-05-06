@@ -79,13 +79,21 @@ fn get_display_physical(x: i32, y: i32, width: i32, height: i32) -> (i32, i32, O
     (0, 0, None)
 }
 
-/// Enumerate all connected displays using SDL3.
+/// Enumerate all connected displays using SDL3. Initializes
+/// `SDL_INIT_VIDEO` on first call (no-op refcount bump on subsequent
+/// calls); never quits the subsystem manually. `App::shutdown_sdl_threads`
+/// runs `SDL_Quit()` before each VPX spawn, which tears VIDEO down
+/// alongside AUDIO + JOYSTICK in a single shot.
 /// Must be called from the SDL3 thread (or before eframe takes over the main thread).
 pub fn enumerate_displays() -> Vec<DisplayInfo> {
     let mut displays = Vec::new();
 
     unsafe {
-        // SDL3 already initialized globally in main
+        if !SDL_InitSubSystem(SDL_INIT_VIDEO) {
+            let err = CStr::from_ptr(SDL_GetError()).to_string_lossy();
+            log::warn!("SDL_InitSubSystem(VIDEO) failed: {err}");
+            return displays;
+        }
 
         let mut count: i32 = 0;
         let display_ids = SDL_GetDisplays(&mut count);
@@ -150,7 +158,9 @@ pub fn enumerate_displays() -> Vec<DisplayInfo> {
         }
 
         SDL_free(display_ids as *mut _);
-        // Do NOT call SDL_QuitSubSystem here — other subsystems (audio, joystick) need SDL alive
+        // No SDL_QuitSubSystem here — the VIDEO subsystem stays init
+        // until the next SDL_Quit() (fired by `shutdown_sdl_threads`
+        // before each VPX spawn).
     }
 
     // Auto-assign roles by pixel count WITHOUT reordering the list: the index
