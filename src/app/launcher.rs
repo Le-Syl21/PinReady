@@ -751,12 +751,19 @@ impl App {
                     crate::VERSION,
                 )
             };
-            let child = std::process::Command::new(&exe)
-                .arg("-Play")
+            let mut cmd = std::process::Command::new(&exe);
+            cmd.arg("-Play")
                 .arg(&path)
                 .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::piped())
-                .spawn();
+                .stderr(std::process::Stdio::piped());
+            // Re-inject the xdg-activation token captured at PinReady's own
+            // startup so VPX's SDL3 window can take focus on Wayland.
+            // Without this, mutter/kwin/sway honour focus-stealing
+            // prevention and the table opens behind the launcher.
+            if let Some(token) = crate::startup_xdg_activation_token() {
+                cmd.env("XDG_ACTIVATION_TOKEN", token);
+            }
+            let child = cmd.spawn();
             match child {
                 Ok(mut child) => {
                     log::info!("Visual Pinball launched, reading stdout+stderr...");
