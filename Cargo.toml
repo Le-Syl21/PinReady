@@ -1,6 +1,6 @@
 [package]
 name = "pinready"
-version = "0.13.1"
+version = "0.13.2"
 edition = "2021"
 description = "Cross-platform configurator and launcher supporting the adoption of Visual Pinball 10.8.1 — for testers and early adopters, not a replacement for a stable production setup"
 license = "GPL-3.0-or-later"
@@ -123,6 +123,15 @@ winres = { version = "0.1", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["winver", "winnt"] }
+
+# xdg-activation-v1 client for fresh focus tokens at VPX launch time.
+# Without these, mutter/kwin/sway block VPX's window from taking focus and
+# the table opens behind PinReady. See `src/wayland_activation.rs`.
+# Already pulled transitively via winit/eframe — declared here so we can
+# use them directly. Linux-only; no-op on X11 (WAYLAND_DISPLAY unset).
+[target.'cfg(target_os = "linux")'.dependencies]
+wayland-client = "0.31"
+wayland-protocols = { version = "0.32", features = ["client", "staging"] }
 
 [dev-dependencies]
 tempfile = "3"

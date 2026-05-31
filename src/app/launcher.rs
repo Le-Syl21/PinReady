@@ -756,12 +756,27 @@ impl App {
                 .arg(&path)
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped());
-            // Re-inject the xdg-activation token captured at PinReady's own
-            // startup so VPX's SDL3 window can take focus on Wayland.
-            // Without this, mutter/kwin/sway honour focus-stealing
-            // prevention and the table opens behind the launcher.
-            if let Some(token) = crate::startup_xdg_activation_token() {
-                cmd.env("XDG_ACTIVATION_TOKEN", token);
+            // Request a fresh xdg-activation-v1 token from the Wayland
+            // compositor and inject it into VPX's env so its SDL3 window
+            // can take focus. Without this, mutter/kwin/sway honour
+            // focus-stealing prevention and the table opens behind the
+            // launcher. No-op on X11 / non-Linux.
+            #[cfg(target_os = "linux")]
+            if std::env::var("WAYLAND_DISPLAY").is_ok() {
+                match crate::wayland_activation::request_token() {
+                    Some(token) => {
+                        log::info!(
+                            "xdg-activation token obtained (len {}), passing to VPX",
+                            token.len()
+                        );
+                        cmd.env("XDG_ACTIVATION_TOKEN", token);
+                    }
+                    None => {
+                        log::warn!(
+                            "xdg-activation token unavailable; VPX may launch behind PinReady"
+                        );
+                    }
+                }
             }
             let child = cmd.spawn();
             match child {

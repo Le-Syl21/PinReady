@@ -23,30 +23,13 @@ mod tilt;
 mod updater;
 mod vbs_patches;
 mod vpsdb;
+#[cfg(target_os = "linux")]
+mod wayland_activation;
 
 use anyhow::Result;
 use std::io::Write;
-use std::sync::OnceLock;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-/// Snapshot of `XDG_ACTIVATION_TOKEN` captured at process startup, before
-/// winit/SDL3 read and clear it from the environment. Re-injected into
-/// `VPinballX_BGFX`'s env when launching a table so VPX's SDL3 window can
-/// activate itself and grab keyboard focus on Wayland (mutter/kwin/sway
-/// otherwise apply focus-stealing prevention and the table opens behind
-/// PinReady).
-static STARTUP_XDG_ACTIVATION_TOKEN: OnceLock<Option<String>> = OnceLock::new();
-
-/// Return the activation token captured at process startup, if any. Always
-/// `None` on non-Linux. The token is single-use per xdg-activation-v1 spec,
-/// but most compositors regenerate it for child processes of a focused
-/// surface, so re-passing the original gives VPX its best shot at focus.
-pub fn startup_xdg_activation_token() -> Option<&'static str> {
-    STARTUP_XDG_ACTIVATION_TOKEN
-        .get()
-        .and_then(|opt| opt.as_deref())
-}
 
 /// Initialize logging to both stderr and a log file next to the database.
 /// The log file is rotated at startup: PinReady.log → PinReady.log.1
@@ -139,12 +122,6 @@ fn attach_windows_console() {
 }
 
 fn main() -> Result<()> {
-    // Capture XDG_ACTIVATION_TOKEN before anything else: winit/SDL3 read it
-    // during their own startup and clear it from the env. We re-inject the
-    // saved value when spawning VPX so the table window can grab focus on
-    // Wayland (see `startup_xdg_activation_token`).
-    let _ = STARTUP_XDG_ACTIVATION_TOKEN.set(std::env::var("XDG_ACTIVATION_TOKEN").ok());
-
     // Parse arguments
     let args: Vec<String> = std::env::args().collect();
 
