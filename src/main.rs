@@ -122,6 +122,26 @@ fn attach_windows_console() {
 }
 
 fn main() -> Result<()> {
+    // Align both SDL3 (used by screens.rs / audio.rs / inputs.rs) and
+    // winit/eframe with the session's native display server. winit's
+    // Linux auto-detection picks X11 in mixed-backend sessions even when
+    // WAYLAND_DISPLAY is set, routing the whole launcher through
+    // XWayland for no benefit — verified on Ubuntu 24.04 GNOME by
+    // probing /proc/<pid>/fd vs gnome-shell/Xwayland socket owners.
+    // Pinning SDL_VIDEODRIVER=wayland early has the observed side-effect
+    // of flipping winit too (SDL initialises before eframe and opens a
+    // Wayland connection first, which winit then aligns with). Respect
+    // an explicit override if the user has already set the variable.
+    #[cfg(target_os = "linux")]
+    if std::env::var("WAYLAND_DISPLAY").is_ok() && std::env::var("SDL_VIDEODRIVER").is_err() {
+        // SAFETY: called before any thread that might read this env var
+        // (SDL3, eframe, winit) has been spawned. Single-threaded at this
+        // point in main().
+        unsafe {
+            std::env::set_var("SDL_VIDEODRIVER", "wayland");
+        }
+    }
+
     // Parse arguments
     let args: Vec<String> = std::env::args().collect();
 
