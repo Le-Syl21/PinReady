@@ -46,6 +46,8 @@ jobs:
           components: ${{ matrix.lint && 'rustfmt, clippy' || '' }}
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.os }}-${{ matrix.target }}
 
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
