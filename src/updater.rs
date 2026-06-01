@@ -635,10 +635,19 @@ pub fn download_pinready_and_replace(
     }
     drop(file);
 
+    log::info!(
+        "PinReady update: downloaded {} bytes to {}",
+        downloaded,
+        archive_path.display()
+    );
     let _ = progress_tx.send(UpdateProgress::Extracting);
 
     // Extract binary to a known temp path
     extract_pinready_binary(&archive_path, &new_binary_path, pinready_binary_name())?;
+    log::info!(
+        "PinReady update: extracted binary to {}",
+        new_binary_path.display()
+    );
 
     // Make executable on unix
     #[cfg(unix)]
@@ -651,6 +660,11 @@ pub fn download_pinready_and_replace(
     // and atomic rename on unix.
     self_replace::self_replace(&new_binary_path)
         .context("Failed to swap the running PinReady binary")?;
+    let exe = std::env::current_exe().context("Failed to resolve current exe")?;
+    log::info!(
+        "PinReady update: self_replace done, current_exe now {}",
+        exe.display()
+    );
 
     // Spawn a fresh instance using the *new* binary (now at current_exe()).
     // The caller is expected to exit(0) so this new process becomes the
@@ -659,11 +673,15 @@ pub fn download_pinready_and_replace(
     // process races against this one's flock release, sees AlreadyRunning,
     // sends a focus request to us (we're about to exit), and quits
     // silently. End result: no PinReady running after update.
-    let exe = std::env::current_exe().context("Failed to resolve current exe")?;
-    std::process::Command::new(exe)
+    let child = std::process::Command::new(&exe)
         .arg("--from-update")
         .spawn()
         .context("Failed to relaunch PinReady")?;
+    log::info!(
+        "PinReady update: spawned child PID {} via {} --from-update",
+        child.id(),
+        exe.display()
+    );
 
     // Cleanup temp files (best effort — don't fail the update if cleanup fails)
     let _ = std::fs::remove_file(&archive_path);

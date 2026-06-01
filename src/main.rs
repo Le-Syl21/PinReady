@@ -199,17 +199,32 @@ fn main() -> Result<()> {
     // retry acquiring the flock instead of bailing on the first
     // AlreadyRunning the way a normal second launch should.
     let from_update = args.iter().any(|a| a == "--from-update");
+    if from_update {
+        eprintln!(
+            "PinReady starting with --from-update (PID {})",
+            std::process::id()
+        );
+    }
+    let mut from_update_retries = 0u32;
     let _pid_lock = {
-        let mut retry_count = 0u32;
         const MAX_RETRIES: u32 = 50; // 50 × 100 ms = 5 s
         loop {
             match pidlock::PidLock::acquire_in(&lock_dir) {
                 Ok(lock) => break lock,
                 Err(pidlock::PidLockError::AlreadyRunning { path, pid }) => {
-                    if from_update && retry_count < MAX_RETRIES {
-                        retry_count += 1;
+                    if from_update && from_update_retries < MAX_RETRIES {
+                        from_update_retries += 1;
                         std::thread::sleep(std::time::Duration::from_millis(100));
                         continue;
+                    }
+                    if from_update {
+                        eprintln!(
+                            "PinReady --from-update: gave up waiting for previous instance to \
+                             release the lock after {} retries (PID {})",
+                            from_update_retries,
+                            pid.map(|p| p.to_string())
+                                .unwrap_or_else(|| "?".to_string())
+                        );
                     }
                     // Another PinReady is live. Politely ask it to bring
                     // its window to the front (via the focus-on-relaunch
@@ -252,6 +267,13 @@ fn main() -> Result<()> {
         "PID lock held at {}",
         lock_dir.join("PinReady.pid").display()
     );
+    if from_update {
+        log::info!(
+            "Started via --from-update; acquired PID lock after {} retries ({} ms)",
+            from_update_retries,
+            from_update_retries * 100
+        );
+    }
 
     // SDL3 is initialized on demand by each consumer:
     //   - VIDEO: lazy-init inside `screens::enumerate_displays`.
