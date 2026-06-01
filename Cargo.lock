@@ -1275,8 +1275,8 @@ dependencies = [
 
 [[package]]
 name = "egui-rotate"
-version = "0.1.4"
-source = "git+https://github.com/Le-Syl21/egui-rotate?tag=v0.1.4#09565acc73868bff81c889b903e61fb5446a13c5"
+version = "0.1.6"
+source = "git+https://github.com/Le-Syl21/egui-rotate?tag=v0.1.6#b739f08711ce2d502e17abfd3e2acfd68cc54b69"
 dependencies = [
  "egui",
 ]
@@ -3474,7 +3474,7 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
 name = "pinready"
-version = "0.13.8"
+version = "0.13.9"
 dependencies = [
  "anyhow",
  "base64",
