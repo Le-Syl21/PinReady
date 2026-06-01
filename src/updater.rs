@@ -656,13 +656,21 @@ pub fn download_pinready_and_replace(
         std::fs::set_permissions(&new_binary_path, std::fs::Permissions::from_mode(0o755))?;
     }
 
+    // Capture the running binary path BEFORE self_replace. On Linux,
+    // self_replace unlink()s the original inode and creates a new file at
+    // the same path; once that's done, /proc/self/exe still resolves but
+    // its readlink suffix becomes " (deleted)" — and std::env::current_exe()
+    // returns that literal string with the suffix included, which is not a
+    // valid filesystem path. Spawning it fails with ENOENT and the update
+    // silently aborts. Reading current_exe() before the swap dodges that.
+    let exe = std::env::current_exe().context("Failed to resolve current exe")?;
+
     // Swap the running binary. self_replace handles the Windows rename-trick
     // and atomic rename on unix.
     self_replace::self_replace(&new_binary_path)
         .context("Failed to swap the running PinReady binary")?;
-    let exe = std::env::current_exe().context("Failed to resolve current exe")?;
     log::info!(
-        "PinReady update: self_replace done, current_exe now {}",
+        "PinReady update: self_replace done, relaunching from {}",
         exe.display()
     );
 
