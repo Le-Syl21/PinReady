@@ -1,0 +1,29 @@
+# cross-rs configuration — cross-compile linux-aarch64 from x86_64 runners.
+# The ubuntu-*-arm hosted runners on GitHub Actions have been chronically
+# unstable (runner-shutdown signals before the build even starts), so we
+# build the aarch64 artifact inside a Docker container on the x86_64 pool
+# instead. The default `ghcr.io/cross-rs/aarch64-unknown-linux-gnu` image
+# is based on Ubuntu 22.04 (glibc 2.35) — strictly more compatible than
+# the pincab's Ubuntu 24.04 (glibc 2.39) and every supported SBC target.
+#
+# pre-build pulls all the SDL3/eframe/winit native deps for aarch64 via
+# multiarch apt — sdl3-sys's build-from-source-static needs the X/Wayland
+# headers at build time even though the resulting binary statically links
+# only SDL3 itself.
+
+[target.aarch64-unknown-linux-gnu]
+pre-build = [
+    "dpkg --add-architecture $CROSS_DEB_ARCH",
+    "apt-get update && apt-get install --assume-yes --no-install-recommends \
+        cmake pkg-config \
+        libxcb-render0-dev:$CROSS_DEB_ARCH libxcb-shape0-dev:$CROSS_DEB_ARCH libxcb-xfixes0-dev:$CROSS_DEB_ARCH \
+        libxkbcommon-dev:$CROSS_DEB_ARCH libssl-dev:$CROSS_DEB_ARCH \
+        libasound2-dev:$CROSS_DEB_ARCH libpulse-dev:$CROSS_DEB_ARCH \
+        libx11-dev:$CROSS_DEB_ARCH libxext-dev:$CROSS_DEB_ARCH libxrandr-dev:$CROSS_DEB_ARCH \
+        libxcursor-dev:$CROSS_DEB_ARCH libxi-dev:$CROSS_DEB_ARCH \
+        libxtst-dev:$CROSS_DEB_ARCH libxss-dev:$CROSS_DEB_ARCH \
+        libwayland-dev:$CROSS_DEB_ARCH wayland-protocols \
+        libdbus-1-dev:$CROSS_DEB_ARCH libdrm-dev:$CROSS_DEB_ARCH libgbm-dev:$CROSS_DEB_ARCH \
+        libgl1-mesa-dev:$CROSS_DEB_ARCH libgles2-mesa-dev:$CROSS_DEB_ARCH libegl1-mesa-dev:$CROSS_DEB_ARCH \
+        libudev-dev:$CROSS_DEB_ARCH",
+]

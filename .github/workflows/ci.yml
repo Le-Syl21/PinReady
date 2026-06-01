@@ -20,9 +20,10 @@ jobs:
             target: x86_64-unknown-linux-gnu
             label: linux-x86_64
             lint: true
-          - os: ubuntu-22.04-arm
+          - os: ubuntu-24.04
             target: aarch64-unknown-linux-gnu
             label: linux-aarch64
+            cross: true
           - os: macos-latest
             target: aarch64-apple-darwin
             label: macos-aarch64
@@ -49,8 +50,8 @@ jobs:
         with:
           key: ${{ matrix.os }}-${{ matrix.target }}
 
-      - name: Install dependencies (Linux)
-        if: runner.os == 'Linux'
+      - name: Install dependencies (Linux native)
+        if: runner.os == 'Linux' && !matrix.cross
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake pkg-config \
@@ -62,6 +63,14 @@ jobs:
             libdbus-1-dev libdrm-dev libgbm-dev \
             libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev \
             libudev-dev
+
+      # Cross-compile aarch64 from x86_64 (hosted ubuntu-*-arm runners are
+      # too unstable to rely on for releases). cross-rs runs the build
+      # inside a Docker container that has the aarch64 toolchain + the
+      # multiarch deps installed via Cross.toml's pre-build hook.
+      - name: Install cross
+        if: matrix.cross
+        run: cargo install cross --locked --version 0.2.5
 
       # --- Lint (linux-x86_64 only) ---
       - name: Check formatting
@@ -88,11 +97,19 @@ jobs:
             echo "Warning: libclang_rt.osx.a not found"
           fi
 
-      - name: Build
+      - name: Build (native)
+        if: '!matrix.cross'
         run: cargo build --release --target ${{ matrix.target }} ${{ runner.os == 'Windows' && '--features win-icon' || '' }}
 
+      - name: Build (cross)
+        if: matrix.cross
+        run: cross build --release --target ${{ matrix.target }}
+
+      # Tests are skipped for cross-compiled targets (no aarch64 binary
+      # can run on the x86_64 host) and for the macOS x86_64 cross-build
+      # (Apple silicon runner can't execute x86_64 release binaries).
       - name: Run tests
-        if: matrix.target != 'x86_64-apple-darwin'
+        if: matrix.target != 'x86_64-apple-darwin' && !matrix.cross
         run: cargo test --release --target ${{ matrix.target }}
 
       # --- Apple signing & notarization ---
