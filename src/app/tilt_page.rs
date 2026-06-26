@@ -15,9 +15,6 @@ impl App {
         ui.strong(t!("tilt_nudge"));
         ui.add_space(4.0);
 
-        ui.checkbox(&mut self.tilt.nudge_filter, t!("tilt_noise_filter"));
-        ui.add_space(4.0);
-
         ui.label(t!("tilt_sensitivity"));
         ui.add_sized(
             [ui.available_width(), 24.0],

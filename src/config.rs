@@ -137,17 +137,12 @@ impl VpxConfig {
 
     // --- Tilt / Nudge ---
 
-    pub fn set_plumb_inertia(&mut self, value: f32) {
-        self.set_f32("Player", "PlumbInertia", value);
+    pub fn set_plumb_damping(&mut self, value: f32) {
+        self.set_f32("Player", "PlumbDamping", value);
     }
 
     pub fn set_plumb_threshold_angle(&mut self, value: f32) {
         self.set_f32("Player", "PlumbThresholdAngle", value);
-    }
-
-    pub fn set_nudge_filter(&mut self, sensor: u8, enabled: bool) {
-        let key = format!("NudgeFilter{sensor}");
-        self.set_i32("Player", &key, i32::from(enabled));
     }
 
     // --- Audio ---
@@ -284,15 +279,6 @@ mod tests {
     fn input_mapping_missing() {
         let cfg = config_from_str("");
         assert_eq!(cfg.get_input_mapping("NonExistent"), None);
-    }
-
-    #[test]
-    fn set_nudge_filter() {
-        let mut cfg = config_from_str("");
-        cfg.set_nudge_filter(0, true);
-        assert_eq!(cfg.get_i32("Player", "NudgeFilter0"), Some(1));
-        cfg.set_nudge_filter(0, false);
-        assert_eq!(cfg.get_i32("Player", "NudgeFilter0"), Some(0));
     }
 
     #[test]
