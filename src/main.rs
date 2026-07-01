@@ -673,22 +673,21 @@ fn run_eframe_for_mode(mode: app::AppMode) -> Result<()> {
             // the OS-reported DPI scale (native_pixels_per_point), so HiDPI
             // is still honored — this is an additional user-level zoom.
             cc.egui_ctx.set_zoom_factor(1.20);
-            // Register the egui-rotate plugin. It owns per-viewport input
-            // rotation, output rotation and (in kiosk mode) the software
-            // cursor — nothing left to wire on the eframe side. Only
-            // installed when rotation is on or kiosk cursor is requested:
-            // in the windowed wizard we don't need it.
-            if !rotation.is_none() || want_kiosk_cursor {
-                let mut plugin = egui_rotate::RotationPlugin::new(rotation);
-                if want_kiosk_cursor {
-                    plugin = plugin.with_software_cursor(
-                        egui_rotate::SoftwareCursor::new()
-                            .with_scale(3.0)
-                            .with_lock(true),
-                    );
-                }
-                cc.egui_ctx.add_plugin(plugin);
+            // Register the egui-rotate plugin unconditionally. It owns
+            // per-viewport input rotation, output rotation and (in kiosk
+            // mode) the software cursor. Registered even when the initial
+            // rotation is `None` — the topbar `↻` button flips rotation
+            // live and needs the plugin already on the Context to take
+            // effect. Passthrough cost is negligible with `Rotation::None`.
+            let mut plugin = egui_rotate::RotationPlugin::new(rotation);
+            if want_kiosk_cursor {
+                plugin = plugin.with_software_cursor(
+                    egui_rotate::SoftwareCursor::new()
+                        .with_scale(3.0)
+                        .with_lock(true),
+                );
             }
+            cc.egui_ctx.add_plugin(plugin);
             // Register egui context with pidlock so the socket listener
             // can wake egui up on focus requests (otherwise the atomic
             // never gets consumed while the window is unfocused).

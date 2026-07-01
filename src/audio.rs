@@ -47,6 +47,13 @@ impl Sound3DMode {
             Self::SsfNew,
         ]
     }
+
+    /// `true` for the 2-channel modes (`FrontStereo`, `RearStereo`) where
+    /// the wizard's front↔lockbar and top/bottom-speaker tests aren't
+    /// meaningful — there's only a single stereo pair to validate.
+    pub fn is_stereo(&self) -> bool {
+        matches!(self, Self::FrontStereo | Self::RearStereo)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

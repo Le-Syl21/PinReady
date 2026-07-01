@@ -252,19 +252,31 @@ impl App {
         ui.label(t!("audio_speakers_hint"));
         ui.add_space(4.0);
 
-        // 4 speaker buttons in a square layout + 2 ball tests in the middle
+        // Layout adapts to the selected Sound3D mode:
+        //   - Surround / SSF (4+ speakers): full square with Top/Bottom
+        //     Left/Right buttons + ball sweeps top→bottom and left→right.
+        //   - Stereo (2 channels): only Left / Right buttons + a single
+        //     ball sweep left→right. The front↔lockbar dimension doesn't
+        //     exist so hiding those buttons keeps the UI honest.
+        let stereo = self.audio.sound_3d_mode.is_stereo();
         let btn_w = 140.0;
         let btn_h = 30.0;
         let gap = 20.0;
 
-        // Row 1: Top Left / Top Right
+        // Row 1: Left / Right (labelled "Top" in surround mode where a
+        // symmetric bottom pair exists below).
+        let (left_label, right_label) = if stereo {
+            (t!("audio_left").to_string(), t!("audio_right").to_string())
+        } else {
+            (
+                t!("audio_top_left").to_string(),
+                t!("audio_top_right").to_string(),
+            )
+        };
         ui.horizontal(|ui| {
             ui.add_space(gap);
             if ui
-                .add_sized(
-                    [btn_w, btn_h],
-                    egui::Button::new(t!("audio_top_left").to_string()),
-                )
+                .add_sized([btn_w, btn_h], egui::Button::new(left_label))
                 .clicked()
             {
                 if let Some(tx) = &self.audio_cmd_tx {
@@ -276,10 +288,7 @@ impl App {
             }
             ui.add_space(gap * 2.0);
             if ui
-                .add_sized(
-                    [btn_w, btn_h],
-                    egui::Button::new(t!("audio_top_right").to_string()),
-                )
+                .add_sized([btn_w, btn_h], egui::Button::new(right_label))
                 .clicked()
             {
                 if let Some(tx) = &self.audio_cmd_tx {
@@ -291,29 +300,32 @@ impl App {
             }
         });
 
-        // Row 2: Ball test buttons (centered)
+        // Row 2: Ball test buttons (centered).
+        // Top→bottom test only makes sense with a front/rear pair.
         ui.add_space(4.0);
-        ui.horizontal(|ui| {
-            ui.add_space(gap + btn_w / 2.0);
-            if ui
-                .add_sized(
-                    [btn_w + gap, btn_h],
-                    egui::Button::new(t!("audio_ball_top_bottom").to_string()),
-                )
-                .clicked()
-            {
-                if let Some(tx) = &self.audio_cmd_tx {
-                    let _ = tx.send(AudioCommand::PlayBallSequence {
-                        path: "ball_roll.ogg".to_string(),
-                        from: audio::SpeakerTarget::TopBoth,
-                        to: audio::SpeakerTarget::BottomBoth,
-                        hold_start_ms: 1500,
-                        fade_ms: 3000,
-                        hold_end_ms: 1500,
-                    });
+        if !stereo {
+            ui.horizontal(|ui| {
+                ui.add_space(gap + btn_w / 2.0);
+                if ui
+                    .add_sized(
+                        [btn_w + gap, btn_h],
+                        egui::Button::new(t!("audio_ball_top_bottom").to_string()),
+                    )
+                    .clicked()
+                {
+                    if let Some(tx) = &self.audio_cmd_tx {
+                        let _ = tx.send(AudioCommand::PlayBallSequence {
+                            path: "ball_roll.ogg".to_string(),
+                            from: audio::SpeakerTarget::TopBoth,
+                            to: audio::SpeakerTarget::BottomBoth,
+                            hold_start_ms: 1500,
+                            fade_ms: 3000,
+                            hold_end_ms: 1500,
+                        });
+                    }
                 }
-            }
-        });
+            });
+        }
         ui.horizontal(|ui| {
             ui.add_space(gap + btn_w / 2.0);
             if ui
@@ -337,38 +349,40 @@ impl App {
         });
         ui.add_space(4.0);
 
-        // Row 3: Bottom Left / Bottom Right
-        ui.horizontal(|ui| {
-            ui.add_space(gap);
-            if ui
-                .add_sized(
-                    [btn_w, btn_h],
-                    egui::Button::new(t!("audio_bottom_left").to_string()),
-                )
-                .clicked()
-            {
-                if let Some(tx) = &self.audio_cmd_tx {
-                    let _ = tx.send(AudioCommand::PlayOnSpeaker {
-                        path: "ball_roll.ogg".to_string(),
-                        target: audio::SpeakerTarget::BottomLeft,
-                    });
+        // Row 3: Bottom Left / Bottom Right — surround only.
+        if !stereo {
+            ui.horizontal(|ui| {
+                ui.add_space(gap);
+                if ui
+                    .add_sized(
+                        [btn_w, btn_h],
+                        egui::Button::new(t!("audio_bottom_left").to_string()),
+                    )
+                    .clicked()
+                {
+                    if let Some(tx) = &self.audio_cmd_tx {
+                        let _ = tx.send(AudioCommand::PlayOnSpeaker {
+                            path: "ball_roll.ogg".to_string(),
+                            target: audio::SpeakerTarget::BottomLeft,
+                        });
+                    }
                 }
-            }
-            ui.add_space(gap * 2.0);
-            if ui
-                .add_sized(
-                    [btn_w, btn_h],
-                    egui::Button::new(t!("audio_bottom_right").to_string()),
-                )
-                .clicked()
-            {
-                if let Some(tx) = &self.audio_cmd_tx {
-                    let _ = tx.send(AudioCommand::PlayOnSpeaker {
-                        path: "ball_roll.ogg".to_string(),
-                        target: audio::SpeakerTarget::BottomRight,
-                    });
+                ui.add_space(gap * 2.0);
+                if ui
+                    .add_sized(
+                        [btn_w, btn_h],
+                        egui::Button::new(t!("audio_bottom_right").to_string()),
+                    )
+                    .clicked()
+                {
+                    if let Some(tx) = &self.audio_cmd_tx {
+                        let _ = tx.send(AudioCommand::PlayOnSpeaker {
+                            path: "ball_roll.ogg".to_string(),
+                            target: audio::SpeakerTarget::BottomRight,
+                        });
+                    }
                 }
-            }
-        });
+            });
+        }
     }
 }

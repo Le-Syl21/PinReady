@@ -299,6 +299,9 @@ pub struct App {
     last_scroll_target: Option<f32>, // last forced vertical scroll offset — skip reset when the target hasn't moved
     launcher_cols: usize,            // number of columns in the grid (computed in render)
     images_preloaded: bool,
+    // User theme preference, cycled from the topbar/wizard toggle. Purely
+    // in-memory (starts at System every launch) — no persistence yet.
+    theme_pref: egui::ThemePreference,
     // Viewport rotation for the root window. CW90 in cabinet mode, None
     // otherwise. Shadow copy of the value passed to the `RotationPlugin`
     // registered on the egui Context — kept here purely so layout code can
@@ -568,6 +571,7 @@ impl App {
             last_scroll_target: None,
             launcher_cols: 1,
             images_preloaded: false,
+            theme_pref: egui::ThemePreference::System,
             rotation: egui_rotate::Rotation::None,
             kiosk_cursor: false,
             kiosk_cursor_warped: false,
@@ -669,6 +673,61 @@ impl App {
     ) -> Option<R> {
         ctx.with_plugin::<egui_rotate::RotationPlugin, _>(|p| p.software_cursor_mut().map(f))
             .flatten()
+    }
+
+    /// Two frame-less icon buttons for the wizard/launcher headers:
+    /// - Theme cycle: System (🌗) → Light (☀) → Dark (🌙) → System.
+    /// - Rotation cycle: None → CW90 → CW180 → CW270 → None. Drives the
+    ///   `RotationPlugin` so the root viewport rotates live — makes the
+    ///   wizard readable when the operator is standing off-axis from a
+    ///   pincab playfield.
+    ///
+    /// `icon_size` is the RichText size; the whole widget is roughly
+    /// `2 * icon_size + item_spacing.x` wide.
+    pub(super) fn toolbar_toggles(
+        &mut self,
+        ctx: &egui::Context,
+        ui: &mut egui::Ui,
+        icon_size: f32,
+    ) {
+        let (theme_glyph, theme_hint, next_theme) = match self.theme_pref {
+            egui::ThemePreference::System => {
+                ("🌗", t!("toolbar_theme_auto"), egui::ThemePreference::Light)
+            }
+            egui::ThemePreference::Light => {
+                ("☀", t!("toolbar_theme_light"), egui::ThemePreference::Dark)
+            }
+            egui::ThemePreference::Dark => (
+                "🌙",
+                t!("toolbar_theme_dark"),
+                egui::ThemePreference::System,
+            ),
+        };
+        let theme_resp = ui
+            .add(egui::Button::new(egui::RichText::new(theme_glyph).size(icon_size)).frame(false))
+            .on_hover_text(theme_hint.to_string());
+        if theme_resp.clicked() {
+            self.theme_pref = next_theme;
+            ctx.set_theme(self.theme_pref);
+        }
+
+        let next_rotation = self.rotation.next_cw();
+        let rot_deg = match next_rotation {
+            egui_rotate::Rotation::None => "0°",
+            egui_rotate::Rotation::CW90 => "90°",
+            egui_rotate::Rotation::CW180 => "180°",
+            egui_rotate::Rotation::CW270 => "270°",
+        };
+        let rot_resp = ui
+            .add(egui::Button::new(egui::RichText::new("↻").size(icon_size)).frame(false))
+            .on_hover_text(t!("toolbar_rotate_next", deg = rot_deg).to_string());
+        if rot_resp.clicked() {
+            self.rotation = next_rotation;
+            ctx.with_plugin::<egui_rotate::RotationPlugin, _>(|p| {
+                p.set_rotation(next_rotation);
+            });
+            ctx.request_repaint();
+        }
     }
 
     fn load_rendering_config(config: &VpxConfig) -> (f32, i32, i32, i32, i32, i32, i32, f32) {
@@ -1207,6 +1266,14 @@ impl eframe::App for App {
         // Header
         egui::Panel::top("wizard_header").show_inside(ui, |ui| {
             ui.horizontal(|ui| {
+                // Two-icon toolbar (theme + rotation) at the very start of the
+                // wizard header — reachable from any wizard page. Rotation is
+                // especially useful during config from a bench off-axis from
+                // the playfield.
+                let toolbar_size = (ui.spacing().interact_size.y - 4.0).max(14.0);
+                let ctx = ui.ctx().clone();
+                self.toolbar_toggles(&ctx, ui, toolbar_size);
+                ui.separator();
                 ui.heading("PinReady");
                 ui.separator();
                 for i in 0..WizardPage::count() {

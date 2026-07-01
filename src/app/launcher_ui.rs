@@ -160,6 +160,22 @@ impl App {
                         }
                     }
                 }
+
+                // Toolbar toggles (theme + rotation) sitting at the geometric
+                // centre of the topbar. We push the cursor to `centre_x -
+                // half_icons_w` before drawing them, so they stay centred no
+                // matter what the left content (search field) or the right
+                // buttons look like. The right-to-left layout below picks up
+                // the remaining slack and stays right-aligned as before.
+                let toolbar_size = h_size;
+                let icons_estimated_w = toolbar_size * 2.4 + ui.spacing().item_spacing.x;
+                let row_rect = ui.max_rect();
+                let target_x = row_rect.center().x - icons_estimated_w * 0.5;
+                let space_before = (target_x - ui.cursor().min.x).max(0.0);
+                ui.add_space(space_before);
+                let ctx = ui.ctx().clone();
+                self.toolbar_toggles(&ctx, ui, toolbar_size);
+
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui
                         .button(egui::RichText::new(t!("launcher_quit")).size(h_size))
