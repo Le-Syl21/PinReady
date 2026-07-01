@@ -1,6 +1,6 @@
 [package]
 name = "pinready"
-version = "0.13.13"
+version = "0.13.14"
 edition = "2021"
 description = "Cross-platform configurator and launcher supporting the adoption of Visual Pinball 10.8.1 — for testers and early adopters, not a replacement for a stable production setup"
 license = "GPL-3.0-or-later"
@@ -30,7 +30,7 @@ serde_json = "1"
 ini-preserve = "0.1.1"
 
 # Database
-rusqlite = { version = "0.39", features = ["bundled"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
 
 # File dialog
 rfd = "0.17"
@@ -50,7 +50,7 @@ base64 = "0.22"
 
 # .vpx file parsing — used to extract the embedded backglass preview
 # (`TableInfo.screenshot`) when a table doesn't ship a separate .directb2s.
-vpin = "0.24"
+vpin = "0.26"
 
 # Audio decoding (OGG Vorbis + MP3 → PCM for SDL3). MP3 is needed
 # for table preview audio (medias/audio.mp3 from vpinmediadb).
@@ -92,7 +92,7 @@ regex = "1"
 # SHA256 for VBS-patch fingerprinting (jsm174/vpx-standalone-scripts).
 # Already pulled transitively; declared explicitly because we call it
 # directly from vbs_patches.rs.
-sha2 = "0.10"
+sha2 = "0.11"
 
 # Percent-encode URL path segments. jsm174 patch URLs embed the table
 # folder name, which often contains spaces (e.g. "AC-DC LUCI Premium

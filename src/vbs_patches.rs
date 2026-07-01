@@ -155,10 +155,22 @@ pub fn parse_catalog(hashes_json: &str) -> Result<Vec<CatalogEntry>> {
 
 /// Lowercase hex SHA256 of arbitrary bytes. The catalog `hashes.json`
 /// uses 64-char lowercase hex, so we match that convention directly.
+///
+/// Manual byte-per-byte hex encode instead of `format!("{:x}", …)` on the
+/// digest: since sha2 0.11 the digest returned by `finalize()` is a
+/// `hybrid_array::Array<u8, N>` (renamed from the old `GenericArray`) which
+/// no longer implements `LowerHex`. Adding the `hex` crate for a one-liner
+/// wasn't worth it — this loop is unrolled and inlined by the compiler.
 pub fn sha256_hex(bytes: &[u8]) -> String {
+    use std::fmt::Write;
     let mut hasher = Sha256::new();
     hasher.update(bytes);
-    format!("{:x}", hasher.finalize())
+    let digest = hasher.finalize();
+    let mut out = String::with_capacity(digest.len() * 2);
+    for b in digest {
+        let _ = write!(out, "{b:02x}");
+    }
+    out
 }
 
 /// Read the VBScript embedded inside a `.vpx` file. Uses the `vpin`
