@@ -20,6 +20,10 @@ use std::path::PathBuf;
 #[cfg(not(target_os = "macos"))]
 use std::path::Path;
 
+// Bundled with the Linux install (writes to ~/.local/share/icons) and
+// the macOS bundle Resources/ — Windows uses its own .ico below and
+// never touches this asset.
+#[cfg(not(target_os = "windows"))]
 const PINREADY_LOGO_PNG: &[u8] = include_bytes!("../../assets/vpinball_logo.png");
 #[cfg(target_os = "windows")]
 const PINREADY_ICON_ICO: &[u8] = include_bytes!("../../assets/icon.ico");
@@ -50,6 +54,10 @@ pub(super) fn set_desktop_integration(enabled: bool, vpx_exe_path: &str) -> anyh
 // Platform-specific paths
 // ---------------------------------------------------------------------------
 
+// Windows resolves its install paths from `%APPDATA%` directly, so
+// `home()` is only referenced from the Linux and macOS marker/install
+// arms below. Gate accordingly to keep the Windows build warning-free.
+#[cfg(not(target_os = "windows"))]
 fn home() -> Option<PathBuf> {
     std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
