@@ -64,6 +64,23 @@ pub fn take_next_mode() -> Option<AppMode> {
     NEXT_ACTION.lock().unwrap().take()
 }
 
+/// One-shot signal set by `main.rs` when a display-server change was
+/// detected between two PinReady boots (X11↔Wayland). Consumed by the
+/// first `App::new` after startup and rendered as a modal notice inside
+/// the wizard so the user understands why the launcher didn't open.
+static SESSION_CHANGE_NOTICE: Mutex<Option<(String, String)>> = Mutex::new(None);
+
+/// Publish the session-change signal. Called from `main.rs` after the
+/// DB comparison.
+pub fn set_session_change_notice(from: String, to: String) {
+    *SESSION_CHANGE_NOTICE.lock().unwrap() = Some((from, to));
+}
+
+/// Consume the session-change signal (drained once). Read from `App::new`.
+pub fn take_session_change_notice() -> Option<(String, String)> {
+    SESSION_CHANGE_NOTICE.lock().unwrap().take()
+}
+
 /// VPX process status messages sent from the launch thread
 enum VpxStatus {
     /// Loading progress message with optional percentage (0.0–1.0)
@@ -86,6 +103,67 @@ const PF_VIEWPORT: &str = "playfield_viewport";
 const TOPPER_VIEWPORT: &str = "topper_viewport";
 /// VPX logo bytes (embedded at compile time)
 const VPX_LOGO: &[u8] = include_bytes!("../../assets/vpinball_logo.png");
+
+/// Third-party crates PinReady depends on directly (one entry per
+/// [dependencies] line in Cargo.toml, no groupings, no sub-crates).
+/// Rendered as bullet list in the About window; keep alphabetically
+/// sorted (case-insensitive) so additions land in an obvious place at
+/// review time.
+const ABOUT_CRATE_THANKS: &[&str] = &[
+    "anyhow",
+    "base64",
+    "crossbeam-channel",
+    "directb2s",
+    "dirs",
+    "display-info",
+    "eframe",
+    "egui",
+    "egui-rotate",
+    "egui_extras",
+    "env_logger",
+    "flate2",
+    "hidapi",
+    "image",
+    "ini-preserve",
+    "log",
+    "noto-fonts-dl",
+    "percent-encoding",
+    "regex",
+    "rfd",
+    "rusqlite",
+    "rust-i18n",
+    "sdl-keybridge",
+    "sdl3-sys",
+    "self-replace",
+    "serde",
+    "serde_json",
+    "sha2",
+    "symphonia",
+    "tar",
+    "time",
+    "ureq",
+    "vpin",
+    "walkdir",
+    "wayland-client",
+    "wayland-protocols",
+    "winapi",
+    "zip",
+];
+
+/// VP-ecosystem contributors specifically thanked — kept in sync with
+/// the wizard's last-page credits (`system_page.rs`). Alphabetical,
+/// case-insensitive.
+const ABOUT_PEOPLE_THANKS: &[&str] = &[
+    "Caviar4456",
+    "Francisdb",
+    "Jsm174",
+    "Major Frenchy",
+    "Somatik",
+    "Spielfool",
+    "Superhac",
+    "Toxie",
+    "Vbousquet",
+];
 
 /// A completed background-extraction result: (scan generation, table
 /// index, relative .vpx path used as DB key, encoded image bytes,
@@ -302,6 +380,12 @@ pub struct App {
     // User theme preference, cycled from the topbar/wizard toggle. Purely
     // in-memory (starts at System every launch) — no persistence yet.
     theme_pref: egui::ThemePreference,
+    // About window visibility, driven by the ℹ toolbar icon.
+    about_open: bool,
+    // One-shot: `Some((from, to))` when `main.rs` detected an X11↔Wayland
+    // session change on this boot. Rendered as a centred modal on top of
+    // the wizard; cleared when the user clicks OK.
+    session_change_notice: Option<(String, String)>,
     // Viewport rotation for the root window. CW90 in cabinet mode, None
     // otherwise. Shadow copy of the value passed to the `RotationPlugin`
     // registered on the egui Context — kept here purely so layout code can
@@ -572,6 +656,8 @@ impl App {
             launcher_cols: 1,
             images_preloaded: false,
             theme_pref: egui::ThemePreference::System,
+            about_open: false,
+            session_change_notice: take_session_change_notice(),
             rotation: egui_rotate::Rotation::None,
             kiosk_cursor: false,
             kiosk_cursor_warped: false,
@@ -727,6 +813,123 @@ impl App {
                 p.set_rotation(next_rotation);
             });
             ctx.request_repaint();
+        }
+
+        // ℹ — About box. Also the only place the launcher exposes the
+        // version number now that the header label was dropped.
+        let info_resp = ui
+            .add(egui::Button::new(egui::RichText::new("ℹ").size(icon_size)).frame(false))
+            .on_hover_text(t!("toolbar_about").to_string());
+        if info_resp.clicked() {
+            self.about_open = true;
+        }
+    }
+
+    /// Modal-ish About window: version, homepage, license, credits. Opens
+    /// from the ℹ icon in the topbar; also serves as the version display
+    /// since the header no longer prints it.
+    pub(super) fn render_about_window(&mut self, ctx: &egui::Context) {
+        if !self.about_open {
+            return;
+        }
+        let mut open = self.about_open;
+        egui::Window::new(t!("about_title").to_string())
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .default_width(460.0)
+            .default_height(520.0)
+            .show(ctx, |ui| {
+                ui.vertical_centered(|ui| {
+                    ui.heading(format!("PinReady v{}", env!("CARGO_PKG_VERSION")));
+                    ui.add_space(4.0);
+                    ui.label(t!("about_tagline"));
+                    ui.add_space(12.0);
+                    ui.hyperlink_to(t!("about_homepage").to_string(), env!("CARGO_PKG_HOMEPAGE"));
+                    // GPL is copyleft — showing © would clash with the
+                    // spirit the user picked the license for. Just plain
+                    // authorship + license spdx.
+                    ui.label(format!("Sylvain Gargasson — {}", env!("CARGO_PKG_LICENSE")));
+                });
+                ui.add_space(10.0);
+                ui.separator();
+                ui.add_space(8.0);
+
+                egui::ScrollArea::vertical()
+                    .max_height(280.0)
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        ui.strong(t!("about_thanks_crates_title"));
+                        ui.add_space(4.0);
+                        // Comma-joined prose — reads like a real
+                        // acknowledgement, wraps naturally to the
+                        // window width, and doesn't turn the About
+                        // into a giant bullet-list.
+                        ui.label(ABOUT_CRATE_THANKS.join(", "));
+                        ui.add_space(12.0);
+                        ui.strong(t!("about_thanks_people_title"));
+                        ui.add_space(4.0);
+                        // 3-column invisible grid, manually centred: the
+                        // grid takes the width of its content, and we
+                        // pre-pad the row so the whole block sits on the
+                        // horizontal axis of the About window.
+                        let col_w = 140.0;
+                        let cols = 3;
+                        let block_w = (col_w * cols as f32)
+                            + (ui.spacing().item_spacing.x * (cols as f32 - 1.0));
+                        let pad = ((ui.available_width() - block_w) * 0.5).max(0.0);
+                        ui.horizontal(|ui| {
+                            ui.add_space(pad);
+                            egui::Grid::new("about_people_grid")
+                                .num_columns(cols)
+                                .min_col_width(col_w)
+                                .show(ui, |ui| {
+                                    // 9 names fit exactly in 3 rows,
+                                    // so no dangling row to fill.
+                                    for (i, name) in ABOUT_PEOPLE_THANKS.iter().enumerate() {
+                                        ui.label(format!("• {name}"));
+                                        if i % cols == cols - 1 {
+                                            ui.end_row();
+                                        }
+                                    }
+                                });
+                        });
+                        ui.add_space(8.0);
+                        ui.label(egui::RichText::new(t!("about_thanks_testers")).italics());
+                    });
+            });
+        self.about_open = open;
+    }
+
+    /// Show the "you switched from X11 to Wayland (or vice versa),
+    /// that's why the wizard reopened" modal. Fires only when
+    /// `session_change_notice` is `Some`; user dismisses via OK.
+    /// No-op on non-Linux since `session::detect()` never signals a
+    /// change there.
+    pub(super) fn render_session_change_notice(&mut self, ctx: &egui::Context) {
+        let Some((from, to)) = self.session_change_notice.clone() else {
+            return;
+        };
+        let from_label = crate::session::label(&from);
+        let to_label = crate::session::label(&to);
+        let mut dismiss = false;
+        egui::Window::new(t!("session_change_title").to_string())
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .default_width(480.0)
+            .show(ctx, |ui| {
+                ui.label(t!("session_change_body", from = from_label, to = to_label));
+                ui.add_space(12.0);
+                ui.vertical_centered(|ui| {
+                    if ui.button(t!("session_change_ok").to_string()).clicked() {
+                        dismiss = true;
+                    }
+                });
+            });
+        if dismiss {
+            self.session_change_notice = None;
         }
     }
 
@@ -1258,6 +1461,11 @@ impl eframe::App for App {
         self.process_wizard_joystick_events();
 
         // === Wizard mode ===
+
+        self.render_about_window(ui.ctx());
+        // Session-change notice (X11↔Wayland) — modal that explains why
+        // the wizard reopened when the user was expecting the launcher.
+        self.render_session_change_notice(ui.ctx());
 
         // Push the scrollbar flush to the window edge — default bar_outer_margin
         // leaves a small gap on the right that looks awkward on this layout.

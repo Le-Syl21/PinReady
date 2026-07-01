@@ -5,6 +5,9 @@ impl App {
         // Install image loaders once
         egui_extras::install_image_loaders(ui.ctx());
 
+        // About window: painted on top of everything when open.
+        self.render_about_window(ui.ctx());
+
         self.process_bg_extraction(ui.ctx());
         self.process_vbs_extraction();
         self.process_preview_audio(ui.ctx());
@@ -49,16 +52,12 @@ impl App {
             egui::vec2(hrow_w, 0.0),
             egui::Layout::left_to_right(egui::Align::Center),
             |ui| {
-                // Cabinet/rotated viewports are wider-but-narrower in
-                // logical pixels; the brand name eats space the rest
-                // of the header row needs. Drop the "PinReady" prefix
-                // there and keep just "v0.9.5".
-                let version_label = if self.rotation.is_none() {
-                    format!("PinReady v{}", env!("CARGO_PKG_VERSION"))
-                } else {
-                    format!("v{}", env!("CARGO_PKG_VERSION"))
-                };
-                ui.label(egui::RichText::new(version_label).size(h_size).strong());
+                // Toolbar toggles (theme + rotation + info) at the very
+                // start of the launcher topbar. The version string used to
+                // sit here but ate too much width on rotated viewports; it
+                // now lives inside the About window opened by the ℹ icon.
+                let ctx = ui.ctx().clone();
+                self.toolbar_toggles(&ctx, ui, h_size);
                 ui.add_space(16.0);
                 ui.label(egui::RichText::new("🔍").size(h_size));
                 // Search bar font is h_size - 2 so the box sits slightly smaller
@@ -160,21 +159,6 @@ impl App {
                         }
                     }
                 }
-
-                // Toolbar toggles (theme + rotation) sitting at the geometric
-                // centre of the topbar. We push the cursor to `centre_x -
-                // half_icons_w` before drawing them, so they stay centred no
-                // matter what the left content (search field) or the right
-                // buttons look like. The right-to-left layout below picks up
-                // the remaining slack and stays right-aligned as before.
-                let toolbar_size = h_size;
-                let icons_estimated_w = toolbar_size * 2.4 + ui.spacing().item_spacing.x;
-                let row_rect = ui.max_rect();
-                let target_x = row_rect.center().x - icons_estimated_w * 0.5;
-                let space_before = (target_x - ui.cursor().min.x).max(0.0);
-                ui.add_space(space_before);
-                let ctx = ui.ctx().clone();
-                self.toolbar_toggles(&ctx, ui, toolbar_size);
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui
@@ -790,6 +774,7 @@ impl App {
                 ui.add(
                     egui::ProgressBar::new(progress)
                         .desired_width(full_w)
+                        .desired_height(bar_h)
                         .text(egui::RichText::new(txt).size(text_size).strong()),
                 );
             } else if let Some(release) = self.vpx_latest_release.clone() {
@@ -839,6 +824,7 @@ impl App {
                 ui.add(
                     egui::ProgressBar::new(progress)
                         .desired_width(full_w)
+                        .desired_height(bar_h)
                         .text(egui::RichText::new(txt).size(text_size).strong()),
                 );
             } else if let Some(release) = self.pinready_latest_release.clone() {

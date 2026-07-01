@@ -18,6 +18,7 @@ mod outputs_hid;
 mod pidlock;
 mod scan_worker;
 mod screens;
+mod session;
 mod system_info;
 mod tilt;
 mod updater;
@@ -314,12 +315,50 @@ fn main() -> Result<()> {
     let initial_mode = {
         let db = db::Database::open(None)?;
         let configured = db.get_config("wizard_completed").as_deref() == Some("true");
+
+        // Session-change detection (Linux only — `detect()` is None on
+        // other OS so this branch collapses to a no-op there). When the
+        // user boots into Wayland after having configured under X11
+        // (or vice versa), the persisted `PlayfieldDisplay` etc. names
+        // in VPinballX.ini use the previous session's SDL naming
+        // convention and won't match — we already re-open the wizard
+        // in that case (via `check_ini_displays_resolvable` below),
+        // but silently. Surface a modal in the wizard so the user
+        // knows *why* their launcher didn't start.
+        let session_now = session::detect();
+        let session_prev = db.get_config("last_session_type");
+        let session_changed = configured
+            && session_now.is_some()
+            && session_prev.is_some()
+            && session_prev.as_deref() != session_now;
+        if session_changed {
+            let from = session_prev.as_deref().unwrap_or("");
+            let to = session_now.unwrap_or("");
+            log::warn!(
+                "Session change detected: {} → {}, opening wizard with a notice",
+                from,
+                to
+            );
+            app::set_session_change_notice(from.to_string(), to.to_string());
+        }
+        // Persist the current session immediately. Missing it on first
+        // boot means no baseline to compare against; any subsequent
+        // switch would then be missed. Failure is non-fatal — worst
+        // case the user gets an unexplained wizard once.
+        if let Some(now) = session_now {
+            if session_prev.as_deref() != Some(now) {
+                if let Err(e) = db.set_config("last_session_type", now) {
+                    log::warn!("Failed to persist last_session_type: {e}");
+                }
+            }
+        }
+
         // The wizard writes VPinballX.ini at completion. If the user (or a
         // cleanup tool) deleted it later, the wizard_completed flag in the
         // DB is stale — the launcher would start with no VPX config and
         // crash or misbehave. Re-run the wizard to regenerate the .ini.
         let ini_present = config::default_ini_path().is_file();
-        if force_config || !configured || !ini_present {
+        if force_config || !configured || !ini_present || session_changed {
             if configured && !ini_present {
                 log::warn!(
                     "wizard_completed=true but VPinballX.ini not found at {} — re-running wizard",

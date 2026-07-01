@@ -1,6 +1,6 @@
 [package]
 name = "pinready"
-version = "0.13.14"
+version = "0.14.0"
 edition = "2021"
 description = "Cross-platform configurator and launcher supporting the adoption of Visual Pinball 10.8.1 — for testers and early adopters, not a replacement for a stable production setup"
 license = "GPL-3.0-or-later"
@@ -54,7 +54,7 @@ vpin = "0.26"
 
 # Audio decoding (OGG Vorbis + MP3 → PCM for SDL3). MP3 is needed
 # for table preview audio (medias/audio.mp3 from vpinmediadb).
-symphonia = { version = "0.5", default-features = false, features = ["ogg", "vorbis", "mp3", "isomp4", "aac"] }
+symphonia = { version = "0.6", default-features = false, features = ["ogg", "vorbis", "mp3", "isomp4", "aac"] }
 
 # HTTP (GitHub API + release download)
 ureq = "3"
@@ -104,9 +104,6 @@ percent-encoding = "2"
 # linux-static-hidraw statically compiles the hidraw backend → zero runtime
 # deps on Linux; native backends on macOS (IOKit) and Windows (Win32 HID API).
 hidapi = { version = "2.6", default-features = false, features = ["linux-static-hidraw"] }
-
-# Cross-platform file locking for the single-instance PID lock.
-fs4 = { version = "1.0", features = ["sync"] }
 
 # Localized SDL key labels in the wizard's input-binding page.
 # Static lookup table — feeds rust_i18n::locale() and an SDL_Scancode and

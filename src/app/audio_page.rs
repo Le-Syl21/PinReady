@@ -236,7 +236,13 @@ impl App {
                         }
                     });
                 let response = ui.add_sized([ui.available_width(), 20.0], pan_slider);
-                if response.drag_stopped() || (response.changed() && !response.dragged()) {
+                if response.changed() {
+                    // Fire on every value change (mid-drag, keyboard, click on
+                    // rail) instead of only on `drag_stopped`. The audio thread
+                    // pushes the music in short chunks and smooths the applied
+                    // pan toward the last-received target, so the music keeps
+                    // playing continuously and the balance follows the cursor
+                    // in real time without any restart-from-zero pop.
                     if let Some(tx) = &self.audio_cmd_tx {
                         let _ = tx.send(AudioCommand::SetMusicPan {
                             pan: self.audio.music_pan,

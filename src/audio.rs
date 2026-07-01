@@ -324,61 +324,92 @@ fn get_embedded_audio(name: &str) -> Option<&'static [u8]> {
     }
 }
 
-/// Decode OGG to mono i16 PCM 44100Hz (single channel for multi-channel routing)
-fn decode_to_mono_pcm(name: &str) -> Option<Vec<i16>> {
-    use symphonia::core::audio::SampleBuffer;
-    use symphonia::core::codecs::DecoderOptions;
-    use symphonia::core::formats::FormatOptions;
-    use symphonia::core::io::MediaSourceStream;
+/// Decode a symphonia media source stream to interleaved i16 samples,
+/// returning the interleaved buffer alongside the source's channel count
+/// and sample rate.
+///
+/// Shared refactor after the symphonia 0.5 → 0.6 API split: the three
+/// PinReady decode paths (embedded mono, embedded stereo, on-disk stereo)
+/// now differ only in what they do to the returned interleaved buffer.
+fn decode_stream_to_interleaved_i16(
+    mss: symphonia::core::io::MediaSourceStream<'static>,
+    ext: &str,
+) -> Option<(Vec<i16>, usize, u32)> {
+    use symphonia::core::codecs::audio::AudioDecoderOptions;
+    use symphonia::core::formats::probe::Hint;
+    use symphonia::core::formats::{FormatOptions, TrackType};
     use symphonia::core::meta::MetadataOptions;
-    use symphonia::core::probe::Hint;
 
-    let data = get_embedded_audio(name)?;
-    let cursor = std::io::Cursor::new(data);
-    let mss = MediaSourceStream::new(Box::new(cursor), Default::default());
     let mut hint = Hint::new();
-    hint.with_extension("ogg");
+    hint.with_extension(ext);
 
-    let probed = symphonia::default::get_probe()
-        .format(
+    let mut format = symphonia::default::get_probe()
+        .probe(
             &hint,
             mss,
-            &FormatOptions::default(),
-            &MetadataOptions::default(),
+            FormatOptions::default(),
+            MetadataOptions::default(),
         )
         .ok()?;
 
-    let mut format = probed.format;
-    let track = format.default_track()?.clone();
+    let track = format.default_track(TrackType::Audio)?;
+    let track_id = track.id;
+    let audio_params = track.codec_params.as_ref()?.audio()?.clone();
+    let channels = audio_params
+        .channels
+        .as_ref()
+        .map(|c| c.count())
+        .unwrap_or(2)
+        .max(1);
+    let sample_rate = audio_params.sample_rate.unwrap_or(44100);
+
     let mut decoder = symphonia::default::get_codecs()
-        .make(&track.codec_params, &DecoderOptions::default())
+        .make_audio_decoder(&audio_params, &AudioDecoderOptions::default())
         .ok()?;
 
-    let mut samples: Vec<i16> = Vec::new();
-    let channels = track.codec_params.channels.map(|c| c.count()).unwrap_or(1);
-
-    while let Ok(packet) = format.next_packet() {
-        if packet.track_id() != track.id {
+    let mut interleaved: Vec<i16> = Vec::new();
+    let mut chunk: Vec<i16> = Vec::new();
+    loop {
+        let packet = match format.next_packet() {
+            Ok(Some(p)) => p,
+            Ok(None) => break,
+            Err(_) => break,
+        };
+        if packet.track_id != track_id {
             continue;
         }
         let decoded = match decoder.decode(&packet) {
             Ok(d) => d,
             Err(_) => continue,
         };
-        let spec = *decoded.spec();
-        let mut buf = SampleBuffer::<i16>::new(decoded.capacity() as u64, spec);
-        buf.copy_interleaved_ref(decoded);
-        let s = buf.samples();
-        // Downmix to mono if stereo
-        if channels >= 2 {
-            for i in (0..s.len()).step_by(channels) {
-                let mono = (s[i] as i32 + s[i + 1] as i32) / 2;
-                samples.push(mono as i16);
-            }
-        } else {
-            samples.extend_from_slice(s);
+        let n = decoded.samples_interleaved();
+        if chunk.len() < n {
+            chunk.resize(n, 0);
         }
+        decoded.copy_to_slice_interleaved(&mut chunk[..n]);
+        interleaved.extend_from_slice(&chunk[..n]);
     }
+    Some((interleaved, channels, sample_rate))
+}
+
+/// Decode OGG to mono i16 PCM 44100Hz (single channel for multi-channel routing)
+fn decode_to_mono_pcm(name: &str) -> Option<Vec<i16>> {
+    use symphonia::core::io::MediaSourceStream;
+
+    let data = get_embedded_audio(name)?;
+    let cursor = std::io::Cursor::new(data);
+    let mss = MediaSourceStream::new(Box::new(cursor), Default::default());
+    let (interleaved, channels, _rate) = decode_stream_to_interleaved_i16(mss, "ogg")?;
+
+    // Downmix to mono if the source is not already mono.
+    let samples: Vec<i16> = if channels >= 2 {
+        interleaved
+            .chunks_exact(channels)
+            .map(|c| ((c[0] as i32 + c[1] as i32) / 2) as i16)
+            .collect()
+    } else {
+        interleaved
+    };
 
     log::info!(
         "Decoded {} (mono): {} samples ({:.1}s)",
@@ -395,48 +426,12 @@ fn decode_to_mono_pcm(name: &str) -> Option<Vec<i16>> {
 
 /// Decode to stereo i16 PCM (for music on front speakers)
 fn decode_to_stereo_pcm(name: &str) -> Option<Vec<i16>> {
-    use symphonia::core::audio::SampleBuffer;
-    use symphonia::core::codecs::DecoderOptions;
-    use symphonia::core::formats::FormatOptions;
     use symphonia::core::io::MediaSourceStream;
-    use symphonia::core::meta::MetadataOptions;
-    use symphonia::core::probe::Hint;
 
     let data = get_embedded_audio(name)?;
     let cursor = std::io::Cursor::new(data);
     let mss = MediaSourceStream::new(Box::new(cursor), Default::default());
-    let mut hint = Hint::new();
-    hint.with_extension("ogg");
-
-    let probed = symphonia::default::get_probe()
-        .format(
-            &hint,
-            mss,
-            &FormatOptions::default(),
-            &MetadataOptions::default(),
-        )
-        .ok()?;
-
-    let mut format = probed.format;
-    let track = format.default_track()?.clone();
-    let mut decoder = symphonia::default::get_codecs()
-        .make(&track.codec_params, &DecoderOptions::default())
-        .ok()?;
-
-    let mut samples: Vec<i16> = Vec::new();
-    while let Ok(packet) = format.next_packet() {
-        if packet.track_id() != track.id {
-            continue;
-        }
-        let decoded = match decoder.decode(&packet) {
-            Ok(d) => d,
-            Err(_) => continue,
-        };
-        let spec = *decoded.spec();
-        let mut buf = SampleBuffer::<i16>::new(decoded.capacity() as u64, spec);
-        buf.copy_interleaved_ref(decoded);
-        samples.extend_from_slice(buf.samples());
-    }
+    let (samples, _channels, _rate) = decode_stream_to_interleaved_i16(mss, "ogg")?;
     if samples.is_empty() {
         None
     } else {
@@ -448,54 +443,14 @@ fn decode_to_stereo_pcm(name: &str) -> Option<Vec<i16>> {
 /// to the audio thread's 44100Hz target. Used for table preview audio
 /// (`medias/audio.mp3`). Returns None on probe/decode failure.
 fn decode_file_to_stereo_pcm_44100(path: &std::path::Path) -> Option<Vec<i16>> {
-    use symphonia::core::audio::SampleBuffer;
-    use symphonia::core::codecs::DecoderOptions;
-    use symphonia::core::formats::FormatOptions;
     use symphonia::core::io::MediaSourceStream;
-    use symphonia::core::meta::MetadataOptions;
-    use symphonia::core::probe::Hint;
 
     let file = std::fs::File::open(path).ok()?;
     let mss = MediaSourceStream::new(Box::new(file), Default::default());
-    let mut hint = Hint::new();
-    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-        hint.with_extension(ext);
-    }
-
-    let probed = symphonia::default::get_probe()
-        .format(
-            &hint,
-            mss,
-            &FormatOptions::default(),
-            &MetadataOptions::default(),
-        )
-        .ok()?;
-    let mut format = probed.format;
-    let track = format.default_track()?.clone();
-    let src_rate = track.codec_params.sample_rate.unwrap_or(44100);
-    let channels = track
-        .codec_params
-        .channels
-        .map(|c| c.count())
-        .unwrap_or(2)
-        .max(1);
-    let mut decoder = symphonia::default::get_codecs()
-        .make(&track.codec_params, &DecoderOptions::default())
-        .ok()?;
-
-    let mut interleaved: Vec<i16> = Vec::new();
-    while let Ok(packet) = format.next_packet() {
-        if packet.track_id() != track.id {
-            continue;
-        }
-        let decoded = match decoder.decode(&packet) {
-            Ok(d) => d,
-            Err(_) => continue,
-        };
-        let spec = *decoded.spec();
-        let mut buf = SampleBuffer::<i16>::new(decoded.capacity() as u64, spec);
-        buf.copy_interleaved_ref(decoded);
-        interleaved.extend_from_slice(buf.samples());
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+    let (interleaved, channels, src_rate) = decode_stream_to_interleaved_i16(mss, ext)?;
+    if interleaved.is_empty() {
+        return None;
     }
     if interleaved.is_empty() {
         return None;
@@ -653,10 +608,70 @@ pub fn spawn_audio_thread() -> (Sender<AudioCommand>, thread::JoinHandle<()>) {
             SDL_ResumeAudioStreamDevice(stream);
             log::info!("Audio thread: 7.1 stream opened and resumed");
 
-            let mut music_pcm: Option<Vec<i16>> = None; // stereo cache
+            // Music-loop state: the stereo PCM is decoded once at StartMusic
+            // then fed to the SDL audio stream in short chunks. The pan is
+            // recomputed at every chunk (smoothed toward `target_pan` so a
+            // fast slider drag doesn't click), and the cursor wraps around
+            // so the music loops indefinitely until StopMusic.
+            struct MusicState {
+                stereo: Vec<i16>, // interleaved L,R,L,R,... at 44100Hz
+                cursor: usize,    // sample index (in i16 units, not frames)
+                pan: f32,         // applied at last push, smoothed
+                target_pan: f32,  // last value received from the UI
+            }
+            let mut music: Option<MusicState> = None;
+
+            // Chunk we push each idle tick when music is running. 100ms is
+            // small enough that a slider drag feels live (pan changes are
+            // audible within ~150ms) and large enough that the SDL queue
+            // never underruns between two `recv_timeout` wake-ups.
+            const MUSIC_CHUNK_MS: usize = 100;
+            // Keep at least this many bytes queued so we never gap out
+            // between two push chunks. `7.1 * i16 * 44100` = 705_600 B/s,
+            // so 200ms ≈ 141_120 bytes of headroom.
+            const MUSIC_QUEUE_LOW_BYTES: u32 = 141_120;
+            // Exponential smoothing: `pan += (target - pan) * ALPHA` per
+            // 100ms chunk. 0.15 crosses ±1 in ~600ms — snappy but no click.
+            const PAN_ALPHA: f32 = 0.15;
 
             loop {
-                match cmd_rx.recv() {
+                let idle_wait = if music.is_some() {
+                    // Short wake-up so we can top the queue and pick up
+                    // slider changes with low latency.
+                    std::time::Duration::from_millis(20)
+                } else {
+                    // Idle: 1s tick is plenty — real work arrives as
+                    // commands anyway.
+                    std::time::Duration::from_millis(1_000)
+                };
+                let recv_res = cmd_rx.recv_timeout(idle_wait);
+                if let Err(crossbeam_channel::RecvTimeoutError::Timeout) = recv_res {
+                    // No command this tick — top up the music buffer if
+                    // playing and low on queued bytes.
+                    if let Some(ms) = &mut music {
+                        let queued = SDL_GetAudioStreamQueued(stream);
+                        if queued >= 0 && (queued as u32) < MUSIC_QUEUE_LOW_BYTES {
+                            let samples_per_ms = SAMPLE_RATE / 1000; // 44 f/ms
+                            let frames = MUSIC_CHUNK_MS * samples_per_ms;
+                            let mut chunk: Vec<i16> = Vec::with_capacity(frames * 2);
+                            for _ in 0..frames {
+                                chunk.push(ms.stereo[ms.cursor]);
+                                chunk.push(ms.stereo[ms.cursor + 1]);
+                                ms.cursor = (ms.cursor + 2) % ms.stereo.len();
+                            }
+                            ms.pan += (ms.target_pan - ms.pan) * PAN_ALPHA;
+                            let data = stereo_to_71_front(&chunk, ms.pan);
+                            SDL_PutAudioStreamData(
+                                stream,
+                                data.as_ptr() as *const _,
+                                (data.len() * 2) as i32,
+                            );
+                            SDL_FlushAudioStream(stream);
+                        }
+                    }
+                    continue;
+                }
+                match recv_res {
                     Ok(AudioCommand::PlayOnSpeaker { path, target }) => {
                         log::info!("Audio: PlayOnSpeaker {}", path);
                         if let Some(mono) = decode_to_mono_pcm(&path) {
@@ -760,38 +775,46 @@ pub fn spawn_audio_thread() -> (Sender<AudioCommand>, thread::JoinHandle<()>) {
                     Ok(AudioCommand::StartMusic { path }) => {
                         log::info!("Audio: StartMusic {}", path);
                         if let Some(stereo) = decode_to_stereo_pcm(&path) {
-                            let data = stereo_to_71_front(&stereo, 0.0);
-                            music_pcm = Some(stereo);
+                            // Seed the loop with a first chunk so the SDL
+                            // queue has audio to play before the next
+                            // recv_timeout wake-up.
                             SDL_ClearAudioStream(stream);
+                            let samples_per_ms = SAMPLE_RATE / 1000;
+                            let seed_frames =
+                                (MUSIC_CHUNK_MS * 2 * samples_per_ms).min(stereo.len() / 2);
+                            let seed = &stereo[..seed_frames * 2];
+                            let data = stereo_to_71_front(seed, 0.0);
                             SDL_PutAudioStreamData(
                                 stream,
                                 data.as_ptr() as *const _,
                                 (data.len() * 2) as i32,
                             );
                             SDL_FlushAudioStream(stream);
+                            music = Some(MusicState {
+                                cursor: (seed_frames * 2) % stereo.len(),
+                                pan: 0.0,
+                                target_pan: 0.0,
+                                stereo,
+                            });
                         }
                     }
                     Ok(AudioCommand::SetMusicPan { pan }) => {
-                        // Store pan and restart music cleanly
-                        if let Some(ref stereo) = music_pcm {
-                            let data = stereo_to_71_front(stereo, pan);
-                            SDL_ClearAudioStream(stream);
-                            SDL_PutAudioStreamData(
-                                stream,
-                                data.as_ptr() as *const _,
-                                (data.len() * 2) as i32,
-                            );
-                            SDL_FlushAudioStream(stream);
+                        // Just note the new target; the music-loop tick
+                        // above smooths toward it at the next chunk push.
+                        // No SDL_Clear / re-push here — the currently
+                        // queued audio keeps playing seamlessly.
+                        if let Some(ms) = &mut music {
+                            ms.target_pan = pan.clamp(-1.0, 1.0);
                         }
                     }
                     Ok(AudioCommand::StopMusic) | Ok(AudioCommand::StopAll) => {
                         SDL_ClearAudioStream(stream);
-                        music_pcm = None;
+                        music = None;
                     }
                     Ok(AudioCommand::PreviewStart { path, volume }) => {
                         log::info!("Audio: PreviewStart {} vol={:.2}", path.display(), volume);
                         SDL_ClearAudioStream(stream);
-                        music_pcm = None;
+                        music = None;
                         if let Some(stereo) = decode_file_to_stereo_pcm_44100(&path) {
                             let v = volume.clamp(0.0, 1.0);
                             let scaled: Vec<i16> = if (v - 1.0).abs() > 0.01 {

@@ -756,6 +756,17 @@ impl App {
                 .arg(&path)
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped());
+            // Pin VPX's SDL backend to PinReady's actual session
+            // (Linux only — `detect()` is None on macOS/Windows so this
+            // is a no-op there). Newer SDL3 auto-selects XWayland when
+            // it sees both DISPLAY and WAYLAND_DISPLAY, which brings
+            // back the exact display-placement bugs PinReady exists to
+            // avoid on the Wayland side. Forcing the driver name here
+            // overrides any inherited or auto-detected value.
+            if let Some(driver) = crate::session::detect() {
+                log::info!("Pinning VPX's SDL_VIDEODRIVER to {driver}");
+                cmd.env("SDL_VIDEODRIVER", driver);
+            }
             // Request a fresh xdg-activation-v1 token from the Wayland
             // compositor and inject it into VPX's env so its SDL3 window
             // can take focus. Without this, mutter/kwin/sway honour
