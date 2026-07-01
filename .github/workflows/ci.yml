@@ -169,7 +169,11 @@ jobs:
             echo "$output"
             local sub_id
             sub_id=$(echo "$output" | awk '/id:/{print $2; exit}')
-            [ -n "$sub_id" ] || { echo "$label: failed to get submission ID"; return 1; }
+            # The submit POST itself can time out on Apple's side (seen in
+            # v0.14.0 CI). Treat "no submission ID" as retryable (rc=2) so
+            # the backoff/retry loop above catches transient outages
+            # instead of forcing a manual full-workflow re-run.
+            [ -n "$sub_id" ] || { echo "$label: failed to get submission ID (transient, will retry)"; return 2; }
             echo "$label: submitted (id: $sub_id)"
 
             local deadline=$((SECONDS + timeout))
