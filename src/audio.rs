@@ -214,7 +214,7 @@ impl AudioConfig {
                 let device_ids = SDL_GetAudioPlaybackDevices(&mut count);
                 let mut found = SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK;
                 let mut matched = false;
-                if !device_ids.is_null() {
+                if !device_ids.is_null() && count > 0 {
                     for i in 0..count as usize {
                         let id = *device_ids.add(i);
                         let name_ptr = SDL_GetAudioDeviceName(id);
@@ -277,7 +277,7 @@ impl AudioConfig {
         unsafe {
             let mut count: i32 = 0;
             let device_ids = SDL_GetAudioPlaybackDevices(&mut count);
-            if !device_ids.is_null() {
+            if !device_ids.is_null() && count > 0 {
                 for i in 0..count as usize {
                     let id = *device_ids.add(i);
                     let name_ptr = SDL_GetAudioDeviceName(id);

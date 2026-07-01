@@ -97,8 +97,8 @@ pub fn enumerate_displays() -> Vec<DisplayInfo> {
 
         let mut count: i32 = 0;
         let display_ids = SDL_GetDisplays(&mut count);
-        if display_ids.is_null() || count == 0 {
-            log::warn!("No displays found");
+        if display_ids.is_null() || count <= 0 {
+            log::warn!("No displays found (count={count})");
             return displays;
         }
 

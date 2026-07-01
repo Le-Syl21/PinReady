@@ -109,7 +109,7 @@ unsafe fn vpx_device_id(joy: *mut sdl3_sys::everything::SDL_Joystick) -> String 
     let mut id_index: u32 = 1;
     let mut count: i32 = 0;
     let ids = SDL_GetJoysticks(&mut count);
-    if !ids.is_null() {
+    if !ids.is_null() && count > 0 {
         for i in 0..count as usize {
             let jid = *ids.add(i);
             if SDL_GetJoystickFromID(jid) == joy {
@@ -826,9 +826,15 @@ pub fn spawn_joystick_thread() -> (
             // Open all connected joysticks
             let mut joy_count: i32 = 0;
             let joy_ids = SDL_GetJoysticks(&mut joy_count);
-            let mut joysticks: Vec<OpenedJoystick> = Vec::with_capacity(joy_count as usize);
+            // Guard: SDL_GetJoysticks writes 0 (or leaves the initial value) on
+            // failure; a negative or absurdly large value must never reach the
+            // `as usize` cast below — otherwise Vec::with_capacity balloons and
+            // OOMs the process. Seen in the wild on a broken VPX build that
+            // stubbed out the joystick subsystem.
+            let joy_count = joy_count.max(0) as usize;
+            let mut joysticks: Vec<OpenedJoystick> = Vec::with_capacity(joy_count);
             if !joy_ids.is_null() {
-                for i in 0..joy_count as usize {
+                for i in 0..joy_count {
                     let jid = *joy_ids.add(i);
                     let joy = SDL_OpenJoystick(jid);
                     if !joy.is_null() {
@@ -839,15 +845,32 @@ pub fn spawn_joystick_thread() -> (
                             format!("Joystick {}", jid.0)
                         };
                         let dev_id = vpx_device_id(joy);
-                        let num_buttons = SDL_GetNumJoystickButtons(joy);
-                        let num_axes = SDL_GetNumJoystickAxes(joy);
+                        let num_buttons_raw = SDL_GetNumJoystickButtons(joy);
+                        let num_axes_raw = SDL_GetNumJoystickAxes(joy);
                         log::info!(
                             "Opened joystick: {} (vpx_id={}, buttons={}, axes={})",
                             name,
                             dev_id,
-                            num_buttons,
-                            num_axes
+                            num_buttons_raw,
+                            num_axes_raw
                         );
+                        // SDL3 returns -1 on failure. Casting a negative i32 to
+                        // usize yields a value near 2^64 which then blows up
+                        // `vec![false; n]` a few lines down — reserve gigabytes
+                        // of address space, kill the process. Skip the device.
+                        if num_buttons_raw < 0 || num_axes_raw < 0 {
+                            log::warn!(
+                                "Skipping joystick {}: SDL returned buttons={} axes={} (probable driver failure): {}",
+                                dev_id,
+                                num_buttons_raw,
+                                num_axes_raw,
+                                CStr::from_ptr(SDL_GetError()).to_string_lossy()
+                            );
+                            SDL_CloseJoystick(joy);
+                            continue;
+                        }
+                        let num_buttons = num_buttons_raw;
+                        let num_axes = num_axes_raw;
                         // Detect pinball controllers (device ID is now GUID-based, so we
                         // can no longer fingerprint by serial substring — match on name).
                         if name.contains("Pinscape") {
