@@ -13,7 +13,12 @@
 // Windows: writes Start Menu .lnk shortcuts (per-user) and HKCU registry
 // entries that bind `.vpx` to VPinballX with our icon. All HKCU — no UAC.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+// `Path` is only used from the Linux and Windows arms; on macOS the
+// import is unused and warns under `-D warnings`. Gate it explicitly
+// rather than sprinkle `#[allow(unused_imports)]`.
+#[cfg(not(target_os = "macos"))]
+use std::path::Path;
 
 const PINREADY_LOGO_PNG: &[u8] = include_bytes!("../../assets/vpinball_logo.png");
 #[cfg(target_os = "windows")]
