@@ -300,29 +300,21 @@ pub struct App {
     launcher_cols: usize,            // number of columns in the grid (computed in render)
     images_preloaded: bool,
     // Viewport rotation for the root window. CW90 in cabinet mode, None
-    // otherwise. Applied via egui-rotate's input/output hooks (see
-    // `eframe::App::raw_input_hook` / `transform_primitives` impls below).
+    // otherwise. Shadow copy of the value passed to the `RotationPlugin`
+    // registered on the egui Context — kept here purely so layout code can
+    // branch on rotation without going through the plugin every frame.
     rotation: egui_rotate::Rotation,
-    // Software cursor — drawn in logical (rotated) space. Captures the OS
-    // cursor when active, releases at edges (or stays locked in kiosk mode).
-    cursor: egui_rotate::SoftwareCursor,
-    // Last frame's cursor icon (Text, ResizeEast, ...), captured from
-    // PlatformOutput. Used to draw the next frame's software cursor with
-    // the right shape — one frame of latency is fine for visuals.
-    last_cursor_icon: egui::CursorIcon,
     // Kiosk mode: lock the cursor inside the PF window and center it on the grid.
     // Window placement itself is handled at creation via ViewportBuilder::with_monitor.
-    kiosk_cursor: bool, // scale + lock the cursor, warp once window is mapped
+    // The software-cursor lock/scale themselves live on the plugin — accessed via
+    // `App::with_software_cursor`.
+    kiosk_cursor: bool, // signals that the plugin was built with a locked SoftwareCursor
     kiosk_cursor_warped: bool, // one-shot: warp cursor after window settles
     // Last virtual cursor position seen — used to restore the cursor where
     // it was after a spurious PointerGone (Mutter Wayland drops the
     // pointer-constraints lock during focus thrashing with secondary
     // viewports), so the user doesn't perceive it as a teleport-to-centre.
     kiosk_last_virtual_pos: Option<egui::Pos2>,
-    // Last virtual cursor position injected as a synthetic PointerMoved
-    // event in raw_input_hook. Debounce — only inject when the position
-    // actually changed since the last frame.
-    last_injected_pointer_pos: Option<egui::Pos2>,
     // Launcher joystick nav auto-repeat: track which nav button is held
     nav_held: Option<(
         u8,
@@ -577,12 +569,9 @@ impl App {
             launcher_cols: 1,
             images_preloaded: false,
             rotation: egui_rotate::Rotation::None,
-            cursor: egui_rotate::SoftwareCursor::new(),
-            last_cursor_icon: egui::CursorIcon::Default,
             kiosk_cursor: false,
             kiosk_cursor_warped: false,
             kiosk_last_virtual_pos: None,
-            last_injected_pointer_pos: None,
             nav_held: None,
             bg_rx: None,
             scan_generation: 0,
@@ -661,16 +650,25 @@ impl App {
     }
 
     /// Enable kiosk cursor behavior: software-scaled cursor, locked inside the
-    /// window, and warped to center once the window is mapped. Window placement
-    /// is handled separately via `ViewportBuilder::with_monitor`.
+    /// window, and warped to center once the window is mapped. The cursor
+    /// itself is configured (scale, lock) at `RotationPlugin` registration in
+    /// `main.rs` — this flag just tells the launcher runtime that the plugin
+    /// was built with a `SoftwareCursor` and the kiosk warp/lock loop applies.
+    /// Window placement is handled separately via `ViewportBuilder::with_monitor`.
     pub fn enable_kiosk_cursor(&mut self) {
         self.kiosk_cursor = true;
         self.kiosk_cursor_warped = false;
-        // Configure the software cursor for cabinet/kiosk use: bigger glyph
-        // (3x) and locked inside the window so it never escapes to the OS.
-        self.cursor.set_scale(3.0);
-        self.cursor.set_lock(true);
-        log::info!("kiosk_cursor enabled (scale=3.0, lock=true) — bootstrap on first frame");
+        log::info!("kiosk_cursor enabled — plugin owns scale/lock, warp on first frame");
+    }
+
+    /// Convenience: run `f` against the plugin's `SoftwareCursor` if the
+    /// `RotationPlugin` was registered with one (kiosk mode). No-op otherwise.
+    fn with_software_cursor<R>(
+        ctx: &egui::Context,
+        f: impl FnOnce(&mut egui_rotate::SoftwareCursor) -> R,
+    ) -> Option<R> {
+        ctx.with_plugin::<egui_rotate::RotationPlugin, _>(|p| p.software_cursor_mut().map(f))
+            .flatten()
     }
 
     fn load_rendering_config(config: &VpxConfig) -> (f32, i32, i32, i32, i32, i32, i32, f32) {
@@ -1005,101 +1003,35 @@ use autostart::{is_autostart_enabled, set_autostart};
 use desktop_integration::{is_desktop_integration_installed, set_desktop_integration};
 
 impl eframe::App for App {
-    /// Rotate input events into logical (rotated) UI space, plus update the
-    /// software cursor capture state from raw mouse deltas.
-    /// `raw_input_hook` does not receive a `viewport_id` parameter, but it
-    /// fires before `run_ui` so `ctx.viewport_id()` is still valid here
-    /// (the viewport stack hasn't been popped yet).
+    /// The `RotationPlugin` (registered in `main.rs`) owns input rotation,
+    /// primitive rotation, cursor drawing and OS-cursor hiding — none of
+    /// which lives in this file anymore.
+    ///
+    /// The one bit that still needs a hook is a Wayland kiosk workaround:
+    /// under `CursorGrab::Locked` the OS delivers only raw `MouseMoved`
+    /// deltas, no `WindowEvent::CursorMoved`. egui's hover hit-test relies
+    /// on `PointerMoved` to know where the pointer is, so we inject a
+    /// synthetic one every frame the software cursor is captured. The
+    /// value is a dummy: the plugin's own `input_hook` (which runs right
+    /// after this) rewrites it to the current `virtual_pos` before egui
+    /// consumes it.
     fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
         if raw_input.viewport_id != egui::ViewportId::ROOT || self.rotation.is_none() {
-            let _ = ctx;
             return;
         }
-        let physical_size = raw_input
-            .screen_rect
-            .map(|r| r.size())
-            .unwrap_or(egui::Vec2::ZERO);
-        let _ = self
-            .cursor
-            .process_input(raw_input, self.rotation, physical_size);
-
-        // Inject a synthetic `PointerMoved` at the current virtual cursor
-        // position whenever it changed since last frame. Reason: under
-        // `CursorGrab::Locked` on Wayland, the OS only delivers raw motion
-        // deltas (`Event::MouseMoved`) — no `WindowEvent::CursorMoved`,
-        // hence egui never receives a `PointerMoved` event from the
-        // platform. egui's hover hit-test (and the cursor-icon resolution
-        // it drives) relies on `PointerMoved` to know where the pointer
-        // is, so without this injection the cursor icon would only update
-        // on click (which fires `PointerButton` and re-seeds the position).
-        if let Some(p) = self.cursor.virtual_pos() {
-            if self.last_injected_pointer_pos != Some(p) {
-                raw_input.events.push(egui::Event::PointerMoved(p));
-                self.last_injected_pointer_pos = Some(p);
-            }
-        }
-    }
-
-    /// Rotate tessellated primitives back to physical screen space, so the
-    /// painter sees coordinates aligned with the actual framebuffer. Only
-    /// the root viewport gets rotated — secondary viewports (BG/DMD/Topper)
-    /// are landscape and unaffected.
-    fn transform_primitives(
-        &mut self,
-        ctx: &egui::Context,
-        viewport_id: egui::ViewportId,
-        primitives: &mut Vec<egui::epaint::ClippedPrimitive>,
-    ) {
-        if viewport_id != egui::ViewportId::ROOT || self.rotation.is_none() {
-            return;
-        }
-        let logical_size = ctx.content_rect().size();
-        egui_rotate::transform_clipped_primitives(primitives, self.rotation, logical_size);
-    }
-
-    /// Capture the cursor icon for the next frame's software cursor draw,
-    /// and suppress it on the OS side so we don't see a real cursor flicker
-    /// on top of the rendered one. Root viewport only.
-    fn post_platform_output(
-        &mut self,
-        _ctx: &egui::Context,
-        viewport_id: egui::ViewportId,
-        platform_output: &mut egui::PlatformOutput,
-    ) {
-        if viewport_id != egui::ViewportId::ROOT || self.rotation.is_none() {
-            return;
-        }
-        // Only update `last_cursor_icon` with non-None values: egui's
-        // `PlatformOutput::take()` carries `cursor_icon` to the next frame
-        // ("everything else is ephemeral"). Once we've overridden it to
-        // `None` to hide the OS cursor below, every subsequent frame's
-        // platform_output starts as `None` until a widget interaction
-        // re-sets it. Capturing that `None` here would erase our last
-        // valid icon, leading `paint_cursor_shape` to early-return — and
-        // the software cursor disappears completely.
-        if platform_output.cursor_icon != egui::CursorIcon::None {
-            self.last_cursor_icon = platform_output.cursor_icon;
-        }
-        if self.cursor.is_captured() {
-            platform_output.cursor_icon = egui::CursorIcon::None;
+        let has_virtual_cursor = ctx
+            .with_plugin::<egui_rotate::RotationPlugin, _>(|p| {
+                p.software_cursor().and_then(|c| c.virtual_pos()).is_some()
+            })
+            .unwrap_or(false);
+        if has_virtual_cursor {
+            raw_input
+                .events
+                .push(egui::Event::PointerMoved(egui::Pos2::ZERO));
         }
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        // Draw the software cursor on top of everything else (rotated viewport
-        // only). The icon comes from the previous frame's PlatformOutput,
-        // captured in `post_platform_output`. One-frame latency is acceptable.
-        // Pass the icon un-rotated — `SoftwareCursor::draw` renders in logical
-        // space and the inverse rotation at paint time produces the right
-        // visual orientation (cf. egui-rotate 0.1.1 changelog).
-        if !self.rotation.is_none() {
-            let painter = ui.ctx().layer_painter(egui::LayerId::new(
-                egui::Order::Foreground,
-                egui::Id::new("egui-rotate-software-cursor"),
-            ));
-            self.cursor.draw(&painter, self.last_cursor_icon);
-        }
-
         // Kiosk cursor: scale + lock + virtual-pos bootstrap. Disabled while
         // VPX is running so it can take over keyboard/mouse input cleanly.
         let vpx_running = self.vpx_running.load(Ordering::Relaxed);
@@ -1127,7 +1059,7 @@ impl eframe::App for App {
             // `CursorVisible(false)` is honoured everywhere — keep it
             // unconditional so the OS pointer doesn't flicker on top of
             // the rendered software cursor.
-            self.cursor.set_lock(true);
+            Self::with_software_cursor(ctx, |c| c.set_lock(true));
             if !skip_os_cursor_grab() {
                 ctx.send_viewport_cmd(egui::ViewportCommand::CursorGrab(
                     egui::viewport::CursorGrab::Locked,
@@ -1146,18 +1078,24 @@ impl eframe::App for App {
                 ctx.request_repaint();
             }
 
-            // Track the most recent virtual cursor position so we can restore
-            // it after a spurious capture loss (PointerGone fires when Mutter
-            // briefly drops the pointer-constraints lock during focus thrash)
-            // instead of jumping the cursor back to the centre.
-            if let Some(p) = self.cursor.virtual_pos() {
+            // Read the plugin's cursor state once: track the most recent
+            // virtual position so we can restore it after a spurious
+            // capture loss (Mutter Wayland drops the pointer-constraints
+            // lock during focus thrash), and detect said capture loss to
+            // reset the warp latch.
+            let (virtual_pos, is_captured) = ctx
+                .with_plugin::<egui_rotate::RotationPlugin, _>(|p| {
+                    let c = p.software_cursor();
+                    (
+                        c.and_then(|c| c.virtual_pos()),
+                        c.is_some_and(|c| c.is_captured()),
+                    )
+                })
+                .unwrap_or((None, false));
+            if let Some(p) = virtual_pos {
                 self.kiosk_last_virtual_pos = Some(p);
             }
-
-            // Re-bootstrap if the capture dropped: under CursorGrab::Locked
-            // no PointerMoved fires, so SoftwareCursor's auto-capture path
-            // never refires after PointerGone.
-            if self.kiosk_cursor_warped && !self.cursor.is_captured() {
+            if self.kiosk_cursor_warped && !is_captured {
                 self.kiosk_cursor_warped = false;
             }
 
@@ -1198,7 +1136,7 @@ impl eframe::App for App {
                             )
                         })
                         .unwrap_or_else(|| vr.center());
-                    self.cursor.set_virtual_pos(target);
+                    Self::with_software_cursor(ctx, |c| c.set_virtual_pos(target));
                     self.kiosk_cursor_warped = true;
                 }
                 ctx.request_repaint();

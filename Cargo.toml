@@ -1,6 +1,6 @@
 [package]
 name = "pinready"
-version = "0.13.11"
+version = "0.13.12"
 edition = "2021"
 description = "Cross-platform configurator and launcher supporting the adoption of Visual Pinball 10.8.1 — for testers and early adopters, not a replacement for a stable production setup"
 license = "GPL-3.0-or-later"
@@ -114,9 +114,10 @@ fs4 = { version = "1.0", features = ["sync"] }
 sdl-keybridge = { version = "0.3", features = ["all-locales"] }
 
 # Viewport rotation (transparent input/output remap + rotated software cursor)
-# for cabinet mode. Drives the `transform_primitives` / `post_platform_output`
-# eframe hooks (Le-Syl21 fork on `pinready-deps`, pending upstream PR #8138).
-egui-rotate = { git = "https://github.com/Le-Syl21/egui-rotate", tag = "v0.1.6", features = ["software-cursor"] }
+# for cabinet mode. Registered as an egui Plugin from `main.rs`; the plugin owns
+# input rotation, primitive rotation and the software cursor draw — PinReady
+# has no eframe hooks left to wire.
+egui-rotate = { version = "1", features = ["software-cursor"] }
 
 [target.'cfg(windows)'.build-dependencies]
 winres = { version = "0.1", optional = true }

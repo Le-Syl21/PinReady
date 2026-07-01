@@ -1214,7 +1214,7 @@ impl App {
     /// (BG/DMD/Topper) explicitly, then request the root viewport close.
     /// Called from the Quit button, ExitGame joystick action, and Escape key.
     pub(super) fn quit_launcher(&mut self, ctx: &egui::Context) {
-        self.cursor.set_lock(false);
+        Self::with_software_cursor(ctx, |c| c.set_lock(false));
         // Symmetric with the kiosk loop: we only ever grab on non-Wayland,
         // so we only need to release there too. Sending CursorGrab::None
         // on Wayland would trigger the same winit "not supported" warn.
@@ -1393,7 +1393,7 @@ impl App {
                         // released naturally because the kiosk focus-reclaim
                         // loop is gated on !vpx_running. VPX windows then
                         // z-order on top of PinReady.
-                        self.cursor.set_lock(false);
+                        Self::with_software_cursor(ctx, |c| c.set_lock(false));
                         if !crate::app::skip_os_cursor_grab() {
                             ctx.send_viewport_cmd(egui::ViewportCommand::CursorGrab(
                                 egui::viewport::CursorGrab::None,
