@@ -617,7 +617,13 @@ impl App {
         if let Some(idx) = launch_idx {
             self.selected_table = idx;
             let path = self.tables[idx].path.clone();
-            self.launch_table(&path);
+            // Match the two-step launch flow used from
+            // `apply_launcher_action`: request a fresh xdg-activation-v1
+            // token first, then `App::ui` drains the reply into
+            // `launch_table` on the next frame.
+            self.pending_vpx_launch = Some((path, std::time::Instant::now()));
+            ui.ctx()
+                .send_viewport_cmd(egui::ViewportCommand::RequestActivationToken);
         }
 
         if !self.vpx_hide_covers {

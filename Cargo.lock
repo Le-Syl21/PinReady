@@ -1168,14 +1168,13 @@ checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
 
 [[package]]
 name = "dpi"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
+version = "0.1.1"
+source = "git+https://github.com/Le-Syl21/winit?branch=wayland-activation-serial#7bbf8fe46bd98765057d786618a2bd157048ae92"
 
 [[package]]
 name = "ecolor"
 version = "0.34.2"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-deps#1668462b5043d753830c50d48ca9eddaa7633308"
+source = "git+https://github.com/Le-Syl21/egui?branch=activation-token-event#cb98ed58cbdfd874bc102fe541ae6ff665b649d7"
 dependencies = [
  "bytemuck",
  "emath",
@@ -1184,7 +1183,7 @@ dependencies = [
 [[package]]
 name = "eframe"
 version = "0.34.2"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-deps#1668462b5043d753830c50d48ca9eddaa7633308"
+source = "git+https://github.com/Le-Syl21/egui?branch=activation-token-event#cb98ed58cbdfd874bc102fe541ae6ff665b649d7"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1218,7 +1217,7 @@ dependencies = [
 [[package]]
 name = "egui"
 version = "0.34.2"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-deps#1668462b5043d753830c50d48ca9eddaa7633308"
+source = "git+https://github.com/Le-Syl21/egui?branch=activation-token-event#cb98ed58cbdfd874bc102fe541ae6ff665b649d7"
 dependencies = [
  "accesskit",
  "ahash",
@@ -1244,7 +1243,7 @@ dependencies = [
 [[package]]
 name = "egui-wgpu"
 version = "0.34.2"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-deps#1668462b5043d753830c50d48ca9eddaa7633308"
+source = "git+https://github.com/Le-Syl21/egui?branch=activation-token-event#cb98ed58cbdfd874bc102fe541ae6ff665b649d7"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1263,7 +1262,7 @@ dependencies = [
 [[package]]
 name = "egui-winit"
 version = "0.34.2"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-deps#1668462b5043d753830c50d48ca9eddaa7633308"
+source = "git+https://github.com/Le-Syl21/egui?branch=activation-token-event#cb98ed58cbdfd874bc102fe541ae6ff665b649d7"
 dependencies = [
  "accesskit_winit",
  "arboard",
@@ -1284,7 +1283,7 @@ dependencies = [
 [[package]]
 name = "egui_extras"
 version = "0.34.2"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-deps#1668462b5043d753830c50d48ca9eddaa7633308"
+source = "git+https://github.com/Le-Syl21/egui?branch=activation-token-event#cb98ed58cbdfd874bc102fe541ae6ff665b649d7"
 dependencies = [
  "ahash",
  "egui",
@@ -1298,7 +1297,7 @@ dependencies = [
 [[package]]
 name = "egui_glow"
 version = "0.34.2"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-deps#1668462b5043d753830c50d48ca9eddaa7633308"
+source = "git+https://github.com/Le-Syl21/egui?branch=activation-token-event#cb98ed58cbdfd874bc102fe541ae6ff665b649d7"
 dependencies = [
  "bytemuck",
  "egui",
@@ -1318,7 +1317,7 @@ checksum = "91622ff5e7162018101f2fea40d6ebf4a78bbe5a49736a2020649edf9693679e"
 [[package]]
 name = "emath"
 version = "0.34.2"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-deps#1668462b5043d753830c50d48ca9eddaa7633308"
+source = "git+https://github.com/Le-Syl21/egui?branch=activation-token-event#cb98ed58cbdfd874bc102fe541ae6ff665b649d7"
 dependencies = [
  "bytemuck",
 ]
@@ -1405,7 +1404,7 @@ dependencies = [
 [[package]]
 name = "epaint"
 version = "0.34.2"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-deps#1668462b5043d753830c50d48ca9eddaa7633308"
+source = "git+https://github.com/Le-Syl21/egui?branch=activation-token-event#cb98ed58cbdfd874bc102fe541ae6ff665b649d7"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1429,7 +1428,7 @@ dependencies = [
 [[package]]
 name = "epaint_default_fonts"
 version = "0.34.2"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-deps#1668462b5043d753830c50d48ca9eddaa7633308"
+source = "git+https://github.com/Le-Syl21/egui?branch=activation-token-event#cb98ed58cbdfd874bc102fe541ae6ff665b649d7"
 
 [[package]]
 name = "equator"
@@ -3426,7 +3425,7 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
 name = "pinready"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "anyhow",
  "base64",
@@ -3463,8 +3462,6 @@ dependencies = [
  "ureq 3.3.0",
  "vpin",
  "walkdir",
- "wayland-client",
- "wayland-protocols",
  "winapi",
  "winres",
  "zip",
@@ -5888,8 +5885,7 @@ checksum = "d6bbff5f0aada427a1e5a6da5f1f98158182f26556f345ac9e04d36d0ebed650"
 [[package]]
 name = "winit"
 version = "0.30.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a6755fa58a9f8350bd1e472d4c3fcc25f824ec358933bba33306d0b63df5978d"
+source = "git+https://github.com/Le-Syl21/winit?branch=wayland-activation-serial#7bbf8fe46bd98765057d786618a2bd157048ae92"
 dependencies = [
  "ahash",
  "android-activity",

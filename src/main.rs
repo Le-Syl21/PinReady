@@ -24,8 +24,6 @@ mod tilt;
 mod updater;
 mod vbs_patches;
 mod vpsdb;
-#[cfg(target_os = "linux")]
-mod wayland_activation;
 
 use anyhow::Result;
 use std::io::Write;
@@ -713,19 +711,31 @@ fn run_eframe_for_mode(mode: app::AppMode) -> Result<()> {
             // is still honored — this is an additional user-level zoom.
             cc.egui_ctx.set_zoom_factor(1.20);
             // Register the egui-rotate plugin unconditionally. It owns
-            // per-viewport input rotation, output rotation and (in kiosk
-            // mode) the software cursor. Registered even when the initial
-            // rotation is `None` — the topbar `↻` button flips rotation
-            // live and needs the plugin already on the Context to take
-            // effect. Passthrough cost is negligible with `Rotation::None`.
-            let mut plugin = egui_rotate::RotationPlugin::new(rotation);
-            if want_kiosk_cursor {
-                plugin = plugin.with_software_cursor(
-                    egui_rotate::SoftwareCursor::new()
-                        .with_scale(3.0)
-                        .with_lock(true),
-                );
-            }
+            // per-viewport input rotation, output rotation and the
+            // software cursor. Registered even when the initial rotation
+            // is `None` — the topbar `↻` button flips rotation live and
+            // needs the plugin already on the Context to take effect.
+            // Passthrough cost is negligible with `Rotation::None`.
+            //
+            // The `SoftwareCursor` is also attached unconditionally: the
+            // plugin only activates it when a viewport is rotated, so
+            // wizard/desktop launcher run with the OS cursor until the
+            // user clicks ↻. From that click on, the cursor rotates
+            // along with the UI — the OS pointer is upright and would
+            // fight the visible axes otherwise.
+            //
+            // Kiosk cabinets keep the previous 3× lock+scale for far-
+            // viewing playfields; wizard/desktop match the OS cursor
+            // size at 1.0× so the user can be precise on small widgets
+            // (radio buttons, sliders, ini keys). The wizard cursor is
+            // also unlocked so the user can still leave the window
+            // (open a file dialog, focus another app…) at edges.
+            let cursor_scale = if want_kiosk_cursor { 3.0 } else { 1.0 };
+            let plugin = egui_rotate::RotationPlugin::new(rotation).with_software_cursor(
+                egui_rotate::SoftwareCursor::new()
+                    .with_scale(cursor_scale)
+                    .with_lock(want_kiosk_cursor),
+            );
             cc.egui_ctx.add_plugin(plugin);
             // Register egui context with pidlock so the socket listener
             // can wake egui up on focus requests (otherwise the atomic

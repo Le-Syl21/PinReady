@@ -144,8 +144,6 @@ const ABOUT_CRATE_THANKS: &[&str] = &[
     "ureq",
     "vpin",
     "walkdir",
-    "wayland-client",
-    "wayland-protocols",
     "winapi",
     "zip",
 ];
@@ -386,6 +384,16 @@ pub struct App {
     // session change on this boot. Rendered as a centred modal on top of
     // the wizard; cleared when the user clicks OK.
     session_change_notice: Option<(String, String)>,
+    // Two-step VPX launch state on Wayland: `Some((path, requested_at))`
+    // when the user has clicked a table and PinReady sent
+    // `ViewportCommand::RequestActivationToken` to the compositor but is
+    // still waiting for the reply. The launcher polls this every frame
+    // in `App::ui`: on `Event::ActivationTokenReceived` (or after a
+    // 500 ms deadline) it drains the pending state and spawns VPX with
+    // the token in `XDG_ACTIVATION_TOKEN` — the sealed serial is what
+    // makes mutter/kwin actually grant focus to the freshly-created
+    // window.
+    pending_vpx_launch: Option<(std::path::PathBuf, std::time::Instant)>,
     // Viewport rotation for the root window. CW90 in cabinet mode, None
     // otherwise. Shadow copy of the value passed to the `RotationPlugin`
     // registered on the egui Context — kept here purely so layout code can
@@ -658,6 +666,7 @@ impl App {
             theme_pref: egui::ThemePreference::System,
             about_open: false,
             session_change_notice: take_session_change_notice(),
+            pending_vpx_launch: None,
             rotation: egui_rotate::Rotation::None,
             kiosk_cursor: false,
             kiosk_cursor_warped: false,
@@ -1294,6 +1303,33 @@ impl eframe::App for App {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        // Two-step VPX launch: when the launcher clicks a table it stashes
+        // the path in `pending_vpx_launch` and asks the compositor for a
+        // fresh xdg-activation-v1 token via `RequestActivationToken`. The
+        // reply lands here as an `Event::ActivationTokenReceived` on the
+        // next frame; a 500 ms deadline bails out if the compositor never
+        // replies so the launch isn't held forever.
+        if let Some((path, requested_at)) = self.pending_vpx_launch.clone() {
+            let token = ui.ctx().input(|i| {
+                i.raw.events.iter().find_map(|e| match e {
+                    egui::Event::ActivationTokenReceived { token, .. } => Some(token.clone()),
+                    _ => None,
+                })
+            });
+            let deadline_exceeded = requested_at.elapsed() >= std::time::Duration::from_millis(500);
+            if token.is_some() || deadline_exceeded {
+                self.pending_vpx_launch = None;
+                if token.is_none() {
+                    log::warn!(
+                        "xdg-activation reply missed 500 ms deadline; launching VPX without token"
+                    );
+                }
+                self.launch_table(&path, token);
+            } else {
+                ui.ctx().request_repaint();
+            }
+        }
+
         // Kiosk cursor: scale + lock + virtual-pos bootstrap. Disabled while
         // VPX is running so it can take over keyboard/mouse input cleanly.
         let vpx_running = self.vpx_running.load(Ordering::Relaxed);

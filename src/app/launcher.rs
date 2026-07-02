@@ -697,7 +697,11 @@ impl App {
         self.audio_thread = Some(handle);
     }
 
-    pub(super) fn launch_table(&mut self, table_path: &std::path::Path) {
+    pub(super) fn launch_table(
+        &mut self,
+        table_path: &std::path::Path,
+        activation_token: Option<String>,
+    ) {
         if self.vpx_running.load(Ordering::Relaxed) {
             return;
         }
@@ -767,27 +771,24 @@ impl App {
                 log::info!("Pinning VPX's SDL_VIDEODRIVER to {driver}");
                 cmd.env("SDL_VIDEODRIVER", driver);
             }
-            // Request a fresh xdg-activation-v1 token from the Wayland
-            // compositor and inject it into VPX's env so its SDL3 window
-            // can take focus. Without this, mutter/kwin/sway honour
-            // focus-stealing prevention and the table opens behind the
-            // launcher. No-op on X11 / non-Linux.
-            #[cfg(target_os = "linux")]
-            if std::env::var("WAYLAND_DISPLAY").is_ok() {
-                match crate::wayland_activation::request_token() {
-                    Some(token) => {
-                        log::info!(
-                            "xdg-activation token obtained (len {}), passing to VPX",
-                            token.len()
-                        );
-                        cmd.env("XDG_ACTIVATION_TOKEN", token);
-                    }
-                    None => {
-                        log::warn!(
-                            "xdg-activation token unavailable; VPX may launch behind PinReady"
-                        );
-                    }
-                }
+            // Inject the compositor-issued xdg-activation-v1 token into
+            // VPX's env so its SDL3 window can grab focus. The token was
+            // requested from the compositor via
+            // `ViewportCommand::RequestActivationToken` at click time and
+            // delivered by winit through `Event::ActivationTokenReceived`.
+            // A missing token means either X11/non-Wayland (harmless — the
+            // env var is Wayland-specific) or the compositor didn't reply
+            // in time — VPX may open behind PinReady in that case.
+            if let Some(token) = activation_token {
+                log::info!(
+                    "xdg-activation token obtained (len {}), passing to VPX",
+                    token.len()
+                );
+                cmd.env("XDG_ACTIVATION_TOKEN", token);
+            } else {
+                log::debug!(
+                    "no xdg-activation token available; VPX may launch behind PinReady on Wayland"
+                );
             }
             let child = cmd.spawn();
             match child {
@@ -1312,7 +1313,17 @@ impl App {
             LauncherAction::Launch => {
                 if !self.tables.is_empty() {
                     let path = self.tables[self.selected_table].path.clone();
-                    self.launch_table(&path);
+                    // Two-step launch: request a fresh xdg-activation-v1
+                    // token from the compositor first, then spawn VPX in a
+                    // subsequent frame once winit delivers it via
+                    // `Event::ActivationTokenReceived`. Without a valid
+                    // serial-sealed token, mutter refuses to grant focus
+                    // and the table opens behind PinReady. A 500 ms
+                    // deadline in `App::ui` falls back to spawning without
+                    // a token if the reply never arrives (X11, no
+                    // xdg-activation, compositor bug…).
+                    self.pending_vpx_launch = Some((path, std::time::Instant::now()));
+                    ctx.send_viewport_cmd(egui::ViewportCommand::RequestActivationToken);
                 }
                 false
             }
