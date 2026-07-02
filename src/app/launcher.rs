@@ -697,6 +697,28 @@ impl App {
         self.audio_thread = Some(handle);
     }
 
+    /// Entry point for launching a table from any UI path (click, Enter,
+    /// joystick). On Wayland this is a two-step launch: request a fresh
+    /// xdg-activation-v1 token from the compositor, then spawn VPX on a
+    /// later frame once winit delivers it via
+    /// `Event::ActivationTokenReceived` — without a serial-sealed token,
+    /// mutter refuses to grant focus and the table opens behind PinReady.
+    /// A 500 ms deadline in `App::ui` falls back to launching without a
+    /// token if the compositor never replies.
+    ///
+    /// Everywhere else (macOS, Windows, X11, headless) the token dance is
+    /// pointless — `RequestActivationToken` would be a no-op or produce an
+    /// unused X11 startup id, and every launch would eat the full 500 ms
+    /// deadline — so we spawn immediately, exactly like pre-0.14.1.
+    pub(super) fn begin_table_launch(&mut self, path: std::path::PathBuf, ctx: &egui::Context) {
+        if crate::session::detect() == Some("wayland") {
+            self.pending_vpx_launch = Some((path, std::time::Instant::now()));
+            ctx.send_viewport_cmd(egui::ViewportCommand::RequestActivationToken);
+        } else {
+            self.launch_table(&path, None);
+        }
+    }
+
     pub(super) fn launch_table(
         &mut self,
         table_path: &std::path::Path,
@@ -1313,17 +1335,7 @@ impl App {
             LauncherAction::Launch => {
                 if !self.tables.is_empty() {
                     let path = self.tables[self.selected_table].path.clone();
-                    // Two-step launch: request a fresh xdg-activation-v1
-                    // token from the compositor first, then spawn VPX in a
-                    // subsequent frame once winit delivers it via
-                    // `Event::ActivationTokenReceived`. Without a valid
-                    // serial-sealed token, mutter refuses to grant focus
-                    // and the table opens behind PinReady. A 500 ms
-                    // deadline in `App::ui` falls back to spawning without
-                    // a token if the reply never arrives (X11, no
-                    // xdg-activation, compositor bug…).
-                    self.pending_vpx_launch = Some((path, std::time::Instant::now()));
-                    ctx.send_viewport_cmd(egui::ViewportCommand::RequestActivationToken);
+                    self.begin_table_launch(path, ctx);
                 }
                 false
             }
