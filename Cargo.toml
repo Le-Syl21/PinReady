@@ -153,14 +153,3 @@ strip = true
 egui        = { git = "https://github.com/Le-Syl21/egui", branch = "activation-token-event" }
 eframe      = { git = "https://github.com/Le-Syl21/egui", branch = "activation-token-event" }
 egui_extras = { git = "https://github.com/Le-Syl21/egui", branch = "activation-token-event" }
-emath       = { git = "https://github.com/Le-Syl21/egui", branch = "activation-token-event" }
-epaint      = { git = "https://github.com/Le-Syl21/egui", branch = "activation-token-event" }
-egui-winit  = { git = "https://github.com/Le-Syl21/egui", branch = "activation-token-event" }
-
-# winit patched to seal xdg-activation tokens with the last observed
-# `wl_pointer.button` serial (`set_serial(serial, &seat)` before commit).
-# Without this the compositor issues `_TIME0` tokens that mutter/kwin/
-# sway (strict focus stealing) reject — the child window opens behind
-# whoever launched it. Pending upstream PR at
-# https://github.com/rust-windowing/winit — pull when merged, then drop.
-winit       = { git = "https://github.com/Le-Syl21/winit", branch = "wayland-activation-serial" }
