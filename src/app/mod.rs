@@ -515,6 +515,11 @@ pub struct App {
     pinready_update_progress: (u64, u64),
     pinready_update_error: Option<String>,
 
+    /// `Some` while `VPX -h` runs in the background to (re)write the ini —
+    /// see `maybe_normalize_ini`. `ini_normalized` makes it a once-per-session
+    /// operation.
+    ini_norm_rx: Option<crossbeam_channel::Receiver<bool>>,
+    ini_normalized: bool,
 }
 
 impl App {
@@ -707,6 +712,8 @@ impl App {
             pinready_updating: false,
             pinready_update_progress: (0, 0),
             pinready_update_error: None,
+            ini_norm_rx: None,
+            ini_normalized: false,
         };
         if !start_in_wizard {
             s.scan_tables();
@@ -1120,6 +1127,178 @@ impl App {
         }
     }
 
+    /// Once per session, as soon as the VPX binary is available: run `VPX -h`
+    /// in the background so the binary itself (re)writes the ini — creating
+    /// the complete documented file on a fresh machine, or migrating an
+    /// existing one to its current schema while preserving every value.
+    fn maybe_normalize_ini(&mut self) {
+        if self.ini_normalized {
+            return;
+        }
+        let exe = updater::resolve_vpx_exe(std::path::Path::new(&self.vpx_exe_path));
+        if !exe.is_file() {
+            return;
+        }
+        self.ini_normalized = true;
+        self.ini_norm_rx = Some(Self::spawn_vpx_ini_rewrite(
+            exe,
+            self.config.path().to_path_buf(),
+        ));
+    }
+
+    /// Run `VPX -h` once: the help path loads the settings (merging any
+    /// existing ini), saves the complete file, and exits by itself in ~0.1 s
+    /// without opening a window (a bare launch would pop the player window on
+    /// Windows). Reports `true` when the ini exists afterwards. The
+    /// stable-size watch + kill remain as a belt in case a build lingers.
+    fn spawn_vpx_ini_rewrite(
+        exe: std::path::PathBuf,
+        ini: std::path::PathBuf,
+    ) -> crossbeam_channel::Receiver<bool> {
+        let (tx, rx) = crossbeam_channel::bounded(1);
+        std::thread::spawn(move || {
+            log::info!(
+                "Running `{} -h` to (re)write {} with VPX's current schema",
+                exe.display(),
+                ini.display()
+            );
+            let before = std::fs::metadata(&ini).ok().and_then(|m| m.modified().ok());
+            let mut child = match std::process::Command::new(&exe)
+                .arg("-h")
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+            {
+                Ok(c) => c,
+                Err(e) => {
+                    log::warn!("Could not launch VPX for ini rewrite: {e}");
+                    let _ = tx.send(false);
+                    return;
+                }
+            };
+
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+            loop {
+                if let Ok(Some(status)) = child.try_wait() {
+                    log::info!("VPX ini rewrite: process exited ({status})");
+                    break;
+                }
+                if std::time::Instant::now() > deadline {
+                    log::warn!("VPX ini rewrite timed out after 20s — killing");
+                    break;
+                }
+                // Rewritten (mtime moved or file appeared): wait for the exit,
+                // which follows within milliseconds on the help path.
+                let modified = std::fs::metadata(&ini).ok().and_then(|m| m.modified().ok());
+                if modified.is_some() && modified != before {
+                    let _ = child.wait();
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(200));
+            }
+            let _ = child.kill();
+            let _ = child.wait();
+            let ok = ini.exists();
+            log::info!("VPX ini rewrite {}", if ok { "succeeded" } else { "failed" });
+            let _ = tx.send(ok);
+        });
+        rx
+    }
+
+    /// Reload the config from the file VPX just rewrote and re-derive the
+    /// wizard state from it — including the Screens page when we are still on
+    /// it, so an existing installation's values (cabinet dimensions, touch
+    /// setting) land in the UI the user is looking at.
+    ///
+    /// Values only exist in memory until `finalize_wizard` flushes, so pages
+    /// the user already validated are re-applied from the (intact) UI state
+    /// onto the reloaded config, and only pages *beyond* the current one are
+    /// re-derived from the file — never clobbering something being edited.
+    fn reload_from_normalized_ini(&mut self) {
+        let path = self.config.path().to_path_buf();
+        match VpxConfig::load(Some(&path)) {
+            Ok(config) => self.config = config,
+            Err(e) => {
+                log::warn!("Could not reload normalized ini: {e}");
+                return;
+            }
+        }
+
+        let current = self.page.index();
+        for i in 0..current {
+            if let Some(page) = WizardPage::from_index(i) {
+                self.save_page(page);
+            }
+        }
+
+        if current == WizardPage::Screens.index() {
+            let (
+                screen_inclination,
+                lockbar_width,
+                lockbar_height,
+                player_x,
+                player_y,
+                player_z,
+                player_height,
+            ) = Self::load_cabinet_dimensions(&self.config);
+            self.screen_inclination = screen_inclination;
+            self.lockbar_width = lockbar_width;
+            self.lockbar_height = lockbar_height;
+            self.player_x = player_x;
+            self.player_y = player_y;
+            self.player_z = player_z;
+            self.player_height = player_height;
+            self.disable_touch = self
+                .config
+                .get_i32("Player", "NumberOfTimesToShowTouchMessage")
+                .unwrap_or(10)
+                == 0;
+        }
+
+        if current < WizardPage::Rendering.index() {
+            let (
+                aa_factor,
+                msaa,
+                fxaa,
+                sharpen,
+                pf_reflection,
+                max_tex_dim,
+                sync_mode,
+                max_framerate,
+                show_fps,
+            ) = Self::load_rendering_config(&self.config);
+            self.aa_factor = aa_factor;
+            self.msaa = msaa;
+            self.fxaa = fxaa;
+            self.sharpen = sharpen;
+            self.pf_reflection = pf_reflection;
+            self.max_tex_dim = max_tex_dim;
+            self.sync_mode = sync_mode;
+            self.max_framerate = max_framerate;
+            self.show_fps = show_fps;
+        }
+
+        if current < WizardPage::Inputs.index() {
+            self.actions = Self::load_input_mappings(&self.config);
+            // Controller detection may already have run — re-apply its button
+            // defaults, or the joystick column would come up empty until the
+            // user toggles the profile combo.
+            if self.pinscape_profile != inputs::PINSCAPE_PROFILE_NONE {
+                if let Some(vpx_id) = self.pinscape_id.clone() {
+                    self.apply_pinscape_defaults(&vpx_id);
+                }
+            }
+        }
+
+        if current < WizardPage::Tilt.index() {
+            self.tilt.load_from_config(&self.config);
+        }
+        if current < WizardPage::Audio.index() {
+            self.audio.load_from_config(&self.config);
+        }
+        log::info!("Wizard state re-derived from the VPX-normalized ini");
+    }
+
     fn prev_page(&mut self) {
         self.leave_page_hooks();
         if self.page.index() > 0 {
@@ -1511,6 +1690,31 @@ impl eframe::App for App {
         }
 
         self.process_wizard_joystick_events();
+
+        // Have VPX rewrite the ini once per session, as soon as its binary is
+        // available (present at startup, picked manually, or just downloaded —
+        // this per-frame guard covers all three). `VPX -h` loads the existing
+        // ini (or nothing), then saves the complete, documented, migrated file
+        // in ~0.1 s without opening a window: the authoritative binary owns
+        // the schema, PinReady only layers its values on top. When it lands,
+        // the wizard state is re-derived from the normalized file.
+        self.maybe_normalize_ini();
+        if let Some(rx) = &self.ini_norm_rx {
+            match rx.try_recv() {
+                Ok(ok) => {
+                    self.ini_norm_rx = None;
+                    if ok {
+                        self.reload_from_normalized_ini();
+                    }
+                }
+                Err(crossbeam_channel::TryRecvError::Empty) => {
+                    ui.ctx().request_repaint();
+                }
+                Err(crossbeam_channel::TryRecvError::Disconnected) => {
+                    self.ini_norm_rx = None;
+                }
+            }
+        }
 
         // === Wizard mode ===
 

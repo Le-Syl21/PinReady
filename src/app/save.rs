@@ -2,7 +2,11 @@ use super::*;
 
 impl App {
     pub(super) fn save_current_page(&mut self) {
-        match self.page {
+        self.save_page(self.page);
+    }
+
+    pub(super) fn save_page(&mut self, page: WizardPage) {
+        match page {
             WizardPage::Screens => self.save_screens(),
             WizardPage::Rendering => self.save_rendering(),
             WizardPage::Inputs => self.save_inputs(),
