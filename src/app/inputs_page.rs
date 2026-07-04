@@ -46,11 +46,20 @@ impl App {
             ui.horizontal(|ui| {
                 ui.label(t!("inputs_pinscape_profile"));
                 let prev_profile = self.pinscape_profile;
+                // Product names, plus a localized "None" sentinel entry that
+                // clears the defaults and opts out of detection re-applying
+                // them.
+                let profile_label = |i: usize| -> String {
+                    inputs::PINSCAPE_PROFILES
+                        .get(i)
+                        .map(|s| (*s).to_string())
+                        .unwrap_or_else(|| t!("inputs_profile_none").to_string())
+                };
                 egui::ComboBox::from_id_salt("pinscape_profile")
-                    .selected_text(inputs::PINSCAPE_PROFILES[self.pinscape_profile])
+                    .selected_text(profile_label(self.pinscape_profile))
                     .show_ui(ui, |ui| {
-                        for (i, label) in inputs::PINSCAPE_PROFILES.iter().enumerate() {
-                            ui.selectable_value(&mut self.pinscape_profile, i, *label);
+                        for i in 0..=inputs::PINSCAPE_PROFILE_NONE {
+                            ui.selectable_value(&mut self.pinscape_profile, i, profile_label(i));
                         }
                     });
                 if self.pinscape_profile != prev_profile {

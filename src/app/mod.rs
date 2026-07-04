@@ -1223,6 +1223,15 @@ impl App {
         self.sync_mode = sync_mode;
         self.max_framerate = max_framerate;
         self.actions = Self::load_input_mappings(&self.config);
+        // Controller detection ran on the Screens page, *before* this reload
+        // wiped `actions` — re-apply the detected profile's button defaults or
+        // the joystick column would come up empty until the user toggles the
+        // profile combo.
+        if self.pinscape_profile != inputs::PINSCAPE_PROFILE_NONE {
+            if let Some(vpx_id) = self.pinscape_id.clone() {
+                self.apply_pinscape_defaults(&vpx_id);
+            }
+        }
         self.tilt.load_from_config(&self.config);
         self.audio.load_from_config(&self.config);
         log::info!("Adopted VPX-generated defaults for rendering/inputs/tilt/audio");
@@ -1332,18 +1341,33 @@ impl App {
                 }
                 JoystickEvent::ButtonUp { .. } => {}
                 JoystickEvent::AxisMotion { .. } => {}
+                // Detection applies the profile's default buttons — unless the
+                // user explicitly selected the "None" profile, which opts out
+                // of any auto-mapping.
                 JoystickEvent::PinscapeDetected { vpx_id } => {
-                    self.apply_pinscape_defaults(vpx_id);
+                    if self.pinscape_profile != inputs::PINSCAPE_PROFILE_NONE {
+                        self.apply_pinscape_defaults(vpx_id);
+                    } else {
+                        self.pinscape_id = Some(vpx_id.clone());
+                    }
                 }
                 JoystickEvent::DudesCabDetected { vpx_id } => {
                     log::info!("DudesCab detected in UI: {}", vpx_id);
-                    self.pinscape_profile = 2;
-                    self.apply_pinscape_defaults(vpx_id);
+                    if self.pinscape_profile != inputs::PINSCAPE_PROFILE_NONE {
+                        self.pinscape_profile = 2;
+                        self.apply_pinscape_defaults(vpx_id);
+                    } else {
+                        self.pinscape_id = Some(vpx_id.clone());
+                    }
                 }
                 JoystickEvent::PinOneDetected { vpx_id } => {
                     log::info!("CSD PinOne detected in UI: {}", vpx_id);
-                    self.pinscape_profile = 3;
-                    self.apply_pinscape_defaults(vpx_id);
+                    if self.pinscape_profile != inputs::PINSCAPE_PROFILE_NONE {
+                        self.pinscape_profile = 3;
+                        self.apply_pinscape_defaults(vpx_id);
+                    } else {
+                        self.pinscape_id = Some(vpx_id.clone());
+                    }
                 }
                 JoystickEvent::GamepadDetected { vpx_id, name } => {
                     log::info!("Gamepad detected in UI: {} ({})", name, vpx_id);
