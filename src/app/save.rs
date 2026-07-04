@@ -168,6 +168,9 @@ impl App {
         self.config.set_i32("Player", "SyncMode", self.sync_mode);
         self.config
             .set_f32("Player", "MaxFramerate", self.max_framerate);
+        // 0 = off, 1 = FPS overlay (2 = full perf stats, not offered here).
+        self.config
+            .set_i32("Player", "ShowFPS", if self.show_fps { 1 } else { 0 });
     }
 
     pub(super) fn save_inputs(&mut self) {

@@ -52,6 +52,12 @@ impl App {
                 ui.label(t!("rendering_fps_info", hz = format!("{:.2}", pf_refresh)));
                 ui.end_row();
 
+                // FPS overlay in game (Player/ShowFPS) — recommended on, so a
+                // fresh setup can immediately judge the rendering settings.
+                ui.label(t!("rendering_show_fps"));
+                ui.checkbox(&mut self.show_fps, t!("rendering_show_fps_hint").to_string());
+                ui.end_row();
+
                 // Supersampling
                 ui.label(t!("rendering_supersampling"));
                 ui.horizontal(|ui| {

@@ -71,11 +71,6 @@ impl VpxConfig {
             .map_err(|e| anyhow::anyhow!("{e}"))
     }
 
-    /// Path of the ini file this config reads from / writes to.
-    pub fn path(&self) -> &Path {
-        &self.path
-    }
-
     pub fn get(&self, section: &str, key: &str) -> Option<String> {
         self.ini.get(section, key).map(|s| s.to_string())
     }

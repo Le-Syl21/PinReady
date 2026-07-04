@@ -288,6 +288,7 @@ pub struct App {
     max_tex_dim: i32,   // 512–16384
     sync_mode: i32,     // 0=No sync, 1=VSync
     max_framerate: f32, // -1=display, 0=unlimited, else value
+    show_fps: bool,     // Player/ShowFPS: FPS overlay in game (recommended on)
 
     // Live accelerometer data from joystick thread
     accel_x: f32,
@@ -514,11 +515,6 @@ pub struct App {
     pinready_update_progress: (u64, u64),
     pinready_update_error: Option<String>,
 
-    /// First run without a VPinballX.ini: VPX is launched once (no table) so
-    /// it writes its pristine default ini, which then seeds every wizard page
-    /// instead of PinReady's hardcoded defaults. `Some` while the generation
-    /// thread runs; the deferred page advance happens when it reports back.
-    ini_gen_rx: Option<crossbeam_channel::Receiver<bool>>,
 }
 
 impl App {
@@ -544,8 +540,17 @@ impl App {
             player_z,
             player_height,
         ) = Self::load_cabinet_dimensions(&config);
-        let (aa_factor, msaa, fxaa, sharpen, pf_reflection, max_tex_dim, sync_mode, max_framerate) =
-            Self::load_rendering_config(&config);
+        let (
+            aa_factor,
+            msaa,
+            fxaa,
+            sharpen,
+            pf_reflection,
+            max_tex_dim,
+            sync_mode,
+            max_framerate,
+            show_fps,
+        ) = Self::load_rendering_config(&config);
 
         // Detect + install the user's language BEFORE anything that
         // calls `t!()` or `scancode_name()`, so localised labels (key
@@ -622,6 +627,7 @@ impl App {
             max_tex_dim,
             sync_mode,
             max_framerate,
+            show_fps,
             capture_state: CaptureState::Idle,
             show_advanced_inputs: false,
             auto_map_active: false,
@@ -701,7 +707,6 @@ impl App {
             pinready_updating: false,
             pinready_update_progress: (0, 0),
             pinready_update_error: None,
-            ini_gen_rx: None,
         };
         if !start_in_wizard {
             s.scan_tables();
@@ -929,7 +934,8 @@ impl App {
         }
     }
 
-    fn load_rendering_config(config: &VpxConfig) -> (f32, i32, i32, i32, i32, i32, i32, f32) {
+    #[allow(clippy::type_complexity)]
+    fn load_rendering_config(config: &VpxConfig) -> (f32, i32, i32, i32, i32, i32, i32, f32, bool) {
         (
             config.get_f32("Player", "AAFactor").unwrap_or(1.0),
             config.get_i32("Player", "MSAASamples").unwrap_or(0),
@@ -939,6 +945,9 @@ impl App {
             config.get_i32("Player", "MaxTexDimension").unwrap_or(16384),
             config.get_i32("Player", "SyncMode").unwrap_or(0),
             config.get_f32("Player", "MaxFramerate").unwrap_or(-1.0),
+            // ShowFPS: 0 = off, 1 = FPS overlay, 2 = full perf stats. PinReady
+            // recommends the FPS overlay on — pre-checked when unset.
+            config.get_i32("Player", "ShowFPS").unwrap_or(1) != 0,
         )
     }
 
@@ -1104,137 +1113,11 @@ impl App {
 
     fn next_page(&mut self) {
         self.leave_page_hooks();
-        // First run: no VPinballX.ini on disk yet. Before PinReady writes its
-        // first (sparse) ini, launch VPX once without a table — it generates
-        // its complete default ini — so rendering / inputs / tilt / audio all
-        // start from VPX's *real* defaults instead of hardcoded guesses. The
-        // page advance is deferred until the generation thread reports back
-        // (modal overlay in `render_wizard`, which also reloads the config).
-        if self.page == WizardPage::Screens
-            && self.ini_gen_rx.is_none()
-            && !self.config.path().exists()
-        {
-            let exe = updater::resolve_vpx_exe(std::path::Path::new(&self.vpx_exe_path));
-            if exe.is_file() {
-                self.ini_gen_rx = Some(Self::spawn_ini_generation(
-                    exe,
-                    self.config.path().to_path_buf(),
-                ));
-                return;
-            }
-        }
-        self.advance_page();
-    }
-
-    /// The unconditional part of [`Self::next_page`]: persist the current
-    /// page and move forward.
-    fn advance_page(&mut self) {
         let next = self.page.index() + 1;
         if let Some(page) = WizardPage::from_index(next) {
             self.save_current_page();
             self.page = page;
         }
-    }
-
-    /// Run `VPX -h` once so it writes its pristine default ini. The help path
-    /// initialises (and saves) the settings without opening the player window
-    /// — on Windows a bare launch would pop the full window — then exits by
-    /// itself. Reports `true` when the ini exists afterwards. The stable-size
-    /// watch + kill remain as a belt in case a VPX build lingers anyway.
-    fn spawn_ini_generation(
-        exe: std::path::PathBuf,
-        ini: std::path::PathBuf,
-    ) -> crossbeam_channel::Receiver<bool> {
-        let (tx, rx) = crossbeam_channel::bounded(1);
-        std::thread::spawn(move || {
-            log::info!(
-                "No VPinballX.ini yet — running `{} -h` once to generate defaults",
-                exe.display()
-            );
-            let mut child = match std::process::Command::new(&exe)
-                .arg("-h")
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .spawn()
-            {
-                Ok(c) => c,
-                Err(e) => {
-                    log::warn!("Could not launch VPX for ini generation: {e}");
-                    let _ = tx.send(false);
-                    return;
-                }
-            };
-
-            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
-            let mut last_size: Option<u64> = None;
-            loop {
-                if let Ok(Some(status)) = child.try_wait() {
-                    log::info!("VPX exited by itself during ini generation ({status})");
-                    break;
-                }
-                if std::time::Instant::now() > deadline {
-                    log::warn!("VPX ini generation timed out after 20s — killing");
-                    break;
-                }
-                if let Ok(meta) = std::fs::metadata(&ini) {
-                    let size = meta.len();
-                    if size > 0 && last_size == Some(size) {
-                        // Two stable polls: VPX has finished writing.
-                        break;
-                    }
-                    last_size = Some(size);
-                }
-                std::thread::sleep(std::time::Duration::from_millis(300));
-            }
-            let _ = child.kill();
-            let _ = child.wait();
-            // Exit-time write: give the file one more look after teardown.
-            let ok = ini.exists();
-            log::info!(
-                "VPX default ini generation {}",
-                if ok { "succeeded" } else { "failed" }
-            );
-            let _ = tx.send(ok);
-        });
-        rx
-    }
-
-    /// Adopt the ini VPX just generated: reload it from disk and re-derive
-    /// the wizard state of the pages the user has *not* configured yet
-    /// (rendering, inputs, tilt, audio). Screens/cabinet UI state is left
-    /// alone — `advance_page` saves it on top right after.
-    fn adopt_generated_ini(&mut self) {
-        let path = self.config.path().to_path_buf();
-        match VpxConfig::load(Some(&path)) {
-            Ok(config) => self.config = config,
-            Err(e) => {
-                log::warn!("Could not reload generated ini: {e}");
-                return;
-            }
-        }
-        let (aa_factor, msaa, fxaa, sharpen, pf_reflection, max_tex_dim, sync_mode, max_framerate) =
-            Self::load_rendering_config(&self.config);
-        self.aa_factor = aa_factor;
-        self.msaa = msaa;
-        self.fxaa = fxaa;
-        self.sharpen = sharpen;
-        self.pf_reflection = pf_reflection;
-        self.max_tex_dim = max_tex_dim;
-        self.sync_mode = sync_mode;
-        self.max_framerate = max_framerate;
-        self.actions = Self::load_input_mappings(&self.config);
-        // Controller detection ran on the Screens page, *before* this reload
-        // wiped `actions` — re-apply the detected profile's button defaults or
-        // the joystick column would come up empty until the user toggles the
-        // profile combo.
-        if self.pinscape_profile != inputs::PINSCAPE_PROFILE_NONE {
-            if let Some(vpx_id) = self.pinscape_id.clone() {
-                self.apply_pinscape_defaults(&vpx_id);
-            }
-        }
-        self.tilt.load_from_config(&self.config);
-        self.audio.load_from_config(&self.config);
-        log::info!("Adopted VPX-generated defaults for rendering/inputs/tilt/audio");
     }
 
     fn prev_page(&mut self) {
@@ -1277,6 +1160,7 @@ impl App {
                 self.max_tex_dim = 16384;
                 self.sync_mode = 0;
                 self.max_framerate = -1.0;
+                self.show_fps = true;
             }
             WizardPage::Inputs => {
                 self.actions = crate::inputs::default_actions();
@@ -1640,35 +1524,6 @@ impl eframe::App for App {
         ui.style_mut().spacing.scroll.bar_outer_margin = 0.0;
 
         // Header
-        // First-run ini generation in progress: modal + deferred page advance.
-        if let Some(rx) = &self.ini_gen_rx {
-            match rx.try_recv() {
-                Ok(ok) => {
-                    self.ini_gen_rx = None;
-                    if ok {
-                        self.adopt_generated_ini();
-                    }
-                    // Either way, move on — on failure the pages simply keep
-                    // PinReady's built-in defaults, as before.
-                    self.advance_page();
-                }
-                Err(crossbeam_channel::TryRecvError::Empty) => {
-                    egui::Modal::new(egui::Id::new("ini_gen_modal")).show(ui.ctx(), |ui| {
-                        ui.set_width(360.0);
-                        ui.horizontal(|ui| {
-                            ui.add(egui::Spinner::new());
-                            ui.label(t!("wizard_generating_ini"));
-                        });
-                    });
-                    ui.ctx().request_repaint();
-                }
-                Err(crossbeam_channel::TryRecvError::Disconnected) => {
-                    self.ini_gen_rx = None;
-                    self.advance_page();
-                }
-            }
-        }
-
         egui::Panel::top("wizard_header").show_inside(ui, |ui| {
             ui.horizontal(|ui| {
                 // Two-icon toolbar (theme + rotation) at the very start of the
