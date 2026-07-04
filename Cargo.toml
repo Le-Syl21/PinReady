@@ -114,7 +114,7 @@ sdl-keybridge = { version = "0.3", features = ["all-locales"] }
 # for cabinet mode. Registered as an egui Plugin from `main.rs`; the plugin owns
 # input rotation, primitive rotation and the software cursor draw — PinReady
 # has no eframe hooks left to wire.
-egui-rotate = { version = "1", features = ["software-cursor"] }
+egui-rotate = { version = "1.1.1", features = ["software-cursor"] }
 
 [target.'cfg(windows)'.build-dependencies]
 winres = { version = "0.1", optional = true }

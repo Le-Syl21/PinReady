@@ -1248,15 +1248,9 @@ impl App {
     /// (BG/DMD/Topper) explicitly, then request the root viewport close.
     /// Called from the Quit button, ExitGame joystick action, and Escape key.
     pub(super) fn quit_launcher(&mut self, ctx: &egui::Context) {
-        Self::with_software_cursor(ctx, |c| c.set_lock(false));
-        // Symmetric with the kiosk loop: we only ever grab on non-Wayland,
-        // so we only need to release there too. Sending CursorGrab::None
-        // on Wayland would trigger the same winit "not supported" warn.
-        if !crate::app::skip_os_cursor_grab() {
-            ctx.send_viewport_cmd(egui::ViewportCommand::CursorGrab(
-                egui::viewport::CursorGrab::None,
-            ));
-        }
+        // Releasing the capture is enough since egui-rotate 1.1: the plugin
+        // drops its OS grab and stops hiding the pointer on that transition.
+        Self::with_software_cursor(ctx, |c| c.release());
         ctx.send_viewport_cmd(egui::ViewportCommand::CursorVisible(true));
 
         Self::close_cover_viewports(ctx);
@@ -1392,6 +1386,13 @@ impl App {
                     else {
                         continue;
                     };
+                    // Joystick navigation parks the software cursor (dissolve
+                    // + hover cleared): a pointer resting on a card would
+                    // otherwise re-select it and override flipper navigation.
+                    // egui never sees joystick events, so this is signalled
+                    // manually; keyboard gets the same via the plugin's
+                    // `with_dormant_on_keys`. Any mouse move reforms it.
+                    Self::with_software_cursor(ui.ctx(), |c| c.set_dormant(true));
                     let applied = self.apply_launcher_action(action, ui.ctx());
                     if applied && action.is_directional() {
                         let now = std::time::Instant::now();
@@ -1423,16 +1424,12 @@ impl App {
                         self.vpx_loading_msg = "Startup done".to_string();
                         self.vpx_loading_pct = None;
                         self.vpx_hide_covers = true;
-                        // Release cursor lock so VPX gets the mouse. Focus is
-                        // released naturally because the kiosk focus-reclaim
-                        // loop is gated on !vpx_running. VPX windows then
-                        // z-order on top of PinReady.
-                        Self::with_software_cursor(ctx, |c| c.set_lock(false));
-                        if !crate::app::skip_os_cursor_grab() {
-                            ctx.send_viewport_cmd(egui::ViewportCommand::CursorGrab(
-                                egui::viewport::CursorGrab::None,
-                            ));
-                        }
+                        // Release the cursor capture so VPX gets the mouse —
+                        // the plugin drops its OS grab on that transition
+                        // (egui-rotate 1.1). Focus is released naturally
+                        // because the kiosk focus-reclaim loop is gated on
+                        // !vpx_running. VPX windows then z-order on top.
+                        Self::with_software_cursor(ctx, |c| c.release());
                         ctx.send_viewport_cmd(egui::ViewportCommand::CursorVisible(true));
                     }
                     VpxStatus::ExitOk => {

@@ -69,10 +69,10 @@ fn init_logging() {
     //
     // We previously had `egui_winit=error` here to silence the per-frame
     // `WARN egui_winit] CursorGrab(Locked): the requested operation is
-    // not supported by Winit` on Wayland. The cleaner fix is in place
-    // now: `app::skip_os_cursor_grab()` gates the `ViewportCommand::CursorGrab`
-    // calls so the unsupported syscall is never made on Wayland to
-    // begin with — egui_winit warns at default `warn` level once again.
+    // not supported by Winit` on Wayland. Moot since egui-rotate 1.1: the
+    // plugin owns the grab, sends it only on capture/release transitions,
+    // and uses a per-platform mode that winit actually supports (see
+    // `os_grab` below) — egui_winit warns at default `warn` level again.
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
         .format(move |buf, record| {
             let ts = time::OffsetDateTime::now_local()
@@ -728,13 +728,35 @@ fn run_eframe_for_mode(mode: app::AppMode) -> Result<()> {
             // viewing playfields; wizard/desktop match the OS cursor
             // size at 1.0× so the user can be precise on small widgets
             // (radio buttons, sliders, ini keys). The wizard cursor is
-            // also unlocked so the user can still leave the window
-            // (open a file dialog, focus another app…) at edges.
+            // not hard-locked so the user can still leave the window
+            // (open a file dialog, focus another app…) — since
+            // egui-rotate 1.1 it soft-locks instead: the edge resists
+            // casual contact but a deliberate push still exits.
             let cursor_scale = if want_kiosk_cursor { 3.0 } else { 1.0 };
+            // The plugin owns the OS pointer grab (egui-rotate 1.1): it sends
+            // `CursorGrab` on capture/release transitions, so the old manual
+            // per-frame grab loop and its Linux opt-out are gone. Mode per
+            // platform (winit support matrix): `Confined` exists on Wayland,
+            // X11 and Windows; macOS only implements `Locked`.
+            let os_grab = if cfg!(target_os = "macos") {
+                egui::viewport::CursorGrab::Locked
+            } else {
+                egui::viewport::CursorGrab::Confined
+            };
             let plugin = egui_rotate::RotationPlugin::new(rotation).with_software_cursor(
                 egui_rotate::SoftwareCursor::new()
                     .with_scale(cursor_scale)
-                    .with_lock(want_kiosk_cursor),
+                    .with_lock(want_kiosk_cursor)
+                    .with_os_grab(Some(os_grab))
+                    // Launcher only: keyboard navigation parks the cursor
+                    // (dissolve + hover cleared) so a pointer resting on a
+                    // card can't override flipper-key selection; the joystick
+                    // path does the same via `set_dormant` in
+                    // `handle_launcher_joystick`. Any mouse use reforms it in
+                    // place. The wizard keeps the cursor visible while typing
+                    // — it's a form UI, hiding on every keystroke would be
+                    // distracting.
+                    .with_dormant_on_keys(!start_in_wizard),
             );
             cc.egui_ctx.add_plugin(plugin);
             // Register egui context with pidlock so the socket listener

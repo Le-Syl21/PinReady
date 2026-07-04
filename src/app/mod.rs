@@ -20,26 +20,6 @@ pub enum AppMode {
     Launcher,
 }
 
-/// True when we should **skip** the OS-level cursor-grab call
-/// (`ViewportCommand::CursorGrab(Locked|None)`).
-///
-/// History: this used to be `skip_os_cursor_grab()` because winit explicitly
-/// refuses cursor grab on Wayland (relative-pointer protocol unsupported)
-/// and emits a `WARN egui_winit] CursorGrab(...) NotSupported` per-frame
-/// spam. On X11 the call technically *works* but in PinReady's kiosk
-/// flow (borderless-fullscreen + rotated viewport on a 4K playfield) the
-/// confine-pointer behaviour is unreliable and users report it
-/// "doesn't really grab" anyway. So we skip the grab on the whole
-/// Linux family (X11 + Wayland) and rely solely on the egui-rotate
-/// SoftwareCursor's lock for cursor confinement — which works
-/// regardless of windowing system.
-///
-/// macOS and Windows still get the real OS grab; no reason to drop it
-/// there.
-pub fn skip_os_cursor_grab() -> bool {
-    cfg!(target_os = "linux")
-}
-
 /// Cross-session signal for `main.rs` to know what to do after the current
 /// eframe session exits. Set by UI click handlers (Finish, Config, etc.) just
 /// before they send `ViewportCommand::Close`; `main.rs` reads it after
@@ -1341,28 +1321,18 @@ impl eframe::App for App {
             // virtual_pos is updating internally each frame.
             ctx.request_repaint();
 
-            // Re-assert the SoftwareCursor lock + the OS-level cursor grab
-            // every frame so VPX → resume transitions land in the right state.
-            // The SoftwareCursor lock is pure software (fork-only feature)
-            // and works on every platform.
+            // The SoftwareCursor lock and the OS-level pointer grab are owned
+            // by the egui-rotate plugin since 1.1: the lock is set once at
+            // construction (nothing toggles it anymore — VPX launch/resume
+            // release and re-capture the *whole* cursor instead), and the
+            // grab is sent on capture/release transitions with the right
+            // per-platform mode (see `os_grab` in `main.rs`).
             //
-            // The OS-level `CursorGrab::Locked` is forwarded by egui_winit
-            // to `winit::Window::set_cursor_grab` which on **Wayland is a
-            // hard NotSupported** (the relative-pointer protocol isn't
-            // wired into winit). We skip the call there to avoid a per-frame
-            // `WARN egui_winit] CursorGrab(Locked)` spam in the log; on X11,
-            // macOS and Windows the call confines the OS pointer to the
-            // window and is genuinely useful.
-            //
-            // `CursorVisible(false)` is honoured everywhere — keep it
-            // unconditional so the OS pointer doesn't flicker on top of
-            // the rendered software cursor.
-            Self::with_software_cursor(ctx, |c| c.set_lock(true));
-            if !skip_os_cursor_grab() {
-                ctx.send_viewport_cmd(egui::ViewportCommand::CursorGrab(
-                    egui::viewport::CursorGrab::Locked,
-                ));
-            }
+            // `CursorVisible(false)` stays: the plugin only hides the OS
+            // pointer while the software cursor is captured, and there is a
+            // captureless gap right after VPX exits (until the warp latch
+            // below re-seeds the cursor) where the OS pointer would flicker
+            // on top of the playfield.
             ctx.send_viewport_cmd(egui::ViewportCommand::CursorVisible(false));
 
             // Reclaim focus only when the compositor will honour it. On
