@@ -118,6 +118,11 @@ impl VpxConfig {
             self.set_i32(section, &format!("{prefix}Output"), 1);
         }
         self.set(section, &format!("{prefix}Display"), name);
+        // Borderless fullscreen on the assigned display. VPX's default is
+        // 0 = Windowed, which scatters the windows wherever the compositor
+        // puts them — assigning a whole monitor per role is the entire point
+        // of the wizard, so pin 1 = Borderless Fullscreen explicitly.
+        self.set_i32(section, &format!("{prefix}FullScreen"), 1);
         self.set(section, &format!("{prefix}WndX"), "");
         self.set(section, &format!("{prefix}WndY"), "");
         self.set_i32(section, &format!("{prefix}Width"), w);
@@ -247,6 +252,9 @@ mod tests {
         );
         assert_eq!(cfg.get_i32("Player", "PlayfieldWidth"), Some(3840));
         assert_eq!(cfg.get_i32("Player", "PlayfieldHeight"), Some(2160));
+        // Borderless fullscreen must be pinned: VPX defaults to 0 = Windowed
+        // and scatters the windows (cab regression found by config diff).
+        assert_eq!(cfg.get_i32("Player", "PlayfieldFullScreen"), Some(1));
     }
 
     #[test]
