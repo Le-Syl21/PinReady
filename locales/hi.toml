@@ -502,3 +502,5 @@ session_change_ok = "ठीक है, फिर से कॉन्फ़िग
 inputs_profile_none = "कोई नहीं"
 rendering_show_fps = "FPS दिखाएँ"
 rendering_show_fps_hint = "खेल में FPS काउंटर दिखाएँ (अनुशंसित)"
+inputs_unmap_keyboard = "डिफ़ॉल्ट कुंजी पर लौटें"
+inputs_unmap_joystick = "जॉयस्टिक बटन हटाएँ"

@@ -15,6 +15,9 @@ const COL_JOYSTICK_WIDTH: f32 = 382.0;
 const COL_BUTTON_WIDTH: f32 = 140.0;
 const COL_SPACING: f32 = 8.0;
 const ROW_HEIGHT: f32 = 28.0;
+/// Width reserved inside each binding column for its ✕ unmap button, so the
+/// text stays aligned whether or not the button is shown.
+const UNMAP_BTN_WIDTH: f32 = 22.0;
 /// Total list width = sum of columns + 3 inter-cell gaps. Used to clamp
 /// the row rendering so the action list doesn't stretch edge-to-edge on
 /// wide windows (which made the per-row borders look insignificant).
@@ -298,9 +301,22 @@ impl App {
                         egui::RichText::new(keyboard_text)
                     };
                     ui.add_sized(
-                        [COL_KEYBOARD_WIDTH, ROW_HEIGHT],
+                        [COL_KEYBOARD_WIDTH - UNMAP_BTN_WIDTH - COL_SPACING, ROW_HEIGHT],
                         egui::Label::new(keyboard_rich),
                     );
+                    // ✕ = drop the custom key, back to the VPX default.
+                    // `add_visible` keeps the slot allocated when absent so
+                    // the columns stay aligned.
+                    if ui
+                        .add_visible(
+                            keyboard.is_some(),
+                            egui::Button::new("✕").min_size(egui::vec2(UNMAP_BTN_WIDTH, 0.0)),
+                        )
+                        .on_hover_text(t!("inputs_unmap_keyboard"))
+                        .clicked()
+                    {
+                        self.actions[idx].keyboard = None;
+                    }
 
                     // Joystick column: assigned button or em-dash. Lives
                     // alongside the keyboard binding — VPX runs both.
@@ -318,9 +334,20 @@ impl App {
                         egui::RichText::new(joystick_text)
                     };
                     ui.add_sized(
-                        [COL_JOYSTICK_WIDTH, ROW_HEIGHT],
+                        [COL_JOYSTICK_WIDTH - UNMAP_BTN_WIDTH - COL_SPACING, ROW_HEIGHT],
                         egui::Label::new(joystick_rich),
                     );
+                    // ✕ = unassign the joystick button entirely.
+                    if ui
+                        .add_visible(
+                            joystick.is_some(),
+                            egui::Button::new("✕").min_size(egui::vec2(UNMAP_BTN_WIDTH, 0.0)),
+                        )
+                        .on_hover_text(t!("inputs_unmap_joystick"))
+                        .clicked()
+                    {
+                        self.actions[idx].joystick = None;
+                    }
 
                     // Capture button.
                     let btn_label = if is_capturing {

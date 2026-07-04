@@ -695,7 +695,6 @@ pub fn pinscape_button_defaults(profile: usize) -> &'static [(&'static str, u8)]
             ("LeftStagedFlipper", 7), // same physical button as flipper (double switch stack)
             ("RightStagedFlipper", 8), // same physical button as flipper (double switch stack)
             ("Lockbar", 11),
-            ("Tilt", 12),
             ("CoinDoor", 13),
             ("Service1", 14),
             ("Service2", 15),
@@ -722,7 +721,6 @@ pub fn pinscape_button_defaults(profile: usize) -> &'static [(&'static str, u8)]
             ("RightStagedFlipper", 12),
             ("LeftMagna", 13),
             ("RightMagna", 14),
-            ("Tilt", 15),
             ("SlamTilt", 16),
             ("CoinDoor", 17),
             ("Service1", 18),
@@ -751,7 +749,6 @@ pub fn pinscape_button_defaults(profile: usize) -> &'static [(&'static str, u8)]
             ("RightMagna", 10),        // Gamepad 11
             ("LeftStagedFlipper", 7),  // same physical button as flipper
             ("RightStagedFlipper", 8), // same physical button as flipper
-            ("Tilt", 11),              // Gamepad 12
             ("Lockbar", 12),           // Gamepad 13 (Fire)
             ("CoinDoor", 13),          // Gamepad 14
             ("Service1", 14),          // Gamepad 15 (ROM Exit)
@@ -785,7 +782,6 @@ pub fn pinscape_button_defaults(profile: usize) -> &'static [(&'static str, u8)]
             ("Service2", 19),    // VPX Button 20 (Down)
             ("Service3", 20),    // VPX Button 21 (Up)
             ("Service4", 21),    // VPX Button 22 (Enter)
-            ("Tilt", 22),        // VPX Button 23 (Mech Tilt)
             ("LaunchBall", 23),  // VPX Button 24 (Plunger digital)
         ],
         // PINSCAPE_PROFILE_NONE (or anything unknown): no defaults.
