@@ -3,21 +3,26 @@ use super::*;
 // Row sizing for the manually-laid-out action list. Fixed widths so every
 // row aligns; per-row backgrounds (striping + hover + capturing) work
 // because we know the exact rect each row occupies.
-// Wide enough to fit the longest realistic binding without wrapping —
-// SDL3 spits out things like
+// The joystick column must fit the longest realistic binding without
+// wrapping — SDL3 spits out things like
 // `SDLJoy_03004c8009120000eaea000011010000_1 ; Button 7` (≈ 50 chars).
 // Anything narrower made short/long bindings render at different visual
 // heights and the table looked broken. Fixed widths keep the column
 // edges glued in place no matter what value lands in them.
 const COL_ACTION_WIDTH: f32 = 280.0;
-const COL_BINDING_WIDTH: f32 = 560.0;
+const COL_KEYBOARD_WIDTH: f32 = 170.0;
+const COL_JOYSTICK_WIDTH: f32 = 382.0;
 const COL_BUTTON_WIDTH: f32 = 140.0;
 const COL_SPACING: f32 = 8.0;
 const ROW_HEIGHT: f32 = 28.0;
-/// Total list width = sum of columns + 2 inter-cell gaps. Used to clamp
+/// Total list width = sum of columns + 3 inter-cell gaps. Used to clamp
 /// the row rendering so the action list doesn't stretch edge-to-edge on
 /// wide windows (which made the per-row borders look insignificant).
-const LIST_WIDTH: f32 = COL_ACTION_WIDTH + COL_BINDING_WIDTH + COL_BUTTON_WIDTH + 2.0 * COL_SPACING;
+const LIST_WIDTH: f32 = COL_ACTION_WIDTH
+    + COL_KEYBOARD_WIDTH
+    + COL_JOYSTICK_WIDTH
+    + COL_BUTTON_WIDTH
+    + 3.0 * COL_SPACING;
 
 // Higher-contrast stripes than the previous (40/28) — a 4K cabinet
 // playfield washes out subtle deltas, so we go full ±8 around mid-grey.
@@ -51,10 +56,7 @@ impl App {
                 if self.pinscape_profile != prev_profile {
                     if let Some(vpx_id) = self.pinscape_id.clone() {
                         for action in &mut self.actions {
-                            if matches!(&action.mapping, Some(CapturedInput::JoystickButton { .. }))
-                            {
-                                action.mapping = None;
-                            }
+                            action.joystick = None;
                         }
                         self.apply_pinscape_defaults(&vpx_id);
                     }
@@ -131,7 +133,10 @@ impl App {
                         .or_else(|| inputs::egui_key_to_scancode(key));
                     if let Some(sc) = sc {
                         if idx < self.actions.len() {
-                            self.actions[idx].mapping = Some(CapturedInput::Keyboard {
+                            // A key fills the keyboard slot only — any
+                            // joystick binding stays alongside (VPX runs
+                            // both as alternatives).
+                            self.actions[idx].keyboard = Some(CapturedInput::Keyboard {
                                 scancode: sc,
                                 name: inputs::scancode_name(sc),
                             });
@@ -149,7 +154,7 @@ impl App {
             {
                 if let Some(sc) = inputs::egui_modifiers_to_scancode(&modifiers) {
                     if idx < self.actions.len() {
-                        self.actions[idx].mapping = Some(CapturedInput::Keyboard {
+                        self.actions[idx].keyboard = Some(CapturedInput::Keyboard {
                             scancode: sc,
                             name: inputs::scancode_name(sc),
                         });
@@ -215,8 +220,12 @@ impl App {
                 egui::Label::new(egui::RichText::new(t!("inputs_col_action")).strong()),
             );
             ui.add_sized(
-                [COL_BINDING_WIDTH, ROW_HEIGHT],
-                egui::Label::new(egui::RichText::new(t!("inputs_col_binding")).strong()),
+                [COL_KEYBOARD_WIDTH, ROW_HEIGHT],
+                egui::Label::new(egui::RichText::new(t!("inputs_col_keyboard")).strong()),
+            );
+            ui.add_sized(
+                [COL_JOYSTICK_WIDTH, ROW_HEIGHT],
+                egui::Label::new(egui::RichText::new(t!("inputs_col_joystick")).strong()),
             );
             ui.add_sized([COL_BUTTON_WIDTH, ROW_HEIGHT], egui::Label::new(""));
         });
@@ -226,7 +235,8 @@ impl App {
             // Snapshot what we need from this action so we can take
             // `&mut self` later for the click handler.
             let label = self.actions[idx].label;
-            let mapping = self.actions[idx].mapping.clone();
+            let keyboard = self.actions[idx].keyboard.clone();
+            let joystick = self.actions[idx].joystick.clone();
             let default_scancode = self.actions[idx].default_scancode;
             let is_capturing = self.capture_state == CaptureState::Capturing(idx);
             let has_conflict = conflicts.iter().any(|(a, b)| *a == idx || *b == idx);
@@ -252,10 +262,12 @@ impl App {
                         egui::Label::new(action_text),
                     );
 
-                    // Binding column.
-                    let binding_text = if is_capturing {
+                    // Keyboard column: custom key, else the VPX default.
+                    // While capturing, the hint sits here (a key press fills
+                    // this column, a joystick button the other one).
+                    let keyboard_text = if is_capturing {
                         t!("inputs_capturing").to_string()
-                    } else if let Some(ref captured) = mapping {
+                    } else if let Some(ref captured) = keyboard {
                         captured.display_name().to_string()
                     } else if default_scancode != sdl3_sys::everything::SDL_SCANCODE_UNKNOWN {
                         format!(
@@ -266,19 +278,39 @@ impl App {
                     } else {
                         t!("inputs_unassigned").to_string()
                     };
-                    let binding_rich = if is_capturing {
-                        egui::RichText::new(binding_text)
+                    let keyboard_rich = if is_capturing {
+                        egui::RichText::new(keyboard_text)
                             .strong()
                             .color(egui::Color32::WHITE)
                     } else if has_conflict {
-                        egui::RichText::new(format!("/!\\ {binding_text}"))
+                        egui::RichText::new(format!("/!\\ {keyboard_text}"))
                             .color(egui::Color32::from_rgb(255, 165, 0))
                     } else {
-                        egui::RichText::new(binding_text)
+                        egui::RichText::new(keyboard_text)
                     };
                     ui.add_sized(
-                        [COL_BINDING_WIDTH, ROW_HEIGHT],
-                        egui::Label::new(binding_rich),
+                        [COL_KEYBOARD_WIDTH, ROW_HEIGHT],
+                        egui::Label::new(keyboard_rich),
+                    );
+
+                    // Joystick column: assigned button or em-dash. Lives
+                    // alongside the keyboard binding — VPX runs both.
+                    let joystick_text = if let Some(ref captured) = joystick {
+                        captured.display_name().to_string()
+                    } else {
+                        "—".to_string()
+                    };
+                    let joystick_rich = if has_conflict {
+                        egui::RichText::new(format!("/!\\ {joystick_text}"))
+                            .color(egui::Color32::from_rgb(255, 165, 0))
+                    } else if joystick.is_none() {
+                        egui::RichText::new(joystick_text).weak()
+                    } else {
+                        egui::RichText::new(joystick_text)
+                    };
+                    ui.add_sized(
+                        [COL_JOYSTICK_WIDTH, ROW_HEIGHT],
+                        egui::Label::new(joystick_rich),
                     );
 
                     // Capture button.

@@ -1214,7 +1214,8 @@ impl App {
             if !NAV_ACTIONS.contains(&action.setting_id) {
                 continue;
             }
-            if let Some(inputs::CapturedInput::JoystickButton { button: b, .. }) = &action.mapping {
+            if let Some(inputs::CapturedInput::JoystickButton { button: b, .. }) = &action.joystick
+            {
                 if *b == button {
                     return Some(action.setting_id.to_string());
                 }

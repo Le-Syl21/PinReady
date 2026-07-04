@@ -4,7 +4,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 
-/// An input action that can be mapped to a key or button.
+/// An input action that can be mapped to a key *and* a joystick button.
+///
+/// VPX supports alternatives (`Mapping.X = joy;btn | Key;sc`): pressing either
+/// input triggers the action. The two slots are therefore independent —
+/// capturing a key replaces only `keyboard`, capturing a button replaces only
+/// `joystick` — and both are written to the ini side by side.
 #[derive(Clone)]
 #[allow(dead_code)] // `essential` carries the historical split that the unified inputs list no longer reads
 pub struct InputAction {
@@ -12,7 +17,10 @@ pub struct InputAction {
     pub label: &'static str,
     pub default_scancode: SDL_Scancode,
     pub essential: bool,
-    pub mapping: Option<CapturedInput>,
+    /// Custom keyboard binding (`None` = fall back to `default_scancode`).
+    pub keyboard: Option<CapturedInput>,
+    /// Joystick binding, alongside the keyboard one (`None` = unassigned).
+    pub joystick: Option<CapturedInput>,
 }
 
 /// A captured input event (keyboard or joystick).
@@ -352,84 +360,96 @@ pub fn default_actions() -> Vec<InputAction> {
             label: "input_left_flipper",
             default_scancode: SDL_SCANCODE_LSHIFT,
             essential: true,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "RightFlipper",
             label: "input_right_flipper",
             default_scancode: SDL_SCANCODE_RSHIFT,
             essential: true,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "LeftStagedFlipper",
             label: "input_left_staged_flipper",
             default_scancode: SDL_SCANCODE_LSHIFT,
             essential: true,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "RightStagedFlipper",
             label: "input_right_staged_flipper",
             default_scancode: SDL_SCANCODE_RSHIFT,
             essential: true,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "LeftMagna",
             label: "input_left_magna",
             default_scancode: SDL_SCANCODE_LCTRL,
             essential: true,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "RightMagna",
             label: "input_right_magna",
             default_scancode: SDL_SCANCODE_RCTRL,
             essential: true,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "Lockbar",
             label: "input_lockbar",
             default_scancode: SDL_SCANCODE_LALT,
             essential: true,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "ExtraBall",
             label: "input_extra_ball",
             default_scancode: SDL_SCANCODE_B,
             essential: true,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "LaunchBall",
             label: "input_launch_ball",
             default_scancode: SDL_SCANCODE_RETURN,
             essential: true,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "Start",
             label: "input_start",
             default_scancode: SDL_SCANCODE_1,
             essential: true,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "Credit1",
             label: "input_add_credit",
             default_scancode: SDL_SCANCODE_5,
             essential: true,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "ExitGame",
             label: "input_exit_game",
             default_scancode: SDL_SCANCODE_ESCAPE,
             essential: true,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         // Advanced — coin door, services, keyboard nudge, etc.
         InputAction {
@@ -437,175 +457,200 @@ pub fn default_actions() -> Vec<InputAction> {
             label: "input_credit_2",
             default_scancode: SDL_SCANCODE_4,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "Credit3",
             label: "input_credit_3",
             default_scancode: SDL_SCANCODE_3,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "Credit4",
             label: "input_credit_4",
             default_scancode: SDL_SCANCODE_6,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "CoinDoor",
             label: "input_coin_door",
             default_scancode: SDL_SCANCODE_END,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "SlamTilt",
             label: "input_slam_tilt",
             default_scancode: SDL_SCANCODE_HOME,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "Reset",
             label: "input_reset",
             default_scancode: SDL_SCANCODE_F3,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "Service1",
             label: "input_service1",
             default_scancode: SDL_SCANCODE_7,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "Service2",
             label: "input_service2",
             default_scancode: SDL_SCANCODE_8,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "Service3",
             label: "input_service3",
             default_scancode: SDL_SCANCODE_9,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "Service4",
             label: "input_service4",
             default_scancode: SDL_SCANCODE_0,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "Service5",
             label: "input_service5",
             default_scancode: SDL_SCANCODE_6,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "Service6",
             label: "input_service6",
             default_scancode: SDL_SCANCODE_PAGEUP,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "Service7",
             label: "input_service7",
             default_scancode: SDL_SCANCODE_MINUS,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "Service8",
             label: "input_service8",
             default_scancode: SDL_SCANCODE_UNKNOWN,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "LeftNudge",
             label: "input_left_nudge",
             default_scancode: SDL_SCANCODE_Z,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "RightNudge",
             label: "input_right_nudge",
             default_scancode: SDL_SCANCODE_SLASH,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "CenterNudge",
             label: "input_center_nudge",
             default_scancode: SDL_SCANCODE_SPACE,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "Tilt",
             label: "input_tilt",
             default_scancode: SDL_SCANCODE_T,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "Pause",
             label: "input_pause",
             default_scancode: SDL_SCANCODE_P,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "VolumeDown",
             label: "input_volume_down",
             default_scancode: SDL_SCANCODE_MINUS,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "VolumeUp",
             label: "input_volume_up",
             default_scancode: SDL_SCANCODE_EQUALS,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "Custom1",
             label: "input_custom1",
             default_scancode: SDL_SCANCODE_UNKNOWN,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "Custom2",
             label: "input_custom2",
             default_scancode: SDL_SCANCODE_UNKNOWN,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "Custom3",
             label: "input_custom3",
             default_scancode: SDL_SCANCODE_UNKNOWN,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
         InputAction {
             setting_id: "Custom4",
             label: "input_custom4",
             default_scancode: SDL_SCANCODE_UNKNOWN,
             essential: false,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         },
     ]
 }
@@ -762,12 +807,30 @@ pub fn find_conflicts(actions: &[InputAction]) -> Vec<(usize, usize)> {
     let mut conflicts = Vec::new();
     for i in 0..actions.len() {
         for j in (i + 1)..actions.len() {
+            if is_intentional_collision(actions[i].setting_id, actions[j].setting_id) {
+                continue;
+            }
             let a = effective_scancode(&actions[i]);
             let b = effective_scancode(&actions[j]);
-            if a != SDL_SCANCODE_UNKNOWN
-                && a == b
-                && !is_intentional_collision(actions[i].setting_id, actions[j].setting_id)
-            {
+            let keyboard_clash = a != SDL_SCANCODE_UNKNOWN && a == b;
+            // Same physical button on two actions clashes too — keyboard and
+            // joystick slots are independent, so check them independently.
+            let joystick_clash = match (&actions[i].joystick, &actions[j].joystick) {
+                (
+                    Some(CapturedInput::JoystickButton {
+                        device_id: da,
+                        button: ba,
+                        ..
+                    }),
+                    Some(CapturedInput::JoystickButton {
+                        device_id: db,
+                        button: bb,
+                        ..
+                    }),
+                ) => da == db && ba == bb,
+                _ => false,
+            };
+            if keyboard_clash || joystick_clash {
                 conflicts.push((i, j));
             }
         }
@@ -776,7 +839,7 @@ pub fn find_conflicts(actions: &[InputAction]) -> Vec<(usize, usize)> {
 }
 
 pub(crate) fn effective_scancode(action: &InputAction) -> SDL_Scancode {
-    match &action.mapping {
+    match &action.keyboard {
         Some(CapturedInput::Keyboard { scancode, .. }) => *scancode,
         None => action.default_scancode,
         _ => SDL_SCANCODE_UNKNOWN,
@@ -1070,7 +1133,7 @@ mod tests {
     fn default_actions_none_have_mapping() {
         for action in default_actions() {
             assert!(
-                action.mapping.is_none(),
+                action.keyboard.is_none() && action.joystick.is_none(),
                 "{} should have no mapping by default",
                 action.setting_id
             );
@@ -1086,7 +1149,8 @@ mod tests {
             label: "test",
             default_scancode: SDL_SCANCODE_A,
             essential: true,
-            mapping: None,
+            keyboard: None,
+            joystick: None,
         };
         assert!(effective_scancode(&action) == SDL_SCANCODE_A);
     }
@@ -1098,28 +1162,32 @@ mod tests {
             label: "test",
             default_scancode: SDL_SCANCODE_A,
             essential: true,
-            mapping: Some(CapturedInput::Keyboard {
+            keyboard: Some(CapturedInput::Keyboard {
                 scancode: SDL_SCANCODE_B,
                 name: "B".to_string(),
             }),
+            joystick: None,
         };
         assert!(effective_scancode(&action) == SDL_SCANCODE_B);
     }
 
     #[test]
-    fn effective_scancode_with_joystick_is_unknown() {
+    fn effective_scancode_ignores_joystick_slot() {
+        // A joystick binding lives in its own slot: the keyboard side still
+        // falls back to the default scancode (both are active in VPX).
         let action = InputAction {
             setting_id: "Test",
             label: "test",
             default_scancode: SDL_SCANCODE_A,
             essential: true,
-            mapping: Some(CapturedInput::JoystickButton {
+            keyboard: None,
+            joystick: Some(CapturedInput::JoystickButton {
                 device_id: "dev".to_string(),
                 button: 0,
                 name: "B0".to_string(),
             }),
         };
-        assert!(effective_scancode(&action) == SDL_SCANCODE_UNKNOWN);
+        assert!(effective_scancode(&action) == SDL_SCANCODE_A);
     }
 
     // --- find_conflicts ---
@@ -1132,14 +1200,16 @@ mod tests {
                 label: "a",
                 default_scancode: SDL_SCANCODE_A,
                 essential: true,
-                mapping: None,
+                keyboard: None,
+                joystick: None,
             },
             InputAction {
                 setting_id: "B",
                 label: "b",
                 default_scancode: SDL_SCANCODE_B,
                 essential: true,
-                mapping: None,
+                keyboard: None,
+                joystick: None,
             },
         ];
         assert!(find_conflicts(&actions).is_empty());
@@ -1153,14 +1223,16 @@ mod tests {
                 label: "a",
                 default_scancode: SDL_SCANCODE_LSHIFT,
                 essential: true,
-                mapping: None,
+                keyboard: None,
+                joystick: None,
             },
             InputAction {
                 setting_id: "B",
                 label: "b",
                 default_scancode: SDL_SCANCODE_LSHIFT,
                 essential: true,
-                mapping: None,
+                keyboard: None,
+                joystick: None,
             },
         ];
         let conflicts = find_conflicts(&actions);
@@ -1176,14 +1248,16 @@ mod tests {
                 label: "a",
                 default_scancode: SDL_SCANCODE_UNKNOWN,
                 essential: false,
-                mapping: None,
+                keyboard: None,
+                joystick: None,
             },
             InputAction {
                 setting_id: "B",
                 label: "b",
                 default_scancode: SDL_SCANCODE_UNKNOWN,
                 essential: false,
-                mapping: None,
+                keyboard: None,
+                joystick: None,
             },
         ];
         assert!(find_conflicts(&actions).is_empty());
@@ -1197,17 +1271,19 @@ mod tests {
                 label: "a",
                 default_scancode: SDL_SCANCODE_A,
                 essential: true,
-                mapping: Some(CapturedInput::Keyboard {
+                keyboard: Some(CapturedInput::Keyboard {
                     scancode: SDL_SCANCODE_Z,
                     name: "Z".to_string(),
                 }),
+                joystick: None,
             },
             InputAction {
                 setting_id: "B",
                 label: "b",
                 default_scancode: SDL_SCANCODE_Z,
                 essential: true,
-                mapping: None,
+                keyboard: None,
+                joystick: None,
             },
         ];
         let conflicts = find_conflicts(&actions);
@@ -1215,14 +1291,17 @@ mod tests {
     }
 
     #[test]
-    fn find_conflicts_joystick_mapping_no_conflict_with_keyboard() {
+    fn find_conflicts_keyboard_default_stays_active_alongside_joystick() {
+        // Both slots are live in VPX (`joy | Key;A`): assigning a joystick
+        // button no longer masks a keyboard-default clash.
         let actions = vec![
             InputAction {
                 setting_id: "A",
                 label: "a",
                 default_scancode: SDL_SCANCODE_A,
                 essential: true,
-                mapping: Some(CapturedInput::JoystickButton {
+                keyboard: None,
+                joystick: Some(CapturedInput::JoystickButton {
                     device_id: "dev".to_string(),
                     button: 0,
                     name: "B0".to_string(),
@@ -1233,10 +1312,72 @@ mod tests {
                 label: "b",
                 default_scancode: SDL_SCANCODE_A,
                 essential: true,
-                mapping: None,
+                keyboard: None,
+                joystick: None,
             },
         ];
-        // A uses joystick (effective = UNKNOWN), B uses keyboard A → no conflict
+        assert_eq!(find_conflicts(&actions).len(), 1);
+    }
+
+    #[test]
+    fn find_conflicts_detects_same_joystick_button() {
+        let actions = vec![
+            InputAction {
+                setting_id: "A",
+                label: "a",
+                default_scancode: SDL_SCANCODE_A,
+                essential: true,
+                keyboard: None,
+                joystick: Some(CapturedInput::JoystickButton {
+                    device_id: "dev".to_string(),
+                    button: 3,
+                    name: "B3".to_string(),
+                }),
+            },
+            InputAction {
+                setting_id: "B",
+                label: "b",
+                default_scancode: SDL_SCANCODE_B,
+                essential: true,
+                keyboard: None,
+                joystick: Some(CapturedInput::JoystickButton {
+                    device_id: "dev".to_string(),
+                    button: 3,
+                    name: "B3".to_string(),
+                }),
+            },
+        ];
+        assert_eq!(find_conflicts(&actions).len(), 1);
+    }
+
+    #[test]
+    fn find_conflicts_different_joystick_buttons_ok() {
+        let actions = vec![
+            InputAction {
+                setting_id: "A",
+                label: "a",
+                default_scancode: SDL_SCANCODE_A,
+                essential: true,
+                keyboard: None,
+                joystick: Some(CapturedInput::JoystickButton {
+                    device_id: "dev".to_string(),
+                    button: 3,
+                    name: "B3".to_string(),
+                }),
+            },
+            InputAction {
+                setting_id: "B",
+                label: "b",
+                default_scancode: SDL_SCANCODE_B,
+                essential: true,
+                keyboard: None,
+                joystick: Some(CapturedInput::JoystickButton {
+                    device_id: "dev".to_string(),
+                    button: 4,
+                    name: "B4".to_string(),
+                }),
+            },
+        ];
         assert!(find_conflicts(&actions).is_empty());
     }
 

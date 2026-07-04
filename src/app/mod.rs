@@ -944,31 +944,43 @@ impl App {
                     continue;
                 }
                 log::info!("  {} = {}", action.setting_id, mapping_str);
-                let first = mapping_str
-                    .split('|')
-                    .next()
-                    .unwrap_or("")
-                    .split('&')
-                    .next()
-                    .unwrap_or("")
-                    .trim();
-                if let Some(sc_str) = first.strip_prefix("Key;") {
-                    if let Ok(sc_val) = sc_str.parse::<i32>() {
-                        let scancode = sdl3_sys::everything::SDL_Scancode(sc_val);
-                        action.mapping = Some(CapturedInput::Keyboard {
-                            scancode,
-                            name: inputs::scancode_name(scancode),
-                        });
+                // VPX alternatives (`a | b`) fill the two independent slots:
+                // the first `Key;N` part lands in `keyboard`, the first
+                // device part in `joystick`. `&` combos: keep the first leg,
+                // like before.
+                for part in mapping_str.split('|') {
+                    let part = part.split('&').next().unwrap_or("").trim();
+                    if let Some(sc_str) = part.strip_prefix("Key;") {
+                        if action.keyboard.is_none() {
+                            if let Ok(sc_val) = sc_str.parse::<i32>() {
+                                let scancode = sdl3_sys::everything::SDL_Scancode(sc_val);
+                                action.keyboard = Some(CapturedInput::Keyboard {
+                                    scancode,
+                                    name: inputs::scancode_name(scancode),
+                                });
+                            }
+                        }
+                    } else if let Some(pos) = part.find(';') {
+                        if action.joystick.is_none() {
+                            let device_id = part[..pos].to_string();
+                            let rest = &part[pos + 1..];
+                            if let Ok(button) = rest.split(';').next().unwrap_or("").parse::<u8>() {
+                                action.joystick = Some(CapturedInput::JoystickButton {
+                                    device_id: device_id.clone(),
+                                    button,
+                                    name: format!("{} Button {}", device_id, button),
+                                });
+                            }
+                        }
                     }
-                } else if let Some(pos) = first.find(';') {
-                    let device_id = first[..pos].to_string();
-                    let rest = &first[pos + 1..];
-                    if let Ok(button) = rest.split(';').next().unwrap_or("").parse::<u8>() {
-                        action.mapping = Some(CapturedInput::JoystickButton {
-                            device_id: device_id.clone(),
-                            button,
-                            name: format!("{} Button {}", device_id, button),
-                        });
+                }
+                // A `Key;` part identical to the action's default is the
+                // fallback older PinReady versions appended automatically —
+                // treat it as "no custom key" so the UI keeps showing
+                // "(default)" instead of a phantom customization.
+                if let Some(CapturedInput::Keyboard { scancode, .. }) = &action.keyboard {
+                    if *scancode == action.default_scancode {
+                        action.keyboard = None;
                     }
                 }
             }
@@ -1180,7 +1192,9 @@ impl App {
                 } => {
                     if let CaptureState::Capturing(idx) = self.capture_state {
                         if idx < self.actions.len() {
-                            self.actions[idx].mapping = Some(CapturedInput::JoystickButton {
+                            // Fills the joystick slot only — the keyboard
+                            // binding of the action is kept alongside.
+                            self.actions[idx].joystick = Some(CapturedInput::JoystickButton {
                                 device_id: device_id.clone(),
                                 button: *button,
                                 name: name.clone(),
@@ -1223,8 +1237,8 @@ impl App {
         let defaults = pinscape_button_defaults(self.pinscape_profile);
         for (action_id, button) in defaults {
             if let Some(action) = self.actions.iter_mut().find(|a| a.setting_id == *action_id) {
-                if action.mapping.is_none() {
-                    action.mapping = Some(CapturedInput::JoystickButton {
+                if action.joystick.is_none() {
+                    action.joystick = Some(CapturedInput::JoystickButton {
                         device_id: vpx_id.to_string(),
                         button: *button,
                         name: format!("{} Button {}", vpx_id, button),
