@@ -477,6 +477,7 @@ system_detected = "検出されたシステム"
 inputs_auto_map = "すべての入力を自動割り当て"
 inputs_auto_map_running = "自動割り当て実行中 — Escでスキップ、キャンセルで停止。"
 inputs_auto_map_cancel = "自動割り当てをキャンセル"
+inputs_auto_map_skip = "スキップ"
 
 system_mirror_label = "セルフホスト ミラー (任意)"
 system_mirror_hint = "VBS カタログと VPin メディア DB を GitHub の代わりに自前のサーバーを経由します。空欄で GitHub から直接取得します。例: https://pinready.syl21.org"

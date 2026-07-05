@@ -476,6 +476,7 @@ system_detected = "النظام المكتشف"
 inputs_auto_map = "تعيين كل المدخلات تلقائيًا"
 inputs_auto_map_running = "التعيين التلقائي قيد التشغيل — Escape لتخطي، إلغاء للتوقف."
 inputs_auto_map_cancel = "إلغاء التعيين التلقائي"
+inputs_auto_map_skip = "تخطّي"
 
 system_mirror_label = "مرآة مستضافة ذاتيًا (اختياري)"
 system_mirror_hint = "يوجه كتالوج VBS وقاعدة وسائط VPin عبر خادمك الخاص بدلاً من GitHub. اترك فارغًا للوصول إلى GitHub مباشرة. مثال: https://pinready.syl21.org"

@@ -478,6 +478,7 @@ system_detected = "Обнаруженная система"
 inputs_auto_map = "Авто-назначить все входы"
 inputs_auto_map_running = "Авто-назначение идёт — Escape пропускает, Отмена останавливает."
 inputs_auto_map_cancel = "Отменить авто-назначение"
+inputs_auto_map_skip = "Пропустить"
 
 system_mirror_label = "Самостоятельно размещаемое зеркало (опционально)"
 system_mirror_hint = "Маршрутизирует каталог VBS и VPin media DB через ваш собственный сервер вместо GitHub. Оставьте пустым для прямой загрузки с GitHub. Пример: https://pinready.syl21.org"

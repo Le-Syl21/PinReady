@@ -475,6 +475,7 @@ system_detected = "检测到的系统"
 inputs_auto_map = "自动映射所有输入"
 inputs_auto_map_running = "自动映射运行中 — Escape 跳过,取消停止。"
 inputs_auto_map_cancel = "取消自动映射"
+inputs_auto_map_skip = "跳过"
 
 system_mirror_label = "自托管镜像(可选)"
 system_mirror_hint = "通过您自己的服务器路由 VBS 目录和 VPin 媒体数据库,而不是直接访问 GitHub。留空则直接从 GitHub 拉取。示例: https://pinready.syl21.org"

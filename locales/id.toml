@@ -477,6 +477,7 @@ system_detected = "Sistem terdeteksi"
 inputs_auto_map = "Petakan otomatis semua input"
 inputs_auto_map_running = "Pemetaan otomatis berjalan — Escape untuk lewati, Batalkan untuk berhenti."
 inputs_auto_map_cancel = "Batalkan pemetaan otomatis"
+inputs_auto_map_skip = "Lewati"
 
 system_mirror_label = "Mirror swa-host (opsional)"
 system_mirror_hint = "Merutekan katalog VBS dan media DB VPin melalui server Anda sendiri, bukan langsung GitHub. Kosongkan untuk ambil langsung dari GitHub. Contoh: https://pinready.syl21.org"

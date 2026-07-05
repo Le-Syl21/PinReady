@@ -477,6 +477,7 @@ system_detected = "Zistený systém"
 inputs_auto_map = "Automaticky priradiť všetky vstupy"
 inputs_auto_map_running = "Automatické priraďovanie beží — Escape preskočí, Zrušiť zastaví."
 inputs_auto_map_cancel = "Zrušiť automatické priraďovanie"
+inputs_auto_map_skip = "Preskočiť"
 
 system_mirror_label = "Vlastné zrkadlo (voliteľné)"
 system_mirror_hint = "Smeruje katalóg VBS a VPin media DB cez váš vlastný server namiesto GitHubu. Ponechajte prázdne pre priame sťahovanie z GitHubu. Príklad: https://pinready.syl21.org"

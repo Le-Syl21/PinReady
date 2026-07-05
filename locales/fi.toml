@@ -477,6 +477,7 @@ system_detected = "Tunnistettu järjestelmä"
 inputs_auto_map = "Määritä kaikki syötteet autom."
 inputs_auto_map_running = "Automaattinen määritys käynnissä — Esc ohittaa, Peruuta lopettaa."
 inputs_auto_map_cancel = "Peruuta automaattinen määritys"
+inputs_auto_map_skip = "Ohita"
 
 system_mirror_label = "Itse isännöity peili (valinnainen)"
 system_mirror_hint = "Reitittää VBS-luettelon ja VPin-mediatietokannan oman palvelimesi kautta GitHubin sijaan. Jätä tyhjäksi ladataksesi suoraan GitHubista. Esimerkki: https://pinready.syl21.org"

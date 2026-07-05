@@ -475,6 +475,7 @@ system_detected = "偵測到的系統"
 inputs_auto_map = "自動對應所有輸入"
 inputs_auto_map_running = "自動對應進行中 — Escape 跳過,取消停止。"
 inputs_auto_map_cancel = "取消自動對應"
+inputs_auto_map_skip = "跳過"
 
 system_mirror_label = "自架鏡像(可選)"
 system_mirror_hint = "透過您自己的伺服器路由 VBS 目錄和 VPin 媒體資料庫,而不是直接存取 GitHub。留空則直接從 GitHub 拉取。範例: https://pinready.syl21.org"

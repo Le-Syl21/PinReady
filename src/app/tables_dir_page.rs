@@ -67,11 +67,12 @@ impl App {
         ui.separator();
         ui.add_space(8.0);
 
-        // ---- Help section (folded by default) ----
+        // ---- Help section (open by default so the layout guidance is the
+        //      first thing a new user sees on this page) ----
         egui::CollapsingHeader::new(
             egui::RichText::new(format!("❓ {}", t!("tables_help_section"))).strong(),
         )
-        .default_open(false)
+        .default_open(true)
         .show(ui, |ui| {
             ui.label(t!("tables_structure"));
             ui.add_space(4.0);

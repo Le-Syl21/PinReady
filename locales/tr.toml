@@ -478,6 +478,7 @@ system_detected = "Algılanan sistem"
 inputs_auto_map = "Tüm girişleri otomatik ata"
 inputs_auto_map_running = "Otomatik atama devam ediyor — Esc atlamak, İptal durdurmak için."
 inputs_auto_map_cancel = "Otomatik atamayı iptal et"
+inputs_auto_map_skip = "Atla"
 
 system_mirror_label = "Kendi kendine barındırılan ayna (isteğe bağlı)"
 system_mirror_hint = "VBS kataloğunu ve VPin media DByi GitHub yerine kendi sunucunuz üzerinden yönlendirir. Doğrudan GitHubdan almak için boş bırakın. Örnek: https://pinready.syl21.org"

@@ -477,6 +477,7 @@ system_detected = "Erkanntes System"
 inputs_auto_map = "Alle Eingaben automatisch zuweisen"
 inputs_auto_map_running = "Auto-Zuweisung läuft — Escape überspringt, Abbrechen stoppt."
 inputs_auto_map_cancel = "Auto-Zuweisung abbrechen"
+inputs_auto_map_skip = "Überspringen"
 
 system_mirror_label = "Selbst gehostetes Mirror (optional)"
 system_mirror_hint = "Leitet den VBS-Katalog und die VPin-Media-DB über deinen eigenen Server statt direkt von GitHub. Leer lassen um direkt von GitHub zu laden. Beispiel: https://pinready.syl21.org"

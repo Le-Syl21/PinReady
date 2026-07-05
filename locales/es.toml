@@ -478,6 +478,7 @@ system_detected = "Sistema detectado"
 inputs_auto_map = "Asignar todas las entradas auto."
 inputs_auto_map_running = "Auto-asignación en curso — Escape para saltar, Cancelar para parar."
 inputs_auto_map_cancel = "Cancelar auto-asignación"
+inputs_auto_map_skip = "Omitir"
 
 system_mirror_label = "Espejo autoalojado (opcional)"
 system_mirror_hint = "Enruta el catálogo VBS y la base de medios VPin a través de tu propio servidor en lugar de GitHub. Deja vacío para descargar directo de GitHub. Ejemplo: https://pinready.syl21.org"

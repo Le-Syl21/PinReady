@@ -477,6 +477,7 @@ system_detected = "Gedetecteerd systeem"
 inputs_auto_map = "Alle invoer automatisch koppelen"
 inputs_auto_map_running = "Automatische koppeling actief — Escape om over te slaan, Annuleren om te stoppen."
 inputs_auto_map_cancel = "Automatische koppeling annuleren"
+inputs_auto_map_skip = "Overslaan"
 
 system_mirror_label = "Zelf gehoste mirror (optioneel)"
 system_mirror_hint = "Routeert de VBS-catalogus en VPin media-DB via je eigen server in plaats van GitHub. Laat leeg om direct van GitHub te downloaden. Voorbeeld: https://pinready.syl21.org"

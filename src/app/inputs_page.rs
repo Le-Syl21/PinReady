@@ -1,29 +1,26 @@
 use super::*;
 
-// Row sizing for the manually-laid-out action list. Fixed widths so every
-// row aligns; per-row backgrounds (striping + hover + capturing) work
-// because we know the exact rect each row occupies.
-// The joystick column must fit the longest realistic binding without
-// wrapping — SDL3 spits out things like
-// `SDLJoy_03004c8009120000eaea000011010000_1 ; Button 7` (≈ 50 chars).
-// Anything narrower made short/long bindings render at different visual
-// heights and the table looked broken. Fixed widths keep the column
-// edges glued in place no matter what value lands in them.
+// Row sizing for the manually-laid-out action list. The action/keyboard/button
+// columns are fixed; the joystick column is elastic and absorbs the remaining
+// window width, so the table spans the full page. Long bindings — SDL3 emits
+// things like `SDLJoy_03004c8009120000eaea000011010000_1 ; Button 7` (≈ 50
+// chars) — are truncated with an ellipsis rather than stretching the row, which
+// kept the layout tidy no matter what value lands in the cell.
 const COL_ACTION_WIDTH: f32 = 280.0;
 const COL_KEYBOARD_WIDTH: f32 = 170.0;
-const COL_JOYSTICK_WIDTH: f32 = 382.0;
+/// Minimum for the elastic joystick column; it grows to fill the window.
+const COL_JOYSTICK_MIN: f32 = 240.0;
 const COL_BUTTON_WIDTH: f32 = 140.0;
 const COL_SPACING: f32 = 8.0;
 const ROW_HEIGHT: f32 = 28.0;
-/// Width reserved inside each binding column for its ✕ unmap button, so the
+/// Width reserved inside each binding column for its × unmap button, so the
 /// text stays aligned whether or not the button is shown.
 const UNMAP_BTN_WIDTH: f32 = 22.0;
-/// Total list width = sum of columns + 3 inter-cell gaps. Used to clamp
-/// the row rendering so the action list doesn't stretch edge-to-edge on
-/// wide windows (which made the per-row borders look insignificant).
-const LIST_WIDTH: f32 = COL_ACTION_WIDTH
+/// Smallest total list width (narrow window); above this the joystick column
+/// takes all the extra space so the table reaches the page edge.
+const LIST_MIN_WIDTH: f32 = COL_ACTION_WIDTH
     + COL_KEYBOARD_WIDTH
-    + COL_JOYSTICK_WIDTH
+    + COL_JOYSTICK_MIN
     + COL_BUTTON_WIDTH
     + 3.0 * COL_SPACING;
 
@@ -83,9 +80,9 @@ impl App {
         ui.label(t!("inputs_instructions").to_string());
         ui.add_space(8.0);
 
-        // Auto-map controls — single button that walks every action in
-        // turn. Escape skips one (keeps the existing default), the
-        // "Cancel" button bails entirely.
+        // Auto-map controls — walks every action in turn. "Skip" leaves the
+        // current action's binding untouched and moves to the next; "Cancel"
+        // bails out entirely. (Escape is a mappable key, not a skip.)
         ui.horizontal(|ui| {
             if !self.auto_map_active {
                 if ui
@@ -102,6 +99,10 @@ impl App {
                     egui::Color32::from_rgb(255, 200, 80),
                     t!("inputs_auto_map_running"),
                 );
+                if ui.button(t!("inputs_auto_map_skip")).clicked() {
+                    // Keep the current binding, advance to the next action.
+                    self.advance_capture_or_finish();
+                }
                 if ui.button(t!("inputs_auto_map_cancel")).clicked() {
                     self.auto_map_active = false;
                     self.capture_state = CaptureState::Idle;
@@ -135,11 +136,9 @@ impl App {
             });
             for &(key, physical_key, pressed) in &key_events {
                 if pressed {
-                    if key == egui::Key::Escape {
-                        // Skip this one — leaves the binding unchanged.
-                        captured_or_skipped = true;
-                        break;
-                    }
+                    // Escape is a mappable key (VPX's default ExitGame) — it is
+                    // captured like any other. Skipping an action is done only
+                    // via the "Skip" button, never a key.
                     let sc = physical_key
                         .and_then(inputs::egui_key_to_scancode)
                         .or_else(|| inputs::egui_key_to_scancode(key));
@@ -210,12 +209,12 @@ impl App {
     }
 
     fn render_action_list_unified(&mut self, ui: &mut egui::Ui, conflicts: &[(usize, usize)]) {
-        // Wrap the whole list in a fixed-width vertical so rows don't
-        // stretch to the full window. Tighter gap between cells too —
-        // egui's default `item_spacing` is 8 and our column widths
-        // already include their own padding.
+        // Span the full page width (down to a sensible minimum on narrow
+        // windows). Tighter gap between cells — egui's default `item_spacing`
+        // is 8 and our column widths already include their own padding.
+        let width = ui.available_width().max(LIST_MIN_WIDTH);
         ui.allocate_ui_with_layout(
-            egui::vec2(LIST_WIDTH, 0.0),
+            egui::vec2(width, 0.0),
             egui::Layout::top_down(egui::Align::LEFT),
             |ui| {
                 ui.spacing_mut().item_spacing = egui::vec2(COL_SPACING, 0.0);
@@ -225,6 +224,15 @@ impl App {
     }
 
     fn render_action_list_inner(&mut self, ui: &mut egui::Ui, conflicts: &[(usize, usize)]) {
+        // Elastic joystick column: whatever width is left after the fixed
+        // columns and gaps. Long bindings truncate inside it (see cell code).
+        let joystick_w = (ui.available_width()
+            - COL_ACTION_WIDTH
+            - COL_KEYBOARD_WIDTH
+            - COL_BUTTON_WIDTH
+            - 3.0 * COL_SPACING)
+            .max(COL_JOYSTICK_MIN);
+
         // Header row.
         ui.horizontal(|ui| {
             ui.add_sized(
@@ -236,7 +244,7 @@ impl App {
                 egui::Label::new(egui::RichText::new(t!("inputs_col_keyboard")).strong()),
             );
             ui.add_sized(
-                [COL_JOYSTICK_WIDTH, ROW_HEIGHT],
+                [joystick_w, ROW_HEIGHT],
                 egui::Label::new(egui::RichText::new(t!("inputs_col_joystick")).strong()),
             );
             ui.add_sized([COL_BUTTON_WIDTH, ROW_HEIGHT], egui::Label::new(""));
@@ -271,7 +279,7 @@ impl App {
                     };
                     ui.add_sized(
                         [COL_ACTION_WIDTH, ROW_HEIGHT],
-                        egui::Label::new(action_text),
+                        egui::Label::new(action_text).truncate(),
                     );
 
                     // Keyboard column: custom key, else the VPX default.
@@ -302,7 +310,7 @@ impl App {
                     };
                     ui.add_sized(
                         [COL_KEYBOARD_WIDTH - UNMAP_BTN_WIDTH - COL_SPACING, ROW_HEIGHT],
-                        egui::Label::new(keyboard_rich),
+                        egui::Label::new(keyboard_rich).truncate(),
                     );
                     // ✕ = drop the custom key, back to the VPX default.
                     // `add_visible` keeps the slot allocated when absent so
@@ -310,7 +318,7 @@ impl App {
                     if ui
                         .add_visible(
                             keyboard.is_some(),
-                            egui::Button::new("✕").min_size(egui::vec2(UNMAP_BTN_WIDTH, 0.0)),
+                            egui::Button::new("×").min_size(egui::vec2(UNMAP_BTN_WIDTH, 0.0)),
                         )
                         .on_hover_text(t!("inputs_unmap_keyboard"))
                         .clicked()
@@ -334,14 +342,14 @@ impl App {
                         egui::RichText::new(joystick_text)
                     };
                     ui.add_sized(
-                        [COL_JOYSTICK_WIDTH - UNMAP_BTN_WIDTH - COL_SPACING, ROW_HEIGHT],
-                        egui::Label::new(joystick_rich),
+                        [joystick_w - UNMAP_BTN_WIDTH - COL_SPACING, ROW_HEIGHT],
+                        egui::Label::new(joystick_rich).truncate(),
                     );
                     // ✕ = unassign the joystick button entirely.
                     if ui
                         .add_visible(
                             joystick.is_some(),
-                            egui::Button::new("✕").min_size(egui::vec2(UNMAP_BTN_WIDTH, 0.0)),
+                            egui::Button::new("×").min_size(egui::vec2(UNMAP_BTN_WIDTH, 0.0)),
                         )
                         .on_hover_text(t!("inputs_unmap_joystick"))
                         .clicked()

@@ -477,6 +477,7 @@ system_detected = "Detekterat system"
 inputs_auto_map = "Auto-tilldela alla ingångar"
 inputs_auto_map_running = "Auto-tilldelning pågår — Escape hoppar över, Avbryt stoppar."
 inputs_auto_map_cancel = "Avbryt auto-tilldelning"
+inputs_auto_map_skip = "Hoppa över"
 
 system_mirror_label = "Självhostad spegel (valfritt)"
 system_mirror_hint = "Dirigerar VBS-katalogen och VPin media-DB via din egen server istället för GitHub. Lämna tomt för att hämta direkt från GitHub. Exempel: https://pinready.syl21.org"

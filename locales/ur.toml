@@ -477,6 +477,7 @@ system_detected = "پتہ لگایا گیا سسٹم"
 inputs_auto_map = "تمام ان پٹس خود کار طور پر تفویض کریں"
 inputs_auto_map_running = "خود کار تفویض جاری ہے — چھوڑنے کے لیے Escape، روکنے کے لیے منسوخ کریں۔"
 inputs_auto_map_cancel = "خود کار تفویض منسوخ کریں"
+inputs_auto_map_skip = "چھوڑیں"
 
 system_mirror_label = "سیلف ہوسٹڈ مرر (اختیاری)"
 system_mirror_hint = "VBS کیٹلاگ اور VPin میڈیا ڈی بی کو GitHub کے بجائے آپ کے اپنے سرور کے ذریعے روٹ کرتا ہے۔ براہ راست GitHub سے لانے کے لیے خالی چھوڑیں۔ مثال: https://pinready.syl21.org"
