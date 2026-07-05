@@ -11,6 +11,7 @@ mod audio;
 mod config;
 mod db;
 mod display_id;
+mod display_reconcile;
 mod i18n;
 mod inputs;
 mod mediadb;
@@ -333,7 +334,7 @@ fn main() -> Result<()> {
         // (or vice versa), the persisted `PlayfieldDisplay` etc. names
         // in VPinballX.ini use the previous session's SDL naming
         // convention and won't match — we already re-open the wizard
-        // in that case (via `check_ini_displays_resolvable` below),
+        // in that case (via `unresolvable_assigned_displays` below),
         // but silently. Surface a modal in the wizard so the user
         // knows *why* their launcher didn't start.
         let session_now = session::detect();
@@ -389,13 +390,21 @@ fn main() -> Result<()> {
             match config::VpxConfig::load(None) {
                 Ok(cfg) => {
                     let connected = screens::enumerate_displays();
-                    let missing = screens::check_ini_displays_resolvable(&cfg, &connected);
+                    // Anchor-aware: a role resolves if its stored anchor (layout
+                    // position or EDID fingerprint) matches a connected display,
+                    // regardless of the ini's current `*Display=` name. So an
+                    // X11↔Wayland transition (or a launch that reconciled names
+                    // to the other driver) no longer forces the wizard — only a
+                    // genuinely absent monitor does.
+                    let missing = display_reconcile::unresolvable_assigned_displays(
+                        &cfg, &db, &connected,
+                    );
                     if missing.is_empty() {
                         app::AppMode::Launcher
                     } else {
                         log::warn!(
-                            "INI display name(s) not found in current SDL session: {missing:?} \
-                             — likely X11↔Wayland transition or unplugged screen, re-running wizard"
+                            "Configured display(s) not resolvable to a connected monitor: \
+                             {missing:?} — unplugged screen, re-running wizard"
                         );
                         app::AppMode::Wizard
                     }

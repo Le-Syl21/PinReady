@@ -158,6 +158,11 @@ impl App {
             .set_f32("Player", "ScreenPlayerY", self.player_y);
         self.config
             .set_f32("Player", "ScreenPlayerZ", self.player_z);
+
+        // Persist a driver-independent anchor (layout position + EDID
+        // fingerprint) per assigned role, so the launcher can re-resolve the
+        // `*Display=` names under whatever SDL driver VPX ends up using.
+        crate::display_reconcile::persist_anchors(&self.db, &self.displays);
     }
 
     pub(super) fn save_rendering(&mut self) {

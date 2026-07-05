@@ -752,6 +752,9 @@ impl App {
         running.store(true, Ordering::Relaxed);
         self.vpx_loading_msg = t!("launcher_loading").to_string();
         self.vpx_error_log = None;
+        // The driver was chosen (and the config reconciled to it) once at
+        // launcher startup; carry it into the launch thread for SDL_VIDEODRIVER.
+        let vpx_driver = self.vpx_driver.clone();
 
         let (tx, rx) = crossbeam_channel::unbounded();
         self.vpx_status_rx = Some(rx);
@@ -782,14 +785,13 @@ impl App {
                 .arg(&path)
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped());
-            // Pin VPX's SDL backend to PinReady's actual session
-            // (Linux only — `detect()` is None on macOS/Windows so this
-            // is a no-op there). Newer SDL3 auto-selects XWayland when
-            // it sees both DISPLAY and WAYLAND_DISPLAY, which brings
-            // back the exact display-placement bugs PinReady exists to
-            // avoid on the Wayland side. Forcing the driver name here
-            // overrides any inherited or auto-detected value.
-            if let Some(driver) = crate::session::detect() {
+            // Pin VPX's SDL backend to the driver chosen above (Linux only —
+            // `None` on macOS/Windows, a no-op there). Newer SDL3 auto-selects
+            // XWayland when it sees both DISPLAY and WAYLAND_DISPLAY; forcing
+            // the name here overrides any inherited or auto-detected value, and
+            // it matches the driver the `*Display=` names were just reconciled
+            // for so VPX finds its screens.
+            if let Some(driver) = &vpx_driver {
                 log::info!("Pinning VPX's SDL_VIDEODRIVER to {driver}");
                 cmd.env("SDL_VIDEODRIVER", driver);
             }

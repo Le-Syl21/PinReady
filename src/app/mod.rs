@@ -520,15 +520,35 @@ pub struct App {
     /// operation.
     ini_norm_rx: Option<crossbeam_channel::Receiver<bool>>,
     ini_normalized: bool,
+
+    /// SDL video driver VPX is launched under, decided once at launcher
+    /// startup ([`crate::display_reconcile::choose_driver_and_reconcile`]).
+    /// `None` in wizard mode or on non-Linux.
+    vpx_driver: Option<String>,
 }
 
 impl App {
     pub fn new(
-        config: VpxConfig,
+        mut config: VpxConfig,
         db: Database,
         start_in_wizard: bool,
         displays: Vec<DisplayInfo>,
     ) -> Self {
+        // Launcher startup: pick VPX's SDL driver (native Wayland when the
+        // compositor has wp_fifo_v1, else XWayland for the framerate escape
+        // hatch) and reconcile the `*Display=` names to it — only the screen
+        // IDs change, resolution/refresh/dimensions are left as-is. Done once
+        // per PinReady launch; table launches reuse the result.
+        let vpx_driver = if start_in_wizard {
+            None
+        } else {
+            let d = crate::display_reconcile::choose_driver_and_reconcile(&mut config, &db);
+            if let Err(e) = config.save() {
+                log::warn!("could not flush reconciled display config: {e}");
+            }
+            d.map(str::to_string)
+        };
+
         let screen_count = displays.len().min(4);
         let view_mode = if screen_count >= 2 { 1 } else { 0 };
         let disable_touch = config
@@ -714,6 +734,7 @@ impl App {
             pinready_update_error: None,
             ini_norm_rx: None,
             ini_normalized: false,
+            vpx_driver,
         };
         if !start_in_wizard {
             s.scan_tables();
