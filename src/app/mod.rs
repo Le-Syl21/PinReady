@@ -44,23 +44,6 @@ pub fn take_next_mode() -> Option<AppMode> {
     NEXT_ACTION.lock().unwrap().take()
 }
 
-/// One-shot signal set by `main.rs` when a display-server change was
-/// detected between two PinReady boots (X11↔Wayland). Consumed by the
-/// first `App::new` after startup and rendered as a modal notice inside
-/// the wizard so the user understands why the launcher didn't open.
-static SESSION_CHANGE_NOTICE: Mutex<Option<(String, String)>> = Mutex::new(None);
-
-/// Publish the session-change signal. Called from `main.rs` after the
-/// DB comparison.
-pub fn set_session_change_notice(from: String, to: String) {
-    *SESSION_CHANGE_NOTICE.lock().unwrap() = Some((from, to));
-}
-
-/// Consume the session-change signal (drained once). Read from `App::new`.
-pub fn take_session_change_notice() -> Option<(String, String)> {
-    SESSION_CHANGE_NOTICE.lock().unwrap().take()
-}
-
 /// VPX process status messages sent from the launch thread
 enum VpxStatus {
     /// Loading progress message with optional percentage (0.0–1.0)
@@ -361,10 +344,6 @@ pub struct App {
     theme_pref: egui::ThemePreference,
     // About window visibility, driven by the ℹ toolbar icon.
     about_open: bool,
-    // One-shot: `Some((from, to))` when `main.rs` detected an X11↔Wayland
-    // session change on this boot. Rendered as a centred modal on top of
-    // the wizard; cleared when the user clicks OK.
-    session_change_notice: Option<(String, String)>,
     // Two-step VPX launch state on Wayland: `Some((path, requested_at))`
     // when the user has clicked a table and PinReady sent
     // `ViewportCommand::RequestActivationToken` to the compositor but is
@@ -682,7 +661,6 @@ impl App {
             images_preloaded: false,
             theme_pref: egui::ThemePreference::System,
             about_open: false,
-            session_change_notice: take_session_change_notice(),
             pending_vpx_launch: None,
             rotation: egui_rotate::Rotation::None,
             kiosk_cursor: false,
@@ -929,37 +907,6 @@ impl App {
                     });
             });
         self.about_open = open;
-    }
-
-    /// Show the "you switched from X11 to Wayland (or vice versa),
-    /// that's why the wizard reopened" modal. Fires only when
-    /// `session_change_notice` is `Some`; user dismisses via OK.
-    /// No-op on non-Linux since `session::detect()` never signals a
-    /// change there.
-    pub(super) fn render_session_change_notice(&mut self, ctx: &egui::Context) {
-        let Some((from, to)) = self.session_change_notice.clone() else {
-            return;
-        };
-        let from_label = crate::session::label(&from);
-        let to_label = crate::session::label(&to);
-        let mut dismiss = false;
-        egui::Window::new(t!("session_change_title").to_string())
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-            .default_width(480.0)
-            .show(ctx, |ui| {
-                ui.label(t!("session_change_body", from = from_label, to = to_label));
-                ui.add_space(12.0);
-                ui.vertical_centered(|ui| {
-                    if ui.button(t!("session_change_ok").to_string()).clicked() {
-                        dismiss = true;
-                    }
-                });
-            });
-        if dismiss {
-            self.session_change_notice = None;
-        }
     }
 
     #[allow(clippy::type_complexity)]
@@ -1740,9 +1687,6 @@ impl eframe::App for App {
         // === Wizard mode ===
 
         self.render_about_window(ui.ctx());
-        // Session-change notice (X11↔Wayland) — modal that explains why
-        // the wizard reopened when the user was expecting the launcher.
-        self.render_session_change_notice(ui.ctx());
 
         // Push the scrollbar flush to the window edge — default bar_outer_margin
         // leaves a small gap on the right that looks awkward on this layout.

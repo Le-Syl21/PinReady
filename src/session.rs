@@ -30,13 +30,3 @@ pub fn detect() -> Option<&'static str> {
     None
 }
 
-/// Human-readable label for the About window / session-change notice.
-/// `"Wayland"` / `"X11"` — pretty-cased vs the machine-readable
-/// [`detect`] output.
-pub fn label(kind: &str) -> &'static str {
-    match kind {
-        "wayland" => "Wayland",
-        "x11" => "X11",
-        _ => "?",
-    }
-}
