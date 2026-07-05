@@ -21,12 +21,15 @@ It replaces the non-existent native configuration tools for VPX standalone (SDL3
 | Layer | Crate | Role |
 |---|---|---|
 | UI | `eframe 0.34` + `egui 0.34` (Le-Syl21 fork) | Immediate mode GUI |
+| Rotation | `egui-rotate 1.1` (feature: `software-cursor`) | Cabinet viewport rotation + software cursor (as an egui Plugin) |
+| Wayland caps | `wayland-client 0.31` (Linux) | Detect `wp_fifo_v1` to pick VPX's SDL driver |
 | Images | `egui_extras 0.34` (feature: `image`) | Thumbnail display |
 | Display/Input | `sdl3-sys 0.6` (feature: `build-from-source-static`) | Screen enumeration + input capture |
 | Config | `serde 1` + `ini-preserve` | Read/write VPinballX.ini (preserves comments) |
 | Database | `rusqlite 0.39` (feature: `bundled`) | Local catalog + PinReady config |
 | Backglass | `directb2s 0.1` | Extract backglass image from `.directb2s` |
-| Display info | `display-info 0.5` | Cross-platform EDID (physical mm → inches) |
+| Display info | `display-info 0.5` | Cross-platform physical size (mm → inches) |
+| EDID / hash | `sha2 0.11` + `/sys/class/drm/*/edid` | Driver-independent monitor identity (`display_id.rs`) |
 | File scan | `walkdir 2.5` | Recursive .vpx discovery |
 | Image codec | `image 0.25` (features: `png`, `jpeg`) | Media pack thumbnails |
 | Audio decode | `symphonia 0.5` (features: `ogg`, `vorbis`, `mp3`, `pcm`, `wav`) | Decode OGG/MP3 → PCM for SDL3 |
@@ -37,17 +40,22 @@ It replaces the non-existent native configuration tools for VPX standalone (SDL3
 
 **No system dependencies required at runtime** — SDL3 and SQLite are statically linked via bundled features. Build-time deps are the standard xcb/xkb/ssl headers for winit.
 
-### Forked egui (Le-Syl21/egui)
+### Rotation crate + slim egui fork
 
-PinReady uses a fork of egui pinned in `[patch.crates-io]` because kiosk/cabinet mode needs features not upstream:
+Cabinet rotation and the software cursor now live in the standalone
+**`egui-rotate`** crate (an `egui::Plugin`, published on crates.io) — not the
+fork. `egui-rotate 1.1` also owns the OS pointer grab, the soft/hard edge lock,
+the keyboard/gamepad auto-hide and the dissolve/reform fade; PinReady registers
+one `RotationPlugin` in `main.rs` and no longer wires rotation by hand.
 
-- **Viewport rotation** (`with_rotation`, `set_viewport_rotation`) — rotate UI + input CW90/180/270 for cabinets where the Playfield is physically rotated
-- **Cursor lock** (`set_cursor_lock`) — confine virtual cursor to window bounds
-- **Software cursor scale** — draw a readable cursor on 4K playfields
-- **`with_monitor(index)`** — target a specific monitor at creation (borderless fullscreen on the requested output; only portable way to target an output under Wayland)
-- **`tessellate_for_viewport(viewport_id, …)`** — fixes a bug where root's rotation leaked into secondary viewports because `tessellate` was called after `viewport_stack.pop()`
+The egui fork is now **slim** — pinned in `[patch.crates-io]` on the
+`activation-token-event` branch — and only carries what isn't upstream yet:
 
-Fork branch: `viewport-rotation-cursor-lock` on `Le-Syl21/egui`. Rev pinned in `Cargo.toml`.
+- **`eframe::App::transform_primitives` + `post_platform_output` hooks** (pending as [emilk/egui#8138])
+- **`ViewportBuilder::with_monitor` / `ViewportCommand::SetMonitor`** — target a specific monitor (used for the PinReady window + the BG/DMD/Topper cover viewports)
+- **`Key::ShiftLeft/Right` + `IntlBackslash` physical-key variants** (pending as [emilk/egui#8127])
+
+Rev pinned in `Cargo.toml`.
 
 ---
 
@@ -55,31 +63,36 @@ Fork branch: `viewport-rotation-cursor-lock` on `Le-Syl21/egui`. Rev pinned in `
 
 ```
 src/
-  main.rs         # Entry point: CLI, logging, SDL init, cabinet-mode launch options
-  screens.rs      # SDL3 display enumeration + role assignment (keeps native order!)
-  inputs.rs       # Joystick thread (SDL3), controller profile detection, input actions
-  tilt.rs         # Tilt/nudge sensitivity settings
-  audio.rs        # Audio device detection, routing, ogg/mp3 playback thread
-  assets.rs       # Backglass extraction + cache
-  config.rs       # VPinballX.ini read/write (preserves comments via ini-preserve)
-  db.rs           # SQLite: tables catalog + PinReady config (wizard_completed, etc.)
-  updater.rs      # VPX-fork auto-install from GitHub releases
-  i18n.rs         # Language detection + locale loading (26 languages)
+  main.rs            # Entry point: CLI, logging, SDL init, cabinet-mode launch, plugin registration
+  screens.rs         # SDL3 display enumeration + role assignment
+  session.rs         # Display-server session type (wayland / x11), Linux only
+  wayland_caps.rs    # wp_fifo_v1 detection + preferred_vpx_driver() decision
+  display_id.rs      # EDID parse + MonitorId fingerprint + geometry↔EDID correlation
+  display_reconcile.rs # Launch-time: pick VPX driver, reconcile *Display= names + FullScreen mode
+  inputs.rs          # Joystick thread (SDL3), controller profile detection, input actions
+  tilt.rs            # Tilt/nudge sensitivity settings
+  audio.rs           # Audio device detection, routing, ogg/mp3 playback thread
+  assets.rs          # Backglass extraction + cache
+  config.rs          # VPinballX.ini read/write (preserves comments via ini-preserve)
+  db.rs              # SQLite: tables catalog + PinReady config (wizard_completed, display_anchor_*, etc.)
+  updater.rs         # VPX-fork auto-install from GitHub releases
+  system_info.rs     # OS / session one-liner for crash reports
+  i18n.rs            # Language detection + locale loading (26 languages)
   app/
-    mod.rs            # App struct, eframe::App impl, kiosk cursor loop
-    launcher.rs       # VPX subprocess mgmt, status polling, joystick nav
+    mod.rs            # App struct, eframe::App impl, kiosk cursor loop, launch-time reconcile
+    launcher.rs       # VPX subprocess mgmt, status polling, joystick nav, driver pinning
     launcher_ui.rs    # Grid view, secondary viewports (BG/DMD/Topper covers)
-    screens_page.rs   # Wizard page 1: screens + cabinet dimensions + VPX install
-    rendering_page.rs # Wizard page 2: MSAA/FXAA/sync/max framerate
-    inputs_page.rs    # Wizard page 3: controller profile + key/button capture
-    tilt_page.rs      # Wizard page 4: tilt/nudge sliders
-    audio_page.rs     # Wizard page 5: device routing + SSF test sequence
-    tables_dir_page.rs# Wizard page 6: tables directory picker
-    save.rs           # Orchestrates writing wizard state to VPinballX.ini
+    screens_page.rs   # Wizard: screens + cabinet dimensions + VPX install
+    rendering_page.rs # Wizard: sync mode / max framerate / AA / FPS overlay / round ball
+    inputs_page.rs    # Wizard: controller profile + keyboard & joystick capture (two columns)
+    outputs_page.rs   # Wizard: DOF / output-controller discovery
+    tilt_page.rs      # Wizard: tilt/nudge sliders
+    audio_page.rs     # Wizard: device routing + SSF test sequence
+    tables_dir_page.rs# Wizard: tables directory picker
+    system_page.rs    # Wizard: autostart / desktop integration
+    save.rs           # Orchestrates writing wizard state to VPinballX.ini (+ persist_anchors)
     autostart.rs      # ~/.config/autostart/pinready.desktop toggle
 ```
-
-Note: `app.rs` was split into the `app/` module in commit `9763b07` (was 3589 lines).
 
 ---
 
@@ -140,6 +153,17 @@ ScoreViewHeight = 1080
 ```
 
 ### Page 2 — Input mapping
+
+**Two independent bindings per action.** VPX runs `Mapping.X = joy;btn | Key;sc`
+as alternatives (either input fires the action), so `InputAction` carries a
+separate `keyboard` slot and `joystick` slot. The page shows them as two
+columns; the single **Map** button routes the captured event by device type
+(a key fills only the keyboard slot, a joystick button only the joystick slot),
+and each column has an **× unmap** button (keyboard → back to the VPX default,
+joystick → unassigned). Controller detection (Pinscape / DudesCab / PinOne)
+fills the joystick slot with its profile defaults, leaving the keyboard binding
+intact; a **None** profile opts out. `Escape` is a normal mappable key
+(VPX's ExitGame) — auto-map is skipped only via the **Skip** button, never a key.
 
 **Input binding format** (stored in `[Input]` section):
 - Devices are declared with `Device.<deviceId>.Type` and `Device.<deviceId>.Name`
@@ -507,11 +531,20 @@ Do not hardcode section names or key names — the ini format evolves.
 **Read the actual ini file at startup** to discover available keys and sections dynamically.
 
 **Never touch `Plugin.PinMAME.*`** — PinReady must never disable PinMAME audio (or any PinMAME setting). Only settings PinReady writes:
-- `[Player]` — PlayfieldDisplay/Width/Height, BGSet, NudgeStrength, MusicVolume, SoundVolume, rendering options
-- `[Backglass]` / `[ScoreView]` / `[Topper]` — Output, Display, Width, Height
+- `[Player]` — PlayfieldDisplay/Width/Height/FullScreen, BGSet, NudgeStrength, MusicVolume, SoundVolume, rendering options
+- `[Backglass]` / `[ScoreView]` / `[Topper]` — Output, Display, Width, Height, **FullScreen** (0 windowed on real Xorg, 1 borderless FS otherwise — see *Display driver + window placement*)
 - `[Input]` — Device.* + Mapping.*
 - `[Plugin.B2SLegacy]` — backglass overlay flags (B2SHideGrill, ScoreViewDMDOverlay, etc.) only when no DMD screen is present
 Only write back keys that already exist in the file, or that are explicitly documented by VPX.
+
+**Rendering options the wizard exposes** (`[Player]`):
+- `SyncMode` — the four VPX values surfaced in the combo: `0` No sync, `1` Vertical sync, `2` Adaptive sync, `3` Frame pacing (VPX's own default). Each has an explanatory tooltip.
+- `MaxFramerate` — auto-set to the playfield's detected refresh rate.
+- `ShowFPS` — FPS overlay, pre-checked (`1`).
+- `BallAntiStretch` — "Round ball", pre-checked (`1` — VPX defaults it off): compensates the render stretch that makes the ball look egg-shaped in fast motion. Cosmetic only.
+- AA / MSAA / FXAA / Sharpen / PFReflection / MaxTexDimension.
+
+**First run**: if `VPinballX.ini` is absent, the wizard runs `VPX -h` once (writes the full documented default ini in ~0.1 s without opening a window) and adopts it before layering the user's choices — so the ini stays the canonical annotated file rather than a sparse PinReady-only one.
 
 ---
 
@@ -519,19 +552,47 @@ Only write back keys that already exist in the file, or that are explicitly docu
 
 When VPX config has `BGSet = 1` (Cabinet) **and** the wizard is already completed, PinReady launches in kiosk mode:
 
-- **Main PF viewport**: created via `ViewportBuilder::with_monitor(idx)` + `with_rotation(CW90)` + `with_decorations(false)`. Winit opens it in borderless fullscreen directly on the Playfield monitor — no position loop needed, no WM races. Rotation is CW90 because pincab playfields are physically laid flat but the hardware monitor reports landscape.
-- **Secondary viewports** (BG / DMD / Topper): created via `show_viewport_deferred` with `with_monitor(idx)`, `with_rotation(None)`, and `with_active(false)` so they don't steal keyboard focus from the PF. They show:
+- **Main PF viewport**: created via `ViewportBuilder::with_monitor(idx)` + `with_decorations(false)`, borderless fullscreen directly on the Playfield monitor — no position loop, no WM races. Rotation is CW90 (pincab playfields are laid flat but the monitor reports landscape) applied by the `egui-rotate` `RotationPlugin` registered on the root viewport, not by the ViewportBuilder.
+- **Secondary viewports** (BG / DMD / Topper): created via `show_viewport_deferred` with `with_monitor(idx)` and `with_active(false)` so they don't steal keyboard focus from the PF. The plugin only rotates the root viewport, so these render upright. They show:
   - BG → backglass image (from `.directb2s` extraction via `directb2s` crate)
   - DMD + Topper → grey cover with tinted VPX logo
-- **Kiosk cursor loop** (in `App::ui`, gated on `kiosk_cursor && !vpx_running`):
-  - `set_software_cursor_scale(3.0)` — big cursor on large 4K playfields
-  - `set_cursor_lock(true)` — confines the virtual cursor to the PF window
-  - `ViewportCommand::Focus` every frame when unfocused — reclaims focus from any secondary that steals it despite `with_active(false)` (Mutter sometimes does)
-  - One-shot `CursorPosition(center)` warp when `inner_rect` first becomes available
+- **Kiosk cursor**: the `egui-rotate` `RotationPlugin` owns the software cursor (scale 3× for far-viewing playfields, hard lock, and the OS pointer grab it applies itself). The `App::ui` loop (gated on `kiosk_cursor && !vpx_running`) only handles the compositor workarounds: force a repaint each frame (Mutter Wayland skips presenting unfocused surfaces), reclaim focus when unfocused (X11 only), keep the OS pointer hidden, and seed `SoftwareCursor::set_virtual_pos` once the viewport rect is known.
 
-### Monitor index must match winit's enumeration
+### Display driver + window placement across X11 / XWayland / Wayland
 
-`with_monitor(idx)` uses the index into winit's `available_monitors()`, which is the OS-native enumeration order. `screens.rs` keeps `self.displays` in SDL3 enumeration order (same native ordering) and **does not** reorder by pixel count — role assignment is done via a parallel sort of indices. Changing this invariant breaks BG/DMD placement.
+This is the load-bearing part of cabinet mode. The same physical monitor is
+**named differently** by SDL depending on the video driver, and VPX places its
+windows by the `*Display=` name in the ini — so the names must match the driver
+VPX actually runs under, and that driver must be chosen for framerate.
+
+**The driver decision** (`wayland_caps::preferred_vpx_driver`):
+- Wayland session **with** `wp_fifo_v1` (Mutter ≥ 48) → native `wayland` (proper FIFO, full refresh).
+- Wayland session **without** it (Mutter ≤ 46) → `x11` (XWayland). Native Wayland there frame-callback-throttles VPX to ¼ refresh (120→30); XWayland lifts it to ~60.
+- Real Xorg session → `x11`, which reaches the **full** refresh (120).
+
+Detection is a plain Wayland registry enumeration (`wayland-client`, already in
+tree via winit) looking for `wp_fifo_manager_v1`.
+
+**The name bridge** (`display_id.rs` + `display_reconcile.rs`). SDL names diverge
+badly: e.g. the same 42″ playfield is `Iiyama North America 42"` (Wayland),
+`DP-1 42"` (XWayland) and `PL4380UH 42"` (real Xorg). So a role is anchored on
+**geometry (layout position + size)** plus, as a fallback, its **EDID
+fingerprint** — both driver-independent:
+- The wizard persists `role → DisplayAnchor { x, y, w, h, fingerprint }` in the DB (`save.rs::persist_anchors`). The fingerprint is a SHA-256 of the 128-byte EDID base block, read from `/sys/class/drm/*/edid` (kernel layer, identical across drivers). Junk-EDID panels (no serial, native mode ≠ driven mode — e.g. a no-name DMD) get `fingerprint: None` and are tracked by position alone.
+- At **launcher startup** (`App::new` → `choose_driver_and_reconcile`): pick the driver, enumerate SDL displays under it (via a `--enumerate-displays <driver>` subprocess so SDL's driver is isolated from PinReady's own winit stack), correlate them to the DRM EDID, resolve each role's anchor → rewrite only the `*Display=` names (positions/refresh untouched), atomically (all roles resolve or nothing changes). VPX is then launched pinned to that driver so it finds its screens.
+- The startup "should we re-run the wizard?" check (`unresolvable_assigned_displays`) is **anchor-aware**: a role is fine if its anchor still resolves to a connected monitor, regardless of the ini's current name. So an X11↔Wayland session switch is transparent — the old session-change wizard trigger was removed.
+
+**FullScreen mode is also per-session** (`reconcile_fullscreen`): under a **real
+Xorg** session, gnome-shell does not map a borderless-fullscreen window on a
+non-primary output (VPX logs the BG/DMD windows as created but they show the
+desktop), so secondary displays are set to windowed (`FullScreen = 0`); under
+Wayland/XWayland they stay borderless fullscreen (`1`). The playfield (primary)
+maps fine at borderless fullscreen everywhere.
+
+`with_monitor(idx)` (used for PinReady's *own* PF window + cover viewports) still
+relies on `self.displays` matching winit's `available_monitors()` order — fine
+on the Wayland session PinReady's UI runs under. VPX window placement no longer
+depends on that index; it goes through the name bridge above.
 
 ### VPX launch lifecycle
 
@@ -540,8 +601,9 @@ When the user selects a table:
 2. `vpx_running` flips to `true`. Stdout is read in a helper thread and parsed for `SetProgress <pct>%`, `Startup done`, `PluginLog`, etc. Messages stream into the launcher's loading overlay.
 3. On `Startup done`:
    - `vpx_hide_covers = true` → secondary cover viewports stop rendering, so VPX's own BG/DMD windows become visible
-   - `ctx.set_cursor_lock(false)` → release the cursor so VPX can read the mouse
+   - `SoftwareCursor::release()` → the plugin drops its OS grab and stops hiding the pointer, so VPX can read the mouse
    - Kiosk focus-reclaim stops (gated on `!vpx_running`). VPX windows naturally z-order above PinReady
+   - The `*Display=` names + FullScreen mode were already reconciled to VPX's driver at launcher startup (see *Display driver + window placement*), and `SDL_VIDEODRIVER` is pinned to that driver when spawning VPX
 4. On VPX exit (`ExitOk` / `ExitError` / `LaunchError`):
    - `vpx_running = false` → kiosk loop resumes, reclaiming focus + re-warping the cursor
    - `vpx_hide_covers = false` → secondary covers render again
@@ -551,11 +613,13 @@ No `Minimized(true)` on the PF. Attempted once; Mutter does not reliably restore
 
 ### Why a forked egui?
 
-The fork (`Le-Syl21/egui`, branch `viewport-rotation-cursor-lock`) exists because kiosk/cabinet mode needs features not in upstream. Features proposed upstream:
-- PR [emilk/egui#8113](https://github.com/emilk/egui/pull/8113) — viewport rotation + software cursor + `tessellate_for_viewport` fix (fixes root rotation leaking into child viewports)
-- PR [emilk/egui#8117](https://github.com/emilk/egui/pull/8117) — `ViewportBuilder::with_monitor(index)` + `ViewportCommand::SetMonitor(index)`
-
-`cursor_lock` stays fork-only for now (kiosk-specific; follow-up after #8113 merges).
+Rotation and the software cursor left the fork and live in the published
+`egui-rotate` crate (see *Rotation crate + slim egui fork* above). The remaining
+fork (`Le-Syl21/egui`, branch `activation-token-event`) only holds three things
+not yet upstream: the `transform_primitives` / `post_platform_output` eframe
+hooks ([#8138]), `ViewportBuilder::with_monitor` / `ViewportCommand::SetMonitor`,
+and the `ShiftLeft/Right` + `IntlBackslash` physical-key variants ([#8127]).
+When those land upstream, drop the patch.
 
 ---
 
