@@ -10,6 +10,7 @@ mod assets;
 mod audio;
 mod config;
 mod db;
+mod display_id;
 mod i18n;
 mod inputs;
 mod mediadb;
