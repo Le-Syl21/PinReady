@@ -511,3 +511,6 @@ rendering_sync_framepacing_hint = "VPX-Standard: verteilt Bilder gleichmäßig f
 rendering_ball_round = "Runde Kugel"
 rendering_ball_round_hint = "Kugel rund halten"
 rendering_ball_round_tip = "Gleicht die Render-Streckung aus, die die Kugel bei schneller Bewegung auf manchen Tischen leicht eiförmig erscheinen lässt. Rein kosmetisch."
+tables_catalog_title = "Katalog-Anreicherung (VPSDB + VPinMediaDB)"
+tables_catalog_desc = "Gleicht jeden installierten Tisch mit dem Virtual-Pinball-Spreadsheet-Katalog (~2500 Spiele) ab und lädt Backglass (bg.png) + Audio-Jingle (audio.mp3) aus VPinMediaDB nach <table>/medias/. Die erste Synchronisierung überträgt ~7 MB Katalog-JSON plus einige MB je erkanntem Tisch. Nötig für Hover-Vorschau und „Update verfügbar“-Badges im Launcher-Raster. Standardmäßig an – auf Offline- oder Volumen-begrenzten Pincabs abschalten."
+tables_catalog_toggle = "VPSDB + VPinMediaDB beim Scan automatisch synchronisieren"

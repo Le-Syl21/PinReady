@@ -511,3 +511,6 @@ rendering_sync_framepacing_hint = "Výchozí v VPX: rovnoměrně rozkládá sní
 rendering_ball_round = "Kulatá koule"
 rendering_ball_round_hint = "Udržet kouli kulatou"
 rendering_ball_round_tip = "Kompenzuje protažení renderu, kvůli kterému koule při rychlém pohybu na některých stolech vypadá mírně vejčitě. Pouze kosmetické."
+tables_catalog_title = "Obohacení katalogu (VPSDB + VPinMediaDB)"
+tables_catalog_desc = "Přiřadí každý nainstalovaný stůl ke katalogu Virtual Pinball Spreadsheet (~2500 her) a stáhne backglass (bg.png) + audio jingle (audio.mp3) z VPinMediaDB do <table>/medias/. První synchronizace přenese ~7 MB JSON katalogu plus několik MB na rozpoznaný stůl. Nutné pro náhled při najetí a odznaky dostupné aktualizace v mřížce. Ve výchozím stavu zapnuto – vypněte na offline nebo datově omezených pincabech."
+tables_catalog_toggle = "Synchronizovat VPSDB + VPinMediaDB při skenování"

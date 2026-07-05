@@ -12,7 +12,7 @@ It replaces the non-existent native configuration tools for VPX standalone (SDL3
 **First run** (detected by `wizard_completed` flag in SQLite DB) → configuration wizard.
 **Subsequent runs** → table selector / launcher. Wizard can be re-launched with `--config` flag or from the launcher header button; all fields pre-filled from current ini values.
 
-**Current version:** 0.6.0 (see `Cargo.toml`).
+**Current version:** see `Cargo.toml`.
 
 ---
 
@@ -33,7 +33,7 @@ It replaces the non-existent native configuration tools for VPX standalone (SDL3
 | File scan | `walkdir 2.5` | Recursive .vpx discovery |
 | Image codec | `image 0.25` (features: `png`, `jpeg`) | Media pack thumbnails |
 | Audio decode | `symphonia 0.5` (features: `ogg`, `vorbis`, `mp3`, `pcm`, `wav`) | Decode OGG/MP3 → PCM for SDL3 |
-| i18n | `rust-i18n 3` | 26 locale files in `locales/` |
+| i18n | `rust-i18n 4` (fallback = en) | 26 locale files in `locales/` |
 | HTTP | `ureq 3` + `zip 8` | GitHub release downloader for VPX fork |
 | Threading | `crossbeam-channel 0.5` | SDL3 thread ↔ egui communication |
 | Logging | `log 0.4` + `env_logger 0.11` | Debug output |

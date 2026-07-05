@@ -511,3 +511,6 @@ rendering_sync_framepacing_hint = "VPXの既定：フレームを均等に配分
 rendering_ball_round = "丸いボール"
 rendering_ball_round_hint = "ボールを丸く保つ"
 rendering_ball_round_tip = "一部の台で高速移動時にボールがやや卵形に見えるレンダリングの伸びを補正。見た目のみで動作に影響なし。"
+tables_catalog_title = "カタログ補完 (VPSDB + VPinMediaDB)"
+tables_catalog_desc = "インストール済みの各テーブルを Virtual Pinball Spreadsheet カタログ（約2500タイトル）と照合し、VPinMediaDB からバックグラス (bg.png) と音声ジングル (audio.mp3) を <table>/medias/ にダウンロードします。初回同期でカタログJSON約7MBに加え、一致テーブルごとに数MBを転送します。グリッドのホバープレビューと『更新あり』バッジに必要。既定で有効 — オフラインや通信量制限のあるピンキャブでは無効化してください。"
+tables_catalog_toggle = "スキャン時に VPSDB + VPinMediaDB を自動同期"

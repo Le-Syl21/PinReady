@@ -510,3 +510,6 @@ rendering_sync_framepacing_hint = "ค่าเริ่มต้นของ VP
 rendering_ball_round = "ลูกบอลกลม"
 rendering_ball_round_hint = "ทำให้ลูกบอลกลม"
 rendering_ball_round_tip = "ชดเชยการยืดของการเรนเดอร์ที่ทำให้ลูกบอลดูรีเล็กน้อยเมื่อเคลื่อนที่เร็วในบางโต๊ะ เป็นเรื่องภาพเท่านั้น"
+tables_catalog_title = "การเพิ่มข้อมูลแคตตาล็อก (VPSDB + VPinMediaDB)"
+tables_catalog_desc = "จับคู่แต่ละโต๊ะที่ติดตั้งกับแคตตาล็อก Virtual Pinball Spreadsheet (~2500 เกม) และดาวน์โหลด backglass (bg.png) + เสียงจิงเกิล (audio.mp3) จาก VPinMediaDB ไปยัง <table>/medias/ การซิงค์ครั้งแรกถ่ายโอน JSON แคตตาล็อกราว 7 MB บวกไม่กี่ MB ต่อโต๊ะที่จับคู่ได้ จำเป็นสำหรับการแสดงตัวอย่างเมื่อชี้เมาส์และป้าย 'มีอัปเดต' ในตาราง เปิดโดยค่าเริ่มต้น — ปิดบนพินแคบที่ออฟไลน์หรือจำกัดข้อมูล"
+tables_catalog_toggle = "ซิงค์ VPSDB + VPinMediaDB อัตโนมัติขณะสแกน"

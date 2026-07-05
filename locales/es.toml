@@ -512,3 +512,6 @@ rendering_sync_framepacing_hint = "Valor por defecto de VPX: espacia los fotogra
 rendering_ball_round = "Bola redonda"
 rendering_ball_round_hint = "Mantener la bola redonda"
 rendering_ball_round_tip = "Compensa el estiramiento de render que hace que la bola parezca ovalada en movimiento rápido en algunas mesas. Solo estético."
+tables_catalog_title = "Enriquecimiento del catálogo (VPSDB + VPinMediaDB)"
+tables_catalog_desc = "Identifica cada mesa instalada en el catálogo Virtual Pinball Spreadsheet (~2500 juegos) y descarga el backglass (bg.png) + jingle de audio (audio.mp3) desde VPinMediaDB a <table>/medias/. La primera sincronización transfiere ~7 MB de JSON del catálogo más unos MB por mesa identificada. Necesario para la vista previa al pasar el ratón y las insignias de actualización disponible en la cuadrícula. Activado por defecto: desactívalo en pincabs sin conexión o con datos limitados."
+tables_catalog_toggle = "Sincronizar VPSDB + VPinMediaDB al escanear"

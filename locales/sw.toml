@@ -512,3 +512,6 @@ rendering_sync_framepacing_hint = "Chaguo-msingi la VPX: husambaza fremu kwa usa
 rendering_ball_round = "Mpira duara"
 rendering_ball_round_hint = "Weka mpira uwe duara"
 rendering_ball_round_tip = "Hufidia unyoshaji wa uonyeshaji unaofanya mpira uonekane wa mviringo kidogo wakati wa mwendo wa kasi kwenye baadhi ya meza. Ni wa mapambo tu."
+tables_catalog_title = "Uboreshaji wa katalogi (VPSDB + VPinMediaDB)"
+tables_catalog_desc = "Hulinganisha kila meza iliyosakinishwa na katalogi ya Virtual Pinball Spreadsheet (~michezo 2500) na kupakua backglass (bg.png) + jingle ya sauti (audio.mp3) kutoka VPinMediaDB hadi <table>/medias/. Usawazishaji wa kwanza huhamisha ~7 MB za JSON ya katalogi pamoja na MB chache kwa kila meza iliyolingana. Inahitajika kwa onyesho la awali unapoelea na beji za 'sasisho linapatikana' kwenye gridi. Imewashwa kwa chaguomsingi — izime kwenye pincab zisizo na mtandao au zenye data finyu."
+tables_catalog_toggle = "Sawazisha VPSDB + VPinMediaDB kiotomatiki wakati wa kuchanganua"

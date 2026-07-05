@@ -512,3 +512,6 @@ rendering_sync_framepacing_hint = "VPX varsayılanı: en akıcı hareket ve dü�
 rendering_ball_round = "Yuvarlak top"
 rendering_ball_round_hint = "Topu yuvarlak tut"
 rendering_ball_round_tip = "Bazı masalarda hızlı harekette topu hafif oval gösteren render esnemesini telafi eder. Yalnızca görsel."
+tables_catalog_title = "Katalog zenginleştirme (VPSDB + VPinMediaDB)"
+tables_catalog_desc = "Yüklü her masayı Virtual Pinball Spreadsheet kataloğuyla (~2500 oyun) eşleştirir ve backglass (bg.png) + ses jingle'ını (audio.mp3) VPinMediaDB'den <table>/medias/ klasörüne indirir. İlk eşitleme ~7 MB katalog JSON'u ve eşleşen masa başına birkaç MB aktarır. Izgarada üzerine gelince önizleme ve 'güncelleme mevcut' rozetleri için gerekli. Varsayılan açık – çevrimdışı veya veri sınırlı pincab'lerde kapatın."
+tables_catalog_toggle = "Tarama sırasında VPSDB + VPinMediaDB'yi otomatik eşitle"

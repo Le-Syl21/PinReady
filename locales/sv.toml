@@ -511,3 +511,6 @@ rendering_sync_framepacing_hint = "VPX:s standard: fördelar bildrutor jämnt f�
 rendering_ball_round = "Rund kula"
 rendering_ball_round_hint = "Håll kulan rund"
 rendering_ball_round_tip = "Kompenserar renderingssträckningen som får kulan att se lite äggformad ut i snabb rörelse på vissa bord. Endast kosmetiskt."
+tables_catalog_title = "Kataloganrikning (VPSDB + VPinMediaDB)"
+tables_catalog_desc = "Matchar varje installerat bord mot Virtual Pinball Spreadsheet-katalogen (~2500 spel) och laddar ner backglass (bg.png) + ljudjingel (audio.mp3) från VPinMediaDB till <table>/medias/. Första synkroniseringen överför ~7 MB katalog-JSON plus några MB per matchat bord. Krävs för förhandsvisning vid hovring och 'uppdatering tillgänglig'-märken i rutnätet. På som standard – stäng av på offline- eller databegränsade pincabs."
+tables_catalog_toggle = "Synkronisera VPSDB + VPinMediaDB vid skanning"

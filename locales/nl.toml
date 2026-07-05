@@ -511,3 +511,6 @@ rendering_sync_framepacing_hint = "Standaard van VPX: verdeelt beelden gelijkmat
 rendering_ball_round = "Ronde bal"
 rendering_ball_round_hint = "Bal rond houden"
 rendering_ball_round_tip = "Compenseert de render-uitrekking die de bal bij snelle beweging op sommige tafels licht eivormig maakt. Alleen cosmetisch."
+tables_catalog_title = "Catalogusverrijking (VPSDB + VPinMediaDB)"
+tables_catalog_desc = "Koppelt elke geïnstalleerde tafel aan de Virtual Pinball Spreadsheet-catalogus (~2500 games) en downloadt backglass (bg.png) + audio-jingle (audio.mp3) uit VPinMediaDB naar <table>/medias/. De eerste synchronisatie brengt ~7 MB catalogus-JSON over plus enkele MB per herkende tafel. Nodig voor hovervoorbeeld en 'update beschikbaar'-badges in het launcherraster. Standaard aan — schakel uit op offline of datalimiet-pincabs."
+tables_catalog_toggle = "VPSDB + VPinMediaDB automatisch synchroniseren bij scan"

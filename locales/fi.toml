@@ -511,3 +511,6 @@ rendering_sync_framepacing_hint = "VPX:n oletus: jakaa kuvat tasaisesti sulavimm
 rendering_ball_round = "Pyöreä pallo"
 rendering_ball_round_hint = "Pidä pallo pyöreänä"
 rendering_ball_round_tip = "Kompensoi renderöinnin venymän, joka saa pallon näyttämään hieman soikealta nopeassa liikkeessä joillakin pöydillä. Vain ulkonäköä."
+tables_catalog_title = "Luettelon rikastus (VPSDB + VPinMediaDB)"
+tables_catalog_desc = "Yhdistää jokaisen asennetun pöydän Virtual Pinball Spreadsheet -luetteloon (~2500 peliä) ja lataa backglassin (bg.png) + äänijinglen (audio.mp3) VPinMediaDB:stä kansioon <table>/medias/. Ensimmäinen synkronointi siirtää ~7 Mt luettelon JSONia sekä muutaman Mt per tunnistettu pöytä. Tarvitaan esikatseluun ja 'päivitys saatavilla' -merkkeihin ruudukossa. Oletuksena päällä – poista käytöstä offline- tai datarajoitetuilla pincabeilla."
+tables_catalog_toggle = "Synkronoi VPSDB + VPinMediaDB skannauksen aikana"

@@ -511,3 +511,6 @@ rendering_sync_framepacing_hint = "Bawaan VPX: menyebar bingkai secara merata un
 rendering_ball_round = "Bola bulat"
 rendering_ball_round_hint = "Jaga bola tetap bulat"
 rendering_ball_round_tip = "Mengompensasi peregangan render yang membuat bola tampak sedikit lonjong saat bergerak cepat di beberapa meja. Hanya kosmetik."
+tables_catalog_title = "Pengayaan katalog (VPSDB + VPinMediaDB)"
+tables_catalog_desc = "Mencocokkan setiap meja terpasang dengan katalog Virtual Pinball Spreadsheet (~2500 game) dan mengunduh backglass (bg.png) + jingle audio (audio.mp3) dari VPinMediaDB ke <table>/medias/. Sinkronisasi pertama mentransfer ~7 MB JSON katalog plus beberapa MB per meja yang cocok. Diperlukan untuk pratinjau saat hover dan lencana 'pembaruan tersedia' di kisi. Aktif secara bawaan — matikan pada pincab offline atau berkuota."
+tables_catalog_toggle = "Sinkronkan VPSDB + VPinMediaDB saat pemindaian"

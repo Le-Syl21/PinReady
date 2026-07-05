@@ -511,3 +511,6 @@ rendering_sync_framepacing_hint = "Domyślne w VPX: równomiernie rozkłada klat
 rendering_ball_round = "Okrągła kula"
 rendering_ball_round_hint = "Utrzymuj kulę okrągłą"
 rendering_ball_round_tip = "Kompensuje rozciągnięcie renderu, przez które kula przy szybkim ruchu na niektórych stołach wygląda na lekko owalną. Tylko kosmetyka."
+tables_catalog_title = "Wzbogacanie katalogu (VPSDB + VPinMediaDB)"
+tables_catalog_desc = "Dopasowuje każdy zainstalowany stół do katalogu Virtual Pinball Spreadsheet (~2500 gier) i pobiera backglass (bg.png) + jingiel audio (audio.mp3) z VPinMediaDB do <table>/medias/. Pierwsza synchronizacja przesyła ~7 MB JSON katalogu plus kilka MB na dopasowany stół. Wymagane do podglądu po najechaniu i plakietek dostępnej aktualizacji w siatce. Domyślnie włączone – wyłącz na pincabach offline lub z limitem danych."
+tables_catalog_toggle = "Synchronizuj VPSDB + VPinMediaDB podczas skanowania"

@@ -3,7 +3,7 @@
 // See https://www.gnu.org/licenses/gpl-3.0.html
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-rust_i18n::i18n!("locales");
+rust_i18n::i18n!("locales", fallback = "en");
 
 mod app;
 mod assets;
