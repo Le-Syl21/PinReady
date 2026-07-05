@@ -122,6 +122,12 @@ winres = { version = "0.1", optional = true }
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["winver", "winnt"] }
 
+# Enumerate the compositor's Wayland globals to detect wp_fifo_v1 support
+# (drives the native-Wayland vs XWayland decision for VPX). Already in the
+# tree via winit/eframe, so a direct dep is nearly free.
+[target.'cfg(target_os = "linux")'.dependencies]
+wayland-client = "0.31"
+
 [dev-dependencies]
 tempfile = "3"
 

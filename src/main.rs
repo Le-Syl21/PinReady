@@ -25,6 +25,7 @@ mod tilt;
 mod updater;
 mod vbs_patches;
 mod vpsdb;
+mod wayland_caps;
 
 use anyhow::Result;
 use std::io::Write;
@@ -173,6 +174,17 @@ fn main() -> Result<()> {
     }
     if args.iter().any(|a| a == "--list-tables") {
         return run_list_tables_cli();
+    }
+    // Short-lived helper: enumerate displays under a specific SDL video driver
+    // so PinReady can learn the identifiers VPX will see under that driver
+    // (wayland vs x11 name differently). Run as a subprocess to keep the driver
+    // isolated from the main UI's winit/wayland stack.
+    if let Some(pos) = args.iter().position(|a| a == "--enumerate-displays") {
+        let driver = args.get(pos + 1).cloned().unwrap_or_default();
+        return run_enumerate_displays_cli(&driver);
+    }
+    if args.iter().any(|a| a == "--probe-display") {
+        return run_probe_display_cli();
     }
     if args.iter().any(|a| a == "--merge-dry-run") {
         return run_merge_cli(&args, merge::MergeMode::DryRun);
@@ -484,6 +496,65 @@ fn run_print_paths_cli() -> Result<()> {
     println!("VPinballX.ini    = {}", ini_path.display());
     println!("tables_dir       = {tables_dir}");
     println!("vpx_exe_path     = {vpx_exe_path}");
+    Ok(())
+}
+
+/// Enumerate displays under `driver` and print one TSV row per display:
+/// `name<TAB>x<TAB>y<TAB>w<TAB>h<TAB>refresh<TAB>width_mm<TAB>height_mm`.
+///
+/// PinReady spawns this as a subprocess (`--enumerate-displays x11|wayland`)
+/// so SDL's video driver is isolated from the main process's winit/Wayland
+/// stack: the identifiers printed are exactly what VPX will match when it runs
+/// under the same driver.
+fn run_enumerate_displays_cli(driver: &str) -> Result<()> {
+    if !matches!(driver, "wayland" | "x11") {
+        eprintln!("usage: pinready --enumerate-displays <wayland|x11>");
+        std::process::exit(2);
+    }
+    // Override any inherited/forced value before SDL initialises its video
+    // subsystem inside `enumerate_displays`. Safe: single-threaded CLI path,
+    // no SDL/winit thread started yet.
+    unsafe {
+        std::env::set_var("SDL_VIDEODRIVER", driver);
+    }
+    for d in screens::enumerate_displays() {
+        println!(
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            d.name, d.x, d.y, d.width, d.height, d.refresh_rate, d.width_mm, d.height_mm
+        );
+    }
+    Ok(())
+}
+
+/// Human diagnostic for the display/driver decision: session type, whether the
+/// compositor advertises `wp_fifo_v1`, the resulting VPX driver choice, the
+/// kernel DRM monitors (driver-independent EDID identity), and the SDL displays
+/// as seen under the current driver.
+fn run_probe_display_cli() -> Result<()> {
+    let session = session::detect();
+    println!("session         : {}", session.unwrap_or("(none)"));
+    println!("wp_fifo_v1      : {}", wayland_caps::supports_fifo_v1());
+    println!(
+        "VPX driver      : {}",
+        wayland_caps::preferred_vpx_driver(session).unwrap_or("(SDL default)")
+    );
+    println!("\nDRM monitors (kernel EDID — driver-independent):");
+    for m in display_id::read_drm_monitors() {
+        println!(
+            "  {:<12} {:<18} serial={:<10} fp={}…",
+            m.connector,
+            m.id.label(),
+            m.id.serial,
+            &m.id.fingerprint[..12]
+        );
+    }
+    println!("\nSDL displays (current driver):");
+    for d in screens::enumerate_displays() {
+        println!(
+            "  {:<28} {}x{}@{:.2} +{}+{}  {}x{}mm",
+            d.name, d.width, d.height, d.refresh_rate, d.x, d.y, d.width_mm, d.height_mm
+        );
+    }
     Ok(())
 }
 
