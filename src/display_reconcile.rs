@@ -231,8 +231,47 @@ pub fn unresolvable_assigned_displays(
     unresolved
 }
 
+/// The `{prefix}FullScreen` value a secondary VPX window (backglass / DMD /
+/// topper) should use for the given session.
+///
+/// Under a **real X11 (Xorg)** session, gnome-shell does not map a
+/// borderless-fullscreen window placed on a non-primary output — the window is
+/// created (VPX logs it on the right display) but stays invisible, showing the
+/// desktop. Windowed mode (`0`) maps correctly and VPX still positions it on
+/// the target monitor via `*Display=`. Under Wayland/XWayland, borderless
+/// fullscreen (`1`) works, so keep it.
+///
+/// The playfield (primary output) maps fine at borderless fullscreen
+/// everywhere and is left untouched — this only governs the secondary windows.
+fn secondary_fullscreen(session: Option<&str>) -> i32 {
+    if session == Some("x11") {
+        0
+    } else {
+        1
+    }
+}
+
+/// Reconcile the `{prefix}FullScreen` mode of the assigned secondary displays
+/// to the current session (see [`secondary_fullscreen`]). Only touches
+/// FullScreen; positions/sizes/refresh are untouched.
+fn reconcile_fullscreen(config: &mut VpxConfig, session: Option<&str>) {
+    let fs = secondary_fullscreen(session);
+    for (disp_section, disp_key, fs_key) in [
+        ("Backglass", "BackglassDisplay", "BackglassFullScreen"),
+        ("ScoreView", "ScoreViewDisplay", "ScoreViewFullScreen"),
+        ("Topper", "TopperDisplay", "TopperFullScreen"),
+    ] {
+        let assigned = config
+            .get(disp_section, disp_key)
+            .is_some_and(|v| !v.is_empty());
+        if assigned {
+            config.set_i32(disp_section, fs_key, fs);
+        }
+    }
+}
+
 /// Pick the SDL video driver to launch VPX under, reconciling `*Display=` names
-/// to it as a side effect.
+/// and the secondary-window fullscreen mode to the current environment.
 ///
 /// Prefers the framerate-optimal driver ([`preferred_vpx_driver`]): native
 /// Wayland when the compositor supports `wp_fifo_v1`, else XWayland. That
@@ -243,6 +282,9 @@ pub fn unresolvable_assigned_displays(
 /// [`preferred_vpx_driver`]: crate::wayland_caps::preferred_vpx_driver
 pub fn choose_driver_and_reconcile(config: &mut VpxConfig, db: &Database) -> Option<&'static str> {
     let session = crate::session::detect();
+    // Secondary-window fullscreen mode depends on the session (real X11 vs
+    // Wayland/XWayland), independent of the name reconciliation below.
+    reconcile_fullscreen(config, session);
     if let Some(preferred) = crate::wayland_caps::preferred_vpx_driver(session) {
         if reconcile_all(config, db, preferred) {
             log::info!("VPX display driver: {preferred} (screens reconciled)");
@@ -293,5 +335,15 @@ mod tests {
     #[test]
     fn parse_anchor_rejects_short() {
         assert!(parse_anchor("0,0,3840").is_none());
+    }
+
+    #[test]
+    fn secondary_windows_are_windowed_only_under_real_x11() {
+        // Real Xorg session → windowed (gnome-shell X11 won't map borderless FS
+        // on secondary outputs). Wayland session (incl. VPX-on-XWayland) and the
+        // non-Linux None case → borderless fullscreen.
+        assert_eq!(secondary_fullscreen(Some("x11")), 0);
+        assert_eq!(secondary_fullscreen(Some("wayland")), 1);
+        assert_eq!(secondary_fullscreen(None), 1);
     }
 }
