@@ -1,14 +1,15 @@
 //! Display server session type (Linux only).
 //!
-//! Two uses:
-//!   1. Force VPX's SDL backend to match PinReady's actual session (env
-//!      var `SDL_VIDEODRIVER`). Newer SDL3 builds shipped with VPX
-//!      prefer XWayland when a Wayland compositor is around, which
-//!      routes VPX through the X11 protocol and re-introduces the
-//!      display-placement bugs PinReady exists to avoid.
-//!   2. Detect when the user switched between X11 and Wayland between
-//!      two PinReady runs, so the wizard can re-open with a clear
-//!      "here's why" instead of a silent reconfiguration.
+//! Used as a fallback signal for the SDL video driver: newer SDL3 builds
+//! shipped with VPX prefer XWayland when a Wayland compositor is around,
+//! which routes VPX through the X11 protocol and re-introduces the
+//! display-placement bugs PinReady exists to avoid. The primary driver
+//! decision lives in `wayland_caps::preferred_vpx_driver` (which also
+//! accounts for `wp_fifo_v1`); this is the plain session read it builds on.
+//!
+//! (There is no longer any X11↔Wayland "session changed, re-run the wizard"
+//! logic — display roles are re-resolved by geometry/EDID anchor in
+//! `display_reconcile`, so a session switch is transparent.)
 //!
 //! Non-Linux platforms always report `None` — macOS/Windows have a
 //! single native session type and nothing to force.
