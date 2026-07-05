@@ -106,6 +106,24 @@ fn to_sdl(d: &DisplayInfo) -> SdlDisplay {
     }
 }
 
+/// Index into `displays` of the monitor a role is anchored to, matched by the
+/// stored anchor's layout position + size (driver-independent). `None` if the
+/// role has no anchor or no current display sits at that geometry.
+///
+/// Used at window-creation time (before the name reconciliation runs), where
+/// the ini's `*Display=` may still hold a name from another driver that won't
+/// match the current SDL enumeration — the anchor resolves regardless.
+pub fn anchored_display_index(
+    db: &Database,
+    role: DisplayRole,
+    displays: &[DisplayInfo],
+) -> Option<usize> {
+    let a = load_anchor(db, role)?;
+    displays
+        .iter()
+        .position(|d| d.x == a.x && d.y == a.y && d.width == a.width && d.height == a.height)
+}
+
 /// Enumerate the displays SDL reports under `driver`, by re-invoking ourselves
 /// as `--enumerate-displays <driver>`. A subprocess keeps SDL's video driver
 /// isolated from our own winit/Wayland stack; it inherits our session env

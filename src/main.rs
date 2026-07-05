@@ -715,7 +715,8 @@ fn run_eframe_for_mode(mode: app::AppMode) -> Result<()> {
     let vpx_config = config::VpxConfig::load(None)?;
     let displays = screens::enumerate_displays();
 
-    let (viewport, want_kiosk_cursor, rotation) = build_viewport(&displays, mode, &vpx_config);
+    let (viewport, want_kiosk_cursor, rotation) =
+        build_viewport(&displays, mode, &vpx_config, &db);
     let start_in_wizard = matches!(mode, app::AppMode::Wizard);
     let mut app = app::App::new(vpx_config, db, start_in_wizard, displays);
     app.set_rotation(rotation);
@@ -833,16 +834,31 @@ fn build_viewport(
     displays: &[screens::DisplayInfo],
     mode: app::AppMode,
     vpx_config: &config::VpxConfig,
+    db: &db::Database,
 ) -> (egui::ViewportBuilder, bool, egui_rotate::Rotation) {
     let primary_idx = displays.iter().position(|d| d.is_primary).unwrap_or(0);
 
     let cabinet_mode =
         matches!(mode, app::AppMode::Launcher) && vpx_config.get_i32("Player", "BGSet") == Some(1);
     let playfield_name = vpx_config.get("Player", "PlayfieldDisplay");
+    // Find the Playfield monitor for `with_monitor` (borderless-fullscreen
+    // targeting). This runs *before* the launch-time name reconciliation, so
+    // the ini's `PlayfieldDisplay` may still hold a name from another driver
+    // that won't match the current SDL enumeration (e.g. an X11 name under a
+    // Wayland session) — in which case the window would open non-fullscreen and
+    // leave the GNOME panels showing. Fall back to the driver-independent EDID
+    // geometry anchor so the fullscreen target resolves either way.
     let playfield_idx = if cabinet_mode {
         playfield_name
             .as_ref()
             .and_then(|name| displays.iter().position(|d| &d.name == name))
+            .or_else(|| {
+                display_reconcile::anchored_display_index(
+                    db,
+                    screens::DisplayRole::Playfield,
+                    displays,
+                )
+            })
     } else {
         None
     };
