@@ -180,6 +180,12 @@ impl App {
         // 0 = off, 1 = FPS overlay (2 = full perf stats, not offered here).
         self.config
             .set_i32("Player", "ShowFPS", if self.show_fps { 1 } else { 0 });
+        // Keep the ball round (compensate render stretch).
+        self.config.set_i32(
+            "Player",
+            "BallAntiStretch",
+            if self.ball_antistretch { 1 } else { 0 },
+        );
     }
 
     pub(super) fn save_inputs(&mut self) {

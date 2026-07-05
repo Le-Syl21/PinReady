@@ -272,6 +272,7 @@ pub struct App {
     sync_mode: i32,     // 0=No sync, 1=VSync
     max_framerate: f32, // -1=display, 0=unlimited, else value
     show_fps: bool,     // Player/ShowFPS: FPS overlay in game (recommended on)
+    ball_antistretch: bool, // Player/BallAntiStretch: keep the ball round (recommended on)
 
     // Live accelerometer data from joystick thread
     accel_x: f32,
@@ -554,6 +555,7 @@ impl App {
             sync_mode,
             max_framerate,
             show_fps,
+            ball_antistretch,
         ) = Self::load_rendering_config(&config);
 
         // Detect + install the user's language BEFORE anything that
@@ -632,6 +634,7 @@ impl App {
             sync_mode,
             max_framerate,
             show_fps,
+            ball_antistretch,
             capture_state: CaptureState::Idle,
             show_advanced_inputs: false,
             auto_map_active: false,
@@ -910,7 +913,10 @@ impl App {
     }
 
     #[allow(clippy::type_complexity)]
-    fn load_rendering_config(config: &VpxConfig) -> (f32, i32, i32, i32, i32, i32, i32, f32, bool) {
+    #[allow(clippy::type_complexity)]
+    fn load_rendering_config(
+        config: &VpxConfig,
+    ) -> (f32, i32, i32, i32, i32, i32, i32, f32, bool, bool) {
         (
             config.get_f32("Player", "AAFactor").unwrap_or(1.0),
             config.get_i32("Player", "MSAASamples").unwrap_or(0),
@@ -923,6 +929,9 @@ impl App {
             // ShowFPS: 0 = off, 1 = FPS overlay, 2 = full perf stats. PinReady
             // recommends the FPS overlay on — pre-checked when unset.
             config.get_i32("Player", "ShowFPS").unwrap_or(1) != 0,
+            // BallAntiStretch: keep the ball round. VPX defaults it off, but
+            // PinReady recommends it on — pre-checked when unset.
+            config.get_i32("Player", "BallAntiStretch").unwrap_or(1) != 0,
         )
     }
 
@@ -1234,6 +1243,7 @@ impl App {
                 sync_mode,
                 max_framerate,
                 show_fps,
+                ball_antistretch,
             ) = Self::load_rendering_config(&self.config);
             self.aa_factor = aa_factor;
             self.msaa = msaa;
@@ -1244,6 +1254,7 @@ impl App {
             self.sync_mode = sync_mode;
             self.max_framerate = max_framerate;
             self.show_fps = show_fps;
+            self.ball_antistretch = ball_antistretch;
         }
 
         if current < WizardPage::Inputs.index() {
@@ -1308,6 +1319,7 @@ impl App {
                 self.sync_mode = 0;
                 self.max_framerate = -1.0;
                 self.show_fps = true;
+                self.ball_antistretch = true;
             }
             WizardPage::Inputs => {
                 self.actions = crate::inputs::default_actions();

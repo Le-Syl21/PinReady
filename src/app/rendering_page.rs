@@ -11,26 +11,26 @@ impl App {
             .min_col_width(250.0)
             .striped(true)
             .show(ui, |ui| {
-                // Sync mode
+                // Sync mode — the four VPX SyncMode values.
                 ui.label(t!("rendering_sync"));
                 ui.vertical(|ui| {
+                    let sync_label = |m: i32| match m {
+                        0 => t!("rendering_sync_none").to_string(),
+                        1 => t!("rendering_sync_vsync").to_string(),
+                        2 => t!("rendering_sync_adaptive").to_string(),
+                        _ => t!("rendering_sync_framepacing").to_string(),
+                    };
                     egui::ComboBox::from_id_salt("sync_mode")
-                        .selected_text(match self.sync_mode {
-                            0 => t!("rendering_sync_none_default").to_string(),
-                            1 => t!("rendering_sync_vsync").to_string(),
-                            _ => t!("rendering_sync_vsync").to_string(),
-                        })
+                        .selected_text(sync_label(self.sync_mode))
                         .show_ui(ui, |ui| {
-                            ui.selectable_value(
-                                &mut self.sync_mode,
-                                0,
-                                t!("rendering_sync_none_default").to_string(),
-                            );
-                            ui.selectable_value(
-                                &mut self.sync_mode,
-                                1,
-                                t!("rendering_sync_vsync").to_string(),
-                            );
+                            ui.selectable_value(&mut self.sync_mode, 0, sync_label(0))
+                                .on_hover_text(t!("rendering_sync_none_hint"));
+                            ui.selectable_value(&mut self.sync_mode, 1, sync_label(1))
+                                .on_hover_text(t!("rendering_sync_vsync_hint"));
+                            ui.selectable_value(&mut self.sync_mode, 2, sync_label(2))
+                                .on_hover_text(t!("rendering_sync_adaptive_hint"));
+                            ui.selectable_value(&mut self.sync_mode, 3, sync_label(3))
+                                .on_hover_text(t!("rendering_sync_framepacing_hint"));
                         });
                     ui.label(
                         egui::RichText::new(t!("rendering_vsync_hint"))
@@ -56,6 +56,16 @@ impl App {
                 // fresh setup can immediately judge the rendering settings.
                 ui.label(t!("rendering_show_fps"));
                 ui.checkbox(&mut self.show_fps, t!("rendering_show_fps_hint").to_string());
+                ui.end_row();
+
+                // Round ball (Player/BallAntiStretch) — recommended on: keeps
+                // the ball circular by compensating the render stretch.
+                ui.label(t!("rendering_ball_round"));
+                ui.checkbox(
+                    &mut self.ball_antistretch,
+                    t!("rendering_ball_round_hint").to_string(),
+                )
+                .on_hover_text(t!("rendering_ball_round_tip"));
                 ui.end_row();
 
                 // Supersampling
