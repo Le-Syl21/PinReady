@@ -45,6 +45,11 @@ pub struct MonitorId {
     pub model_name: Option<String>,
     /// Serial string from the descriptor block, if present.
     pub serial_string: Option<String>,
+    /// Physical image size in mm `(w, h)` from the EDID basic parameters, or
+    /// `None` when the panel declares it undefined (e.g. many DMD panels).
+    pub phys_mm: Option<(u32, u32)>,
+    /// Preferred (native) resolution `(w, h)` from the first detailed timing.
+    pub preferred_mode: Option<(u32, u32)>,
 }
 
 impl MonitorId {
@@ -91,6 +96,23 @@ pub fn parse_edid(bytes: &[u8]) -> Option<MonitorId> {
     let week = base[16];
     let year = 1990 + base[17] as u16;
 
+    // Basic display params: max image size in cm (0 = undefined / projector).
+    let phys_mm = match (base[21], base[22]) {
+        (0, _) | (_, 0) => None,
+        (w, h) => Some((w as u32 * 10, h as u32 * 10)),
+    };
+
+    // First detailed timing descriptor (bytes 54..): active pixels are 12-bit,
+    // low byte + high nibble. A 0 pixel clock (bytes 54-55) means it's really a
+    // monitor descriptor, not a timing → no preferred mode.
+    let preferred_mode = if base[54] == 0 && base[55] == 0 {
+        None
+    } else {
+        let hactive = base[56] as u32 | (((base[58] as u32) & 0xF0) << 4);
+        let vactive = base[59] as u32 | (((base[61] as u32) & 0xF0) << 4);
+        (hactive > 0 && vactive > 0).then_some((hactive, vactive))
+    };
+
     // Four 18-byte descriptors at 54/72/90/108. A block whose first three bytes
     // are 0 and whose type tag (byte 3) is 0xFC = monitor name, 0xFF = serial.
     let mut model_name = None;
@@ -116,6 +138,8 @@ pub fn parse_edid(bytes: &[u8]) -> Option<MonitorId> {
         week,
         model_name,
         serial_string,
+        phys_mm,
+        preferred_mode,
     })
 }
 
@@ -175,6 +199,124 @@ pub fn read_drm_monitors() -> Vec<DrmMonitor> {
 #[cfg(not(target_os = "linux"))]
 pub fn read_drm_monitors() -> Vec<DrmMonitor> {
     Vec::new()
+}
+
+/// A display as SDL reports it under some video driver — the identity that VPX
+/// writes to `*Display=`. The `name` differs between wayland and x11 for the
+/// same monitor; the geometry (position + size) does not.
+#[derive(Clone, Debug)]
+pub struct SdlDisplay {
+    pub name: String,
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
+    pub width_mm: i32,
+    pub height_mm: i32,
+}
+
+/// What the wizard persists for a role, to re-resolve the SDL display name at
+/// every launch regardless of the video driver.
+///
+/// Primary key is the **layout position** (+ size): identical across
+/// Wayland/X11 for the same physical setup, so it bridges the driver switch
+/// perfectly. The optional EDID **fingerprint** is the fallback that also
+/// survives a physical re-arrangement (position changes, EDID does not) — but
+/// only for monitors whose EDID is usable (some cheap panels declare no serial,
+/// no physical size and a native mode unrelated to how they're driven, and can
+/// only be tracked by position).
+#[derive(Clone, Debug)]
+pub struct DisplayAnchor {
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
+    pub fingerprint: Option<String>,
+}
+
+/// Re-resolve a role's [`DisplayAnchor`] to the SDL display name under the
+/// current driver: try the exact layout position+size first (handles the
+/// driver switch), then the EDID fingerprint via `correlation` (handles a
+/// re-arrangement). `None` → the monitor is gone, caller falls back to the
+/// wizard.
+pub fn resolve_anchor(
+    anchor: &DisplayAnchor,
+    sdl: &[SdlDisplay],
+    correlation: &[(String, MonitorId)],
+) -> Option<String> {
+    if let Some(d) = sdl.iter().find(|d| {
+        d.x == anchor.x && d.y == anchor.y && d.width == anchor.width && d.height == anchor.height
+    }) {
+        return Some(d.name.clone());
+    }
+    anchor
+        .fingerprint
+        .as_deref()
+        .and_then(|fp| resolve_display_name(fp, correlation))
+}
+
+/// Correlate the SDL displays of *one* driver to the kernel DRM monitors,
+/// yielding `(sdl_name → MonitorId)`. This is the bridge: SDL gives the
+/// driver-specific name + physical characteristics, DRM gives the stable EDID
+/// identity, and matching them by resolution + physical size links the two.
+///
+/// Matching is greedy on a score (native resolution match dominates, physical
+/// size breaks ties) with each side used at most once — enough for real
+/// cabinets where monitors differ in model or size. Truly identical twin
+/// panels (same resolution *and* size *and* EDID) are indistinguishable here
+/// and would need connector/position data to separate.
+pub fn correlate(sdl: &[SdlDisplay], drm: &[DrmMonitor]) -> Vec<(String, MonitorId)> {
+    fn score(s: &SdlDisplay, id: &MonitorId) -> i32 {
+        let mut pts = 0;
+        if let Some((w, h)) = id.preferred_mode {
+            if w as i32 == s.width && h as i32 == s.height {
+                pts += 100;
+            }
+        }
+        if let (Some((w, h)), true) = (id.phys_mm, s.width_mm > 0 && s.height_mm > 0) {
+            // ±5 mm tolerance: EDID stores cm, SDL/EDID rounding differs.
+            if (w as i32 - s.width_mm).abs() <= 5 && (h as i32 - s.height_mm).abs() <= 5 {
+                pts += 10;
+            }
+        }
+        pts
+    }
+
+    // All (sdl, drm) pairs with a positive score, best first, greedily assigned.
+    let mut pairs: Vec<(i32, usize, usize)> = Vec::new();
+    for (si, s) in sdl.iter().enumerate() {
+        for (di, d) in drm.iter().enumerate() {
+            let pts = score(s, &d.id);
+            if pts > 0 {
+                pairs.push((pts, si, di));
+            }
+        }
+    }
+    pairs.sort_by_key(|&(score, ..)| std::cmp::Reverse(score));
+
+    let mut used_sdl = vec![false; sdl.len()];
+    let mut used_drm = vec![false; drm.len()];
+    let mut out = Vec::new();
+    for (_, si, di) in pairs {
+        if used_sdl[si] || used_drm[di] {
+            continue;
+        }
+        used_sdl[si] = true;
+        used_drm[di] = true;
+        out.push((sdl[si].name.clone(), drm[di].id.clone()));
+    }
+    out
+}
+
+/// Given a role's stored EDID fingerprint and the current (driver-specific)
+/// SDL↔EDID correlation, return the SDL display name to write to `*Display=`.
+/// `None` when no current monitor carries that fingerprint (the panel is gone
+/// → caller falls back to the wizard).
+pub fn resolve_display_name(fingerprint: &str, correlation: &[(String, MonitorId)]) -> Option<String> {
+    correlation
+        .iter()
+        .find(|(_, id)| id.fingerprint == fingerprint)
+        .map(|(name, _)| name.clone())
 }
 
 #[cfg(test)]
@@ -249,5 +391,102 @@ mod tests {
     fn rejects_garbage() {
         assert!(parse_edid(&[0u8; 128]).is_none()); // bad header
         assert!(parse_edid(&[0xff; 8]).is_none()); // too short
+    }
+
+    #[test]
+    fn extracts_physical_size_and_native_mode() {
+        let pf = parse_edid(&hex(DP_1)).unwrap();
+        assert_eq!(pf.phys_mm, Some((940, 530)));
+        assert_eq!(pf.preferred_mode, Some((3840, 2160)));
+        // The no-name DMD panel is a cautionary tale: no physical size, and its
+        // EDID-native mode (1280x800) is unrelated to how it's actually driven
+        // (1920x1080) — hence it can only be tracked by layout position.
+        let dmd = parse_edid(&hex(DVI_D_1)).unwrap();
+        assert_eq!(dmd.phys_mm, None);
+        assert_eq!(dmd.preferred_mode, Some((1280, 800)));
+    }
+
+    /// The three DRM monitors, as `read_drm_monitors` would return them.
+    fn cab_drm() -> Vec<DrmMonitor> {
+        vec![
+            DrmMonitor { connector: "DP-1".into(), id: parse_edid(&hex(DP_1)).unwrap() },
+            DrmMonitor { connector: "DVI-D-1".into(), id: parse_edid(&hex(DVI_D_1)).unwrap() },
+            DrmMonitor { connector: "HDMI-A-1".into(), id: parse_edid(&hex(HDMI_A_1)).unwrap() },
+        ]
+    }
+
+    // Real `--enumerate-displays` output captured from the cab (both drivers).
+    fn sdl_wayland() -> Vec<SdlDisplay> {
+        vec![
+            SdlDisplay { name: "Iiyama North America 42\"".into(), x: 0, y: 0, width: 3840, height: 2160, width_mm: 940, height_mm: 530 },
+            SdlDisplay { name: "XXX".into(), x: 3840, y: 0, width: 1920, height: 1080, width_mm: 0, height_mm: 0 },
+            SdlDisplay { name: "Iiyama North America 32\"".into(), x: 5760, y: 0, width: 2560, height: 1440, width_mm: 700, height_mm: 390 },
+        ]
+    }
+    fn sdl_x11() -> Vec<SdlDisplay> {
+        vec![
+            SdlDisplay { name: "DP-1 42\"".into(), x: 0, y: 0, width: 3840, height: 2160, width_mm: 940, height_mm: 530 },
+            SdlDisplay { name: "DVI-D-1".into(), x: 3840, y: 0, width: 1920, height: 1080, width_mm: 508, height_mm: 286 },
+            SdlDisplay { name: "HDMI-1 32\"".into(), x: 5760, y: 0, width: 2560, height: 1440, width_mm: 700, height_mm: 390 },
+        ]
+    }
+
+    #[test]
+    fn correlate_links_good_edid_monitors() {
+        // The two Iiyamas (usable EDID: real physical size) correlate; the
+        // no-name DMD (no mm, native mode ≠ driven mode) does not — by design,
+        // it is tracked by position instead.
+        let drm = cab_drm();
+        let pf = parse_edid(&hex(DP_1)).unwrap().fingerprint;
+        let bg = parse_edid(&hex(HDMI_A_1)).unwrap().fingerprint;
+
+        for sdl in [sdl_wayland(), sdl_x11()] {
+            let c = correlate(&sdl, &drm);
+            assert!(resolve_display_name(&pf, &c).unwrap().contains("42"));
+            assert!(resolve_display_name(&bg, &c).unwrap().contains("32"));
+        }
+    }
+
+    /// A role anchored under Wayland resolves to the *x11* name after a driver
+    /// switch — the whole point. Position bridges all three (incl. the DMD);
+    /// the fingerprint is the rearrangement fallback.
+    #[test]
+    fn anchor_bridges_wayland_to_x11_by_position() {
+        // Playfield anchored while enumerated under Wayland.
+        let pf_id = parse_edid(&hex(DP_1)).unwrap();
+        let anchor = DisplayAnchor {
+            x: 0,
+            y: 0,
+            width: 3840,
+            height: 2160,
+            fingerprint: Some(pf_id.fingerprint.clone()),
+        };
+        // Now the session runs x11: enumerate + correlate under x11.
+        let x_corr = correlate(&sdl_x11(), &cab_drm());
+        assert_eq!(resolve_anchor(&anchor, &sdl_x11(), &x_corr).as_deref(), Some("DP-1 42\""));
+
+        // The DMD, whose EDID can't correlate, still bridges by position alone.
+        let dmd_anchor = DisplayAnchor { x: 3840, y: 0, width: 1920, height: 1080, fingerprint: None };
+        assert_eq!(resolve_anchor(&dmd_anchor, &sdl_x11(), &x_corr).as_deref(), Some("DVI-D-1"));
+    }
+
+    /// After a physical re-arrangement (positions change), the good-EDID
+    /// monitors still resolve via their fingerprint.
+    #[test]
+    fn anchor_survives_rearrangement_via_fingerprint() {
+        let bg_id = parse_edid(&hex(HDMI_A_1)).unwrap();
+        // Backglass was at (5760,0) when anchored; user moved it to (0,0).
+        let anchor = DisplayAnchor {
+            x: 5760,
+            y: 0,
+            width: 2560,
+            height: 1440,
+            fingerprint: Some(bg_id.fingerprint.clone()),
+        };
+        let mut moved = sdl_x11();
+        moved.iter_mut().find(|d| d.name.contains("32")).unwrap().x = 0;
+        let corr = correlate(&moved, &cab_drm());
+        // Position no longer matches → fingerprint fallback finds it anyway.
+        assert_eq!(resolve_anchor(&anchor, &moved, &corr).as_deref(), Some("HDMI-1 32\""));
     }
 }
