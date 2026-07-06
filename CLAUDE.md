@@ -20,10 +20,10 @@ It replaces the non-existent native configuration tools for VPX standalone (SDL3
 
 | Layer | Crate | Role |
 |---|---|---|
-| UI | `eframe 0.34` + `egui 0.34` (Le-Syl21 fork) | Immediate mode GUI |
-| Rotation | `egui-rotate 1.1` (feature: `software-cursor`) | Cabinet viewport rotation + software cursor (as an egui Plugin) |
+| UI | `eframe 0.35` + `egui 0.35` (Le-Syl21 fork) | Immediate mode GUI |
+| Rotation | `egui-rotate 2.0` (feature: `software-cursor`) | Cabinet viewport rotation + software cursor (as an egui Plugin) |
 | Wayland caps | `wayland-client 0.31` (Linux) | Detect `wp_fifo_v1` to pick VPX's SDL driver |
-| Images | `egui_extras 0.34` (feature: `image`) | Thumbnail display |
+| Images | `egui_extras 0.35` (feature: `image`) | Thumbnail display |
 | Display/Input | `sdl3-sys 0.6` (feature: `build-from-source-static`) | Screen enumeration + input capture |
 | Config | `serde 1` + `ini-preserve` | Read/write VPinballX.ini (preserves comments) |
 | Database | `rusqlite 0.39` (feature: `bundled`) | Local catalog + PinReady config |
@@ -44,18 +44,20 @@ It replaces the non-existent native configuration tools for VPX standalone (SDL3
 
 Cabinet rotation and the software cursor now live in the standalone
 **`egui-rotate`** crate (an `egui::Plugin`, published on crates.io) — not the
-fork. `egui-rotate 1.1` also owns the OS pointer grab, the soft/hard edge lock,
-the keyboard/gamepad auto-hide and the dissolve/reform fade; PinReady registers
-one `RotationPlugin` in `main.rs` and no longer wires rotation by hand.
+fork. `egui-rotate 2.0` (egui 0.35) also owns the OS pointer grab, the soft/hard
+edge lock, the keyboard/gamepad auto-hide and the dissolve/reform fade; PinReady
+registers one `RotationPlugin` in `main.rs` and no longer wires rotation by hand.
 
 The egui fork is now **slim** — pinned in `[patch.crates-io]` on the
-`activation-token-event` branch — and only carries what isn't upstream yet:
+`pinready-0.35` branch (egui 0.35.0 + a few commits). `with_monitor`/`SetMonitor`
+(#8140) and the `Key::ShiftLeft/Right` + `IntlBackslash` physical keys (#8127)
+both shipped in egui 0.35, so they now come from the release, not the fork. What
+the branch still carries, none of it upstream-released:
 
-- **`eframe::App::transform_primitives` + `post_platform_output` hooks** (pending as [emilk/egui#8138])
-- **`ViewportBuilder::with_monitor` / `ViewportCommand::SetMonitor`** — target a specific monitor (used for the PinReady window + the BG/DMD/Topper cover viewports)
-- **`Key::ShiftLeft/Right` + `IntlBackslash` physical-key variants** (pending as [emilk/egui#8127])
+- **`ViewportCommand::RequestActivationToken` + `Event::ActivationTokenReceived`** — Wayland/X11 serial-sealed focus hand-off (pending as [emilk/egui#8282])
+- **eframe kiosk routing** — `KeyboardInput`/`ModifiersChanged` and raw `MouseMotion` deltas forced to the ROOT viewport, so under Mutter Wayland the playfield keeps keyboard input and the `egui-rotate` software cursor keeps its raw deltas even when a secondary BG/DMD/Topper viewport transiently steals focus. Cabinet-specific, not intended for upstream.
 
-Rev pinned in `Cargo.toml`.
+Branch pinned in `Cargo.toml`.
 
 ---
 
@@ -615,11 +617,12 @@ No `Minimized(true)` on the PF. Attempted once; Mutter does not reliably restore
 
 Rotation and the software cursor left the fork and live in the published
 `egui-rotate` crate (see *Rotation crate + slim egui fork* above). The remaining
-fork (`Le-Syl21/egui`, branch `activation-token-event`) only holds three things
-not yet upstream: the `transform_primitives` / `post_platform_output` eframe
-hooks ([#8138]), `ViewportBuilder::with_monitor` / `ViewportCommand::SetMonitor`,
-and the `ShiftLeft/Right` + `IntlBackslash` physical-key variants ([#8127]).
-When those land upstream, drop the patch.
+fork (`Le-Syl21/egui`, branch `pinready-0.35`) holds only what egui 0.35 doesn't
+ship: the activation-token API ([#8282], still an open PR) and the cabinet-only
+eframe kiosk routing (KeyboardInput + raw MouseMotion → ROOT viewport, not for
+upstream). `with_monitor`/`SetMonitor` ([#8140]) and the physical modifier keys
+([#8127]) landed in egui 0.35, so they now come from the release. When #8282
+lands + ships, the fork drops to just the kiosk routing.
 
 ---
 

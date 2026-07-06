@@ -1708,7 +1708,7 @@ impl eframe::App for App {
         ui.style_mut().spacing.scroll.bar_outer_margin = 0.0;
 
         // Header
-        egui::Panel::top("wizard_header").show_inside(ui, |ui| {
+        egui::Panel::top("wizard_header").show(ui, |ui| {
             ui.horizontal(|ui| {
                 // Two-icon toolbar (theme + rotation) at the very start of the
                 // wizard header — reachable from any wizard page. Rotation is
@@ -1737,7 +1737,7 @@ impl eframe::App for App {
         });
 
         // Navigation footer
-        egui::Panel::bottom("wizard_nav").show_inside(ui, |ui| {
+        egui::Panel::bottom("wizard_nav").show(ui, |ui| {
             ui.add_space(4.0);
             ui.horizontal(|ui| {
                 if self.page.index() > 0 && ui.button(t!("wizard_previous")).clicked() {
@@ -1821,7 +1821,7 @@ impl eframe::App for App {
                     .outer_margin(egui::Margin::ZERO)
                     .stroke(egui::Stroke::NONE),
             )
-            .show_inside(ui, |ui| {
+            .show(ui, |ui| {
                 egui::ScrollArea::vertical()
                     .auto_shrink([false, false])
                     .scroll_bar_visibility(
