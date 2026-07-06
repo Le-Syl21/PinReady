@@ -55,7 +55,10 @@ impl App {
                 // FPS overlay in game (Player/ShowFPS) — recommended on, so a
                 // fresh setup can immediately judge the rendering settings.
                 ui.label(t!("rendering_show_fps"));
-                ui.checkbox(&mut self.show_fps, t!("rendering_show_fps_hint").to_string());
+                ui.checkbox(
+                    &mut self.show_fps,
+                    t!("rendering_show_fps_hint").to_string(),
+                );
                 ui.end_row();
 
                 // Round ball (Player/BallAntiStretch) — recommended on: keeps

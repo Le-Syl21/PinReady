@@ -18,11 +18,8 @@ const ROW_HEIGHT: f32 = 28.0;
 const UNMAP_BTN_WIDTH: f32 = 22.0;
 /// Smallest total list width (narrow window); above this the joystick column
 /// takes all the extra space so the table reaches the page edge.
-const LIST_MIN_WIDTH: f32 = COL_ACTION_WIDTH
-    + COL_KEYBOARD_WIDTH
-    + COL_JOYSTICK_MIN
-    + COL_BUTTON_WIDTH
-    + 3.0 * COL_SPACING;
+const LIST_MIN_WIDTH: f32 =
+    COL_ACTION_WIDTH + COL_KEYBOARD_WIDTH + COL_JOYSTICK_MIN + COL_BUTTON_WIDTH + 3.0 * COL_SPACING;
 
 // Higher-contrast stripes than the previous (40/28) — a 4K cabinet
 // playfield washes out subtle deltas, so we go full ±8 around mid-grey.
@@ -309,7 +306,10 @@ impl App {
                         egui::RichText::new(keyboard_text)
                     };
                     ui.add_sized(
-                        [COL_KEYBOARD_WIDTH - UNMAP_BTN_WIDTH - COL_SPACING, ROW_HEIGHT],
+                        [
+                            COL_KEYBOARD_WIDTH - UNMAP_BTN_WIDTH - COL_SPACING,
+                            ROW_HEIGHT,
+                        ],
                         egui::Label::new(keyboard_rich).truncate(),
                     );
                     // ✕ = drop the custom key, back to the VPX default.

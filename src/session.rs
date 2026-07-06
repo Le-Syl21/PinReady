@@ -30,4 +30,3 @@ pub fn detect() -> Option<&'static str> {
     }
     None
 }
-

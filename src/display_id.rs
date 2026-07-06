@@ -146,7 +146,10 @@ pub fn parse_edid(bytes: &[u8]) -> Option<MonitorId> {
 /// Decode a descriptor text payload: ASCII terminated by `0x0A`, trailing
 /// spaces trimmed. Returns `None` if empty.
 fn descriptor_text(payload: &[u8]) -> Option<String> {
-    let end = payload.iter().position(|&b| b == 0x0A).unwrap_or(payload.len());
+    let end = payload
+        .iter()
+        .position(|&b| b == 0x0A)
+        .unwrap_or(payload.len());
     let text: String = payload[..end]
         .iter()
         .map(|&b| b as char)
@@ -189,7 +192,11 @@ pub fn read_drm_monitors() -> Vec<DrmMonitor> {
         };
         // Dir name is "cardN-<connector>"; strip the card prefix.
         let name = entry.file_name().to_string_lossy().into_owned();
-        let connector = name.split_once('-').map(|(_, c)| c).unwrap_or(&name).to_string();
+        let connector = name
+            .split_once('-')
+            .map(|(_, c)| c)
+            .unwrap_or(&name)
+            .to_string();
         out.push(DrmMonitor { connector, id });
     }
     out.sort_by(|a, b| a.connector.cmp(&b.connector));
@@ -312,7 +319,10 @@ pub fn correlate(sdl: &[SdlDisplay], drm: &[DrmMonitor]) -> Vec<(String, Monitor
 /// SDL↔EDID correlation, return the SDL display name to write to `*Display=`.
 /// `None` when no current monitor carries that fingerprint (the panel is gone
 /// → caller falls back to the wizard).
-pub fn resolve_display_name(fingerprint: &str, correlation: &[(String, MonitorId)]) -> Option<String> {
+pub fn resolve_display_name(
+    fingerprint: &str,
+    correlation: &[(String, MonitorId)],
+) -> Option<String> {
     correlation
         .iter()
         .find(|(_, id)| id.fingerprint == fingerprint)
@@ -409,25 +419,82 @@ mod tests {
     /// The three DRM monitors, as `read_drm_monitors` would return them.
     fn cab_drm() -> Vec<DrmMonitor> {
         vec![
-            DrmMonitor { connector: "DP-1".into(), id: parse_edid(&hex(DP_1)).unwrap() },
-            DrmMonitor { connector: "DVI-D-1".into(), id: parse_edid(&hex(DVI_D_1)).unwrap() },
-            DrmMonitor { connector: "HDMI-A-1".into(), id: parse_edid(&hex(HDMI_A_1)).unwrap() },
+            DrmMonitor {
+                connector: "DP-1".into(),
+                id: parse_edid(&hex(DP_1)).unwrap(),
+            },
+            DrmMonitor {
+                connector: "DVI-D-1".into(),
+                id: parse_edid(&hex(DVI_D_1)).unwrap(),
+            },
+            DrmMonitor {
+                connector: "HDMI-A-1".into(),
+                id: parse_edid(&hex(HDMI_A_1)).unwrap(),
+            },
         ]
     }
 
     // Real `--enumerate-displays` output captured from the cab (both drivers).
     fn sdl_wayland() -> Vec<SdlDisplay> {
         vec![
-            SdlDisplay { name: "Iiyama North America 42\"".into(), x: 0, y: 0, width: 3840, height: 2160, width_mm: 940, height_mm: 530 },
-            SdlDisplay { name: "XXX".into(), x: 3840, y: 0, width: 1920, height: 1080, width_mm: 0, height_mm: 0 },
-            SdlDisplay { name: "Iiyama North America 32\"".into(), x: 5760, y: 0, width: 2560, height: 1440, width_mm: 700, height_mm: 390 },
+            SdlDisplay {
+                name: "Iiyama North America 42\"".into(),
+                x: 0,
+                y: 0,
+                width: 3840,
+                height: 2160,
+                width_mm: 940,
+                height_mm: 530,
+            },
+            SdlDisplay {
+                name: "XXX".into(),
+                x: 3840,
+                y: 0,
+                width: 1920,
+                height: 1080,
+                width_mm: 0,
+                height_mm: 0,
+            },
+            SdlDisplay {
+                name: "Iiyama North America 32\"".into(),
+                x: 5760,
+                y: 0,
+                width: 2560,
+                height: 1440,
+                width_mm: 700,
+                height_mm: 390,
+            },
         ]
     }
     fn sdl_x11() -> Vec<SdlDisplay> {
         vec![
-            SdlDisplay { name: "DP-1 42\"".into(), x: 0, y: 0, width: 3840, height: 2160, width_mm: 940, height_mm: 530 },
-            SdlDisplay { name: "DVI-D-1".into(), x: 3840, y: 0, width: 1920, height: 1080, width_mm: 508, height_mm: 286 },
-            SdlDisplay { name: "HDMI-1 32\"".into(), x: 5760, y: 0, width: 2560, height: 1440, width_mm: 700, height_mm: 390 },
+            SdlDisplay {
+                name: "DP-1 42\"".into(),
+                x: 0,
+                y: 0,
+                width: 3840,
+                height: 2160,
+                width_mm: 940,
+                height_mm: 530,
+            },
+            SdlDisplay {
+                name: "DVI-D-1".into(),
+                x: 3840,
+                y: 0,
+                width: 1920,
+                height: 1080,
+                width_mm: 508,
+                height_mm: 286,
+            },
+            SdlDisplay {
+                name: "HDMI-1 32\"".into(),
+                x: 5760,
+                y: 0,
+                width: 2560,
+                height: 1440,
+                width_mm: 700,
+                height_mm: 390,
+            },
         ]
     }
 
@@ -463,11 +530,23 @@ mod tests {
         };
         // Now the session runs x11: enumerate + correlate under x11.
         let x_corr = correlate(&sdl_x11(), &cab_drm());
-        assert_eq!(resolve_anchor(&anchor, &sdl_x11(), &x_corr).as_deref(), Some("DP-1 42\""));
+        assert_eq!(
+            resolve_anchor(&anchor, &sdl_x11(), &x_corr).as_deref(),
+            Some("DP-1 42\"")
+        );
 
         // The DMD, whose EDID can't correlate, still bridges by position alone.
-        let dmd_anchor = DisplayAnchor { x: 3840, y: 0, width: 1920, height: 1080, fingerprint: None };
-        assert_eq!(resolve_anchor(&dmd_anchor, &sdl_x11(), &x_corr).as_deref(), Some("DVI-D-1"));
+        let dmd_anchor = DisplayAnchor {
+            x: 3840,
+            y: 0,
+            width: 1920,
+            height: 1080,
+            fingerprint: None,
+        };
+        assert_eq!(
+            resolve_anchor(&dmd_anchor, &sdl_x11(), &x_corr).as_deref(),
+            Some("DVI-D-1")
+        );
     }
 
     /// After a physical re-arrangement (positions change), the good-EDID
@@ -487,6 +566,9 @@ mod tests {
         moved.iter_mut().find(|d| d.name.contains("32")).unwrap().x = 0;
         let corr = correlate(&moved, &cab_drm());
         // Position no longer matches → fingerprint fallback finds it anyway.
-        assert_eq!(resolve_anchor(&anchor, &moved, &corr).as_deref(), Some("HDMI-1 32\""));
+        assert_eq!(
+            resolve_anchor(&anchor, &moved, &corr).as_deref(),
+            Some("HDMI-1 32\"")
+        );
     }
 }

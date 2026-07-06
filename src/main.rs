@@ -365,9 +365,8 @@ fn main() -> Result<()> {
                     // X11↔Wayland transition (or a launch that reconciled names
                     // to the other driver) no longer forces the wizard — only a
                     // genuinely absent monitor does.
-                    let missing = display_reconcile::unresolvable_assigned_displays(
-                        &cfg, &db, &connected,
-                    );
+                    let missing =
+                        display_reconcile::unresolvable_assigned_displays(&cfg, &db, &connected);
                     if missing.is_empty() {
                         app::AppMode::Launcher
                     } else {
@@ -715,8 +714,7 @@ fn run_eframe_for_mode(mode: app::AppMode) -> Result<()> {
     let vpx_config = config::VpxConfig::load(None)?;
     let displays = screens::enumerate_displays();
 
-    let (viewport, want_kiosk_cursor, rotation) =
-        build_viewport(&displays, mode, &vpx_config, &db);
+    let (viewport, want_kiosk_cursor, rotation) = build_viewport(&displays, mode, &vpx_config, &db);
     let start_in_wizard = matches!(mode, app::AppMode::Wizard);
     let mut app = app::App::new(vpx_config, db, start_in_wizard, displays);
     app.set_rotation(rotation);

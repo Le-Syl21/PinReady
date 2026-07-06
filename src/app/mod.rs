@@ -263,15 +263,15 @@ pub struct App {
     player_height: f32,      // Player total height in cm (used to compute Z)
 
     // Page 2 — Rendering
-    aa_factor: f32,     // Supersampling 0.5–2.0 (default 1.0)
-    msaa: i32,          // 0=Off, 1=4x, 2=6x, 3=8x
-    fxaa: i32,          // 0=Off, 1–7 various modes
-    sharpen: i32,       // 0=Off, 1=CAS, 2=Bilateral CAS
-    pf_reflection: i32, // 0–5 reflection quality
-    max_tex_dim: i32,   // 512–16384
-    sync_mode: i32,     // 0=No sync, 1=VSync
-    max_framerate: f32, // -1=display, 0=unlimited, else value
-    show_fps: bool,     // Player/ShowFPS: FPS overlay in game (recommended on)
+    aa_factor: f32,         // Supersampling 0.5–2.0 (default 1.0)
+    msaa: i32,              // 0=Off, 1=4x, 2=6x, 3=8x
+    fxaa: i32,              // 0=Off, 1–7 various modes
+    sharpen: i32,           // 0=Off, 1=CAS, 2=Bilateral CAS
+    pf_reflection: i32,     // 0–5 reflection quality
+    max_tex_dim: i32,       // 512–16384
+    sync_mode: i32,         // 0=No sync, 1=VSync
+    max_framerate: f32,     // -1=display, 0=unlimited, else value
+    show_fps: bool,         // Player/ShowFPS: FPS overlay in game (recommended on)
     ball_antistretch: bool, // Player/BallAntiStretch: keep the ball round (recommended on)
 
     // Live accelerometer data from joystick thread
@@ -1176,7 +1176,10 @@ impl App {
             let _ = child.kill();
             let _ = child.wait();
             let ok = ini.exists();
-            log::info!("VPX ini rewrite {}", if ok { "succeeded" } else { "failed" });
+            log::info!(
+                "VPX ini rewrite {}",
+                if ok { "succeeded" } else { "failed" }
+            );
             let _ = tx.send(ok);
         });
         rx
