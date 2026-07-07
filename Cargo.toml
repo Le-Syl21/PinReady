@@ -116,6 +116,14 @@ sdl-keybridge = { version = "0.3", features = ["all-locales"] }
 # has no eframe hooks left to wire.
 egui-rotate = { version = "2.0.0", features = ["software-cursor"] }
 
+# Funnel keyboard input to the playfield (ROOT) viewport. In cabinet mode the
+# BG/DMD/Topper cover viewports can steal keyboard focus under Mutter Wayland
+# (it ignores `with_active(false)`); this plugin moves their key events back to
+# ROOT so flipper keys and launcher navigation always reach the playfield.
+# Registered as an egui Plugin from `main.rs`. Replaces the old eframe kiosk
+# routing that used to live in the egui fork.
+egui-keyfunnel = "0.1"
+
 [target.'cfg(windows)'.build-dependencies]
 winres = { version = "0.1", optional = true }
 
@@ -144,22 +152,21 @@ lto = false
 codegen-units = 16
 strip = true
 
-# Le-Syl21/egui fork, `pinready-0.35` branch = egui 0.35.0 + only the patches
-# that are NOT upstream-released yet. `with_monitor`/`SetMonitor` (#8140) and the
-# `Key::ShiftLeft/Right` + `IntlBackslash` physical keys (#8127) both shipped in
-# egui 0.35, so they now come straight from the release and are no longer carried
-# here. What remains:
+# Le-Syl21/egui fork, `pinready-0.35-slim` branch = egui 0.35.0 + a SINGLE patch
+# not upstream-released yet:
 #   - ViewportCommand::RequestActivationToken + Event::ActivationTokenReceived
-#     (Wayland/X11 serial-sealed focus hand-off, pending upstream as PR
-#     https://github.com/emilk/egui/pull/8282 — drop when merged + released)
-#   - eframe kiosk routing: KeyboardInput/ModifiersChanged and raw MouseMotion
-#     deltas forced to the ROOT viewport, so under Mutter Wayland the playfield
-#     keeps keyboard input and the egui-rotate software cursor keeps its raw
-#     deltas even when a secondary BG/DMD/Topper viewport transiently steals
-#     focus. Cabinet-specific, not intended for upstream.
+#     (Wayland xdg-activation / X11 startup-id token) — used to hand focus to the
+#     freshly-launched VPX window. Pending upstream as PR
+#     https://github.com/emilk/egui/pull/8282 — drop the patch when merged + released.
 #
-# Rotation logic itself lives in the standalone `egui-rotate` crate (above).
+# The old eframe "kiosk routing" (KeyboardInput + raw MouseMotion forced to ROOT)
+# is GONE. Keyboard now reaches the playfield via the `egui-keyfunnel` plugin
+# (above); the mouse follows the focused window (by design); gamepad/joystick is
+# read via SDL, independent of window focus. `with_monitor` (#8140) and the
+# physical modifier keys (#8127) ship in egui 0.35 itself.
+#
+# Rotation lives in `egui-rotate`, keyboard funneling in `egui-keyfunnel`.
 [patch.crates-io]
-egui        = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.35" }
-eframe      = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.35" }
-egui_extras = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.35" }
+egui        = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.35-slim" }
+eframe      = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.35-slim" }
+egui_extras = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.35-slim" }

@@ -1166,7 +1166,7 @@ checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 [[package]]
 name = "ecolor"
 version = "0.35.0"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35#8c347dd9b34456dbc2cf7ab7d7013ffddf5c643d"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#f72c5f83803f883859746dfee9d046458d04ead8"
 dependencies = [
  "bytemuck",
  "emath",
@@ -1175,7 +1175,7 @@ dependencies = [
 [[package]]
 name = "eframe"
 version = "0.35.0"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35#8c347dd9b34456dbc2cf7ab7d7013ffddf5c643d"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#f72c5f83803f883859746dfee9d046458d04ead8"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1209,7 +1209,7 @@ dependencies = [
 [[package]]
 name = "egui"
 version = "0.35.0"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35#8c347dd9b34456dbc2cf7ab7d7013ffddf5c643d"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#f72c5f83803f883859746dfee9d046458d04ead8"
 dependencies = [
  "accesskit",
  "ahash",
@@ -1225,6 +1225,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui-keyfunnel"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee3c7ebf1113153ccb3a328d042dd9468863320667451687fe7fcde7328c9eec"
+dependencies = [
+ "egui",
+]
+
+[[package]]
 name = "egui-rotate"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1236,7 +1245,7 @@ dependencies = [
 [[package]]
 name = "egui-wgpu"
 version = "0.35.0"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35#8c347dd9b34456dbc2cf7ab7d7013ffddf5c643d"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#f72c5f83803f883859746dfee9d046458d04ead8"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1255,7 +1264,7 @@ dependencies = [
 [[package]]
 name = "egui-winit"
 version = "0.35.0"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35#8c347dd9b34456dbc2cf7ab7d7013ffddf5c643d"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#f72c5f83803f883859746dfee9d046458d04ead8"
 dependencies = [
  "accesskit_winit",
  "arboard",
@@ -1276,7 +1285,7 @@ dependencies = [
 [[package]]
 name = "egui_extras"
 version = "0.35.0"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35#8c347dd9b34456dbc2cf7ab7d7013ffddf5c643d"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#f72c5f83803f883859746dfee9d046458d04ead8"
 dependencies = [
  "ahash",
  "egui",
@@ -1291,7 +1300,7 @@ dependencies = [
 [[package]]
 name = "egui_glow"
 version = "0.35.0"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35#8c347dd9b34456dbc2cf7ab7d7013ffddf5c643d"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#f72c5f83803f883859746dfee9d046458d04ead8"
 dependencies = [
  "bytemuck",
  "egui",
@@ -1311,7 +1320,7 @@ checksum = "91622ff5e7162018101f2fea40d6ebf4a78bbe5a49736a2020649edf9693679e"
 [[package]]
 name = "emath"
 version = "0.35.0"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35#8c347dd9b34456dbc2cf7ab7d7013ffddf5c643d"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#f72c5f83803f883859746dfee9d046458d04ead8"
 dependencies = [
  "bytemuck",
 ]
@@ -1398,7 +1407,7 @@ dependencies = [
 [[package]]
 name = "epaint"
 version = "0.35.0"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35#8c347dd9b34456dbc2cf7ab7d7013ffddf5c643d"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#f72c5f83803f883859746dfee9d046458d04ead8"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1422,7 +1431,7 @@ dependencies = [
 [[package]]
 name = "epaint_default_fonts"
 version = "0.35.0"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35#8c347dd9b34456dbc2cf7ab7d7013ffddf5c643d"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#f72c5f83803f883859746dfee9d046458d04ead8"
 
 [[package]]
 name = "equator"
@@ -3434,7 +3443,7 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
 name = "pinready"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "anyhow",
  "base64",
@@ -3444,6 +3453,7 @@ dependencies = [
  "display-info",
  "eframe",
  "egui",
+ "egui-keyfunnel",
  "egui-rotate",
  "egui_extras",
  "env_logger",

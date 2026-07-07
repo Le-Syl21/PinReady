@@ -40,22 +40,30 @@ It replaces the non-existent native configuration tools for VPX standalone (SDL3
 
 **No system dependencies required at runtime** — SDL3 and SQLite are statically linked via bundled features. Build-time deps are the standard xcb/xkb/ssl headers for winit.
 
-### Rotation crate + slim egui fork
+### Two egui plugins + a one-patch egui fork
 
-Cabinet rotation and the software cursor now live in the standalone
-**`egui-rotate`** crate (an `egui::Plugin`, published on crates.io) — not the
-fork. `egui-rotate 2.0` (egui 0.35) also owns the OS pointer grab, the soft/hard
-edge lock, the keyboard/gamepad auto-hide and the dissolve/reform fade; PinReady
-registers one `RotationPlugin` in `main.rs` and no longer wires rotation by hand.
+Cabinet behaviour lives in **two standalone published `egui::Plugin` crates**,
+not in the fork:
 
-The egui fork is now **slim** — pinned in `[patch.crates-io]` on the
-`pinready-0.35` branch (egui 0.35.0 + a few commits). `with_monitor`/`SetMonitor`
-(#8140) and the `Key::ShiftLeft/Right` + `IntlBackslash` physical keys (#8127)
-both shipped in egui 0.35, so they now come from the release, not the fork. What
-the branch still carries, none of it upstream-released:
+- **`egui-rotate 2.0`** — viewport rotation, the software cursor, the OS pointer
+  grab, the soft/hard edge lock, the keyboard/gamepad auto-hide and the
+  dissolve/reform fade. Registered as one `RotationPlugin` in `main.rs`.
+- **`egui-keyfunnel 0.1`** — funnels keyboard events from the BG/DMD/Topper cover
+  viewports to the playfield (ROOT). Under Mutter Wayland a freshly-mapped cover
+  viewport can steal keyboard focus despite `with_active(false)`; the plugin
+  moves its key events back to ROOT so flipper keys + launcher navigation always
+  reach the playfield. Registered as one `KeyFunnel` in `main.rs`. **This
+  replaces the old eframe "kiosk routing"** that used to live in the fork.
 
-- **`ViewportCommand::RequestActivationToken` + `Event::ActivationTokenReceived`** — Wayland/X11 serial-sealed focus hand-off (pending as [emilk/egui#8282])
-- **eframe kiosk routing** — `KeyboardInput`/`ModifiersChanged` and raw `MouseMotion` deltas forced to the ROOT viewport, so under Mutter Wayland the playfield keeps keyboard input and the `egui-rotate` software cursor keeps its raw deltas even when a secondary BG/DMD/Topper viewport transiently steals focus. Cabinet-specific, not intended for upstream.
+The egui fork is now down to a **single patch** — pinned in `[patch.crates-io]`
+on the `pinready-0.35-slim` branch (egui 0.35.0 + one commit):
+
+- **`ViewportCommand::RequestActivationToken` + `Event::ActivationTokenReceived`** — Wayland xdg-activation / X11 startup-id token, used to hand focus to the freshly-launched VPX window (pending upstream as [emilk/egui#8282]).
+
+`with_monitor`/`SetMonitor` (#8140) and the physical modifier keys (#8127) ship
+in egui 0.35 itself. The mouse follows the focused window (by design); gamepad /
+joystick is read via SDL, independent of window focus — so neither needs any
+routing. When #8282 lands + ships, the fork goes away entirely.
 
 Branch pinned in `Cargo.toml`.
 
@@ -615,14 +623,15 @@ No `Minimized(true)` on the PF. Attempted once; Mutter does not reliably restore
 
 ### Why a forked egui?
 
-Rotation and the software cursor left the fork and live in the published
-`egui-rotate` crate (see *Rotation crate + slim egui fork* above). The remaining
-fork (`Le-Syl21/egui`, branch `pinready-0.35`) holds only what egui 0.35 doesn't
-ship: the activation-token API ([#8282], still an open PR) and the cabinet-only
-eframe kiosk routing (KeyboardInput + raw MouseMotion → ROOT viewport, not for
-upstream). `with_monitor`/`SetMonitor` ([#8140]) and the physical modifier keys
-([#8127]) landed in egui 0.35, so they now come from the release. When #8282
-lands + ships, the fork drops to just the kiosk routing.
+Almost nothing anymore. Rotation + the software cursor live in the published
+`egui-rotate` crate, and keyboard funneling in the published `egui-keyfunnel`
+crate (see *Two egui plugins…* above). The fork (`Le-Syl21/egui`, branch
+`pinready-0.35-slim`) is down to a **single** commit: the activation-token API
+([#8282], still an open PR) used to focus the launched VPX window.
+`with_monitor`/`SetMonitor` ([#8140]) and the physical modifier keys ([#8127])
+landed in egui 0.35. The old kiosk routing is gone — replaced by
+`egui-keyfunnel`. **When #8282 merges + ships, the fork disappears entirely** and
+PinReady runs on stock egui/eframe.
 
 ---
 

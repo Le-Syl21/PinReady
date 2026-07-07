@@ -808,6 +808,13 @@ fn run_eframe_for_mode(mode: app::AppMode) -> Result<()> {
                     .with_dormant_on_keys(!start_in_wizard),
             );
             cc.egui_ctx.add_plugin(plugin);
+            // Funnel keyboard input from the BG/DMD/Topper cover viewports to the
+            // playfield (ROOT). Under Mutter Wayland a freshly-mapped cover
+            // viewport can steal keyboard focus despite `with_active(false)`;
+            // this keeps flipper keys and launcher navigation reaching the
+            // playfield. Mouse follows the focused window; joystick is read via
+            // SDL, independent of focus. (Replaces the old eframe kiosk routing.)
+            cc.egui_ctx.add_plugin(egui_keyfunnel::KeyFunnel::new());
             // Register egui context with pidlock so the socket listener
             // can wake egui up on focus requests (otherwise the atomic
             // never gets consumed while the window is unfocused).
