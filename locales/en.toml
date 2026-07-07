@@ -311,6 +311,13 @@ tilt_deadzone_warning = "Warning: deadzone is larger than or equal to tilt thres
 tilt_section = "Tilt"
 tilt_threshold = "TILT trigger threshold:"
 tilt_visualization = "Push the cabinet to see the dot move. If it hits the red ring = TILT:"
+tilt_nudge_type = "Nudge sensor type:"
+tilt_nudge_type_game = "Game Controller"
+tilt_nudge_type_intent = "Intent Sensor"
+tilt_nudge_type_cabinet = "Cabinet Sensor"
+tilt_nudge_type_help = "Game Controller: uses stick position — for gamepads, not cabinet accelerometers. Intent Sensor (recommended): reads the accelerometer to estimate your nudge intent, then applies VPX physics — best for Pinscape/KL25Z boards. Cabinet Sensor: maps the raw acceleration directly to the emulated nudge — only for a real cabinet with a high-frequency, low-latency, noise-free sensor."
+tilt_show_plumb = "Show nudge in-game (plumb overlay)"
+tilt_show_plumb_help = "Displays VPX's plumb bob — a dot inside a circle, near the FPS overlay — that moves when you nudge, so you can verify nudge is working. (VPX setting: SimulatedPlumb.)"
 
 # Audio page
 audio_heading = "Audio configuration"

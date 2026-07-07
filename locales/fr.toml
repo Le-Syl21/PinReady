@@ -311,6 +311,13 @@ tilt_deadzone_warning = "Attention : la zone morte est supérieure ou égale au 
 tilt_section = "Tilt"
 tilt_threshold = "Seuil de déclenchement du TILT :"
 tilt_visualization = "Poussez la caisse pour voir le point bouger. S'il touche l'anneau rouge = TILT :"
+tilt_nudge_type = "Type de capteur de nudge :"
+tilt_nudge_type_game = "Manette de jeu"
+tilt_nudge_type_intent = "Capteur d'intention"
+tilt_nudge_type_cabinet = "Capteur de cabinet"
+tilt_nudge_type_help = "Manette de jeu : utilise la position du stick — pour manettes, pas pour un accéléromètre de cabinet. Capteur d'intention (recommandé) : lit l'accéléromètre pour estimer ton intention de nudge, puis applique la physique VPX — idéal pour les cartes Pinscape/KL25Z. Capteur de cabinet : mappe l'accélération brute directement sur le nudge émulé — uniquement pour un vrai cabinet avec un capteur haute fréquence, faible latence et sans bruit."
+tilt_show_plumb = "Visualiser le nudge en jeu (fil à plomb)"
+tilt_show_plumb_help = "Affiche le fil à plomb de VPX — un point dans un cercle, près de l'overlay des FPS — qui bouge quand tu nudges, pour vérifier que le nudge fonctionne. (Réglage VPX : SimulatedPlumb.)"
 
 # Page Audio
 audio_heading = "Configuration audio"
