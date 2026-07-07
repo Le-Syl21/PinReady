@@ -74,7 +74,8 @@ impl App {
                 // Supersampling
                 ui.label(t!("rendering_supersampling"));
                 ui.horizontal(|ui| {
-                    ui.add(egui::Slider::new(&mut self.aa_factor, 0.5..=2.0).step_by(0.25));
+                    ui.add(egui::Slider::new(&mut self.aa_factor, 0.5..=2.0).step_by(0.25))
+                        .on_hover_text(t!("rendering_aa_hint"));
                     let tip = if self.aa_factor < 0.8 {
                         t!("rendering_aa_perf")
                     } else if self.aa_factor <= 1.1 {
@@ -107,7 +108,9 @@ impl App {
                         ui.selectable_value(&mut self.msaa, 1, t!("rendering_msaa_4").to_string());
                         ui.selectable_value(&mut self.msaa, 2, t!("rendering_msaa_6").to_string());
                         ui.selectable_value(&mut self.msaa, 3, t!("rendering_msaa_8").to_string());
-                    });
+                    })
+                    .response
+                    .on_hover_text(t!("rendering_msaa_hint"));
                 ui.end_row();
 
                 // Post-process AA
@@ -165,7 +168,9 @@ impl App {
                             7,
                             t!("rendering_fxaa_faaa").to_string(),
                         );
-                    });
+                    })
+                    .response
+                    .on_hover_text(t!("rendering_fxaa_hint"));
                 ui.end_row();
 
                 // Sharpening
@@ -193,7 +198,9 @@ impl App {
                             2,
                             t!("rendering_sharpen_bilateral").to_string(),
                         );
-                    });
+                    })
+                    .response
+                    .on_hover_text(t!("rendering_sharpen_hint"));
                 ui.end_row();
 
                 // Reflections
@@ -239,7 +246,9 @@ impl App {
                             5,
                             t!("rendering_reflect_dynamic_default").to_string(),
                         );
-                    });
+                    })
+                    .response
+                    .on_hover_text(t!("rendering_reflections_hint"));
                 ui.end_row();
 
                 // Max texture dimension
@@ -255,7 +264,9 @@ impl App {
                             };
                             ui.selectable_value(&mut self.max_tex_dim, size, label);
                         }
-                    });
+                    })
+                    .response
+                    .on_hover_text(t!("rendering_tex_size_hint"));
                 ui.end_row();
             });
     }

@@ -55,7 +55,9 @@ impl App {
                         for dev in &self.audio.available_devices {
                             ui.selectable_value(&mut self.audio.device_bg, dev.clone(), dev);
                         }
-                    });
+                    })
+                    .response
+                    .on_hover_text(t!("audio_device_bg_hint"));
                 ui.end_row();
 
                 ui.label(t!("audio_playfield"));
@@ -74,7 +76,9 @@ impl App {
                         for dev in &self.audio.available_devices {
                             ui.selectable_value(&mut self.audio.device_pf, dev.clone(), dev);
                         }
-                    });
+                    })
+                    .response
+                    .on_hover_text(t!("audio_device_pf_hint"));
                 ui.end_row();
             });
 
@@ -115,7 +119,16 @@ impl App {
         ui.strong(t!("audio_output_mode"));
         ui.add_space(4.0);
         for mode in Sound3DMode::all() {
-            ui.radio_value(&mut self.audio.sound_3d_mode, *mode, mode.label());
+            let hint = match *mode {
+                Sound3DMode::FrontStereo => t!("audio_mode_front_stereo_hint"),
+                Sound3DMode::RearStereo => t!("audio_mode_rear_stereo_hint"),
+                Sound3DMode::SurroundRearLockbar => t!("audio_mode_surround_rear_hint"),
+                Sound3DMode::SurroundFrontLockbar => t!("audio_mode_surround_front_hint"),
+                Sound3DMode::SsfLegacy => t!("audio_mode_ssf_legacy_hint"),
+                Sound3DMode::SsfNew => t!("audio_mode_ssf_new_hint"),
+            };
+            ui.radio_value(&mut self.audio.sound_3d_mode, *mode, mode.label())
+                .on_hover_text(hint);
         }
 
         // Wiring guide based on selected mode
@@ -191,11 +204,13 @@ impl App {
             .min_col_width(150.0)
             .show(ui, |ui| {
                 ui.label(t!("audio_music_volume"));
-                ui.add(egui::Slider::new(&mut self.audio.music_volume, 0..=100).suffix("%"));
+                ui.add(egui::Slider::new(&mut self.audio.music_volume, 0..=100).suffix("%"))
+                    .on_hover_text(t!("audio_music_volume_hint"));
                 ui.end_row();
 
                 ui.label(t!("audio_sound_volume"));
-                ui.add(egui::Slider::new(&mut self.audio.sound_volume, 0..=100).suffix("%"));
+                ui.add(egui::Slider::new(&mut self.audio.sound_volume, 0..=100).suffix("%"))
+                    .on_hover_text(t!("audio_sound_volume_hint"));
                 ui.end_row();
             });
 
@@ -210,7 +225,11 @@ impl App {
             } else {
                 "[Play]"
             };
-            if ui.button(music_label).clicked() {
+            if ui
+                .button(music_label)
+                .on_hover_text(t!("audio_test_music_btn_hint"))
+                .clicked()
+            {
                 self.audio.music_looping = !self.audio.music_looping;
                 if let Some(tx) = &self.audio_cmd_tx {
                     if self.audio.music_looping {
@@ -235,7 +254,9 @@ impl App {
                             t!("audio_pan_right").to_string()
                         }
                     });
-                let response = ui.add_sized([ui.available_width(), 20.0], pan_slider);
+                let response = ui
+                    .add_sized([ui.available_width(), 20.0], pan_slider)
+                    .on_hover_text(t!("audio_pan_hint"));
                 if response.changed() {
                     // Fire on every value change (mid-drag, keyboard, click on
                     // rail) instead of only on `drag_stopped`. The audio thread
@@ -283,6 +304,7 @@ impl App {
             ui.add_space(gap);
             if ui
                 .add_sized([btn_w, btn_h], egui::Button::new(left_label))
+                .on_hover_text(t!("audio_speaker_test_hint"))
                 .clicked()
             {
                 if let Some(tx) = &self.audio_cmd_tx {
@@ -295,6 +317,7 @@ impl App {
             ui.add_space(gap * 2.0);
             if ui
                 .add_sized([btn_w, btn_h], egui::Button::new(right_label))
+                .on_hover_text(t!("audio_speaker_test_hint"))
                 .clicked()
             {
                 if let Some(tx) = &self.audio_cmd_tx {
@@ -317,6 +340,7 @@ impl App {
                         [btn_w + gap, btn_h],
                         egui::Button::new(t!("audio_ball_top_bottom").to_string()),
                     )
+                    .on_hover_text(t!("audio_ball_top_bottom_hint"))
                     .clicked()
                 {
                     if let Some(tx) = &self.audio_cmd_tx {
@@ -339,6 +363,7 @@ impl App {
                     [btn_w + gap, btn_h],
                     egui::Button::new(t!("audio_ball_left_right").to_string()),
                 )
+                .on_hover_text(t!("audio_ball_left_right_hint"))
                 .clicked()
             {
                 if let Some(tx) = &self.audio_cmd_tx {
@@ -364,6 +389,7 @@ impl App {
                         [btn_w, btn_h],
                         egui::Button::new(t!("audio_bottom_left").to_string()),
                     )
+                    .on_hover_text(t!("audio_speaker_test_hint"))
                     .clicked()
                 {
                     if let Some(tx) = &self.audio_cmd_tx {
@@ -379,6 +405,7 @@ impl App {
                         [btn_w, btn_h],
                         egui::Button::new(t!("audio_bottom_right").to_string()),
                     )
+                    .on_hover_text(t!("audio_speaker_test_hint"))
                     .clicked()
                 {
                     if let Some(tx) = &self.audio_cmd_tx {

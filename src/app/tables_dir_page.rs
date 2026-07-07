@@ -20,8 +20,13 @@ impl App {
             ui.colored_label(ASTERISK_RED, "*");
         });
         ui.horizontal(|ui| {
-            ui.text_edit_singleline(&mut self.tables_dir);
-            if ui.button(t!("tables_browse")).clicked() {
+            ui.text_edit_singleline(&mut self.tables_dir)
+                .on_hover_text(t!("tables_dir_path_hint"));
+            if ui
+                .button(t!("tables_browse"))
+                .on_hover_text(t!("tables_dir_browse_hint"))
+                .clicked()
+            {
                 if let Some(path) = rfd::FileDialog::new()
                     .set_title(t!("tables_folder_picker"))
                     .pick_folder()
@@ -234,27 +239,29 @@ impl App {
             );
             ui.add_space(8.0);
 
-            let mut pick = |label: &str, value: &mut String, browse_label: &str| -> bool {
-                let mut changed = false;
-                ui.horizontal(|ui| {
-                    ui.label(label);
-                    if ui.text_edit_singleline(value).changed() {
-                        changed = true;
-                    }
-                    if ui.button(browse_label).clicked() {
-                        if let Some(p) = rfd::FileDialog::new().pick_folder() {
-                            *value = p.to_string_lossy().into_owned();
+            let mut pick =
+                |label: &str, value: &mut String, browse_label: &str, hint: &str| -> bool {
+                    let mut changed = false;
+                    ui.horizontal(|ui| {
+                        ui.label(label);
+                        if ui.text_edit_singleline(value).on_hover_text(hint).changed() {
                             changed = true;
                         }
-                    }
-                });
-                changed
-            };
+                        if ui.button(browse_label).clicked() {
+                            if let Some(p) = rfd::FileDialog::new().pick_folder() {
+                                *value = p.to_string_lossy().into_owned();
+                                changed = true;
+                            }
+                        }
+                    });
+                    changed
+                };
 
             if pick(
                 &t!("merge_src_vpinmame"),
                 &mut self.merge_src_vpinmame,
                 &t!("tables_browse"),
+                &t!("tables_dir_merge_vpinmame_hint"),
             ) {
                 let _ = self
                     .db
@@ -264,6 +271,7 @@ impl App {
                 &t!("merge_src_pupvideos"),
                 &mut self.merge_src_pupvideos,
                 &t!("tables_browse"),
+                &t!("tables_dir_merge_pupvideos_hint"),
             ) {
                 let _ = self
                     .db
@@ -273,6 +281,7 @@ impl App {
                 &t!("merge_src_music"),
                 &mut self.merge_src_music,
                 &t!("tables_browse"),
+                &t!("tables_dir_merge_music_hint"),
             ) {
                 let _ = self.db.set_merge_source("music", &self.merge_src_music);
             }
@@ -288,6 +297,7 @@ impl App {
                         MergeStrategy::Copy,
                         t!("merge_strategy_copy"),
                     )
+                    .on_hover_text(t!("tables_dir_merge_strategy_copy_hint"))
                     .changed()
                 {
                     strategy_changed = true;
@@ -298,6 +308,7 @@ impl App {
                         MergeStrategy::Move,
                         t!("merge_strategy_move"),
                     )
+                    .on_hover_text(t!("tables_dir_merge_strategy_move_hint"))
                     .changed()
                 {
                     strategy_changed = true;
@@ -308,6 +319,7 @@ impl App {
                         MergeStrategy::Symlink,
                         t!("merge_strategy_symlink"),
                     )
+                    .on_hover_text(t!("tables_dir_merge_strategy_symlink_hint"))
                     .changed()
                 {
                     strategy_changed = true;
@@ -336,6 +348,7 @@ impl App {
                         tables_dir_set && !self.merge_running,
                         egui::Button::new(t!("merge_dry_run")),
                     )
+                    .on_hover_text(t!("tables_dir_merge_dry_run_hint"))
                     .on_disabled_hover_text(t!("merge_run_disabled_tooltip"));
                 if dry_btn.clicked() {
                     self.start_merge_run(MergeMode::DryRun, ui.ctx());
@@ -345,14 +358,20 @@ impl App {
                     tables_dir_set && !self.merge_running && self.merge_dry_run_report.is_some();
                 let commit_btn = ui
                     .add_enabled(can_commit, egui::Button::new(t!("merge_confirm_apply")))
+                    .on_hover_text(t!("tables_dir_merge_apply_hint"))
                     .on_disabled_hover_text(t!("merge_apply_disabled_tooltip"));
                 if commit_btn.clicked() {
                     self.start_merge_run(MergeMode::Commit, ui.ctx());
                 }
 
-                if self.merge_running && ui.button(t!("merge_cancel")).clicked() {
-                    if let Some(c) = &self.merge_cancel {
-                        c.store(true, std::sync::atomic::Ordering::SeqCst);
+                if self.merge_running {
+                    let cancel_btn = ui
+                        .button(t!("merge_cancel"))
+                        .on_hover_text(t!("tables_dir_merge_cancel_hint"));
+                    if cancel_btn.clicked() {
+                        if let Some(c) = &self.merge_cancel {
+                            c.store(true, std::sync::atomic::Ordering::SeqCst);
+                        }
                     }
                 }
             });
