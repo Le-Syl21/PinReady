@@ -1166,7 +1166,7 @@ checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 [[package]]
 name = "ecolor"
 version = "0.35.0"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#f72c5f83803f883859746dfee9d046458d04ead8"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#10235983d21935ef4234b68aea29d0bff5a471c5"
 dependencies = [
  "bytemuck",
  "emath",
@@ -1175,7 +1175,7 @@ dependencies = [
 [[package]]
 name = "eframe"
 version = "0.35.0"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#f72c5f83803f883859746dfee9d046458d04ead8"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#10235983d21935ef4234b68aea29d0bff5a471c5"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1209,7 +1209,7 @@ dependencies = [
 [[package]]
 name = "egui"
 version = "0.35.0"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#f72c5f83803f883859746dfee9d046458d04ead8"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#10235983d21935ef4234b68aea29d0bff5a471c5"
 dependencies = [
  "accesskit",
  "ahash",
@@ -1245,7 +1245,7 @@ dependencies = [
 [[package]]
 name = "egui-wgpu"
 version = "0.35.0"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#f72c5f83803f883859746dfee9d046458d04ead8"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#10235983d21935ef4234b68aea29d0bff5a471c5"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1264,7 +1264,7 @@ dependencies = [
 [[package]]
 name = "egui-winit"
 version = "0.35.0"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#f72c5f83803f883859746dfee9d046458d04ead8"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#10235983d21935ef4234b68aea29d0bff5a471c5"
 dependencies = [
  "accesskit_winit",
  "arboard",
@@ -1285,7 +1285,7 @@ dependencies = [
 [[package]]
 name = "egui_extras"
 version = "0.35.0"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#f72c5f83803f883859746dfee9d046458d04ead8"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#10235983d21935ef4234b68aea29d0bff5a471c5"
 dependencies = [
  "ahash",
  "egui",
@@ -1300,7 +1300,7 @@ dependencies = [
 [[package]]
 name = "egui_glow"
 version = "0.35.0"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#f72c5f83803f883859746dfee9d046458d04ead8"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#10235983d21935ef4234b68aea29d0bff5a471c5"
 dependencies = [
  "bytemuck",
  "egui",
@@ -1320,7 +1320,7 @@ checksum = "91622ff5e7162018101f2fea40d6ebf4a78bbe5a49736a2020649edf9693679e"
 [[package]]
 name = "emath"
 version = "0.35.0"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#f72c5f83803f883859746dfee9d046458d04ead8"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#10235983d21935ef4234b68aea29d0bff5a471c5"
 dependencies = [
  "bytemuck",
 ]
@@ -1407,7 +1407,7 @@ dependencies = [
 [[package]]
 name = "epaint"
 version = "0.35.0"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#f72c5f83803f883859746dfee9d046458d04ead8"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#10235983d21935ef4234b68aea29d0bff5a471c5"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1431,7 +1431,7 @@ dependencies = [
 [[package]]
 name = "epaint_default_fonts"
 version = "0.35.0"
-source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#f72c5f83803f883859746dfee9d046458d04ead8"
+source = "git+https://github.com/Le-Syl21/egui?branch=pinready-0.35-slim#10235983d21935ef4234b68aea29d0bff5a471c5"
 
 [[package]]
 name = "equator"
@@ -3443,7 +3443,7 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
 name = "pinready"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "anyhow",
  "base64",
