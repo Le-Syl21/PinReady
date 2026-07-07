@@ -43,7 +43,11 @@ impl App {
                     log::error!("Failed to persist mirror_base_url: {e}");
                 }
             }
-            if ui.button(t!("system_mirror_clear")).clicked() {
+            if ui
+                .button(t!("system_mirror_clear"))
+                .on_hover_text(t!("system_mirror_clear_hint"))
+                .clicked()
+            {
                 self.mirror_base_url.clear();
                 let _ = self.db.set_mirror_base_url("");
             }

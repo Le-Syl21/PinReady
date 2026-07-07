@@ -32,7 +32,9 @@ impl App {
                     for (idx, (_code, label)) in LANGUAGE_OPTIONS.iter().enumerate() {
                         ui.selectable_value(&mut self.selected_language, idx, *label);
                     }
-                });
+                })
+                .response
+                .on_hover_text(t!("screens_language_hint"));
             if self.selected_language != prev_lang {
                 let (code, _) = LANGUAGE_OPTIONS[self.selected_language];
                 i18n::set_locale(code);
@@ -51,7 +53,8 @@ impl App {
             &mut self.vpx_install_mode,
             VpxInstallMode::Auto,
             t!("vpx_auto_install"),
-        );
+        )
+        .on_hover_text(t!("screens_vpx_auto_hint"));
         if self.vpx_install_mode == VpxInstallMode::Auto {
             ui.indent("auto_install", |ui| {
                 if let Some(ref release) = self.vpx_latest_release {
@@ -93,7 +96,10 @@ impl App {
                     ui.ctx().request_repaint();
                 } else if let Some(release) = self.vpx_latest_release.clone() {
                     if release.tag != self.vpx_installed_tag
-                        && ui.button(t!("vpx_install_button")).clicked()
+                        && ui
+                            .button(t!("vpx_install_button"))
+                            .on_hover_text(t!("screens_vpx_install_button_hint"))
+                            .clicked()
                     {
                         self.start_vpx_download(&release);
                     }
@@ -112,7 +118,11 @@ impl App {
                     ui.add(
                         egui::TextEdit::singleline(&mut self.vpx_install_dir).desired_width(400.0),
                     );
-                    if ui.button(t!("vpx_browse")).clicked() {
+                    if ui
+                        .button(t!("vpx_browse"))
+                        .on_hover_text(t!("screens_vpx_browse_dir_hint"))
+                        .clicked()
+                    {
                         if let Some(path) = rfd::FileDialog::new()
                             .set_title(t!("vpx_install_dir_picker"))
                             .set_directory(&self.vpx_install_dir)
@@ -130,12 +140,18 @@ impl App {
             &mut self.vpx_install_mode,
             VpxInstallMode::Manual,
             t!("vpx_manual_install"),
-        );
+        )
+        .on_hover_text(t!("screens_vpx_manual_hint"));
         if self.vpx_install_mode == VpxInstallMode::Manual {
             ui.indent("manual_install", |ui| {
                 ui.horizontal(|ui| {
-                    ui.add(egui::TextEdit::singleline(&mut self.vpx_exe_path).desired_width(400.0));
-                    if ui.button(t!("vpx_browse")).clicked() {
+                    ui.add(egui::TextEdit::singleline(&mut self.vpx_exe_path).desired_width(400.0))
+                        .on_hover_text(t!("screens_vpx_exe_hint"));
+                    if ui
+                        .button(t!("vpx_browse"))
+                        .on_hover_text(t!("screens_vpx_browse_exe_hint"))
+                        .clicked()
+                    {
                         // On macOS, .app bundles are directories — use pick_folder
                         // as fallback so users can select them.
                         let picked = if cfg!(target_os = "macos") {
@@ -184,7 +200,11 @@ impl App {
                     3 => t!("screens_3"),
                     _ => t!("screens_4"),
                 };
-                if ui.radio_value(&mut self.screen_count, n, label).changed() {
+                if ui
+                    .radio_value(&mut self.screen_count, n, label)
+                    .on_hover_text(t!("screens_count_hint"))
+                    .changed()
+                {
                     // Re-assign roles based on new screen count
                     for (i, display) in self.displays.iter_mut().enumerate() {
                         let roles = [
@@ -208,14 +228,18 @@ impl App {
         // View mode
         ui.label(t!("screens_display_mode"));
         ui.horizontal(|ui| {
-            ui.radio_value(&mut self.view_mode, 0, t!("screens_mode_desktop"));
-            ui.radio_value(&mut self.view_mode, 1, t!("screens_mode_cabinet"));
-            ui.radio_value(&mut self.view_mode, 2, t!("screens_mode_fss"));
+            ui.radio_value(&mut self.view_mode, 0, t!("screens_mode_desktop"))
+                .on_hover_text(t!("screens_mode_desktop_hint"));
+            ui.radio_value(&mut self.view_mode, 1, t!("screens_mode_cabinet"))
+                .on_hover_text(t!("screens_mode_cabinet_hint"));
+            ui.radio_value(&mut self.view_mode, 2, t!("screens_mode_fss"))
+                .on_hover_text(t!("screens_mode_fss_hint"));
         });
 
         ui.add_space(8.0);
 
-        ui.checkbox(&mut self.disable_touch, t!("screens_disable_touch"));
+        ui.checkbox(&mut self.disable_touch, t!("screens_disable_touch"))
+            .on_hover_text(t!("screens_disable_touch_hint"));
 
         // External DMD checkbox — only relevant when no screen has DMD role
         let has_dmd_screen = self.displays.iter().any(|d| d.role == DisplayRole::Dmd);
@@ -276,13 +300,15 @@ impl App {
                             egui::DragValue::new(&mut display.width_mm)
                                 .speed(1)
                                 .suffix(" mm"),
-                        );
+                        )
+                        .on_hover_text(t!("screens_physical_size_hint"));
                         ui.label("x");
                         ui.add(
                             egui::DragValue::new(&mut display.height_mm)
                                 .speed(1)
                                 .suffix(" mm"),
-                        );
+                        )
+                        .on_hover_text(t!("screens_physical_size_hint"));
                     });
 
                     egui::ComboBox::from_id_salt(format!("role_{}", display.name))
@@ -291,7 +317,9 @@ impl App {
                             for role in &available_roles {
                                 ui.selectable_value(&mut display.role, *role, role.label());
                             }
-                        });
+                        })
+                        .response
+                        .on_hover_text(t!("screens_role_hint"));
                     ui.end_row();
                 }
             });
@@ -580,7 +608,8 @@ impl App {
                     .range(10.0..=150.0)
                     .speed(1.0)
                     .suffix(" cm"),
-            );
+            )
+            .on_hover_text(t!("screens_cab_lockbar_width_hint"));
             ui.add_space(4.0);
 
             ui.label(t!("cabinet_lockbar_height"));
@@ -589,7 +618,8 @@ impl App {
                     .range(0.0..=250.0)
                     .speed(1.0)
                     .suffix(" cm"),
-            );
+            )
+            .on_hover_text(t!("screens_cab_lockbar_height_hint"));
             ui.add_space(4.0);
 
             ui.label(t!("cabinet_screen_inclination"));
@@ -598,7 +628,8 @@ impl App {
                     .range(-30.0..=30.0)
                     .speed(0.5)
                     .suffix(" deg"),
-            );
+            )
+            .on_hover_text(t!("screens_cab_inclination_hint"));
             ui.add_space(4.0);
 
             ui.label(t!("cabinet_player_height"));
@@ -607,7 +638,8 @@ impl App {
                     .range(75.0..=250.0)
                     .speed(1.0)
                     .suffix(" cm"),
-            );
+            )
+            .on_hover_text(t!("screens_cab_player_height_hint"));
             ui.add_space(4.0);
 
             ui.label(t!("cabinet_player_distance"));
@@ -616,7 +648,8 @@ impl App {
                     .range(-70.0..=30.0)
                     .speed(1.0)
                     .suffix(" cm"),
-            );
+            )
+            .on_hover_text(t!("screens_cab_player_distance_hint"));
             ui.add_space(4.0);
 
             ui.label(t!("cabinet_player_offset"));
@@ -625,7 +658,8 @@ impl App {
                     .range(-30.0..=30.0)
                     .speed(1.0)
                     .suffix(" cm"),
-            );
+            )
+            .on_hover_text(t!("screens_cab_player_offset_hint"));
             ui.add_space(12.0);
 
             ui.separator();

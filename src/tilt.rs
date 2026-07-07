@@ -7,10 +7,18 @@ pub struct TiltConfig {
     pub tilt_sensitivity_pct: f32,
     /// PlumbDamping: tilt plumb simulation damping (0..2, VPX default 1.0). Replaces the older PlumbInertia.
     pub plumb_damping: f32,
-    /// Nudge sensitivity 0–100% — written as scale in NudgeX/Y mapping
+    /// Nudge sensitivity 0–100% — written as scale in the nudge accelerometer mapping
     pub nudge_scale_pct: f32,
     /// Nudge deadzone 0–100% — movements below this are ignored (anti-noise)
     pub nudge_deadzone_pct: f32,
+    /// Nudge sensor type — VPX `Mapping.Nudge0.Type` enum after the nudge-handler
+    /// rewrite (10.8.1 rev 5277+): 0 = Game Controller, 1 = Intent Sensor,
+    /// 2 = Cabinet Sensor. Default 1 (recommended for HID accelerometers like
+    /// Pinscape — not high-frequency/noise-free enough for direct Cabinet Sensor).
+    pub nudge_sensor_type: i32,
+    /// Show the in-game plumb overlay — the tilt dot in a circle near the FPS —
+    /// via VPX `[Player] SimulatedPlumb`. Lets the player see nudge/tilt live.
+    pub show_nudge_plumb: bool,
 }
 
 const TILT_ANGLE_MIN: f32 = 0.5;
@@ -26,6 +34,8 @@ impl Default for TiltConfig {
             plumb_damping: 1.0,
             nudge_scale_pct: 50.0,
             nudge_deadzone_pct: 10.0,
+            nudge_sensor_type: 1,
+            show_nudge_plumb: true,
         }
     }
 }
@@ -41,8 +51,9 @@ impl TiltConfig {
         if let Some(v) = config.get_f32("Player", "PlumbDamping") {
             self.plumb_damping = v;
         }
-        // Parse deadzone + scale from NudgeX1 mapping: "device;axis;type;deadZone;scale;limit"
-        if let Some(mapping) = config.get("Input", "Mapping.NudgeX1") {
+        // Parse deadzone + scale from the accelerometer axis of the new nudge
+        // sensor schema: "device;axis;type;deadZone;scale;limit".
+        if let Some(mapping) = config.get("Input", "Mapping.Nudge0.AccX") {
             let parts: Vec<&str> = mapping.split(';').collect();
             if parts.len() >= 5 {
                 if let Ok(dz) = parts[3].parse::<f32>() {
@@ -53,6 +64,12 @@ impl TiltConfig {
                 }
             }
         }
+        if let Some(v) = config.get_i32("Input", "Mapping.Nudge0.Type") {
+            self.nudge_sensor_type = v;
+        }
+        if let Some(v) = config.get("Player", "SimulatedPlumb") {
+            self.show_nudge_plumb = matches!(v.trim(), "1" | "true" | "True");
+        }
     }
 
     pub fn save_to_config(&self, config: &mut crate::config::VpxConfig) {
@@ -61,9 +78,16 @@ impl TiltConfig {
         config.set_plumb_threshold_angle(
             TILT_ANGLE_MAX - (self.tilt_sensitivity_pct / 100.0) * TILT_ANGLE_RANGE,
         );
-        // Update scale and deadZone in NudgeX1/Y1 analog mappings
-        self.update_nudge_mapping(config, "NudgeX1");
-        self.update_nudge_mapping(config, "NudgeY1");
+        // Update scale and deadZone on the accelerometer axes of the new nudge
+        // sensor schema, and persist the sensor type + plumb overlay toggle.
+        self.update_nudge_mapping(config, "Nudge0.AccX");
+        self.update_nudge_mapping(config, "Nudge0.AccY");
+        config.set_i32("Input", "Mapping.Nudge0.Type", self.nudge_sensor_type);
+        config.set(
+            "Player",
+            "SimulatedPlumb",
+            if self.show_nudge_plumb { "1" } else { "0" },
+        );
     }
 
     fn update_nudge_mapping(&self, config: &mut crate::config::VpxConfig, key: &str) {
@@ -114,7 +138,7 @@ mod tests {
         // PlumbThresholdAngle=2.25 (mid range 0.5..4) → pct = (4 - 2.25)/3.5 * 100 = 50%
         let cfg = config_from_str(
             "[Player]\nPlumbThresholdAngle = 2.25\nPlumbDamping = 0.5\n\
-             [Input]\nMapping.NudgeX1 = dev;512;A;0.1;0.8;1.0\n",
+             [Input]\nMapping.Nudge0.AccX = dev;512;A;0.1;0.8;1.0\n",
         );
         let mut tilt = TiltConfig::default();
         tilt.load_from_config(&cfg);
@@ -155,6 +179,7 @@ mod tests {
             plumb_damping: 0.7,
             nudge_scale_pct: 150.0,
             nudge_deadzone_pct: 20.0,
+            ..Default::default()
         };
         tilt.save_to_config(&mut cfg);
         let angle = cfg.get_f32("Player", "PlumbThresholdAngle").unwrap();
@@ -188,14 +213,14 @@ mod tests {
     fn save_roundtrip() {
         // PlumbThresholdAngle=3.0 → pct ≈ 28.57 → save back → 3.0
         let ini = "[Player]\nPlumbThresholdAngle = 3.0\nPlumbDamping = 0.8\n\
-                    [Input]\nMapping.NudgeX1 = dev;512;A;0.05;0.3;1.0\nMapping.NudgeY1 = dev;513;A;0.05;0.3;1.0\n";
+                    [Input]\nMapping.Nudge0.AccX = dev;512;A;0.05;0.3;1.0\nMapping.Nudge0.AccY = dev;513;A;0.05;0.3;1.0\n";
         let mut cfg = config_from_str(ini);
         let mut tilt = TiltConfig::default();
         tilt.load_from_config(&cfg);
         tilt.nudge_scale_pct = 120.0;
         tilt.save_to_config(&mut cfg);
 
-        let mapping = cfg.get("Input", "Mapping.NudgeX1").unwrap();
+        let mapping = cfg.get("Input", "Mapping.Nudge0.AccX").unwrap();
         assert!(
             mapping.contains("1.200000"),
             "expected scale 1.2 in: {mapping}"
@@ -207,14 +232,14 @@ mod tests {
 
     #[test]
     fn update_nudge_mapping_preserves_device_and_axis() {
-        let ini = "[Input]\nMapping.NudgeX1 = SDLJoy_PSC004;512;A;0.000000;0.300000;1.000000\n";
+        let ini = "[Input]\nMapping.Nudge0.AccX = SDLJoy_PSC004;512;A;0.000000;0.300000;1.000000\n";
         let mut cfg = config_from_str(ini);
         let tilt = TiltConfig {
             nudge_scale_pct: 50.0,
             ..Default::default()
         };
         tilt.save_to_config(&mut cfg);
-        let mapping = cfg.get("Input", "Mapping.NudgeX1").unwrap();
+        let mapping = cfg.get("Input", "Mapping.Nudge0.AccX").unwrap();
         assert!(mapping.starts_with("SDLJoy_PSC004;512;A;"));
         assert!(mapping.contains("0.500000"));
         assert!(mapping.ends_with(";1.000000"));
@@ -222,8 +247,9 @@ mod tests {
 
     #[test]
     fn nudge_scale_parsed_from_mapping() {
-        let cfg =
-            config_from_str("[Input]\nMapping.NudgeX1 = dev;512;A;0.000000;1.750000;1.000000\n");
+        let cfg = config_from_str(
+            "[Input]\nMapping.Nudge0.AccX = dev;512;A;0.000000;1.750000;1.000000\n",
+        );
         let mut tilt = TiltConfig::default();
         tilt.load_from_config(&cfg);
         assert!((tilt.nudge_scale_pct - 175.0).abs() < 0.1);

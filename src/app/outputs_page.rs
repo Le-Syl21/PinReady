@@ -133,7 +133,11 @@ impl App {
         let exists = dof_dir.is_dir();
         ui.horizontal(|ui| {
             let btn_label = format!("📁 {}", t!("outputs_open_folder"));
-            if ui.button(btn_label).clicked() {
+            if ui
+                .button(btn_label)
+                .on_hover_text(t!("outputs_open_folder_hint"))
+                .clicked()
+            {
                 if !exists {
                     if let Err(e) = std::fs::create_dir_all(&dof_dir) {
                         log::error!("Failed to create DOF config dir: {e}");
@@ -180,7 +184,11 @@ impl App {
                 t!("outputs_dof_enable_status_on"),
             );
             ui.add_space(4.0);
-            if ui.button(t!("outputs_dof_enable_disable")).clicked() {
+            if ui
+                .button(t!("outputs_dof_enable_disable"))
+                .on_hover_text(t!("outputs_dof_disable_hint"))
+                .clicked()
+            {
                 self.config.set("Plugin.DOF", "Enable", "");
                 if let Err(e) = self.config.save() {
                     log::error!("Failed to save VPX ini after disabling DOF: {e}");
@@ -192,7 +200,11 @@ impl App {
                 t!("outputs_dof_enable_status_off"),
             );
             ui.add_space(4.0);
-            if ui.button(t!("outputs_dof_enable_activate")).clicked() {
+            if ui
+                .button(t!("outputs_dof_enable_activate"))
+                .on_hover_text(t!("outputs_dof_activate_hint"))
+                .clicked()
+            {
                 self.config.set("Plugin.DOF", "Enable", "1");
                 match self.config.save() {
                     Ok(()) => log::info!("[Plugin.DOF] Enable = 1 written to VPX ini"),
@@ -231,7 +243,8 @@ impl App {
         ui.checkbox(
             &mut self.output_discovery.warning_ack,
             t!("outputs_discover_ack"),
-        );
+        )
+        .on_hover_text(t!("outputs_discover_ack_hint"));
         ui.add_space(6.0);
 
         let can_start = self.output_discovery.warning_ack;
@@ -245,6 +258,7 @@ impl App {
             };
             if ui
                 .add_enabled(can_start, egui::Button::new(scan_label))
+                .on_hover_text(t!("outputs_discover_scan_hint"))
                 .clicked()
             {
                 self.output_discovery.scan_hardware();
@@ -256,6 +270,7 @@ impl App {
                     can_start,
                     egui::Button::new(t!("outputs_discover_start_simulator")),
                 )
+                .on_hover_text(t!("outputs_discover_simulator_hint"))
                 .clicked()
             {
                 let board: Box<dyn OutputBoard> =
@@ -339,6 +354,7 @@ impl App {
                             n = board_info.num_outputs
                         )),
                     )
+                    .on_hover_text(t!("outputs_discover_start_hardware_hint"))
                     .clicked()
                 {
                     match outputs_hid::open_board(
@@ -414,7 +430,11 @@ impl App {
         // in practice (Windows/macOS don't need udev rules) but defensive.
         #[cfg(not(target_os = "linux"))]
         {
-            if ui.button(t!("outputs_discover_copy_udev")).clicked() {
+            if ui
+                .button(t!("outputs_discover_copy_udev"))
+                .on_hover_text(t!("outputs_discover_copy_udev_hint"))
+                .clicked()
+            {
                 ui.ctx().output_mut(|o| {
                     o.commands.push(egui::OutputCommand::CopyText(
                         UDEV_RULES_PINSCAPE.to_string(),
@@ -465,16 +485,25 @@ impl App {
 
         ui.horizontal(|ui| {
             if self.output_discovery.loop_running {
-                if ui.button(t!("outputs_discover_pulse_stop")).clicked() {
+                if ui
+                    .button(t!("outputs_discover_pulse_stop"))
+                    .on_hover_text(t!("outputs_discover_pulse_stop_hint"))
+                    .clicked()
+                {
                     self.output_discovery.stop_loop();
                 }
-            } else if ui.button(t!("outputs_discover_pulse_start")).clicked() {
+            } else if ui
+                .button(t!("outputs_discover_pulse_start"))
+                .on_hover_text(t!("outputs_discover_pulse_start_hint"))
+                .clicked()
+            {
                 self.output_discovery.start_loop();
             }
 
             let can_replay = self.output_discovery.num_outputs > 0;
             if ui
                 .add_enabled(can_replay, egui::Button::new(t!("outputs_discover_replay")))
+                .on_hover_text(t!("outputs_discover_replay_hint"))
                 .clicked()
             {
                 self.output_discovery.start_loop();
@@ -483,6 +512,7 @@ impl App {
             let can_prev = self.output_discovery.current > 1;
             if ui
                 .add_enabled(can_prev, egui::Button::new(t!("outputs_discover_prev")))
+                .on_hover_text(t!("outputs_discover_prev_hint"))
                 .clicked()
             {
                 self.output_discovery.prev_output();
@@ -491,6 +521,7 @@ impl App {
             let can_next = self.output_discovery.current < self.output_discovery.num_outputs;
             if ui
                 .add_enabled(can_next, egui::Button::new(t!("outputs_discover_next")))
+                .on_hover_text(t!("outputs_discover_next_hint"))
                 .clicked()
             {
                 self.output_discovery.next_output();
@@ -506,7 +537,8 @@ impl App {
                 egui::TextEdit::singleline(label)
                     .hint_text(t!("outputs_discover_label_placeholder"))
                     .desired_width(400.0),
-            );
+            )
+            .on_hover_text(t!("outputs_discover_label_hint"));
         }
         ui.add_space(12.0);
 
@@ -521,13 +553,22 @@ impl App {
         ui.add_space(8.0);
 
         ui.horizontal(|ui| {
-            if !summary.is_empty() && ui.button(t!("outputs_discover_copy")).clicked() {
+            if !summary.is_empty()
+                && ui
+                    .button(t!("outputs_discover_copy"))
+                    .on_hover_text(t!("outputs_discover_copy_hint"))
+                    .clicked()
+            {
                 ui.ctx().output_mut(|o| {
                     o.commands
                         .push(egui::OutputCommand::CopyText(summary.clone()))
                 });
             }
-            if ui.button(t!("outputs_discover_end_session")).clicked() {
+            if ui
+                .button(t!("outputs_discover_end_session"))
+                .on_hover_text(t!("outputs_discover_end_session_hint"))
+                .clicked()
+            {
                 self.output_discovery.stop_session();
                 self.output_discovery = crate::outputs_hid::DiscoveryState::default();
             }

@@ -29,6 +29,37 @@ impl App {
             egui::Slider::new(&mut self.tilt.nudge_deadzone_pct, 0.0..=100.0)
                 .custom_formatter(|v, _| format!("{:.0}%", v)),
         );
+        ui.add_space(8.0);
+
+        // Nudge sensor type (VPX new sensor schema: Mapping.Nudge0.Type).
+        let sensor_types = [
+            (0_i32, t!("tilt_nudge_type_game")),
+            (1, t!("tilt_nudge_type_intent")),
+            (2, t!("tilt_nudge_type_cabinet")),
+        ];
+        ui.label(t!("tilt_nudge_type"));
+        let selected = sensor_types
+            .iter()
+            .find(|(v, _)| *v == self.tilt.nudge_sensor_type)
+            .map(|(_, l)| l.clone())
+            .unwrap_or_default();
+        egui::ComboBox::from_id_salt("nudge_sensor_type")
+            .selected_text(selected)
+            .width(ui.available_width())
+            .show_ui(ui, |ui| {
+                for (val, label) in &sensor_types {
+                    ui.selectable_value(&mut self.tilt.nudge_sensor_type, *val, label.clone());
+                }
+            });
+        ui.add_space(4.0);
+        egui::Frame::group(ui.style()).show(ui, |ui| {
+            ui.label(t!("tilt_nudge_type_help"));
+        });
+        ui.add_space(8.0);
+
+        // Show the in-game plumb overlay (the tilt dot in a circle near the FPS).
+        ui.checkbox(&mut self.tilt.show_nudge_plumb, t!("tilt_show_plumb"))
+            .on_hover_text(t!("tilt_show_plumb_help"));
         ui.add_space(12.0);
 
         // --- Tilt section ---

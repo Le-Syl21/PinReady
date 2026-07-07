@@ -655,7 +655,7 @@ impl App {
                         egui_extras::install_image_loaders(&ctx);
                         egui::CentralPanel::default()
                             .frame(egui::Frame::NONE.fill(egui::Color32::BLACK))
-                            .show_inside(ui, |ui| {
+                            .show(ui, |ui| {
                                 if let Some(ref bytes) = bg_bytes {
                                     let uri = format!("bytes://viewport_bg/{selected}");
                                     ctx.include_bytes(uri.clone(), bytes.clone());
@@ -712,7 +712,7 @@ impl App {
                 ctx.include_bytes("bytes://vpx_logo", VPX_LOGO);
                 egui::CentralPanel::default()
                     .frame(egui::Frame::NONE.fill(egui::Color32::from_rgb(80, 80, 85)))
-                    .show_inside(ui, |ui| {
+                    .show(ui, |ui| {
                         ui.centered_and_justified(|ui| {
                             let img = egui::Image::new("bytes://vpx_logo")
                                 .max_size(egui::vec2(512.0, 512.0))

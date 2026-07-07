@@ -58,7 +58,9 @@ impl App {
                         for i in 0..=inputs::PINSCAPE_PROFILE_NONE {
                             ui.selectable_value(&mut self.pinscape_profile, i, profile_label(i));
                         }
-                    });
+                    })
+                    .response
+                    .on_hover_text(t!("inputs_pinscape_profile_hint"));
                 if self.pinscape_profile != prev_profile {
                     if let Some(vpx_id) = self.pinscape_id.clone() {
                         for action in &mut self.actions {
@@ -70,7 +72,8 @@ impl App {
             });
         }
         if self.gamepad_id.is_some() {
-            ui.checkbox(&mut self.use_gamepad, t!("inputs_gamepad").to_string());
+            ui.checkbox(&mut self.use_gamepad, t!("inputs_gamepad").to_string())
+                .on_hover_text(t!("inputs_gamepad_hint"));
         }
 
         ui.add_space(4.0);
@@ -84,6 +87,7 @@ impl App {
             if !self.auto_map_active {
                 if ui
                     .button(egui::RichText::new(t!("inputs_auto_map")).strong())
+                    .on_hover_text(t!("inputs_auto_map_hint"))
                     .clicked()
                 {
                     self.auto_map_active = true;
@@ -96,11 +100,19 @@ impl App {
                     egui::Color32::from_rgb(255, 200, 80),
                     t!("inputs_auto_map_running"),
                 );
-                if ui.button(t!("inputs_auto_map_skip")).clicked() {
+                if ui
+                    .button(t!("inputs_auto_map_skip"))
+                    .on_hover_text(t!("inputs_auto_map_skip_hint"))
+                    .clicked()
+                {
                     // Keep the current binding, advance to the next action.
                     self.advance_capture_or_finish();
                 }
-                if ui.button(t!("inputs_auto_map_cancel")).clicked() {
+                if ui
+                    .button(t!("inputs_auto_map_cancel"))
+                    .on_hover_text(t!("inputs_auto_map_cancel_hint"))
+                    .clicked()
+                {
                     self.auto_map_active = false;
                     self.capture_state = CaptureState::Idle;
                 }
@@ -365,7 +377,7 @@ impl App {
                     };
                     let btn = egui::Button::new(btn_label)
                         .min_size(egui::vec2(COL_BUTTON_WIDTH, ROW_HEIGHT - 4.0));
-                    if ui.add(btn).clicked() {
+                    if ui.add(btn).on_hover_text(t!("inputs_map_hint")).clicked() {
                         if is_capturing {
                             // Manual cancel — also bails out of auto-map.
                             self.auto_map_active = false;

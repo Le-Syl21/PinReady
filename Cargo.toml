@@ -1,6 +1,6 @@
 [package]
 name = "pinready"
-version = "0.15.0"
+version = "0.16.0"
 edition = "2021"
 description = "Cross-platform configurator and launcher supporting the adoption of Visual Pinball 10.8.1 — for testers and early adopters, not a replacement for a stable production setup"
 license = "GPL-3.0-or-later"
@@ -16,9 +16,9 @@ win-icon = ["winres"]
 
 [dependencies]
 # UI
-eframe = { version = "0.34", default-features = false, features = ["accesskit", "default_fonts", "glow", "wayland", "x11"] }
-egui = "0.34"
-egui_extras = { version = "0.34", features = ["image", "file"] }
+eframe = { version = "0.35", default-features = false, features = ["accesskit", "default_fonts", "glow", "wayland", "x11"] }
+egui = "0.35"
+egui_extras = { version = "0.35", features = ["image", "file"] }
 
 # Display / Input
 sdl3-sys = { version = "0.6", features = ["build-from-source-static"] }
@@ -114,7 +114,7 @@ sdl-keybridge = { version = "0.3", features = ["all-locales"] }
 # for cabinet mode. Registered as an egui Plugin from `main.rs`; the plugin owns
 # input rotation, primitive rotation and the software cursor draw — PinReady
 # has no eframe hooks left to wire.
-egui-rotate = { version = "1.1.1", features = ["software-cursor"] }
+egui-rotate = { version = "2.0.0", features = ["software-cursor"] }
 
 [target.'cfg(windows)'.build-dependencies]
 winres = { version = "0.1", optional = true }
@@ -144,18 +144,22 @@ lto = false
 codegen-units = 16
 strip = true
 
-# Le-Syl21/egui fork on the `pinready-deps` branch. Slimmer than the previous
-# full-rotation fork — only contains:
-#   - eframe::App::transform_primitives + post_platform_output hooks
-#     (pending upstream as PR https://github.com/emilk/egui/pull/8138 — when
-#     merged + released, drop the `eframe` patch and depend on the new release)
-#   - ViewportBuilder::with_monitor / ViewportCommand::SetMonitor
-#     (cross-platform target-monitor selection — separate concern, no PR yet)
-#   - Key::ShiftLeft/Right + IntlBackslash physical key variants
-#     (pending upstream as PR https://github.com/emilk/egui/pull/8127)
+# Le-Syl21/egui fork, `pinready-0.35` branch = egui 0.35.0 + only the patches
+# that are NOT upstream-released yet. `with_monitor`/`SetMonitor` (#8140) and the
+# `Key::ShiftLeft/Right` + `IntlBackslash` physical keys (#8127) both shipped in
+# egui 0.35, so they now come straight from the release and are no longer carried
+# here. What remains:
+#   - ViewportCommand::RequestActivationToken + Event::ActivationTokenReceived
+#     (Wayland/X11 serial-sealed focus hand-off, pending upstream as PR
+#     https://github.com/emilk/egui/pull/8282 — drop when merged + released)
+#   - eframe kiosk routing: KeyboardInput/ModifiersChanged and raw MouseMotion
+#     deltas forced to the ROOT viewport, so under Mutter Wayland the playfield
+#     keeps keyboard input and the egui-rotate software cursor keeps its raw
+#     deltas even when a secondary BG/DMD/Topper viewport transiently steals
+#     focus. Cabinet-specific, not intended for upstream.
 #
 # Rotation logic itself lives in the standalone `egui-rotate` crate (above).
 [patch.crates-io]
-egui        = { git = "https://github.com/Le-Syl21/egui", branch = "activation-token-event" }
-eframe      = { git = "https://github.com/Le-Syl21/egui", branch = "activation-token-event" }
-egui_extras = { git = "https://github.com/Le-Syl21/egui", branch = "activation-token-event" }
+egui        = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.35" }
+eframe      = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.35" }
+egui_extras = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.35" }

@@ -213,16 +213,35 @@ impl App {
             // Axes: always write them so VPX doesn't need to auto-detect.
             // Combined with NoAutoLayout=1, VPX won't prompt and axes work.
             //
-            // All supported controllers use accelerometers (MPU-6050, ADXL345, etc.)
-            // that report raw acceleration data, even when delivered via SDL joystick axes.
+            // VPX 10.8.1 rev 5277+ ("Rewrite nudge & plunger sensor handlers")
+            // replaced the old Mapping.PlungerPos / Mapping.NudgeX1 keys with a
+            // "sensor" schema: VPX now reads PlungerSensorCount / NudgeSensorCount
+            // plus per-sensor mappings, and ignores the legacy keys entirely.
+            // All supported controllers expose accelerometers (MPU-6050, ADXL345…)
+            // delivered as SDL joystick axes.
+            //
+            // Plunger sensor 0 — position axis 514, velocity axis 517.
+            self.config.set("Input", "PlungerSensorCount", "1");
             self.config.set(
                 "Input",
-                "Mapping.PlungerPos",
+                "Mapping.Plunger0.Position",
                 &format!("{psc_id};514;P;0.000000;1.000000;1.000000"),
             );
             self.config.set(
                 "Input",
-                "Mapping.NudgeX1",
+                "Mapping.Plunger0.Velocity",
+                &format!("{psc_id};517;V;0.000000;1.000000;1.000000"),
+            );
+
+            // Nudge sensor 0 — accelerometer axes 512 (X) / 513 (Y). Sensitivity
+            // (scale) and deadzone come from the tilt page; the sensor type is
+            // user-selectable there (default Intent Sensor, best for HID boards).
+            self.config.set("Input", "NudgeSensorCount", "1");
+            self.config
+                .set_i32("Input", "Mapping.Nudge0.Type", self.tilt.nudge_sensor_type);
+            self.config.set(
+                "Input",
+                "Mapping.Nudge0.AccX",
                 &format!(
                     "{psc_id};512;A;{:.6};{:.6};1.000000",
                     self.tilt.nudge_deadzone_pct / 100.0,
@@ -231,7 +250,7 @@ impl App {
             );
             self.config.set(
                 "Input",
-                "Mapping.NudgeY1",
+                "Mapping.Nudge0.AccY",
                 &format!(
                     "{psc_id};513;A;{:.6};{:.6};1.000000",
                     self.tilt.nudge_deadzone_pct / 100.0,
