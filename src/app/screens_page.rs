@@ -20,6 +20,7 @@ impl App {
         // Language selector
         ui.horizontal(|ui| {
             ui.label(egui::RichText::new("Langue / Language").size(14.0));
+            help_marker(ui, &t!("screens_language_hint"));
             ui.add_space(8.0);
             let prev_lang = self.selected_language;
             let current_label = LANGUAGE_OPTIONS
@@ -32,9 +33,7 @@ impl App {
                     for (idx, (_code, label)) in LANGUAGE_OPTIONS.iter().enumerate() {
                         ui.selectable_value(&mut self.selected_language, idx, *label);
                     }
-                })
-                .response
-                .on_hover_text(t!("screens_language_hint"));
+                });
             if self.selected_language != prev_lang {
                 let (code, _) = LANGUAGE_OPTIONS[self.selected_language];
                 i18n::set_locale(code);
@@ -49,12 +48,14 @@ impl App {
         ui.label(egui::RichText::new(t!("vpx_install_title")).strong());
         ui.add_space(4.0);
 
-        ui.radio_value(
-            &mut self.vpx_install_mode,
-            VpxInstallMode::Auto,
-            t!("vpx_auto_install"),
-        )
-        .on_hover_text(t!("screens_vpx_auto_hint"));
+        ui.horizontal(|ui| {
+            ui.radio_value(
+                &mut self.vpx_install_mode,
+                VpxInstallMode::Auto,
+                t!("vpx_auto_install"),
+            );
+            help_marker(ui, &t!("screens_vpx_auto_hint"));
+        });
         if self.vpx_install_mode == VpxInstallMode::Auto {
             ui.indent("auto_install", |ui| {
                 if let Some(ref release) = self.vpx_latest_release {
@@ -113,7 +114,10 @@ impl App {
                 }
 
                 ui.add_space(4.0);
-                ui.label(t!("vpx_install_dir_label"));
+                ui.horizontal(|ui| {
+                    ui.label(t!("vpx_install_dir_label"));
+                    help_marker(ui, &t!("vpx_install_dir_hint"));
+                });
                 ui.horizontal(|ui| {
                     ui.add(
                         egui::TextEdit::singleline(&mut self.vpx_install_dir).desired_width(400.0),
@@ -132,16 +136,17 @@ impl App {
                         }
                     }
                 });
-                ui.label(egui::RichText::new(t!("vpx_install_dir_hint")).weak());
             });
         }
 
-        ui.radio_value(
-            &mut self.vpx_install_mode,
-            VpxInstallMode::Manual,
-            t!("vpx_manual_install"),
-        )
-        .on_hover_text(t!("screens_vpx_manual_hint"));
+        ui.horizontal(|ui| {
+            ui.radio_value(
+                &mut self.vpx_install_mode,
+                VpxInstallMode::Manual,
+                t!("vpx_manual_install"),
+            );
+            help_marker(ui, &t!("screens_vpx_manual_hint"));
+        });
         if self.vpx_install_mode == VpxInstallMode::Manual {
             ui.indent("manual_install", |ui| {
                 ui.horizontal(|ui| {
@@ -191,7 +196,10 @@ impl App {
         ui.add_space(8.0);
 
         // Screen count selection
-        ui.label(t!("screens_count_label"));
+        ui.horizontal(|ui| {
+            ui.label(t!("screens_count_label"));
+            help_marker(ui, &t!("screens_count_hint"));
+        });
         ui.horizontal(|ui| {
             for n in 1..=4 {
                 let label = match n {
@@ -200,11 +208,7 @@ impl App {
                     3 => t!("screens_3"),
                     _ => t!("screens_4"),
                 };
-                if ui
-                    .radio_value(&mut self.screen_count, n, label)
-                    .on_hover_text(t!("screens_count_hint"))
-                    .changed()
-                {
+                if ui.radio_value(&mut self.screen_count, n, label).changed() {
                     // Re-assign roles based on new screen count
                     for (i, display) in self.displays.iter_mut().enumerate() {
                         let roles = [
@@ -226,7 +230,10 @@ impl App {
         ui.add_space(8.0);
 
         // View mode
-        ui.label(t!("screens_display_mode"));
+        ui.horizontal(|ui| {
+            ui.label(t!("screens_display_mode"));
+            help_marker(ui, &t!("screens_display_mode_help"));
+        });
         ui.horizontal(|ui| {
             ui.radio_value(&mut self.view_mode, 0, t!("screens_mode_desktop"))
                 .on_hover_text(t!("screens_mode_desktop_hint"));
@@ -238,14 +245,18 @@ impl App {
 
         ui.add_space(8.0);
 
-        ui.checkbox(&mut self.disable_touch, t!("screens_disable_touch"))
-            .on_hover_text(t!("screens_disable_touch_hint"));
+        ui.horizontal(|ui| {
+            ui.checkbox(&mut self.disable_touch, t!("screens_disable_touch"));
+            help_marker(ui, &t!("screens_disable_touch_hint"));
+        });
 
         // External DMD checkbox — only relevant when no screen has DMD role
         let has_dmd_screen = self.displays.iter().any(|d| d.role == DisplayRole::Dmd);
         if !has_dmd_screen {
-            ui.checkbox(&mut self.external_dmd, t!("screens_external_dmd"));
-            ui.label(egui::RichText::new(t!("screens_external_dmd_hint")).weak());
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut self.external_dmd, t!("screens_external_dmd"));
+                help_marker(ui, &t!("screens_external_dmd_hint"));
+            });
         } else {
             self.external_dmd = false;
         }
@@ -265,8 +276,14 @@ impl App {
                 ui.strong(t!("screens_col_screen"));
                 ui.strong(t!("screens_col_resolution"));
                 ui.strong(t!("screens_col_hz"));
-                ui.strong(t!("screens_col_size"));
-                ui.strong(t!("screens_col_role"));
+                ui.horizontal(|ui| {
+                    ui.strong(t!("screens_col_size"));
+                    help_marker(ui, &t!("screens_physical_size_hint"));
+                });
+                ui.horizontal(|ui| {
+                    ui.strong(t!("screens_col_role"));
+                    help_marker(ui, &t!("screens_role_hint"));
+                });
                 ui.end_row();
 
                 let available_roles: Vec<DisplayRole> = DisplayRole::all()
@@ -300,15 +317,13 @@ impl App {
                             egui::DragValue::new(&mut display.width_mm)
                                 .speed(1)
                                 .suffix(" mm"),
-                        )
-                        .on_hover_text(t!("screens_physical_size_hint"));
+                        );
                         ui.label("x");
                         ui.add(
                             egui::DragValue::new(&mut display.height_mm)
                                 .speed(1)
                                 .suffix(" mm"),
-                        )
-                        .on_hover_text(t!("screens_physical_size_hint"));
+                        );
                     });
 
                     egui::ComboBox::from_id_salt(format!("role_{}", display.name))
@@ -317,9 +332,7 @@ impl App {
                             for role in &available_roles {
                                 ui.selectable_value(&mut display.role, *role, role.label());
                             }
-                        })
-                        .response
-                        .on_hover_text(t!("screens_role_hint"));
+                        });
                     ui.end_row();
                 }
             });
@@ -602,64 +615,76 @@ impl App {
             ui.strong(t!("cabinet_values"));
             ui.add_space(8.0);
 
-            ui.label(t!("cabinet_lockbar_width"));
+            ui.horizontal(|ui| {
+                ui.label(t!("cabinet_lockbar_width"));
+                help_marker(ui, &t!("screens_cab_lockbar_width_hint"));
+            });
             ui.add(
                 egui::DragValue::new(&mut self.lockbar_width)
                     .range(10.0..=150.0)
                     .speed(1.0)
                     .suffix(" cm"),
-            )
-            .on_hover_text(t!("screens_cab_lockbar_width_hint"));
+            );
             ui.add_space(4.0);
 
-            ui.label(t!("cabinet_lockbar_height"));
+            ui.horizontal(|ui| {
+                ui.label(t!("cabinet_lockbar_height"));
+                help_marker(ui, &t!("screens_cab_lockbar_height_hint"));
+            });
             ui.add(
                 egui::DragValue::new(&mut self.lockbar_height)
                     .range(0.0..=250.0)
                     .speed(1.0)
                     .suffix(" cm"),
-            )
-            .on_hover_text(t!("screens_cab_lockbar_height_hint"));
+            );
             ui.add_space(4.0);
 
-            ui.label(t!("cabinet_screen_inclination"));
+            ui.horizontal(|ui| {
+                ui.label(t!("cabinet_screen_inclination"));
+                help_marker(ui, &t!("screens_cab_inclination_hint"));
+            });
             ui.add(
                 egui::DragValue::new(&mut self.screen_inclination)
                     .range(-30.0..=30.0)
                     .speed(0.5)
                     .suffix(" deg"),
-            )
-            .on_hover_text(t!("screens_cab_inclination_hint"));
+            );
             ui.add_space(4.0);
 
-            ui.label(t!("cabinet_player_height"));
+            ui.horizontal(|ui| {
+                ui.label(t!("cabinet_player_height"));
+                help_marker(ui, &t!("screens_cab_player_height_hint"));
+            });
             ui.add(
                 egui::DragValue::new(&mut self.player_height)
                     .range(75.0..=250.0)
                     .speed(1.0)
                     .suffix(" cm"),
-            )
-            .on_hover_text(t!("screens_cab_player_height_hint"));
+            );
             ui.add_space(4.0);
 
-            ui.label(t!("cabinet_player_distance"));
+            ui.horizontal(|ui| {
+                ui.label(t!("cabinet_player_distance"));
+                help_marker(ui, &t!("screens_cab_player_distance_hint"));
+            });
             ui.add(
                 egui::DragValue::new(&mut self.player_y)
                     .range(-70.0..=30.0)
                     .speed(1.0)
                     .suffix(" cm"),
-            )
-            .on_hover_text(t!("screens_cab_player_distance_hint"));
+            );
             ui.add_space(4.0);
 
-            ui.label(t!("cabinet_player_offset"));
+            ui.horizontal(|ui| {
+                ui.label(t!("cabinet_player_offset"));
+                help_marker(ui, &t!("screens_cab_player_offset_hint"));
+            });
             ui.add(
                 egui::DragValue::new(&mut self.player_x)
                     .range(-30.0..=30.0)
                     .speed(1.0)
                     .suffix(" cm"),
-            )
-            .on_hover_text(t!("screens_cab_player_offset_hint"));
+            );
             ui.add_space(12.0);
 
             ui.separator();

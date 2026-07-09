@@ -9,17 +9,21 @@ impl App {
 
         ui.separator();
         ui.add_space(8.0);
-        ui.checkbox(&mut self.autostart, t!("autostart_label"));
-        ui.label(egui::RichText::new(t!("autostart_hint")).weak());
+        ui.horizontal(|ui| {
+            ui.checkbox(&mut self.autostart, t!("autostart_label"));
+            help_marker(ui, &t!("autostart_hint"));
+        });
 
         ui.add_space(16.0);
         ui.separator();
         ui.add_space(8.0);
-        ui.checkbox(
-            &mut self.desktop_integration,
-            t!("desktop_integration_label"),
-        );
-        ui.label(egui::RichText::new(t!("desktop_integration_hint")).weak());
+        ui.horizontal(|ui| {
+            ui.checkbox(
+                &mut self.desktop_integration,
+                t!("desktop_integration_label"),
+            );
+            help_marker(ui, &t!("desktop_integration_hint"));
+        });
 
         // ---- Self-hosted mirror (VBS catalog + VPin media DB). Empty
         // = direct GitHub fetch (the default). When set, all index URLs
@@ -29,8 +33,10 @@ impl App {
         ui.add_space(16.0);
         ui.separator();
         ui.add_space(8.0);
-        ui.label(egui::RichText::new(t!("system_mirror_label")).strong());
-        ui.label(egui::RichText::new(t!("system_mirror_hint")).weak());
+        ui.horizontal(|ui| {
+            ui.label(egui::RichText::new(t!("system_mirror_label")).strong());
+            help_marker(ui, &t!("system_mirror_hint"));
+        });
         ui.add_space(4.0);
         ui.horizontal(|ui| {
             let resp = ui.add(

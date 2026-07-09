@@ -42,6 +42,7 @@ impl App {
             ui.label(t!("inputs_pinscape").to_string());
             ui.horizontal(|ui| {
                 ui.label(t!("inputs_pinscape_profile"));
+                help_marker(ui, &t!("inputs_pinscape_profile_hint"));
                 let prev_profile = self.pinscape_profile;
                 // Product names, plus a localized "None" sentinel entry that
                 // clears the defaults and opts out of detection re-applying
@@ -58,9 +59,7 @@ impl App {
                         for i in 0..=inputs::PINSCAPE_PROFILE_NONE {
                             ui.selectable_value(&mut self.pinscape_profile, i, profile_label(i));
                         }
-                    })
-                    .response
-                    .on_hover_text(t!("inputs_pinscape_profile_hint"));
+                    });
                 if self.pinscape_profile != prev_profile {
                     if let Some(vpx_id) = self.pinscape_id.clone() {
                         for action in &mut self.actions {
@@ -72,8 +71,10 @@ impl App {
             });
         }
         if self.gamepad_id.is_some() {
-            ui.checkbox(&mut self.use_gamepad, t!("inputs_gamepad").to_string())
-                .on_hover_text(t!("inputs_gamepad_hint"));
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut self.use_gamepad, t!("inputs_gamepad").to_string());
+                help_marker(ui, &t!("inputs_gamepad_hint"));
+            });
         }
 
         ui.add_space(4.0);

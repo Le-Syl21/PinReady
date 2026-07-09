@@ -1446,6 +1446,7 @@ impl App {
 mod audio_page;
 mod autostart;
 mod desktop_integration;
+mod help;
 mod inputs_page;
 mod launcher;
 mod launcher_input;
@@ -1457,6 +1458,8 @@ mod screens_page;
 mod system_page;
 mod tables_dir_page;
 mod tilt_page;
+
+pub(crate) use help::help_marker;
 
 use autostart::{is_autostart_enabled, set_autostart};
 use desktop_integration::{is_desktop_integration_installed, set_desktop_integration};

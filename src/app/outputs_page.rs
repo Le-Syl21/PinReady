@@ -240,11 +240,13 @@ impl App {
     }
 
     fn render_discovery_start(&mut self, ui: &mut egui::Ui) {
-        ui.checkbox(
-            &mut self.output_discovery.warning_ack,
-            t!("outputs_discover_ack"),
-        )
-        .on_hover_text(t!("outputs_discover_ack_hint"));
+        ui.horizontal(|ui| {
+            ui.checkbox(
+                &mut self.output_discovery.warning_ack,
+                t!("outputs_discover_ack"),
+            );
+            help_marker(ui, &t!("outputs_discover_ack_hint"));
+        });
         ui.add_space(6.0);
 
         let can_start = self.output_discovery.warning_ack;
