@@ -14,14 +14,17 @@ pub enum Sound3DMode {
 }
 
 impl Sound3DMode {
+    /// i18n key for this mode's radio label. Translate at the call site with
+    /// `t!(mode.label())` — kept UI-agnostic so this module stays free of
+    /// the locale layer.
     pub fn label(&self) -> &'static str {
         match self {
-            Self::FrontStereo => "2ch -- Front stereo",
-            Self::RearStereo => "2ch -- Rear stereo (lockbar)",
-            Self::SurroundRearLockbar => "5.1 -- Rear at lockbar",
-            Self::SurroundFrontLockbar => "5.1 -- Front at lockbar",
-            Self::SsfLegacy => "SSF -- Side & Rear at lockbar (Legacy)",
-            Self::SsfNew => "SSF -- Side & Rear at lockbar (New)",
+            Self::FrontStereo => "audio_mode_front_stereo",
+            Self::RearStereo => "audio_mode_rear_stereo",
+            Self::SurroundRearLockbar => "audio_mode_surround_rear",
+            Self::SurroundFrontLockbar => "audio_mode_surround_front",
+            Self::SsfLegacy => "audio_mode_ssf_legacy",
+            Self::SsfNew => "audio_mode_ssf_new",
         }
     }
 

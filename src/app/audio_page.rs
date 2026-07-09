@@ -132,7 +132,7 @@ impl App {
                 Sound3DMode::SsfLegacy => t!("audio_mode_ssf_legacy_hint"),
                 Sound3DMode::SsfNew => t!("audio_mode_ssf_new_hint"),
             };
-            ui.radio_value(&mut self.audio.sound_3d_mode, *mode, mode.label())
+            ui.radio_value(&mut self.audio.sound_3d_mode, *mode, t!(mode.label()))
                 .on_hover_text(hint);
         }
 
