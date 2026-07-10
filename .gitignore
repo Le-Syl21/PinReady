@@ -42,3 +42,4 @@ PinReady.log.*
 .DS_Store
 
 pinready-cab-x86_64
+target-bookworm/

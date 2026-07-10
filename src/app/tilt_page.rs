@@ -15,7 +15,10 @@ impl App {
         ui.strong(t!("tilt_nudge"));
         ui.add_space(4.0);
 
-        ui.label(t!("tilt_sensitivity"));
+        ui.horizontal(|ui| {
+            ui.label(t!("tilt_sensitivity"));
+            help_marker(ui, &t!("tilt_sensitivity_help"));
+        });
         ui.add_sized(
             [ui.available_width(), 24.0],
             egui::Slider::new(&mut self.tilt.nudge_scale_pct, 0.0..=100.0)
@@ -23,7 +26,10 @@ impl App {
         );
         ui.add_space(4.0);
 
-        ui.label(t!("tilt_deadzone"));
+        ui.horizontal(|ui| {
+            ui.label(t!("tilt_deadzone"));
+            help_marker(ui, &t!("tilt_deadzone_help"));
+        });
         ui.add_sized(
             [ui.available_width(), 24.0],
             egui::Slider::new(&mut self.tilt.nudge_deadzone_pct, 0.0..=100.0)
@@ -37,7 +43,10 @@ impl App {
             (1, t!("tilt_nudge_type_intent")),
             (2, t!("tilt_nudge_type_cabinet")),
         ];
-        ui.label(t!("tilt_nudge_type"));
+        ui.horizontal(|ui| {
+            ui.label(t!("tilt_nudge_type"));
+            help_marker(ui, &t!("tilt_nudge_type_help"));
+        });
         let selected = sensor_types
             .iter()
             .find(|(v, _)| *v == self.tilt.nudge_sensor_type)
@@ -51,15 +60,13 @@ impl App {
                     ui.selectable_value(&mut self.tilt.nudge_sensor_type, *val, label.clone());
                 }
             });
-        ui.add_space(4.0);
-        egui::Frame::group(ui.style()).show(ui, |ui| {
-            ui.label(t!("tilt_nudge_type_help"));
-        });
         ui.add_space(8.0);
 
         // Show the in-game plumb overlay (the tilt dot in a circle near the FPS).
-        ui.checkbox(&mut self.tilt.show_nudge_plumb, t!("tilt_show_plumb"))
-            .on_hover_text(t!("tilt_show_plumb_help"));
+        ui.horizontal(|ui| {
+            ui.checkbox(&mut self.tilt.show_nudge_plumb, t!("tilt_show_plumb"));
+            help_marker(ui, &t!("tilt_show_plumb_help"));
+        });
         ui.add_space(12.0);
 
         // --- Tilt section ---
@@ -67,7 +74,10 @@ impl App {
         ui.strong(t!("tilt_section"));
         ui.add_space(4.0);
 
-        ui.label(t!("tilt_threshold"));
+        ui.horizontal(|ui| {
+            ui.label(t!("tilt_threshold"));
+            help_marker(ui, &t!("tilt_threshold_help"));
+        });
         ui.add_sized(
             [ui.available_width(), 24.0],
             egui::Slider::new(&mut self.tilt.tilt_sensitivity_pct, 0.0..=100.0)

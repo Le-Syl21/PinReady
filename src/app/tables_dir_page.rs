@@ -18,10 +18,10 @@ impl App {
             ui.label("📂");
             ui.label(egui::RichText::new(t!("tables_path")).strong());
             ui.colored_label(ASTERISK_RED, "*");
+            help_marker(ui, &t!("tables_dir_path_hint"));
         });
         ui.horizontal(|ui| {
-            ui.text_edit_singleline(&mut self.tables_dir)
-                .on_hover_text(t!("tables_dir_path_hint"));
+            ui.text_edit_singleline(&mut self.tables_dir);
             if ui
                 .button(t!("tables_browse"))
                 .on_hover_text(t!("tables_dir_browse_hint"))
@@ -136,29 +136,33 @@ impl App {
             });
 
             ui.add_space(10.0);
-            if ui
-                .checkbox(&mut self.jsm174_patching, t!("tables_vbs_patch_toggle"))
-                .changed()
-            {
-                if let Err(e) = self.db.set_jsm174_patching_enabled(self.jsm174_patching) {
-                    log::error!("Failed to persist jsm174_patching_enabled: {e}");
+            ui.horizontal(|ui| {
+                if ui
+                    .checkbox(&mut self.jsm174_patching, t!("tables_vbs_patch_toggle"))
+                    .changed()
+                {
+                    if let Err(e) = self.db.set_jsm174_patching_enabled(self.jsm174_patching) {
+                        log::error!("Failed to persist jsm174_patching_enabled: {e}");
+                    }
                 }
-            }
-            ui.label(egui::RichText::new(t!("tables_vbs_patch_desc")).weak());
+                help_marker(ui, &t!("tables_vbs_patch_desc"));
+            });
 
             ui.add_space(10.0);
-            if ui
-                .checkbox(&mut self.catalog_enrichment, t!("tables_catalog_toggle"))
-                .changed()
-            {
-                if let Err(e) = self
-                    .db
-                    .set_catalog_enrichment_enabled(self.catalog_enrichment)
+            ui.horizontal(|ui| {
+                if ui
+                    .checkbox(&mut self.catalog_enrichment, t!("tables_catalog_toggle"))
+                    .changed()
                 {
-                    log::error!("Failed to persist catalog_enrichment_enabled: {e}");
+                    if let Err(e) = self
+                        .db
+                        .set_catalog_enrichment_enabled(self.catalog_enrichment)
+                    {
+                        log::error!("Failed to persist catalog_enrichment_enabled: {e}");
+                    }
                 }
-            }
-            ui.label(egui::RichText::new(t!("tables_catalog_desc")).weak());
+                help_marker(ui, &t!("tables_catalog_desc"));
+            });
         });
     }
 
@@ -244,7 +248,8 @@ impl App {
                     let mut changed = false;
                     ui.horizontal(|ui| {
                         ui.label(label);
-                        if ui.text_edit_singleline(value).on_hover_text(hint).changed() {
+                        help_marker(ui, hint);
+                        if ui.text_edit_singleline(value).changed() {
                             changed = true;
                         }
                         if ui.button(browse_label).clicked() {
@@ -287,7 +292,10 @@ impl App {
             }
 
             ui.add_space(8.0);
-            ui.label(egui::RichText::new(t!("merge_strategy_label")).strong());
+            ui.horizontal(|ui| {
+                ui.label(egui::RichText::new(t!("merge_strategy_label")).strong());
+                help_marker(ui, &t!("merge_strategy_help"));
+            });
             let mut strategy = self.merge_strategy;
             let mut strategy_changed = false;
             ui.horizontal(|ui| {

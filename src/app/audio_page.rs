@@ -39,7 +39,10 @@ impl App {
         egui::Grid::new("audio_devices")
             .min_col_width(150.0)
             .show(ui, |ui| {
-                ui.label(t!("audio_backglass"));
+                ui.horizontal(|ui| {
+                    ui.label(t!("audio_backglass"));
+                    help_marker(ui, &t!("audio_device_bg_hint"));
+                });
                 egui::ComboBox::from_id_salt("device_bg")
                     .selected_text(if self.audio.device_bg.is_empty() {
                         t!("audio_default_device").to_string()
@@ -55,12 +58,13 @@ impl App {
                         for dev in &self.audio.available_devices {
                             ui.selectable_value(&mut self.audio.device_bg, dev.clone(), dev);
                         }
-                    })
-                    .response
-                    .on_hover_text(t!("audio_device_bg_hint"));
+                    });
                 ui.end_row();
 
-                ui.label(t!("audio_playfield"));
+                ui.horizontal(|ui| {
+                    ui.label(t!("audio_playfield"));
+                    help_marker(ui, &t!("audio_device_pf_hint"));
+                });
                 egui::ComboBox::from_id_salt("device_pf")
                     .selected_text(if self.audio.device_pf.is_empty() {
                         t!("audio_default_device").to_string()
@@ -76,9 +80,7 @@ impl App {
                         for dev in &self.audio.available_devices {
                             ui.selectable_value(&mut self.audio.device_pf, dev.clone(), dev);
                         }
-                    })
-                    .response
-                    .on_hover_text(t!("audio_device_pf_hint"));
+                    });
                 ui.end_row();
             });
 
@@ -116,7 +118,10 @@ impl App {
         ui.add_space(12.0);
 
         // Sound3D mode
-        ui.strong(t!("audio_output_mode"));
+        ui.horizontal(|ui| {
+            ui.strong(t!("audio_output_mode"));
+            help_marker(ui, &t!("audio_mode_help"));
+        });
         ui.add_space(4.0);
         for mode in Sound3DMode::all() {
             let hint = match *mode {
@@ -127,7 +132,7 @@ impl App {
                 Sound3DMode::SsfLegacy => t!("audio_mode_ssf_legacy_hint"),
                 Sound3DMode::SsfNew => t!("audio_mode_ssf_new_hint"),
             };
-            ui.radio_value(&mut self.audio.sound_3d_mode, *mode, mode.label())
+            ui.radio_value(&mut self.audio.sound_3d_mode, *mode, t!(mode.label()))
                 .on_hover_text(hint);
         }
 
@@ -203,14 +208,18 @@ impl App {
         egui::Grid::new("audio_volumes")
             .min_col_width(150.0)
             .show(ui, |ui| {
-                ui.label(t!("audio_music_volume"));
-                ui.add(egui::Slider::new(&mut self.audio.music_volume, 0..=100).suffix("%"))
-                    .on_hover_text(t!("audio_music_volume_hint"));
+                ui.horizontal(|ui| {
+                    ui.label(t!("audio_music_volume"));
+                    help_marker(ui, &t!("audio_music_volume_hint"));
+                });
+                ui.add(egui::Slider::new(&mut self.audio.music_volume, 0..=100).suffix("%"));
                 ui.end_row();
 
-                ui.label(t!("audio_sound_volume"));
-                ui.add(egui::Slider::new(&mut self.audio.sound_volume, 0..=100).suffix("%"))
-                    .on_hover_text(t!("audio_sound_volume_hint"));
+                ui.horizontal(|ui| {
+                    ui.label(t!("audio_sound_volume"));
+                    help_marker(ui, &t!("audio_sound_volume_hint"));
+                });
+                ui.add(egui::Slider::new(&mut self.audio.sound_volume, 0..=100).suffix("%"));
                 ui.end_row();
             });
 
