@@ -41,12 +41,36 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        # Épinglé au SHA du commit (voir le commentaire dans le job release) —
+        # `stable` est une branche mobile, un SHA ne l'est pas.
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4  # stable
         with:
           targets: ${{ matrix.target }}
           components: ${{ matrix.lint && 'rustfmt, clippy' || '' }}
 
-      - uses: Swatinem/rust-cache@v2
+      # Garde-fou tag ↔ Cargo.toml. Un tag `vX.Y.Z` doit correspondre à la
+      # version du crate : deux releases voisines sont déjà parties avec un
+      # Cargo.toml en retard d'une version, run au vert et personne pour le
+      # voir. On échoue ici, dans le premier job du tag, donc avant toute
+      # signature et avant la publication de la release. Le suffixe de
+      # pré-release est retiré : `v1.2.3-rc1` vaut Cargo.toml `1.2.3`.
+      - name: Check tag matches Cargo.toml version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+          tag="${tag%%-*}"
+          py=$(command -v python3 || command -v python)
+          crate=$(cargo metadata --no-deps --format-version 1 \
+            | "$py" -c 'import json,sys; pkgs=json.load(sys.stdin)["packages"]; print(next(p["version"] for p in pkgs if p["name"]=="pinready"))')
+          if [ "$tag" != "$crate" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME (version $tag) != version Cargo.toml ($crate) — aligne Cargo.toml ou retague."
+            exit 1
+          fi
+          echo "Tag $GITHUB_REF_NAME <-> Cargo.toml $crate : OK"
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
         with:
           key: ${{ matrix.os }}-${{ matrix.target }}
 
@@ -340,7 +364,11 @@ jobs:
           path: artifacts
 
       - name: Create release
-        uses: softprops/action-gh-release@v3
+        # Action tierce épinglée au SHA du commit, pas au tag : en mars 2026,
+        # 76 des 77 tags de version d'`aquasecurity/trivy-action` ont été
+        # force-pushés vers du code malveillant. Un tag est mutable, un SHA non.
+        # Le commentaire garde la version lisible pour les mises à jour.
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228  # v3
         with:
           generate_release_notes: true
           files: artifacts/**/*
