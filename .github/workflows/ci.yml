@@ -45,6 +45,7 @@ jobs:
         # `stable` est une branche mobile, un SHA ne l'est pas.
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4  # stable
         with:
+          toolchain: stable
           targets: ${{ matrix.target }}
           components: ${{ matrix.lint && 'rustfmt, clippy' || '' }}
 
