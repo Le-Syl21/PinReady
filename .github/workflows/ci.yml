@@ -112,9 +112,40 @@ jobs:
         if: matrix.target != 'x86_64-apple-darwin' && !matrix.cross
         run: cargo test --release --target ${{ matrix.target }}
 
-      # --- Apple signing & notarization ---
+      # --- Empaquetage (binaires non signés ; la signature Apple est faite plus
+      # bas, dans un job dédié derrière l'environnement `signing`). ---
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
+        run: tar czf pinready-${{ matrix.label }}.tar.gz -C target/${{ matrix.target }}/release pinready
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        run: Compress-Archive -Path target/${{ matrix.target }}/release/pinready.exe -DestinationPath pinready-${{ matrix.label }}.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: pinready-${{ matrix.label }}
+          path: pinready-${{ matrix.label }}.*
+
+  # Signature + notarisation Apple. Derrière `signing` au même titre que Windows :
+  # les secrets Apple vivent désormais dans cet environnement, et seul un job qui
+  # le déclare peut les lire. Une signature Developer ID engage l'identité (et
+  # donc la réputation) du propriétaire, elle ne doit jamais partir sans
+  # approbation explicite.
+  sign-apple:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: macos-latest
+    environment: signing
+    steps:
+      - name: Download the macOS artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: pinready-macos-*
+          path: dl
+
       - name: Import Apple Developer ID certificate
-        if: runner.os == 'macOS'
         env:
           APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -134,28 +165,12 @@ jobs:
             -S apple-tool:,apple: \
             -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
-      - name: Sign binary (macOS)
-        if: runner.os == 'macOS'
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          SIGN_ID="Developer ID Application: Sylvain Gargasson ($APPLE_TEAM_ID)"
-          codesign --force --options runtime \
-            --sign "$SIGN_ID" \
-            --timestamp \
-            target/${{ matrix.target }}/release/pinready
-
-      - name: Notarize binary (macOS, tags only)
-        if: runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/v')
+      - name: Sign & notarize the macOS binaries
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          ditto -c -k --keepParent \
-            target/${{ matrix.target }}/release/pinready \
-            $RUNNER_TEMP/pinready.zip
-
           # Submit and poll with timeout + retry (3 attempts, 5/15/45 min backoff)
           notarize_once() {
             local zip="$1" label="$2" timeout="$3"
@@ -216,22 +231,37 @@ jobs:
             return 1
           }
 
-          notarize "$RUNNER_TEMP/pinready.zip" "PinReady"
+          for label in macos-aarch64 macos-x86_64; do
+            echo "::group::$label"
+            work="$RUNNER_TEMP/$label"
+            mkdir -p "$work"
+            tar xzf "dl/pinready-$label/pinready-$label.tar.gz" -C "$work"
 
-      # --- Package ---
-      - name: Package (Unix)
-        if: runner.os != 'Windows'
-        run: tar czf pinready-${{ matrix.label }}.tar.gz -C target/${{ matrix.target }}/release pinready
+            codesign --force --options runtime \
+              --sign "Developer ID Application: Sylvain Gargasson ($APPLE_TEAM_ID)" \
+              --timestamp "$work/pinready"
+            codesign --verify --strict --verbose=2 "$work/pinready"
 
-      - name: Package (Windows)
-        if: runner.os == 'Windows'
-        run: Compress-Archive -Path target/${{ matrix.target }}/release/pinready.exe -DestinationPath pinready-${{ matrix.label }}.zip
+            ditto -c -k --keepParent "$work/pinready" "$RUNNER_TEMP/$label.zip"
+            notarize "$RUNNER_TEMP/$label.zip" "$label" || exit 1
 
-      - name: Upload artifact
+            tar czf "pinready-$label.tar.gz" -C "$work" pinready
+            echo "::endgroup::"
+          done
+
+      - name: Re-upload the signed macOS aarch64 artifact
         uses: actions/upload-artifact@v7
         with:
-          name: pinready-${{ matrix.label }}
-          path: pinready-${{ matrix.label }}.*
+          name: pinready-macos-aarch64
+          path: pinready-macos-aarch64.tar.gz
+          overwrite: true
+
+      - name: Re-upload the signed macOS x86_64 artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: pinready-macos-x86_64
+          path: pinready-macos-x86_64.tar.gz
+          overwrite: true
 
   # Authenticode-sign the Windows binary with ssign (the Linux runner signs the
   # .exe — no Windows, no vendor stack). Gated by the `signing` environment
@@ -297,7 +327,7 @@ jobs:
           overwrite: true
 
   release:
-    needs: [build, sign-windows]
+    needs: [build, sign-windows, sign-apple]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     permissions:
