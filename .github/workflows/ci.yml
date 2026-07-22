@@ -38,7 +38,7 @@ jobs:
     name: ${{ matrix.label }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install Rust
         # Épinglé au SHA du commit (voir le commentaire dans le job release) —
