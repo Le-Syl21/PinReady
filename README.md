@@ -14,6 +14,12 @@ PinReady replaces the non-existent native configuration tools for VPX standalone
 >
 > PinReady is designed to **support the development and adoption of VPX 10.8.1**, not to replace a stable production VPX setup. The target audience is testers and early adopters of the new 10.8.1 architecture (integrated plugins, folder-per-table layout, SDL3/bgfx backend). If you run a stable VPX 10.7.x production cabinet, PinReady is probably not for you yet.
 
+### 💬 Community & support
+
+Questions, bug reports, beta testing, or just want to chat? Join the Discord:
+
+[![Discord](https://img.shields.io/badge/Discord-Le--Syl21%20Tools-5865F2?logo=discord&logoColor=white)](https://discord.gg/T37DYHmt2j)
+
 ### ✨ Features
 
 **🧙 Configuration wizard (first run)**
@@ -300,6 +306,12 @@ PinReady remplace les outils de configuration natifs inexistants pour les builds
 > ⚠️ **Périmètre — à lire avant d'installer**
 >
 > PinReady est conçu pour **accompagner le développement et l'adoption de VPX 10.8.1**, pas pour remplacer une installation VPX stable en production. Le public cible, ce sont les testeurs et les early adopters de la nouvelle architecture 10.8.1 (plugins intégrés, format dossier-par-table, backend SDL3/bgfx). Si vous avez un cabinet VPX 10.7.x stable en production, PinReady n'est probablement pas encore pour vous.
+
+### 💬 Communauté & support
+
+Des questions, un bug à signaler, envie de tester les bêtas ou juste de discuter ? Rejoignez le Discord :
+
+[![Discord](https://img.shields.io/badge/Discord-Le--Syl21%20Tools-5865F2?logo=discord&logoColor=white)](https://discord.gg/T37DYHmt2j)
 
 ### ✨ Fonctionnalités
 

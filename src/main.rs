@@ -1,6 +1,12 @@
 // PinReady — Visual Pinball configuration wizard & table launcher
 // Copyright (C) 2026 — Licensed under GPLv3+
 // See https://www.gnu.org/licenses/gpl-3.0.html
+
+//! PinReady — Visual Pinball configuration wizard & table launcher.
+//!
+//! # Community & support
+//!
+//! Questions, bugs, beta testing — join the Discord: <https://discord.gg/T37DYHmt2j>
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 rust_i18n::i18n!("locales", fallback = "en");
