@@ -17,9 +17,14 @@ pub struct TiltConfig {
     /// 2 = Cabinet Sensor. Default 1 (recommended for HID accelerometers like
     /// Pinscape — not high-frequency/noise-free enough for direct Cabinet Sensor).
     pub nudge_sensor_type: i32,
-    /// Show the in-game plumb overlay — the tilt dot in a circle near the FPS —
-    /// via VPX `[Player] SimulatedPlumb`. Lets the player see nudge/tilt live.
-    pub show_nudge_plumb: bool,
+    /// VPX `[Player] SimulatedPlumb`: mechanical tilt-bob simulation. NOT a
+    /// display toggle — `PlumbHandler::Update` returns early when it is off,
+    /// so the table can no longer tilt from nudging. It does gate the
+    /// in-game plumb overlay (the ring that turns red as you approach tilt,
+    /// `PlumbOverlay::Update` bails on `!IsPlumbSimulated()`), which is
+    /// otherwise automatic: it fades in while you nudge and stays up while
+    /// the F12 nudge page is open. On by default, like VPX.
+    pub enable_plumb_tilt: bool,
 }
 
 const TILT_ANGLE_MIN: f32 = 0.15;
@@ -36,7 +41,7 @@ impl Default for TiltConfig {
             nudge_scale_pct: 50.0,
             nudge_deadzone_pct: 10.0,
             nudge_sensor_type: 1,
-            show_nudge_plumb: true,
+            enable_plumb_tilt: true,
         }
     }
 }
@@ -69,7 +74,7 @@ impl TiltConfig {
             self.nudge_sensor_type = v;
         }
         if let Some(v) = config.get("Player", "SimulatedPlumb") {
-            self.show_nudge_plumb = matches!(v.trim(), "1" | "true" | "True");
+            self.enable_plumb_tilt = matches!(v.trim(), "1" | "true" | "True");
         }
     }
 
@@ -87,7 +92,7 @@ impl TiltConfig {
         config.set(
             "Player",
             "SimulatedPlumb",
-            if self.show_nudge_plumb { "1" } else { "0" },
+            if self.enable_plumb_tilt { "1" } else { "0" },
         );
     }
 

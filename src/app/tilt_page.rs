@@ -64,8 +64,8 @@ impl App {
 
         // Show the in-game plumb overlay (the tilt dot in a circle near the FPS).
         ui.horizontal(|ui| {
-            ui.checkbox(&mut self.tilt.show_nudge_plumb, t!("tilt_show_plumb"));
-            help_marker(ui, &t!("tilt_show_plumb_help"));
+            ui.checkbox(&mut self.tilt.enable_plumb_tilt, t!("tilt_enable_plumb"));
+            help_marker(ui, &t!("tilt_enable_plumb_help"));
         });
         ui.add_space(12.0);
 

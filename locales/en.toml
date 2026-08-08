@@ -322,8 +322,8 @@ tilt_nudge_type_game = "Game Controller"
 tilt_nudge_type_intent = "Intent Sensor"
 tilt_nudge_type_cabinet = "Cabinet Sensor"
 tilt_nudge_type_help = "Which sensor type drives the nudge.\n• Game Controller: uses stick position — for gamepads, not cabinet accelerometers.\n• Intent Sensor (recommended): reads the accelerometer to estimate your nudge intent, then applies VPX physics — best for Pinscape/KL25Z boards.\n• Cabinet Sensor: applies raw acceleration directly to the game — only for a real cabinet with a high-frequency, low-latency, noise-free sensor."
-tilt_show_plumb = "Show nudge in-game (plumb overlay)"
-tilt_show_plumb_help = "Displays VPX's plumb bob — a dot inside a circle, near the FPS overlay — that moves when you nudge, so you can verify nudge is working. (VPX setting: SimulatedPlumb.)"
+tilt_enable_plumb = "Mechanical tilt (plumb bob simulation)"
+tilt_enable_plumb_help = "Simulates the real tilt bob: nudge too hard and the table tilts. It also brings VPX's nudge overlay — the ring that shows the forces you apply and turns red as you approach tilt — which appears on its own while you nudge, and stays visible while the F12 nudge page is open. Unchecking this does not just hide that ring: it disables plumb tilt entirely. Recommended on, especially with an analog nudge. (VPX setting: SimulatedPlumb.)"
 
 # Audio page
 audio_heading = "Audio configuration"
