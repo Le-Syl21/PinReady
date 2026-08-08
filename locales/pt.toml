@@ -204,7 +204,7 @@ input_custom4 = "Personalizado #4 (mod de mesa)"
 
 # Outputs page
 outputs_heading = "Acessórios do cab"
-outputs_dof_subtitle = "Force feedback DOF"
+outputs_dof_subtitle = "Efeitos DOF (LEDs e toys)"
 outputs_desc = "O VPX 10.8.1 standalone integra o libdof nativamente — sem plugin externo para instalar. Só precisa de fornecer uma configuração DOF que descreva o hardware do seu cabinet (solenoides, LEDs, motores...). Use o gerador online VPUniverse para a produzir e depois extraia o resultado na pasta abaixo."
 outputs_workflow_title = "Como gerar a sua configuração DOF"
 outputs_step1_account = "Crie uma conta (gratuita) no VPUniverse ConfigTool."

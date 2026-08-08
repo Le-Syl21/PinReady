@@ -204,7 +204,7 @@ input_custom4 = "Benutzerdefiniert #4 (Tisch-Mod)"
 
 # Outputs page
 outputs_heading = "Cab-Zubehör"
-outputs_dof_subtitle = "DOF-Force-Feedback"
+outputs_dof_subtitle = "DOF-Effekte (LEDs & Toys)"
 outputs_desc = "VPX 10.8.1 standalone integriert libdof nativ — kein externes Plugin nötig. Sie müssen nur eine DOF-Konfiguration bereitstellen, die die Hardware Ihres Cabinets beschreibt (Solenoide, LEDs, Motoren...). Nutzen Sie den Online-Generator VPUniverse, um sie zu erzeugen, und entpacken Sie das Ergebnis in den unten angegebenen Ordner."
 outputs_workflow_title = "So erzeugen Sie Ihre DOF-Konfiguration"
 outputs_step1_account = "Erstellen Sie ein (kostenloses) Konto beim VPUniverse ConfigTool."

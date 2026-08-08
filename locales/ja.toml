@@ -204,7 +204,7 @@ input_custom4 = "カスタム #4（テーブルMod）"
 
 # Outputs page
 outputs_heading = "キャビネットのアクセサリー"
-outputs_dof_subtitle = "DOF フォースフィードバック"
+outputs_dof_subtitle = "DOF エフェクト（LED＆トイ）"
 outputs_desc = "VPX 10.8.1 standalone は libdof をネイティブで統合しています — 外部プラグインのインストールは不要です。あとは、キャビネットのハードウェア（ソレノイド、LED、モーターなど）を記述した DOF 設定を用意するだけです。VPUniverse のオンラインジェネレーターで生成し、下記のフォルダに展開してください。"
 outputs_workflow_title = "DOF 設定の作成手順"
 outputs_step1_account = "VPUniverse ConfigTool にアカウント（無料）を作成してください。"

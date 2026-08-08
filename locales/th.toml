@@ -204,7 +204,7 @@ input_custom4 = "กำหนดเอง #4 (ม็อดโต๊ะ)"
 
 # Outputs page
 outputs_heading = "อุปกรณ์เสริมของตู้"
-outputs_dof_subtitle = "ฟอร์ซฟีดแบ็ก DOF"
+outputs_dof_subtitle = "เอฟเฟกต์ DOF (LED และ toys)"
 outputs_desc = "VPX 10.8.1 standalone รวม libdof มาในตัว — ไม่ต้องติดตั้งปลั๊กอินภายนอก คุณเพียงต้องการไฟล์การตั้งค่า DOF ที่อธิบายฮาร์ดแวร์ของตู้ (โซเลนอยด์, LED, มอเตอร์...) ใช้เครื่องมือออนไลน์ VPUniverse เพื่อสร้างไฟล์ จากนั้นแตกไฟล์ผลลัพธ์ลงในโฟลเดอร์ด้านล่าง"
 outputs_workflow_title = "วิธีสร้างการตั้งค่า DOF ของคุณ"
 outputs_step1_account = "สร้างบัญชี (ฟรี) ที่ VPUniverse ConfigTool"

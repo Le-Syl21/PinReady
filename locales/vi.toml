@@ -204,7 +204,7 @@ input_custom4 = "Tùy chỉnh #4 (mod bàn)"
 
 # Outputs page
 outputs_heading = "Phụ kiện tủ máy"
-outputs_dof_subtitle = "Phản hồi lực DOF"
+outputs_dof_subtitle = "Hiệu ứng DOF (LED & toys)"
 outputs_desc = "VPX 10.8.1 standalone tích hợp libdof tự nhiên — không cần cài plugin bên ngoài. Bạn chỉ cần cung cấp cấu hình DOF mô tả phần cứng tủ của bạn (solenoid, LED, motor...). Dùng trình tạo trực tuyến VPUniverse để tạo, sau đó giải nén kết quả vào thư mục bên dưới."
 outputs_workflow_title = "Cách tạo cấu hình DOF của bạn"
 outputs_step1_account = "Tạo một tài khoản (miễn phí) trên VPUniverse ConfigTool."

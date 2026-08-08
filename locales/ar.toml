@@ -204,7 +204,7 @@ input_custom4 = "مخصص #4 (مود الطاولة)"
 
 # Outputs page
 outputs_heading = "ملحقات الكابينة"
-outputs_dof_subtitle = "استجابة DOF"
+outputs_dof_subtitle = "مؤثرات DOF (مصابيح LED وملحقات)"
 outputs_desc = "يدمج VPX 10.8.1 standalone مكتبة libdof بشكل أصلي — بدون الحاجة لتثبيت إضافة خارجية. عليك فقط تقديم ملف إعدادات DOF يصف عتاد خزانتك (الملفات اللولبية، LEDs، المحركات...). استخدم المولد الإلكتروني VPUniverse لإنتاجه، ثم استخرج النتيجة في المجلد أدناه."
 outputs_workflow_title = "كيفية توليد إعدادات DOF"
 outputs_step1_account = "أنشئ حساباً (مجاناً) على VPUniverse ConfigTool."

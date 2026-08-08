@@ -204,7 +204,7 @@ input_custom4 = "Özel #4 (masa modu)"
 
 # Outputs page
 outputs_heading = "Kabin aksesuarları"
-outputs_dof_subtitle = "DOF kuvvet geri bildirimi"
+outputs_dof_subtitle = "DOF efektleri (LED'ler ve toys)"
 outputs_desc = "VPX 10.8.1 standalone, libdof'u yerel olarak entegre eder — kurulacak harici eklenti yoktur. Sadece kabinet donanımınızı (solenoidler, LED'ler, motorlar...) tanımlayan bir DOF yapılandırması sağlamanız gerekir. Üretmek için VPUniverse çevrimiçi üreticisini kullanın, ardından sonucu aşağıdaki klasöre çıkarın."
 outputs_workflow_title = "DOF yapılandırmanızı nasıl oluşturursunuz"
 outputs_step1_account = "VPUniverse ConfigTool üzerinde (ücretsiz) bir hesap oluşturun."

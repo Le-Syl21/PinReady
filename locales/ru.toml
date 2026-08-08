@@ -204,7 +204,7 @@ input_custom4 = "Пользовательское #4 (мод стола)"
 
 # Outputs page
 outputs_heading = "Аксессуары кабинета"
-outputs_dof_subtitle = "Обратная связь DOF"
+outputs_dof_subtitle = "Эффекты DOF (светодиоды и toys)"
 outputs_desc = "VPX 10.8.1 standalone интегрирует libdof нативно — не нужно устанавливать внешний плагин. Вам нужно лишь предоставить конфигурацию DOF, описывающую железо вашего кабинета (соленоиды, светодиоды, моторы...). Используйте онлайн-генератор VPUniverse для её создания, затем распакуйте результат в указанную ниже папку."
 outputs_workflow_title = "Как создать конфигурацию DOF"
 outputs_step1_account = "Создайте (бесплатный) аккаунт на VPUniverse ConfigTool."

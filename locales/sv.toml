@@ -204,7 +204,7 @@ input_custom4 = "Anpassad #4 (bordmod)"
 
 # Outputs page
 outputs_heading = "Cab-tillbehör"
-outputs_dof_subtitle = "DOF force feedback"
+outputs_dof_subtitle = "DOF-effekter (LED & toys)"
 outputs_desc = "VPX 10.8.1 standalone integrerar libdof internt — ingen extern insticksmodul behöver installeras. Du behöver bara tillhandahålla en DOF-konfiguration som beskriver kabinettets hårdvara (solenoider, LEDar, motorer...). Använd VPUniverse online-generator för att skapa den, och packa sedan upp resultatet i mappen nedan."
 outputs_workflow_title = "Så genererar du din DOF-konfiguration"
 outputs_step1_account = "Skapa ett (gratis) konto på VPUniverse ConfigTool."
