@@ -627,7 +627,3 @@ merge_table_no_vpx = "pominięto (brak pliku .vpx w środku)"
 merge_tables_skipped = "Pominięto %{count} folder(ów) bez pliku .vpx — stół jest rozpoznawany po pliku .vpx w swoim folderze."
 tables_dir_merge_backglass_hint = "Folder z plikami .directb2s. Dopasowywane do każdego stołu po nazwie pliku."
 tables_dir_merge_tables_hint = "Tam, gdzie leżą twoje luźne pliki .vpx (klasyczny płaski układ). Każdy dostanie własny folder w katalogu stołów. Pozostaw puste, jeśli leżą już w głównym katalogu stołów — ten przypadek też jest obsługiwany."
-
-# --- Plumb tilt relabel (2026-08-08) ---
-tilt_enable_plumb = "Tilt mechaniczny (symulacja ciężarka tiltu)"
-tilt_enable_plumb_help = "Symuluje prawdziwy ciężarek tiltu: potrząśnij zbyt mocno, a stół zrobi TILT. To także włącza nakładkę nudge VPX — pierścień pokazujący przykładane siły, który czerwienieje w miarę zbliżania się tiltu — pojawiający się samoczynnie podczas potrząsania i widoczny tak długo, jak otwarta jest strona nudge (F12). Odznaczenie nie tylko ukrywa ten pierścień: całkowicie wyłącza tilt na ciężarku. Zalecane włączone, zwłaszcza przy analogowym nudge. (Ustawienie VPX: SimulatedPlumb.)"

@@ -627,7 +627,3 @@ merge_table_no_vpx = "ohitettu (ei .vpx-tiedostoa sisällä)"
 merge_tables_skipped = "%{count} kansio(ta) ilman .vpx-tiedostoa ohitettiin — pöytä tunnistetaan sen kansiossa olevasta .vpx-tiedostosta."
 tables_dir_merge_backglass_hint = "Kansio, jossa on .directb2s-tiedostoja. Yhdistetään kuhunkin pöytään tiedostonimen perusteella."
 tables_dir_merge_tables_hint = "Missä irralliset .vpx-tiedostosi ovat (perinteinen tasainen rakenne). Jokainen saa oman kansionsa pöytähakemistoon. Jätä tyhjäksi, jos ne ovat jo pöytähakemiston juuressa — sekin tapaus käsitellään."
-
-# --- Plumb tilt relabel (2026-08-08) ---
-tilt_enable_plumb = "Mekaaninen tilt (luotipainon simulointi)"
-tilt_enable_plumb_help = "Simuloi oikeaa luotipainoa: tönäise liian kovaa, ja pöytä tiltaa. Se myös kytkee päälle VPX:n nudge-overlayn — renkaan, joka näyttää käyttämäsi voimat ja muuttuu punaiseksi tiltin lähestyessä — joka ilmestyy itsestään tönäistessäsi ja pysyy näkyvissä niin kauan kuin nudge-sivu (F12) on auki. Valinnan poistaminen ei vain piilota rengasta: se poistaa luotipainotiltin kokonaan käytöstä. Suositellaan päälle, etenkin analogisen nudgen kanssa. (VPX-asetus: SimulatedPlumb.)"

@@ -62,13 +62,6 @@ impl App {
             });
         ui.add_space(8.0);
 
-        // Show the in-game plumb overlay (the tilt dot in a circle near the FPS).
-        ui.horizontal(|ui| {
-            ui.checkbox(&mut self.tilt.enable_plumb_tilt, t!("tilt_enable_plumb"));
-            help_marker(ui, &t!("tilt_enable_plumb_help"));
-        });
-        ui.add_space(12.0);
-
         // --- Tilt section ---
         ui.separator();
         ui.strong(t!("tilt_section"));

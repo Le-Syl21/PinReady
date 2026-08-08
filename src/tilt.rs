@@ -17,14 +17,6 @@ pub struct TiltConfig {
     /// 2 = Cabinet Sensor. Default 1 (recommended for HID accelerometers like
     /// Pinscape — not high-frequency/noise-free enough for direct Cabinet Sensor).
     pub nudge_sensor_type: i32,
-    /// VPX `[Player] SimulatedPlumb`: mechanical tilt-bob simulation. NOT a
-    /// display toggle — `PlumbHandler::Update` returns early when it is off,
-    /// so the table can no longer tilt from nudging. It does gate the
-    /// in-game plumb overlay (the ring that turns red as you approach tilt,
-    /// `PlumbOverlay::Update` bails on `!IsPlumbSimulated()`), which is
-    /// otherwise automatic: it fades in while you nudge and stays up while
-    /// the F12 nudge page is open. On by default, like VPX.
-    pub enable_plumb_tilt: bool,
 }
 
 const TILT_ANGLE_MIN: f32 = 0.15;
@@ -41,7 +33,6 @@ impl Default for TiltConfig {
             nudge_scale_pct: 50.0,
             nudge_deadzone_pct: 10.0,
             nudge_sensor_type: 1,
-            enable_plumb_tilt: true,
         }
     }
 }
@@ -73,9 +64,6 @@ impl TiltConfig {
         if let Some(v) = config.get_i32("Input", "Mapping.Nudge0.Type") {
             self.nudge_sensor_type = v;
         }
-        if let Some(v) = config.get("Player", "SimulatedPlumb") {
-            self.enable_plumb_tilt = matches!(v.trim(), "1" | "true" | "True");
-        }
     }
 
     pub fn save_to_config(&self, config: &mut crate::config::VpxConfig) {
@@ -85,15 +73,10 @@ impl TiltConfig {
             TILT_ANGLE_MAX - (self.tilt_sensitivity_pct / 100.0) * TILT_ANGLE_RANGE,
         );
         // Update scale and deadZone on the accelerometer axes of the new nudge
-        // sensor schema, and persist the sensor type + plumb overlay toggle.
+        // sensor schema, and persist the sensor type.
         self.update_nudge_mapping(config, "Nudge0.AccX");
         self.update_nudge_mapping(config, "Nudge0.AccY");
         config.set_i32("Input", "Mapping.Nudge0.Type", self.nudge_sensor_type);
-        config.set(
-            "Player",
-            "SimulatedPlumb",
-            if self.enable_plumb_tilt { "1" } else { "0" },
-        );
     }
 
     fn update_nudge_mapping(&self, config: &mut crate::config::VpxConfig, key: &str) {

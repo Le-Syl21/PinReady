@@ -626,7 +626,3 @@ merge_table_no_vpx = "đã bỏ qua (không có .vpx bên trong)"
 merge_tables_skipped = "%{count} thư mục không có .vpx đã bị bỏ qua — bàn được nhận diện bằng tệp .vpx trong thư mục của nó."
 tables_dir_merge_backglass_hint = "Một thư mục chứa các tệp .directb2s. Được ghép với từng bàn theo tên tệp."
 tables_dir_merge_tables_hint = "Nơi chứa các tệp .vpx rời của bạn (bố cục phẳng kiểu cũ). Mỗi tệp sẽ nhận một thư mục riêng trong thư mục bàn. Để trống nếu chúng đã nằm ngay gốc thư mục bàn — trường hợp đó cũng được xử lý."
-
-# --- Plumb tilt relabel (2026-08-08) ---
-tilt_enable_plumb = "Nghiêng cơ học (mô phỏng quả dọi)"
-tilt_enable_plumb_help = "Mô phỏng quả dọi tilt thật: lắc quá mạnh là bàn bị TILT. Nó cũng chính là thứ bật lớp phủ nudge của VPX — vòng tròn hiển thị lực bạn tác động và chuyển sang đỏ khi sắp tilt — vòng này tự hiện ra trong lúc bạn lắc máy, và vẫn hiển thị chừng nào trang nudge (F12) còn mở. Bỏ chọn không chỉ ẩn vòng đó: nó tắt hoàn toàn tilt bằng quả dọi. Khuyến nghị bật, nhất là khi dùng nudge analog. (Cài đặt VPX: SimulatedPlumb.)"

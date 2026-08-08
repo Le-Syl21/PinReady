@@ -627,7 +627,3 @@ merge_table_no_vpx = "hoppades över (ingen .vpx inuti)"
 merge_tables_skipped = "%{count} mapp(ar) utan .vpx hoppades över — ett bord känns igen på .vpx-filen i sin mapp."
 tables_dir_merge_backglass_hint = "En mapp med .directb2s-filer. Matchas mot varje bord via filnamnet."
 tables_dir_merge_tables_hint = "Där dina lösa .vpx-filer ligger (den klassiska platta layouten). Var och en får en egen mapp i bordskatalogen. Lämna tomt om de redan ligger i roten av bordskatalogen — det fallet hanteras också."
-
-# --- Plumb tilt relabel (2026-08-08) ---
-tilt_enable_plumb = "Mekanisk tilt (simulering av tiltlodet)"
-tilt_enable_plumb_help = "Simulerar det riktiga tiltlodet: knuffar du för hårt tiltar bordet. Det slår också på VPX nudge-overlay — ringen som visar krafterna du använder och blir röd när tilten närmar sig — som dyker upp av sig själv när du knuffar och blir kvar så länge nudge-sidan (F12) är öppen. Att kryssa ur döljer inte bara den ringen: det stänger av lodtilten helt. Rekommenderas på, särskilt med en analog nudge. (VPX-inställning: SimulatedPlumb.)"

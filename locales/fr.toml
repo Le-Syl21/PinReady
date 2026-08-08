@@ -322,8 +322,6 @@ tilt_nudge_type_game = "Manette de jeu"
 tilt_nudge_type_intent = "Capteur d'intention"
 tilt_nudge_type_cabinet = "Capteur de cabinet"
 tilt_nudge_type_help = "Type de capteur utilisé pour les secousses.\n• Manette de jeu : utilise la position du stick — pour manettes, pas pour un accéléromètre de flipper.\n• Capteur d'intention (recommandé) : lit l'accéléromètre pour estimer votre intention de secousse, puis applique la physique VPX — idéal pour les cartes Pinscape/KL25Z.\n• Capteur de cabinet : applique l'accélération brute directement au jeu — uniquement pour un vrai flipper avec un capteur haute fréquence, faible latence et sans bruit."
-tilt_enable_plumb = "Tilt mécanique (simulation du fil à plomb)"
-tilt_enable_plumb_help = "Simule le vrai fil à plomb : secouez trop fort et la table tilte. C'est aussi ce qui active l'overlay de nudge de VPX — l'anneau qui montre les forces exercées et vire au rouge quand le tilt approche — qui apparaît tout seul quand vous secouez, et reste affiché tant que la page nudge (F12) est ouverte. Décocher ne masque pas seulement cet anneau : ça désactive complètement le tilt au fil à plomb. Recommandé activé, surtout avec un nudge analogique. (Réglage VPX : SimulatedPlumb.)"
 
 # Page Audio
 audio_heading = "Configuration audio"

@@ -630,7 +630,3 @@ merge_table_no_vpx = "atlandı (içinde .vpx yok)"
 merge_tables_skipped = "%{count} klasör .vpx içermediği için atlandı — masalar, klasörlerinin içindeki .vpx ile eşleştirilir."
 tables_dir_merge_backglass_hint = ".directb2s dosyalarından oluşan bir klasör. Dosya adına göre her masayla eşleştirilir."
 tables_dir_merge_tables_hint = "Dağınık .vpx dosyalarınızın bulunduğu yer (klasik düz düzen). Her biri masa dizininde kendi klasörünü alır. Zaten masa dizininin kökünde duruyorlarsa boş bırakın — bu durum da ele alınır."
-
-# --- Plumb tilt relabel (2026-08-08) ---
-tilt_enable_plumb = "Mekanik tilt (çekül simülasyonu)"
-tilt_enable_plumb_help = "Gerçek çekülü simüle eder: çok sert sallarsanız masa TILT verir. Ayrıca VPX'in nudge overlay'ini de devreye sokar — uyguladığınız kuvvetleri gösteren ve tilt yaklaştıkça kırmızıya dönen halka — bu halka siz sallarken kendiliğinden belirir ve nudge sayfası (F12) açık kaldığı sürece görünür kalır. İşareti kaldırmak yalnızca o halkayı gizlemez: çekül tiltini tamamen devre dışı bırakır. Açık bırakılması önerilir, özellikle analog nudge ile. (VPX ayarı: SimulatedPlumb.)"

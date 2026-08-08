@@ -627,7 +627,3 @@ merge_table_no_vpx = "přeskočeno (žádný .vpx uvnitř)"
 merge_tables_skipped = "Přeskočeno: %{count} složka/složek bez .vpx — stůl se pozná podle .vpx ve své složce."
 tables_dir_merge_backglass_hint = "Složka se soubory .directb2s. Ke každému stolu se přiřazují podle názvu souboru."
 tables_dir_merge_tables_hint = "Místo, kde leží vaše volné soubory .vpx (klasické ploché rozložení). Každý dostane vlastní složku v adresáři stolů. Ponechte prázdné, pokud už leží přímo v kořeni adresáře stolů — i tento případ je ošetřen."
-
-# --- Plumb tilt relabel (2026-08-08) ---
-tilt_enable_plumb = "Mechanický tilt (simulace olovnice)"
-tilt_enable_plumb_help = "Simuluje skutečnou olovnici: cukněte příliš silně a stůl vyhlásí TILT. Zapíná také nudge overlay VPX — prstenec, který ukazuje působící síly a červená, jak se blíží tilt — jenž se sám objeví během cuknutí a zůstává zobrazený, dokud je otevřená stránka nudge (F12). Odškrtnutí nejen skryje tento prstenec: úplně vypne tilt na olovnici. Doporučeno zapnuté, zejména s analogovým nudge. (Nastavení VPX: SimulatedPlumb.)"

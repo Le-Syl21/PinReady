@@ -627,7 +627,3 @@ merge_table_no_vpx = "已跳过（内部无 .vpx）"
 merge_tables_skipped = "已跳过 %{count} 个不含 .vpx 的文件夹——球台以其文件夹内的 .vpx 来识别。"
 tables_dir_merge_backglass_hint = "一个存放 .directb2s 文件的文件夹。按文件名与各球台匹配。"
 tables_dir_merge_tables_hint = "你的散装 .vpx 文件所在的位置（经典的平铺布局）。每个文件都会在球台目录中获得自己的文件夹。如果它们已经位于球台目录的根部，请留空——这种情况同样会被处理。"
-
-# --- Plumb tilt relabel (2026-08-08) ---
-tilt_enable_plumb = "机械倾斜（摆锤模拟）"
-tilt_enable_plumb_help = "模拟真实的倾斜摆锤：推得太用力，球台就会 TILT。它同时会带出 VPX 的 nudge 叠加层——显示你所施加的力度、在接近 TILT 时变红的圆环——它在你推动柜体时会自动出现，并且只要 F12 的 nudge 页面处于打开状态就会一直显示。取消勾选不只是隐藏这个圆环：它会彻底关闭摆锤倾斜。建议开启，尤其是在使用模拟信号 nudge 时。（VPX 设置：SimulatedPlumb。）"

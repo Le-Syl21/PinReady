@@ -628,7 +628,3 @@ merge_table_no_vpx = "imerukwa (hakuna .vpx ndani)"
 merge_tables_skipped = "Folda %{count} zisizo na .vpx zimerukwa — meza hutambuliwa kwa faili ya .vpx ndani ya folda yake."
 tables_dir_merge_backglass_hint = "Folda ya faili za .directb2s. Hulinganishwa na kila meza kwa jina la faili."
 tables_dir_merge_tables_hint = "Mahali faili zako za .vpx zilizotawanyika zilipo (mpangilio wa zamani wa moja kwa moja). Kila moja itapata folda yake ndani ya saraka ya meza. Acha tupu ikiwa tayari ziko kwenye mzizi wa saraka ya meza — hali hiyo pia inashughulikiwa."
-
-# --- Plumb tilt relabel (2026-08-08) ---
-tilt_enable_plumb = "Mwelekeo wa kimitambo (uigaji wa timazi)"
-tilt_enable_plumb_help = "Huiga timazi halisi ya tilt: ukisukuma kabati kwa nguvu kupita kiasi, meza hupata TILT. Pia ndiyo huleta overlay ya nudge ya VPX — ile pete inayoonyesha nguvu unazotumia na kugeuka nyekundu tilt inapokaribia — ambayo hujitokeza yenyewe unaposukuma, na hubaki ikionekana muda wote ukurasa wa nudge wa F12 ukiwa wazi. Kuondoa alama hakufichi pete hiyo tu: kunazima kabisa tilt ya timazi. Inapendekezwa iwe imewashwa, hasa ukitumia nudge ya analogi. (Mpangilio wa VPX: SimulatedPlumb.)"

@@ -628,7 +628,3 @@ merge_table_no_vpx = "ignorado (sem .vpx lá dentro)"
 merge_tables_skipped = "%{count} pasta(s) sem .vpx foram ignoradas — uma mesa é reconhecida pelo .vpx dentro da sua pasta."
 tables_dir_merge_backglass_hint = "Uma pasta de ficheiros .directb2s. Associados a cada mesa pelo nome do ficheiro."
 tables_dir_merge_tables_hint = "Onde vivem os seus .vpx soltos (o clássico formato plano). Cada um recebe a sua própria pasta no diretório de mesas. Deixe vazio se já estiverem na raiz do diretório de mesas — esse caso também é suportado."
-
-# --- Plumb tilt relabel (2026-08-08) ---
-tilt_enable_plumb = "Tilt mecânico (simulação do fio de prumo)"
-tilt_enable_plumb_help = "Simula o verdadeiro fio de prumo: abane com demasiada força e a mesa faz TILT. É também o que ativa o overlay de nudge do VPX — o anel que mostra as forças aplicadas e fica vermelho à medida que o tilt se aproxima — que aparece sozinho enquanto abana e permanece visível enquanto a página de nudge (F12) estiver aberta. Desmarcar não esconde apenas esse anel: desativa por completo o tilt por fio de prumo. Recomendado ativado, sobretudo com um nudge analógico. (Definição do VPX: SimulatedPlumb.)"
