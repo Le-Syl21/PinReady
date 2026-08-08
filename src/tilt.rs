@@ -3,7 +3,8 @@
 #[derive(Debug, Clone)]
 pub struct TiltConfig {
     /// Tilt sensitivity 0–100% — 0 insensitive (large angle to trigger tilt), 100 ultra-sensitive (tiny angle triggers).
-    /// Written as PlumbThresholdAngle in INI: range 0.5°..4° (VPX upstream Player::Plumb after the nudge handler rewrite).
+    /// Written as PlumbThresholdAngle in INI: range 0.15°..4° (VPX upstream widened the
+    /// floor from 0.5° and moved the default 2°→1° in Aug 2026 — commit 05dd11dc6 era).
     pub tilt_sensitivity_pct: f32,
     /// PlumbDamping: tilt plumb simulation damping (0..2, VPX default 1.0). Replaces the older PlumbInertia.
     pub plumb_damping: f32,
@@ -21,7 +22,7 @@ pub struct TiltConfig {
     pub show_nudge_plumb: bool,
 }
 
-const TILT_ANGLE_MIN: f32 = 0.5;
+const TILT_ANGLE_MIN: f32 = 0.15;
 const TILT_ANGLE_MAX: f32 = 4.0;
 const TILT_ANGLE_RANGE: f32 = TILT_ANGLE_MAX - TILT_ANGLE_MIN;
 
@@ -44,7 +45,7 @@ impl TiltConfig {
     pub fn load_from_config(&mut self, config: &crate::config::VpxConfig) {
         if let Some(v) = config.get_f32("Player", "PlumbThresholdAngle") {
             // Inverted mapping: small angle = high sensitivity, large angle = low sensitivity.
-            // 0.5° → 100% (ultra-sensitive), 4° → 0% (insensitive).
+            // 0.15° → 100% (ultra-sensitive), 4° → 0% (insensitive).
             self.tilt_sensitivity_pct =
                 ((TILT_ANGLE_MAX - v) / TILT_ANGLE_RANGE * 100.0).clamp(0.0, 100.0);
         }
@@ -74,7 +75,7 @@ impl TiltConfig {
 
     pub fn save_to_config(&self, config: &mut crate::config::VpxConfig) {
         config.set_plumb_damping(self.plumb_damping);
-        // Inverted mapping: 0% (insensitive) → 4°, 100% (ultra-sensitive) → 0.5°.
+        // Inverted mapping: 0% (insensitive) → 4°, 100% (ultra-sensitive) → 0.15°.
         config.set_plumb_threshold_angle(
             TILT_ANGLE_MAX - (self.tilt_sensitivity_pct / 100.0) * TILT_ANGLE_RANGE,
         );
@@ -135,9 +136,9 @@ mod tests {
 
     #[test]
     fn load_from_config_reads_values() {
-        // PlumbThresholdAngle=2.25 (mid range 0.5..4) → pct = (4 - 2.25)/3.5 * 100 = 50%
+        // PlumbThresholdAngle=2.075 (mid range 0.15..4) → pct = (4 - 2.075)/3.85 * 100 = 50%
         let cfg = config_from_str(
-            "[Player]\nPlumbThresholdAngle = 2.25\nPlumbDamping = 0.5\n\
+            "[Player]\nPlumbThresholdAngle = 2.075\nPlumbDamping = 0.5\n\
              [Input]\nMapping.Nudge0.AccX = dev;512;A;0.1;0.8;1.0\n",
         );
         let mut tilt = TiltConfig::default();
@@ -159,8 +160,8 @@ mod tests {
 
     #[test]
     fn load_from_config_inverted_sensitivity() {
-        // 0.5° (min angle, ultra-sensitive) → 100%, 4° (max angle, insensitive) → 0%
-        let ultra = config_from_str("[Player]\nPlumbThresholdAngle = 0.5\n");
+        // 0.15° (min angle, ultra-sensitive) → 100%, 4° (max angle, insensitive) → 0%
+        let ultra = config_from_str("[Player]\nPlumbThresholdAngle = 0.15\n");
         let mut t = TiltConfig::default();
         t.load_from_config(&ultra);
         assert!((t.tilt_sensitivity_pct - 100.0).abs() < 0.1);
@@ -175,7 +176,7 @@ mod tests {
     fn save_to_config_writes_values() {
         let mut cfg = config_from_str("");
         let tilt = TiltConfig {
-            tilt_sensitivity_pct: 50.0, // mid → angle 2.25°
+            tilt_sensitivity_pct: 50.0, // mid → angle 2.075°
             plumb_damping: 0.7,
             nudge_scale_pct: 150.0,
             nudge_deadzone_pct: 20.0,
@@ -183,7 +184,7 @@ mod tests {
         };
         tilt.save_to_config(&mut cfg);
         let angle = cfg.get_f32("Player", "PlumbThresholdAngle").unwrap();
-        assert!((angle - 2.25).abs() < 0.01);
+        assert!((angle - 2.075).abs() < 0.01);
         let damping = cfg.get_f32("Player", "PlumbDamping").unwrap();
         assert!((damping - 0.7).abs() < f32::EPSILON);
     }
@@ -198,7 +199,7 @@ mod tests {
         };
         ultra.save_to_config(&mut cfg);
         let a = cfg.get_f32("Player", "PlumbThresholdAngle").unwrap();
-        assert!((a - 0.5).abs() < 0.01, "expected 0.5, got {a}");
+        assert!((a - 0.15).abs() < 0.01, "expected 0.15, got {a}");
 
         let insens = TiltConfig {
             tilt_sensitivity_pct: 0.0,
