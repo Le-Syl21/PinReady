@@ -4,7 +4,7 @@
 page_screens = "화면"
 page_rendering = "렌더링"
 page_inputs = "입력"
-page_outputs = "출력"
+page_outputs = "액세서리"
 page_tilt = "틸트 / 넛지"
 page_audio = "오디오"
 page_tables = "테이블"
@@ -203,7 +203,8 @@ input_custom3 = "커스텀 #3 (테이블 모드)"
 input_custom4 = "커스텀 #4 (테이블 모드)"
 
 # Outputs page
-outputs_heading = "출력 / DOF 설정"
+outputs_heading = "캐비닛 액세서리"
+outputs_dof_subtitle = "DOF 포스 피드백"
 outputs_desc = "VPX 10.8.1 standalone은 libdof를 네이티브로 통합하여 외부 플러그인을 설치할 필요가 없습니다. 캐비닛 하드웨어(솔레노이드, LED, 모터...)를 설명하는 DOF 설정만 제공하면 됩니다. VPUniverse 온라인 생성기를 사용하여 생성한 뒤, 결과를 아래 폴더에 압축 해제하세요."
 outputs_workflow_title = "DOF 설정 생성 방법"
 outputs_step1_account = "VPUniverse ConfigTool에 (무료) 계정을 만드세요."

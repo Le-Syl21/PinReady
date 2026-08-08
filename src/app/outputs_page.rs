@@ -72,6 +72,12 @@ fn open_in_file_manager(path: &std::path::Path) {
 impl App {
     pub(super) fn render_outputs_page(&mut self, ui: &mut egui::Ui) {
         ui.heading(t!("outputs_heading"));
+        ui.add_space(12.0);
+
+        // The page now hosts two accessory families: DOF force feedback
+        // (outputs) and the head-tracking camera (input). Each gets its
+        // own sub-title; the heading stays the neutral "accessories".
+        ui.strong(format!("🔌 {}", t!("outputs_dof_subtitle")));
         ui.add_space(4.0);
         ui.label(t!("outputs_desc"));
         ui.add_space(12.0);

@@ -4,7 +4,7 @@
 page_screens = "Näytöt"
 page_rendering = "Renderöinti"
 page_inputs = "Ohjaimet"
-page_outputs = "Lähdöt"
+page_outputs = "Lisävarusteet"
 page_tilt = "Tilt / Nudge"
 page_audio = "Ääni"
 page_tables = "Pöydät"
@@ -203,7 +203,8 @@ input_custom3 = "Mukautettu #3 (pöytämodi)"
 input_custom4 = "Mukautettu #4 (pöytämodi)"
 
 # Outputs page
-outputs_heading = "Lähdöt / DOF-asetukset"
+outputs_heading = "Kaapin lisävarusteet"
+outputs_dof_subtitle = "DOF-tärinäpalaute"
 outputs_desc = "VPX 10.8.1 standalone integroi libdofin natiivisti — ulkoista liitännäistä ei tarvitse asentaa. Sinun täytyy vain tarjota DOF-asetukset, jotka kuvaavat kabinetin laitteiston (solenoidit, LED-valot, moottorit...). Käytä VPUniversen verkkogeneraattoria sen tuottamiseen ja pura tulos alla olevaan kansioon."
 outputs_workflow_title = "Kuinka luoda DOF-asetukset"
 outputs_step1_account = "Luo (ilmainen) tili VPUniverse ConfigToolissa."

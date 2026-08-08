@@ -4,7 +4,7 @@
 page_screens = "Skrini"
 page_rendering = "Uonyeshaji"
 page_inputs = "Ingizo"
-page_outputs = "Mitoko"
+page_outputs = "Vifaa vya ziada"
 page_tilt = "Mwelekeo / Sukuma"
 page_audio = "Sauti"
 page_tables = "Meza"
@@ -203,7 +203,8 @@ input_custom3 = "Desturi #3 (modi ya meza)"
 input_custom4 = "Desturi #4 (modi ya meza)"
 
 # Outputs page
-outputs_heading = "Mitoko / Usanidi wa DOF"
+outputs_heading = "Vifaa vya ziada vya kabati"
+outputs_dof_subtitle = "Mrejesho wa nguvu wa DOF"
 outputs_desc = "VPX 10.8.1 standalone inajumuisha libdof kwa asili — hakuna plagini ya nje inayohitaji kusakinishwa. Unahitaji tu kutoa usanidi wa DOF unaoelezea vifaa vya kabati lako (solenoids, LEDs, motors...). Tumia jenereta ya mtandao ya VPUniverse kuitengeneza, kisha toa matokeo kwenye folda iliyo hapo chini."
 outputs_workflow_title = "Jinsi ya kutengeneza usanidi wako wa DOF"
 outputs_step1_account = "Tengeneza akaunti (bure) kwenye VPUniverse ConfigTool."

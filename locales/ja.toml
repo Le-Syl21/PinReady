@@ -4,7 +4,7 @@
 page_screens = "画面"
 page_rendering = "レンダリング"
 page_inputs = "入力"
-page_outputs = "出力"
+page_outputs = "アクセサリー"
 page_tilt = "チルト / ナッジ"
 page_audio = "オーディオ"
 page_tables = "テーブル"
@@ -203,7 +203,8 @@ input_custom3 = "カスタム #3（テーブルMod）"
 input_custom4 = "カスタム #4（テーブルMod）"
 
 # Outputs page
-outputs_heading = "出力 / DOF 設定"
+outputs_heading = "キャビネットのアクセサリー"
+outputs_dof_subtitle = "DOF フォースフィードバック"
 outputs_desc = "VPX 10.8.1 standalone は libdof をネイティブで統合しています — 外部プラグインのインストールは不要です。あとは、キャビネットのハードウェア（ソレノイド、LED、モーターなど）を記述した DOF 設定を用意するだけです。VPUniverse のオンラインジェネレーターで生成し、下記のフォルダに展開してください。"
 outputs_workflow_title = "DOF 設定の作成手順"
 outputs_step1_account = "VPUniverse ConfigTool にアカウント（無料）を作成してください。"

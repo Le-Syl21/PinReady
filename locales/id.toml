@@ -4,7 +4,7 @@
 page_screens = "Layar"
 page_rendering = "Rendering"
 page_inputs = "Input"
-page_outputs = "Output"
+page_outputs = "Aksesori"
 page_tilt = "Tilt / Nudge"
 page_audio = "Audio"
 page_tables = "Meja"
@@ -203,7 +203,8 @@ input_custom3 = "Kustom #3 (mod meja)"
 input_custom4 = "Kustom #4 (mod meja)"
 
 # Outputs page
-outputs_heading = "Output / Konfigurasi DOF"
+outputs_heading = "Aksesori kabinet"
+outputs_dof_subtitle = "Force feedback DOF"
 outputs_desc = "VPX 10.8.1 standalone mengintegrasikan libdof secara native — tidak perlu plugin eksternal yang diinstal. Anda hanya perlu menyediakan konfigurasi DOF yang menjelaskan perangkat keras kabinet (solenoid, LED, motor...). Gunakan generator online VPUniverse untuk menghasilkannya, lalu ekstrak hasilnya ke folder di bawah."
 outputs_workflow_title = "Cara membuat konfigurasi DOF"
 outputs_step1_account = "Buat akun (gratis) di VPUniverse ConfigTool."

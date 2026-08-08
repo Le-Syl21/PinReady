@@ -4,7 +4,7 @@
 page_screens = "स्क्रीन"
 page_rendering = "रेंडरिंग"
 page_inputs = "इनपुट"
-page_outputs = "आउटपुट"
+page_outputs = "सहायक उपकरण"
 page_tilt = "टिल्ट / नज"
 page_audio = "ऑडियो"
 page_tables = "टेबल"
@@ -203,7 +203,8 @@ input_custom3 = "कस्टम #3 (टेबल मॉड)"
 input_custom4 = "कस्टम #4 (टेबल मॉड)"
 
 # Outputs page
-outputs_heading = "आउटपुट / DOF कॉन्फ़िगरेशन"
+outputs_heading = "कैब के सहायक उपकरण"
+outputs_dof_subtitle = "DOF फ़ोर्स फ़ीडबैक"
 outputs_desc = "VPX 10.8.1 standalone libdof को मूल रूप से एकीकृत करता है — किसी बाहरी प्लगइन को इंस्टॉल करने की आवश्यकता नहीं। आपको बस अपने कैबिनेट के हार्डवेयर (सोलेनॉइड, LED, मोटर...) का वर्णन करने वाला DOF कॉन्फ़िगरेशन प्रदान करना है। इसे बनाने के लिए VPUniverse ऑनलाइन जनरेटर का उपयोग करें, फिर परिणाम को नीचे दिए गए फ़ोल्डर में निकालें।"
 outputs_workflow_title = "अपना DOF कॉन्फ़िगरेशन कैसे बनाएँ"
 outputs_step1_account = "VPUniverse ConfigTool पर एक (निःशुल्क) खाता बनाएँ।"

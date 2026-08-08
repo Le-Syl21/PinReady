@@ -4,7 +4,7 @@
 page_screens = "اسکرینز"
 page_rendering = "رینڈرنگ"
 page_inputs = "ان پُٹ"
-page_outputs = "آؤٹ پُٹ"
+page_outputs = "لوازمات"
 page_tilt = "ٹلٹ / نج"
 page_audio = "آڈیو"
 page_tables = "ٹیبلز"
@@ -203,7 +203,8 @@ input_custom3 = "حسب ضرورت #3 (ٹیبل موڈ)"
 input_custom4 = "حسب ضرورت #4 (ٹیبل موڈ)"
 
 # Outputs page
-outputs_heading = "آؤٹ پُٹ / DOF ترتیب"
+outputs_heading = "کیب کے لوازمات"
+outputs_dof_subtitle = "DOF فورس فیڈبیک"
 outputs_desc = "VPX 10.8.1 standalone libdof کو بنیادی طور پر مربوط کرتا ہے — کوئی بیرونی پلگ ان انسٹال کرنے کی ضرورت نہیں۔ آپ کو صرف ایک DOF ترتیب فراہم کرنی ہے جو آپ کے کیبنٹ کے ہارڈویئر (solenoids، LEDs، motors...) کو بیان کرتی ہے۔ اسے تیار کرنے کے لیے VPUniverse آن لائن جنریٹر کا استعمال کریں، پھر نتیجہ نیچے دیے گئے فولڈر میں نکالیں۔"
 outputs_workflow_title = "اپنی DOF ترتیب کیسے تیار کریں"
 outputs_step1_account = "VPUniverse ConfigTool پر ایک (مفت) اکاؤنٹ بنائیں۔"

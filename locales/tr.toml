@@ -4,7 +4,7 @@
 page_screens = "Ekranlar"
 page_rendering = "Görüntüleme"
 page_inputs = "Girişler"
-page_outputs = "Çıkışlar"
+page_outputs = "Aksesuarlar"
 page_tilt = "Tilt / Nudge"
 page_audio = "Ses"
 page_tables = "Masalar"
@@ -203,7 +203,8 @@ input_custom3 = "Özel #3 (masa modu)"
 input_custom4 = "Özel #4 (masa modu)"
 
 # Outputs page
-outputs_heading = "Çıkışlar / DOF yapılandırması"
+outputs_heading = "Kabin aksesuarları"
+outputs_dof_subtitle = "DOF kuvvet geri bildirimi"
 outputs_desc = "VPX 10.8.1 standalone, libdof'u yerel olarak entegre eder — kurulacak harici eklenti yoktur. Sadece kabinet donanımınızı (solenoidler, LED'ler, motorlar...) tanımlayan bir DOF yapılandırması sağlamanız gerekir. Üretmek için VPUniverse çevrimiçi üreticisini kullanın, ardından sonucu aşağıdaki klasöre çıkarın."
 outputs_workflow_title = "DOF yapılandırmanızı nasıl oluşturursunuz"
 outputs_step1_account = "VPUniverse ConfigTool üzerinde (ücretsiz) bir hesap oluşturun."

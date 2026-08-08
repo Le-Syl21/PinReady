@@ -4,7 +4,7 @@
 page_screens = "স্ক্রিন"
 page_rendering = "রেন্ডারিং"
 page_inputs = "ইনপুট"
-page_outputs = "আউটপুট"
+page_outputs = "আনুষাঙ্গিক"
 page_tilt = "টিল্ট / নাজ"
 page_audio = "অডিও"
 page_tables = "টেবিল"
@@ -203,7 +203,8 @@ input_custom3 = "কাস্টম #3 (টেবিল মড)"
 input_custom4 = "কাস্টম #4 (টেবিল মড)"
 
 # Outputs page
-outputs_heading = "আউটপুট / DOF কনফিগারেশন"
+outputs_heading = "ক্যাবের আনুষাঙ্গিক"
+outputs_dof_subtitle = "DOF ফোর্স ফিডব্যাক"
 outputs_desc = "VPX 10.8.1 standalone libdof-কে নেটিভভাবে একীভূত করে — কোনো বাহ্যিক প্লাগইন ইনস্টল করতে হবে না। আপনাকে শুধু আপনার ক্যাবিনেটের হার্ডওয়্যার (সোলেনয়েড, LED, মোটর...) বর্ণনা করে এমন একটি DOF কনফিগারেশন সরবরাহ করতে হবে। এটি তৈরি করতে VPUniverse অনলাইন জেনারেটর ব্যবহার করুন, তারপর ফলাফল নিচের ফোল্ডারে এক্সট্র্যাক্ট করুন।"
 outputs_workflow_title = "আপনার DOF কনফিগারেশন কীভাবে তৈরি করবেন"
 outputs_step1_account = "VPUniverse ConfigTool-এ একটি (বিনামূল্যে) অ্যাকাউন্ট তৈরি করুন।"

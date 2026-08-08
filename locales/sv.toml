@@ -4,7 +4,7 @@
 page_screens = "Skärmar"
 page_rendering = "Rendering"
 page_inputs = "Inmatning"
-page_outputs = "Utgångar"
+page_outputs = "Tillbehör"
 page_tilt = "Tilt / Nudge"
 page_audio = "Ljud"
 page_tables = "Bord"
@@ -203,7 +203,8 @@ input_custom3 = "Anpassad #3 (bordmod)"
 input_custom4 = "Anpassad #4 (bordmod)"
 
 # Outputs page
-outputs_heading = "Utgångar / DOF-konfiguration"
+outputs_heading = "Cab-tillbehör"
+outputs_dof_subtitle = "DOF force feedback"
 outputs_desc = "VPX 10.8.1 standalone integrerar libdof internt — ingen extern insticksmodul behöver installeras. Du behöver bara tillhandahålla en DOF-konfiguration som beskriver kabinettets hårdvara (solenoider, LEDar, motorer...). Använd VPUniverse online-generator för att skapa den, och packa sedan upp resultatet i mappen nedan."
 outputs_workflow_title = "Så genererar du din DOF-konfiguration"
 outputs_step1_account = "Skapa ett (gratis) konto på VPUniverse ConfigTool."

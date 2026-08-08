@@ -4,7 +4,7 @@
 page_screens = "Pantallas"
 page_rendering = "Renderizado"
 page_inputs = "Controles"
-page_outputs = "Salidas"
+page_outputs = "Accesorios"
 page_tilt = "Tilt / Nudge"
 page_audio = "Audio"
 page_tables = "Mesas"
@@ -203,7 +203,8 @@ input_custom3 = "Personalizado #3 (mod de mesa)"
 input_custom4 = "Personalizado #4 (mod de mesa)"
 
 # Outputs page
-outputs_heading = "Salidas / Configuración DOF"
+outputs_heading = "Accesorios del cab"
+outputs_dof_subtitle = "Force feedback DOF"
 outputs_desc = "VPX 10.8.1 standalone integra libdof de forma nativa — no hay plugin externo que instalar. Solo debe proporcionar una configuración DOF que describa el hardware de su cabinet (solenoides, LEDs, motores...). Use el generador en línea de VPUniverse para producirla y luego extraiga el resultado en la carpeta indicada a continuación."
 outputs_workflow_title = "Cómo generar su configuración DOF"
 outputs_step1_account = "Cree una cuenta (gratuita) en el VPUniverse ConfigTool."

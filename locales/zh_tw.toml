@@ -4,7 +4,7 @@
 page_screens = "螢幕"
 page_rendering = "渲染"
 page_inputs = "輸入"
-page_outputs = "輸出"
+page_outputs = "配件"
 page_tilt = "傾斜 / 推動"
 page_audio = "音訊"
 page_tables = "球台"
@@ -203,7 +203,8 @@ input_custom3 = "自訂 #3（球台模組）"
 input_custom4 = "自訂 #4（球台模組）"
 
 # Outputs page
-outputs_heading = "輸出 / DOF 設定"
+outputs_heading = "機櫃配件"
+outputs_dof_subtitle = "DOF 力回饋"
 outputs_desc = "VPX 10.8.1 standalone 原生整合了 libdof——無需安裝外部外掛。您只需提供一份描述機台硬體（電磁鐵、LED、馬達……）的 DOF 設定。使用 VPUniverse 線上產生器建立，再將結果解壓縮到下方資料夾。"
 outputs_workflow_title = "如何產生您的 DOF 設定"
 outputs_step1_account = "在 VPUniverse ConfigTool 上建立一個（免費）帳號。"

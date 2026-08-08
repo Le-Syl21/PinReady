@@ -4,7 +4,7 @@
 page_screens = "Screens"
 page_rendering = "Rendering"
 page_inputs = "Inputs"
-page_outputs = "Outputs"
+page_outputs = "Accessories"
 page_tilt = "Tilt / Nudge"
 page_audio = "Audio"
 page_tables = "Tables"
@@ -221,7 +221,8 @@ input_custom3 = "Custom #3 (table mod)"
 input_custom4 = "Custom #4 (table mod)"
 
 # Outputs page
-outputs_heading = "Outputs / DOF configuration"
+outputs_heading = "Cab accessories"
+outputs_dof_subtitle = "DOF force feedback"
 outputs_desc = "VPX 10.8.1 standalone integrates libdof natively — no external plugin to install. You only need to provide a DOF configuration that describes your cabinet hardware (solenoids, LEDs, motors...). Use the VPUniverse online generator to produce it, then extract the result in the folder below."
 outputs_workflow_title = "How to generate your DOF configuration"
 outputs_step1_account = "Create an account (free) on the VPUniverse ConfigTool."
