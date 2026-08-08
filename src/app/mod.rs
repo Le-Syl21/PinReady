@@ -428,7 +428,9 @@ pub struct App {
     // VPINMAME/PUPVIDEOS/Music dirs; the merge engine in `crate::merge`
     // walks each .vpx in tables_dir and places companion files into the
     // 10.8.1 folder-per-table layout.
+    merge_src_tables: String,
     merge_src_vpinmame: String,
+    merge_src_backglass: String,
     merge_src_pupvideos: String,
     merge_src_music: String,
     merge_strategy: crate::merge::MergeStrategy,
@@ -466,6 +468,14 @@ pub struct App {
     // Absolute wall-clock instant = knocker playback end + small buffer.
     // Compared with `Instant::now()` every frame; no ms hardcoding.
     close_at: Option<std::time::Instant>,
+
+    // Grace deadline after VPX exits, before the launcher accepts input
+    // again. The exit button (ExitGame / Escape) that closed VPX is often
+    // still down/queued when PinReady reclaims control; without this window
+    // the launcher reads it as `Cancel` and quits itself. Set in
+    // `process_vpx_status` on any VPX-exit branch; input paths drain and
+    // ignore events until it elapses.
+    input_resume_at: Option<std::time::Instant>,
 
     // Deadline for resetting window level back to Normal after a focus-
     // raise from a second launch. `AlwaysOnTop` forces the compositor to
@@ -590,7 +600,9 @@ impl App {
         };
         let jsm174_patching = db.jsm174_patching_enabled();
         let catalog_enrichment = db.catalog_enrichment_enabled();
+        let merge_src_tables = db.get_merge_source("tables");
         let merge_src_vpinmame = db.get_merge_source("vpinmame");
+        let merge_src_backglass = db.get_merge_source("backglass");
         let merge_src_pupvideos = db.get_merge_source("pupvideos");
         let merge_src_music = db.get_merge_source("music");
         let merge_strategy = crate::merge::MergeStrategy::from_db_str(&db.get_merge_strategy());
@@ -682,7 +694,9 @@ impl App {
             autostart: is_autostart_enabled(),
             desktop_integration: is_desktop_integration_installed(),
             mirror_base_url,
+            merge_src_tables,
             merge_src_vpinmame,
+            merge_src_backglass,
             merge_src_pupvideos,
             merge_src_music,
             merge_strategy,
@@ -696,6 +710,7 @@ impl App {
             catalog_enrichment,
             catalog_cancel_token: None,
             close_at: None,
+            input_resume_at: None,
             focus_reset_at: None,
             selected_language,
             vpx_install_mode,

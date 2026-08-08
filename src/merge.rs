@@ -25,14 +25,43 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct MergeSources {
-    /// Path to a `VPINMAME` directory with `roms/`, `nvram/`, `cfg/`,
-    /// `altsound/`, `altcolor/` subfolders. None = skip the ROM /
-    /// altsound / altcolor / serum / nvram / cfg detections.
+    /// Where loose `.vpx` files live (the classic flat layout). None =
+    /// the tables dir itself. Each loose table is "folderized" into its
+    /// own folder in the tables dir before the asset pipeline runs.
+    pub tables: Option<PathBuf>,
+    /// ROMs input: either a `VPINMAME`-layout directory (`roms/`,
+    /// `nvram/`, `cfg/`, `altsound/`, `altcolor/` subfolders) or a flat
+    /// directory of `<rom>.zip` files. None = skip the ROM / altsound /
+    /// altcolor / serum / nvram / cfg detections.
     pub vpinmame: Option<PathBuf>,
-    /// Path to a directory holding PUP pack subfolders.
+    /// Path to a directory of `.directb2s` backglass files.
+    pub backglass: Option<PathBuf>,
+    /// Path to a directory holding PUP pack subfolders (each real pack
+    /// carries a `playlists.pup` marker inside).
     pub pupvideos: Option<PathBuf>,
     /// Path to a directory whose subfolders are per-table music sets.
     pub music: Option<PathBuf>,
+}
+
+impl MergeSources {
+    /// The directory `<rom>.zip` files actually live in: a vpinmame-layout
+    /// `roms/` subfolder when present, else the configured dir itself
+    /// (flat dump of zips).
+    fn roms_root(&self) -> Option<PathBuf> {
+        let root = self.vpinmame.as_ref()?;
+        let sub = root.join("roms");
+        Some(if sub.is_dir() { sub } else { root.clone() })
+    }
+
+    /// A vpinmame-layout subfolder (`nvram`, `cfg`, `altsound`,
+    /// `altcolor`), falling back to the configured dir itself so flat
+    /// dumps still resolve (existence of individual files is checked by
+    /// the caller anyway).
+    fn vpinmame_sub(&self, name: &str) -> Option<PathBuf> {
+        let root = self.vpinmame.as_ref()?;
+        let sub = root.join(name);
+        Some(if sub.is_dir() { sub } else { root.clone() })
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -69,6 +98,8 @@ pub enum MergeMode {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AssetKind {
+    Vpx,
+    Vbs,
     Rom,
     Directb2s,
     PovIni,
@@ -84,6 +115,8 @@ pub enum AssetKind {
 impl AssetKind {
     pub fn label(self) -> &'static str {
         match self {
+            AssetKind::Vpx => "table (.vpx)",
+            AssetKind::Vbs => "script (.vbs)",
             AssetKind::Rom => "ROM",
             AssetKind::Directb2s => "directb2s",
             AssetKind::PovIni => "POV.ini",
@@ -124,6 +157,11 @@ pub enum MergeEvent {
     TableDone {
         name: String,
     },
+    /// A subfolder of the tables dir contained no `.vpx` — counted and
+    /// surfaced instead of silently ignored (issue #16).
+    TableSkipped {
+        name: String,
+    },
     Done(MergeReport),
 }
 
@@ -149,6 +187,7 @@ impl SkipReason {
 #[derive(Debug, Clone, Default)]
 pub struct MergeReport {
     pub tables_processed: usize,
+    pub tables_skipped: usize,
     pub assets_found: usize,
     pub assets_applied: usize,
     pub assets_skipped: usize,
@@ -325,6 +364,125 @@ fn run(
     let op = pick_op(strategy);
     let mut report = MergeReport::default();
 
+    // ---- Phase A: "folderize" loose .vpx files ----------------------
+    //
+    // The classic flat layout (.vpx directly in the tables dir, or in a
+    // separate tables source) is the upstream tool's nominal input and
+    // used to be silently ignored (issue #16). Each loose table gets its
+    // own folder in the tables dir, then runs through the same asset
+    // pipeline as pre-foldered tables.
+    let vpx_src_root: PathBuf = sources
+        .tables
+        .clone()
+        .unwrap_or_else(|| tables_dir.to_path_buf());
+    // In-place folderize always renames (copying would leave a duplicate
+    // table next to its own folder); from a separate source the chosen
+    // strategy rules.
+    let in_place = vpx_src_root == tables_dir;
+    let mut folderized: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let loose: Vec<PathBuf> = std::fs::read_dir(&vpx_src_root)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            p.is_file()
+                && p.extension()
+                    .and_then(|s| s.to_str())
+                    .is_some_and(|s| s.eq_ignore_ascii_case("vpx"))
+        })
+        .collect();
+    for vpx_src in loose {
+        if cancel.load(Ordering::SeqCst) {
+            break;
+        }
+        let Some(stem) = vpx_src
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .map(str::to_string)
+        else {
+            continue;
+        };
+        let table_dir = tables_dir.join(&stem);
+        folderized.insert(stem.clone());
+        let _ = tx.send(MergeEvent::TableStarted { name: stem.clone() });
+
+        let vpx_dst = table_dir.join(vpx_src.file_name().unwrap_or_default());
+        report.assets_found += 1;
+        let _ = tx.send(MergeEvent::AssetFound {
+            kind: AssetKind::Vpx,
+            src: vpx_src.clone(),
+            dst: vpx_dst.clone(),
+        });
+        let effective_vpx = if matches!(mode, MergeMode::DryRun) {
+            report.assets_skipped += 1;
+            let _ = tx.send(MergeEvent::AssetSkipped {
+                kind: AssetKind::Vpx,
+                reason: SkipReason::DryRun,
+            });
+            vpx_src.clone()
+        } else {
+            if let Err(e) = std::fs::create_dir_all(&table_dir) {
+                report.assets_errored += 1;
+                let _ = tx.send(MergeEvent::AssetError {
+                    kind: AssetKind::Vpx,
+                    msg: format!("create {}: {e}", table_dir.display()),
+                });
+                let _ = tx.send(MergeEvent::TableDone { name: stem });
+                continue;
+            }
+            let place = if in_place {
+                MoveOp.place_file(&vpx_src, &vpx_dst)
+            } else {
+                op.place_file(&vpx_src, &vpx_dst)
+            };
+            match place {
+                Ok(()) => {
+                    report.assets_applied += 1;
+                    let _ = tx.send(MergeEvent::AssetApplied {
+                        kind: AssetKind::Vpx,
+                        dst: vpx_dst.clone(),
+                    });
+                    vpx_dst.clone()
+                }
+                Err(e) => {
+                    report.assets_errored += 1;
+                    let _ = tx.send(MergeEvent::AssetError {
+                        kind: AssetKind::Vpx,
+                        msg: e.to_string(),
+                    });
+                    let _ = tx.send(MergeEvent::TableDone { name: stem });
+                    continue;
+                }
+            }
+        };
+        // Same-stem sidecar script travels with its table. Other sidecars
+        // (.directb2s, POV .ini) are handled by the normal pipeline, whose
+        // candidate lookup already covers the table dir's parent.
+        let vbs_src = vpx_src.with_extension("vbs");
+        place_file_asset(
+            AssetKind::Vbs,
+            vbs_src.is_file().then_some(vbs_src),
+            table_dir.join(format!("{stem}.vbs")),
+            mode,
+            op.as_ref(),
+            tx,
+            &mut report,
+        );
+        process_table(
+            &table_dir,
+            &effective_vpx,
+            sources,
+            mode,
+            op.as_ref(),
+            tx,
+            &mut report,
+        );
+        report.tables_processed += 1;
+        let _ = tx.send(MergeEvent::TableDone { name: stem });
+    }
+
+    // ---- Phase B: pre-foldered tables -------------------------------
     let entries = match std::fs::read_dir(tables_dir) {
         Ok(it) => it,
         Err(e) => {
@@ -345,14 +503,22 @@ fn run(
         if !table_dir.is_dir() {
             continue;
         }
-        let Some(vpx_path) = find_vpx_in(&table_dir) else {
-            continue;
-        };
         let table_name = table_dir
             .file_name()
             .and_then(|s| s.to_str())
             .unwrap_or("?")
             .to_string();
+        // Just folderized in phase A — already processed.
+        if folderized.contains(&table_name) {
+            continue;
+        }
+        let Some(vpx_path) = find_vpx_in(&table_dir) else {
+            // A folder with no .vpx is counted and surfaced — a mute
+            // 0/0/0 on a valid directory was issue #16's exact symptom.
+            report.tables_skipped += 1;
+            let _ = tx.send(MergeEvent::TableSkipped { name: table_name });
+            continue;
+        };
         let _ = tx.send(MergeEvent::TableStarted {
             name: table_name.clone(),
         });
@@ -432,10 +598,7 @@ fn process_table(
     if let Some(rom) = &ctx.rom {
         place_file_asset(
             AssetKind::Rom,
-            sources
-                .vpinmame
-                .as_ref()
-                .map(|r| r.join("roms").join(format!("{rom}.zip"))),
+            sources.roms_root().map(|r| r.join(format!("{rom}.zip"))),
             table_dir.join("pinmame/roms").join(format!("{rom}.zip")),
             mode,
             op,
@@ -444,17 +607,22 @@ fn process_table(
         );
     }
 
-    // 2. .directb2s — same basename as .vpx, in table dir or its parent
+    // 2. .directb2s — the dedicated backglass input first (exact stem,
+    // case-insensitive), then next to the table or in its parent.
     {
-        let candidates = [
-            table_dir.join(format!("{}.directb2s", ctx.base)),
-            table_dir
-                .parent()
-                .map(|p| p.join(format!("{}.directb2s", ctx.base)))
-                .unwrap_or_else(|| table_dir.join(format!("{}.directb2s", ctx.base))),
-        ];
+        let b2s_name = format!("{}.directb2s", ctx.base);
+        let mut candidates: Vec<PathBuf> = Vec::new();
+        if let Some(bg_root) = sources.backglass.as_ref() {
+            if let Some(hit) = find_file_ci(bg_root, &b2s_name) {
+                candidates.push(hit);
+            }
+        }
+        candidates.push(table_dir.join(&b2s_name));
+        if let Some(parent) = table_dir.parent() {
+            candidates.push(parent.join(&b2s_name));
+        }
         let src = candidates.into_iter().find(|p| p.is_file());
-        let dst = table_dir.join(format!("{}.directb2s", ctx.base));
+        let dst = table_dir.join(&b2s_name);
         place_file_asset(AssetKind::Directb2s, src, dst, mode, op, tx, report);
     }
 
@@ -473,8 +641,8 @@ fn process_table(
     }
 
     // 4. AltSound — directory keyed by ROM
-    if let (Some(rom), Some(vpinmame)) = (&ctx.rom, sources.vpinmame.as_ref()) {
-        let src = vpinmame.join("altsound").join(rom);
+    if let (Some(rom), Some(altsound_root)) = (&ctx.rom, sources.vpinmame_sub("altsound")) {
+        let src = altsound_root.join(rom);
         let dst = table_dir.join("pinmame/altsound").join(rom);
         place_dir_asset(
             AssetKind::AltSound,
@@ -495,8 +663,7 @@ fn process_table(
         .chain(ctx.pgame_names.iter().cloned())
         .filter(|s| !s.is_empty())
         .collect();
-    if let Some(vpinmame) = sources.vpinmame.as_ref() {
-        let altcolor_root = vpinmame.join("altcolor");
+    if let Some(altcolor_root) = sources.vpinmame_sub("altcolor") {
         let primary_key = ctx
             .rom
             .clone()
@@ -545,7 +712,20 @@ fn process_table(
 
     // 7. PUP pack — fuzzy folder match
     if let Some(pup_root) = sources.pupvideos.as_ref() {
-        let folders = list_subdirs(pup_root);
+        // Real PUP packs carry a `playlists.pup` marker inside; when at
+        // least one candidate has it, unmarked folders are excluded from
+        // the fuzzy match (a PUPVideos root often holds unrelated dirs).
+        let all_folders = list_subdirs(pup_root);
+        let marked: Vec<String> = all_folders
+            .iter()
+            .filter(|f| find_file_ci(&pup_root.join(f), "playlists.pup").is_some())
+            .cloned()
+            .collect();
+        let folders = if marked.is_empty() {
+            all_folders
+        } else {
+            marked
+        };
         let targets: Vec<&str> = std::iter::empty::<&str>()
             .chain(ctx.cpup_pack.iter().map(|s| s.as_str()))
             .chain(ctx.pgame_names.iter().map(|s| s.as_str()))
@@ -567,7 +747,11 @@ fn process_table(
 
     // 8. NVRAM + 8b. CFG
     if let (Some(rom), Some(vpinmame)) = (&ctx.rom, sources.vpinmame.as_ref()) {
-        let nvram_src = vpinmame.join("nvram").join(format!("{rom}.nv"));
+        let _ = vpinmame;
+        let nvram_src = sources
+            .vpinmame_sub("nvram")
+            .unwrap_or_default()
+            .join(format!("{rom}.nv"));
         let nvram_dst = table_dir.join("pinmame/nvram").join(format!("{rom}.nv"));
         place_file_asset(
             AssetKind::Nvram,
@@ -579,7 +763,10 @@ fn process_table(
             report,
         );
 
-        let cfg_src = vpinmame.join("cfg").join(format!("{rom}.cfg"));
+        let cfg_src = sources
+            .vpinmame_sub("cfg")
+            .unwrap_or_default()
+            .join(format!("{rom}.cfg"));
         let cfg_dst = table_dir.join("pinmame/cfg").join(format!("{rom}.cfg"));
         place_file_asset(
             AssetKind::Cfg,
@@ -753,6 +940,22 @@ fn report_skipped(
 // ---------------------------------------------------------------------------
 // Small filesystem helpers
 // ---------------------------------------------------------------------------
+
+/// Case-insensitive lookup of `name` directly inside `dir`.
+fn find_file_ci(dir: &Path, name: &str) -> Option<PathBuf> {
+    let direct = dir.join(name);
+    if direct.is_file() {
+        return Some(direct);
+    }
+    std::fs::read_dir(dir).ok()?.flatten().find_map(|e| {
+        let p = e.path();
+        (p.is_file()
+            && p.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.eq_ignore_ascii_case(name)))
+        .then_some(p)
+    })
+}
 
 fn file_size(p: &Path) -> Option<u64> {
     std::fs::metadata(p).ok().map(|m| m.len())
@@ -1111,5 +1314,101 @@ pub mod fuzzy {
             let got = find_pup_folder(&["Apollo 13"], &folders);
             assert!(got.is_none());
         }
+    }
+}
+
+#[cfg(test)]
+mod run_tests {
+    use super::*;
+
+    fn fresh_dir(name: &str) -> PathBuf {
+        let d =
+            std::env::temp_dir().join(format!("pinready-merge-test-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    fn no_sources() -> MergeSources {
+        MergeSources {
+            tables: None,
+            vpinmame: None,
+            backglass: None,
+            pupvideos: None,
+            music: None,
+        }
+    }
+
+    fn run_and_report(tables: &Path, sources: &MergeSources, mode: MergeMode) -> MergeReport {
+        let (tx, rx) = crossbeam_channel::unbounded();
+        let cancel = Arc::new(AtomicBool::new(false));
+        run(tables, sources, MergeStrategy::Copy, mode, &tx, &cancel).unwrap();
+        drop(tx);
+        let mut report = None;
+        for ev in rx.iter() {
+            if let MergeEvent::Done(r) = ev {
+                report = Some(r);
+            }
+        }
+        report.expect("Done event")
+    }
+
+    /// Issue #16: the classic flat layout (loose .vpx at the tables root)
+    /// must be folderized and processed, and a folder without a .vpx must
+    /// be counted as skipped instead of vanishing from the report.
+    #[test]
+    fn loose_vpx_is_folderized_and_junk_folder_is_counted() {
+        let tables = fresh_dir("folderize");
+        std::fs::write(tables.join("Apollo 13 (Sega 1995).vpx"), b"stub").unwrap();
+        std::fs::write(tables.join("Apollo 13 (Sega 1995).vbs"), b"' s").unwrap();
+        std::fs::create_dir_all(tables.join("EmptyJunk")).unwrap();
+
+        let r = run_and_report(&tables, &no_sources(), MergeMode::Commit);
+        assert_eq!(r.tables_processed, 1);
+        assert_eq!(r.tables_skipped, 1);
+        let folder = tables.join("Apollo 13 (Sega 1995)");
+        assert!(folder.join("Apollo 13 (Sega 1995).vpx").is_file());
+        assert!(folder.join("Apollo 13 (Sega 1995).vbs").is_file());
+        // In-place folderize MOVES the vpx — a copy would leave a
+        // duplicate table beside its own folder.
+        assert!(!tables.join("Apollo 13 (Sega 1995).vpx").exists());
+        let _ = std::fs::remove_dir_all(&tables);
+    }
+
+    /// Dry run must not touch the disk but still report the work.
+    #[test]
+    fn dry_run_reports_without_touching_disk() {
+        let tables = fresh_dir("dryrun");
+        std::fs::write(tables.join("MM (Williams 1997).vpx"), b"stub").unwrap();
+
+        let r = run_and_report(&tables, &no_sources(), MergeMode::DryRun);
+        assert_eq!(r.tables_processed, 1);
+        assert!(r.assets_found >= 1, "the vpx placement must be reported");
+        assert_eq!(r.assets_applied, 0);
+        assert!(!tables.join("MM (Williams 1997)").exists());
+        assert!(tables.join("MM (Williams 1997).vpx").is_file());
+        let _ = std::fs::remove_dir_all(&tables);
+    }
+
+    /// A separate tables source + Copy strategy leaves the source intact.
+    #[test]
+    fn separate_source_with_copy_preserves_the_original() {
+        let tables = fresh_dir("dest");
+        let source = fresh_dir("src");
+        std::fs::write(source.join("TZ (Bally 1993).vpx"), b"stub").unwrap();
+
+        let sources = MergeSources {
+            tables: Some(source.clone()),
+            ..no_sources()
+        };
+        let r = run_and_report(&tables, &sources, MergeMode::Commit);
+        assert_eq!(r.tables_processed, 1);
+        assert!(tables.join("TZ (Bally 1993)/TZ (Bally 1993).vpx").is_file());
+        assert!(
+            source.join("TZ (Bally 1993).vpx").is_file(),
+            "Copy strategy must leave the source untouched"
+        );
+        let _ = std::fs::remove_dir_all(&tables);
+        let _ = std::fs::remove_dir_all(&source);
     }
 }

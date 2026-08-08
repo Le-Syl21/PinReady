@@ -1348,6 +1348,19 @@ impl App {
         }
     }
 
+    /// True while the post-VPX-exit grace window is still open. Clears the
+    /// deadline once it has elapsed so the check stays cheap afterwards.
+    pub(super) fn launcher_input_suppressed(&mut self) -> bool {
+        match self.input_resume_at {
+            Some(at) if std::time::Instant::now() < at => true,
+            Some(_) => {
+                self.input_resume_at = None;
+                false
+            }
+            None => false,
+        }
+    }
+
     pub(super) fn handle_launcher_joystick(&mut self, ui: &mut egui::Ui) {
         use launcher_input::LauncherAction;
         let vpx_running = self.vpx_running.load(Ordering::Relaxed);
@@ -1359,6 +1372,15 @@ impl App {
             .unwrap_or_default();
 
         if vpx_running || self.tables.is_empty() {
+            return;
+        }
+
+        // Post-exit grace: the events we just drained (the exit button, its
+        // release, any repeat) are discarded, and a held-nav is cancelled,
+        // until the window elapses. Draining here is what stops them firing
+        // the instant the window closes.
+        if self.launcher_input_suppressed() {
+            self.nav_held = None;
             return;
         }
 
@@ -1474,6 +1496,13 @@ impl App {
         if self.kiosk_cursor {
             self.kiosk_cursor_warped = false;
         }
+        // Hold off launcher input for a beat: the exit button/key that just
+        // closed VPX is frequently still down (or already queued in our
+        // joystick channel) when control returns here, and the launcher
+        // would read it as `Cancel` and quit itself. Input paths drain and
+        // ignore events until this instant.
+        self.input_resume_at =
+            Some(std::time::Instant::now() + std::time::Duration::from_millis(300));
     }
 
     pub(super) fn process_update_check(&mut self) {

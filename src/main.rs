@@ -636,10 +636,13 @@ fn run_merge_cli(args: &[String], mode: merge::MergeMode) -> Result<()> {
         }
     };
     let tables = std::path::PathBuf::from(&positional[0]);
+    let get = |i: usize| positional.get(i).map(String::as_str).unwrap_or("");
     let sources = merge::MergeSources {
         vpinmame: opt(&positional[1]),
         pupvideos: opt(&positional[2]),
         music: opt(&positional[3]),
+        backglass: opt(get(4)),
+        tables: opt(get(5)),
     };
 
     let mode_label = match mode {
@@ -693,6 +696,7 @@ fn run_merge_cli(args: &[String], mode: merge::MergeMode) -> Result<()> {
                 errored += 1;
             }
             TableDone { .. } => {}
+            TableSkipped { name } => println!("▸ {name} — skipped (no .vpx inside)"),
             Done(report) => {
                 println!(
                     "[merge {mode_label}] done — tables={} found={} applied={} skipped={} errors={}",

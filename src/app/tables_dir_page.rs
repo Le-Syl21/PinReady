@@ -192,7 +192,9 @@ impl App {
         // — lets the user see at a glance whether the section is in use
         // without expanding it.
         let configured_sources = [
+            &self.merge_src_tables,
             &self.merge_src_vpinmame,
+            &self.merge_src_backglass,
             &self.merge_src_pupvideos,
             &self.merge_src_music,
         ]
@@ -263,6 +265,14 @@ impl App {
                 };
 
             if pick(
+                &t!("merge_src_tables"),
+                &mut self.merge_src_tables,
+                &t!("tables_browse"),
+                &t!("tables_dir_merge_tables_hint"),
+            ) {
+                let _ = self.db.set_merge_source("tables", &self.merge_src_tables);
+            }
+            if pick(
                 &t!("merge_src_vpinmame"),
                 &mut self.merge_src_vpinmame,
                 &t!("tables_browse"),
@@ -271,6 +281,16 @@ impl App {
                 let _ = self
                     .db
                     .set_merge_source("vpinmame", &self.merge_src_vpinmame);
+            }
+            if pick(
+                &t!("merge_src_backglass"),
+                &mut self.merge_src_backglass,
+                &t!("tables_browse"),
+                &t!("tables_dir_merge_backglass_hint"),
+            ) {
+                let _ = self
+                    .db
+                    .set_merge_source("backglass", &self.merge_src_backglass);
             }
             if pick(
                 &t!("merge_src_pupvideos"),
@@ -393,6 +413,12 @@ impl App {
                     applied = report.assets_applied,
                     skipped = report.assets_skipped
                 ));
+                if report.tables_skipped > 0 {
+                    ui.colored_label(
+                        NOTICE_AMBER,
+                        t!("merge_tables_skipped", count = report.tables_skipped),
+                    );
+                }
             }
 
             if !self.merge_log.is_empty() {
@@ -415,7 +441,9 @@ impl App {
         }
 
         let _ = MergeSources {
+            tables: None,
             vpinmame: None,
+            backglass: None,
             pupvideos: None,
             music: None,
         };
@@ -430,7 +458,9 @@ impl App {
             self.merge_dry_run_report = None;
         }
         let sources = crate::merge::MergeSources {
+            tables: opt_path(&self.merge_src_tables),
             vpinmame: opt_path(&self.merge_src_vpinmame),
+            backglass: opt_path(&self.merge_src_backglass),
             pupvideos: opt_path(&self.merge_src_pupvideos),
             music: opt_path(&self.merge_src_music),
         };
@@ -465,6 +495,9 @@ fn render_merge_event(ui: &mut egui::Ui, ev: &crate::merge::MergeEvent) {
         TableStarted { name } => {
             ui.colored_label(weak, format!("▸ {name}"));
         }
+        TableSkipped { name } => {
+            ui.colored_label(yellow, format!("▸ {name} — {}", t!("merge_table_no_vpx")));
+        }
         AssetFound { kind, src, .. } => {
             ui.colored_label(green, format!("  + {} : {}", kind.label(), src.display()));
         }
@@ -490,6 +523,12 @@ fn render_merge_event(ui: &mut egui::Ui, ev: &crate::merge::MergeEvent) {
                     report.assets_applied
                 ),
             );
+            if report.tables_skipped > 0 {
+                ui.colored_label(
+                    egui::Color32::from_rgb(255, 200, 80),
+                    t!("merge_tables_skipped", count = report.tables_skipped),
+                );
+            }
         }
     }
 }

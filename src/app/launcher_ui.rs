@@ -12,8 +12,12 @@ impl App {
         self.process_vbs_extraction();
         self.process_preview_audio(ui.ctx());
         self.preload_images_once(ui.ctx());
-        self.handle_launcher_joystick(ui);
+        // Process VPX status before the joystick handler so the post-exit
+        // input grace window (armed in `process_vpx_status`) is already set
+        // on the very first frame `vpx_running` reads false — otherwise the
+        // exit button leaks one frame of nav before suppression kicks in.
         self.process_vpx_status(ui.ctx());
+        self.handle_launcher_joystick(ui);
         self.process_update_check();
         self.process_pinready_update_check(ui.ctx());
         // Only repaint when needed: bg extraction in progress, VPX running, joystick connected, or update in progress
@@ -31,7 +35,10 @@ impl App {
         // call site stays a one-liner. Joystick events go through the
         // same `apply_launcher_action` dispatch from
         // `handle_launcher_joystick`.
-        if !self.tables.is_empty() && !self.vpx_running.load(Ordering::Relaxed) {
+        if !self.tables.is_empty()
+            && !self.vpx_running.load(Ordering::Relaxed)
+            && !self.launcher_input_suppressed()
+        {
             for action in launcher_input::collect_actions(ui, self.rotation) {
                 self.apply_launcher_action(action, ui.ctx());
             }
