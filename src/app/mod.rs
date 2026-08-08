@@ -428,6 +428,11 @@ pub struct App {
     // VPINMAME/PUPVIDEOS/Music dirs; the merge engine in `crate::merge`
     // walks each .vpx in tables_dir and places companion files into the
     // 10.8.1 folder-per-table layout.
+    ht_install_rx: Option<crossbeam_channel::Receiver<crate::headtracking_install::HtEvent>>,
+    ht_status_key: Option<&'static str>,
+    ht_error: Option<String>,
+    ht_done_tag: Option<String>,
+    ht_installed_version: Option<Option<String>>,
     merge_src_tables: String,
     merge_src_vpinmame: String,
     merge_src_backglass: String,
@@ -694,6 +699,11 @@ impl App {
             autostart: is_autostart_enabled(),
             desktop_integration: is_desktop_integration_installed(),
             mirror_base_url,
+            ht_install_rx: None,
+            ht_status_key: None,
+            ht_error: None,
+            ht_done_tag: None,
+            ht_installed_version: None,
             merge_src_tables,
             merge_src_vpinmame,
             merge_src_backglass,

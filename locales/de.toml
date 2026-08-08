@@ -616,3 +616,15 @@ tables_dir_merge_dry_run_hint = "Scannt die Quellen und listet auf, was importie
 tables_dir_merge_apply_hint = "Führt den Import tatsächlich durch, anhand des Plans aus dem Probelauf. Dateien werden je nach gewählter Strategie kopiert, verschoben oder verlinkt."
 tables_dir_merge_cancel_hint = "Stoppt den gerade laufenden Import. Bereits importierte Dateien bleiben erhalten."
 system_mirror_clear_hint = "Löscht die URL des selbst gehosteten Mirrors und stellt direkte GitHub-Downloads wieder her. Verwende dies, wenn der Mirror offline ist oder du keinen mehr betreibst."
+
+# --- Head tracking one-click install (outputs page) ---
+ht_section_title = "Head-Tracking (Kinect / Kamera)"
+ht_section_desc = "Für Cabs mit einer Kinect oder einer Kamera auf Backglass/Topper: die Perspektive des Tisches folgt Ihrem Kopf (Fish-Tank-Effekt). Ein Klick lädt Plugin + Demo herunter, aktiviert das Plugin und öffnet die Demo, um die Kameratreiber zu installieren und das Tracking zu prüfen."
+ht_install_button = "Head-Tracking installieren"
+ht_update_button = "Head-Tracking aktualisieren (installiert: v%{version})"
+ht_launch_demo = "Demo öffnen"
+ht_status_checking = "Neueste Version wird geprüft…"
+ht_status_downloading = "Wird heruntergeladen…"
+ht_status_installing = "Wird installiert…"
+ht_done = "Head-Tracking %{tag} installiert und aktiviert — die Demo öffnet sich: installieren Sie dort bei Bedarf die Kameratreiber und prüfen Sie das Tracking."
+ht_unsupported_platform = "Für diese Plattform gibt es noch keinen Head-Tracking-Build (macOS Intel / Windows ARM)."

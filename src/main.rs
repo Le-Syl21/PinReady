@@ -18,6 +18,7 @@ mod config;
 mod db;
 mod display_id;
 mod display_reconcile;
+mod headtracking_install;
 mod i18n;
 mod inputs;
 mod mediadb;

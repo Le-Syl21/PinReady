@@ -612,3 +612,15 @@ tables_dir_merge_strategy_symlink_hint = "Crée des liens pointant vers les orig
 tables_dir_merge_dry_run_hint = "Analyse les sources et liste ce qui serait importé, sans modifier aucun fichier. Lancez-le d'abord pour prévisualiser le résultat."
 tables_dir_merge_apply_hint = "Réalise l'import pour de vrai, à partir du plan de la simulation. Les fichiers sont copiés, déplacés ou liés selon la stratégie choisie."
 tables_dir_merge_cancel_hint = "Arrête l'import en cours. Les fichiers déjà importés sont conservés."
+
+# --- Head tracking one-click install (outputs page) ---
+ht_section_title = "Head tracking (Kinect / caméra)"
+ht_section_desc = "Pour les cabs équipés d'une Kinect ou d'une caméra sur le backglass/topper : la perspective de la table suit votre tête (effet fish-tank). Un clic télécharge le plugin + la démo, active le plugin, et ouvre la démo pour installer les pilotes de la caméra et vérifier que vous êtes bien suivi."
+ht_install_button = "Installer le head tracking"
+ht_update_button = "Mettre à jour le head tracking (installé : v%{version})"
+ht_launch_demo = "Ouvrir la démo"
+ht_status_checking = "Vérification de la dernière release…"
+ht_status_downloading = "Téléchargement…"
+ht_status_installing = "Installation…"
+ht_done = "Head tracking %{tag} installé et activé — la démo s'ouvre : installez-y les pilotes de la caméra si demandé, et vérifiez que vous êtes suivi."
+ht_unsupported_platform = "Pas encore de build head tracking pour cette plateforme (macOS Intel / Windows ARM)."

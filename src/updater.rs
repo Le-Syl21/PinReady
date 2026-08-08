@@ -422,7 +422,7 @@ fn download_and_install_inner(
     Ok(())
 }
 
-fn extract_tar_gz(archive_path: &Path, dest: &Path) -> Result<()> {
+pub(crate) fn extract_tar_gz(archive_path: &Path, dest: &Path) -> Result<()> {
     let file = std::fs::File::open(archive_path)?;
     let gz = flate2::read::GzDecoder::new(file);
     let mut archive = tar::Archive::new(gz);
@@ -431,7 +431,7 @@ fn extract_tar_gz(archive_path: &Path, dest: &Path) -> Result<()> {
     Ok(())
 }
 
-fn extract_zip(archive_path: &Path, dest: &Path) -> Result<()> {
+pub(crate) fn extract_zip(archive_path: &Path, dest: &Path) -> Result<()> {
     let file = std::fs::File::open(archive_path)?;
     let mut archive = zip::ZipArchive::new(file).context("Failed to open zip archive")?;
 
