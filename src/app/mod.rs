@@ -433,11 +433,22 @@ pub struct App {
     ht_error: Option<String>,
     ht_done_tag: Option<String>,
     ht_installed_version: Option<Option<String>>,
-    merge_src_tables: String,
-    merge_src_vpinmame: String,
-    merge_src_backglass: String,
-    merge_src_pupvideos: String,
-    merge_src_music: String,
+    /// Version offered by the release channel: `None` = not asked yet,
+    /// `Some(None)` = asked and unreachable.
+    ht_latest_version: Option<Option<String>>,
+    ht_latest_rx: Option<crossbeam_channel::Receiver<Option<String>>>,
+    /// The single directory the import indexes. Empty until the user
+    /// picks one (legacy layout only — a modern collection indexes the
+    /// tables dir itself).
+    merge_src_root: String,
+    /// User's answer to "is your collection already folder-per-table?".
+    merge_layout_modern: bool,
+    /// Live progress of the two steps: index, then bundle.
+    merge_scan_files: usize,
+    merge_scan_dirs: usize,
+    merge_scan_finished: bool,
+    merge_table_index: usize,
+    merge_table_total: usize,
     merge_strategy: crate::merge::MergeStrategy,
     merge_progress_rx: Option<crossbeam_channel::Receiver<crate::merge::MergeEvent>>,
     merge_cancel: Option<Arc<AtomicBool>>,
@@ -605,15 +616,12 @@ impl App {
         };
         let jsm174_patching = db.jsm174_patching_enabled();
         let catalog_enrichment = db.catalog_enrichment_enabled();
-        let merge_src_tables = db.get_merge_source("tables");
-        let merge_src_vpinmame = db.get_merge_source("vpinmame");
-        let merge_src_backglass = db.get_merge_source("backglass");
-        let merge_src_pupvideos = db.get_merge_source("pupvideos");
-        let merge_src_music = db.get_merge_source("music");
+        let merge_src_root = db.get_merge_source("root");
+        let merge_layout_modern = db
+            .get_config("merge_layout_modern")
+            .is_none_or(|v| v != "0");
         let merge_strategy = crate::merge::MergeStrategy::from_db_str(&db.get_merge_strategy());
-        let merge_section_open = merge_src_vpinmame.is_empty()
-            && merge_src_pupvideos.is_empty()
-            && merge_src_music.is_empty();
+        let merge_section_open = merge_src_root.is_empty();
         let mirror_base_url = db.mirror_base_url().unwrap_or_default();
 
         let mut s = Self {
@@ -704,11 +712,15 @@ impl App {
             ht_error: None,
             ht_done_tag: None,
             ht_installed_version: None,
-            merge_src_tables,
-            merge_src_vpinmame,
-            merge_src_backglass,
-            merge_src_pupvideos,
-            merge_src_music,
+            ht_latest_version: None,
+            ht_latest_rx: None,
+            merge_src_root,
+            merge_layout_modern,
+            merge_scan_files: 0,
+            merge_scan_dirs: 0,
+            merge_scan_finished: false,
+            merge_table_index: 0,
+            merge_table_total: 0,
             merge_strategy,
             merge_progress_rx: None,
             merge_cancel: None,

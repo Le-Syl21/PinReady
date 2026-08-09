@@ -167,17 +167,39 @@ impl App {
     }
 
     fn render_merge_section(&mut self, ui: &mut egui::Ui) {
-        use crate::merge::{MergeEvent, MergeMode, MergeSources, MergeStrategy};
+        use crate::merge::{MergeEvent, MergeMode, MergeStrategy};
 
         // Drain any pending events from a running worker into self.merge_log.
         let mut received_done = false;
         if let Some(rx) = &self.merge_progress_rx {
             while let Ok(ev) = rx.try_recv() {
-                if let MergeEvent::Done(report) = &ev {
-                    if self.merge_dry_run_report.is_none() {
-                        self.merge_dry_run_report = Some(report.clone());
+                match &ev {
+                    MergeEvent::ScanProgress { files, dirs } => {
+                        self.merge_scan_files = *files;
+                        self.merge_scan_dirs = *dirs;
+                        continue; // a moving counter, not a log line
                     }
-                    received_done = true;
+                    MergeEvent::ScanDone {
+                        files,
+                        dirs,
+                        tables,
+                    } => {
+                        self.merge_scan_files = *files;
+                        self.merge_scan_dirs = *dirs;
+                        self.merge_table_total = *tables;
+                        self.merge_scan_finished = true;
+                    }
+                    MergeEvent::TableStarted { index, total, .. } => {
+                        self.merge_table_index = *index;
+                        self.merge_table_total = *total;
+                    }
+                    MergeEvent::Done(report) => {
+                        if self.merge_dry_run_report.is_none() {
+                            self.merge_dry_run_report = Some(report.clone());
+                        }
+                        received_done = true;
+                    }
+                    _ => {}
                 }
                 self.merge_log.push(ev);
             }
@@ -188,192 +210,156 @@ impl App {
             self.merge_cancel = None;
         }
 
-        // Header carries a small badge with how many sources are configured
-        // — lets the user see at a glance whether the section is in use
-        // without expanding it.
-        let configured_sources = [
-            &self.merge_src_tables,
-            &self.merge_src_vpinmame,
-            &self.merge_src_backglass,
-            &self.merge_src_pupvideos,
-            &self.merge_src_music,
-        ]
-        .iter()
-        .filter(|s| !s.trim().is_empty())
-        .count();
-        let header_text = if configured_sources == 0 {
-            format!(
-                "📥 {}  —  {}",
-                t!("merge_section_title"),
-                t!("merge_sources_none")
-            )
-        } else {
-            format!(
-                "📥 {}  —  {}",
-                t!("merge_section_title"),
-                t!("merge_sources_configured", count = configured_sources)
-            )
-        };
-
+        let header_text = format!("📥 {}", t!("merge_section_title"));
         let header = egui::CollapsingHeader::new(egui::RichText::new(header_text).strong())
             .default_open(self.merge_section_open);
 
         header.show(ui, |ui| {
-            // Destination notice — the import always writes into tables_dir,
-            // so make that explicit. Show the resolved path when available
-            // to make the effect concrete.
-            let notice = if self.tables_dir.trim().is_empty() {
-                t!("merge_destination_notice").to_string()
-            } else {
-                t!(
-                    "merge_destination_notice_path",
-                    path = self.tables_dir.as_str()
-                )
-                .to_string()
-            };
-            ui.horizontal(|ui| {
-                ui.label("📍");
-                ui.colored_label(NOTICE_AMBER, notice);
-            });
-            ui.add_space(6.0);
-
             ui.label(t!("merge_section_desc"));
-            ui.label(
-                egui::RichText::new(t!("merge_section_optional"))
-                    .weak()
-                    .italics(),
-            );
             ui.add_space(8.0);
 
-            let mut pick =
-                |label: &str, value: &mut String, browse_label: &str, hint: &str| -> bool {
-                    let mut changed = false;
-                    ui.horizontal(|ui| {
-                        ui.label(label);
-                        help_marker(ui, hint);
-                        if ui.text_edit_singleline(value).changed() {
-                            changed = true;
-                        }
-                        if ui.button(browse_label).clicked() {
-                            if let Some(p) = rfd::FileDialog::new().pick_folder() {
-                                *value = p.to_string_lossy().into_owned();
-                                changed = true;
-                            }
-                        }
-                    });
-                    changed
-                };
-
-            if pick(
-                &t!("merge_src_tables"),
-                &mut self.merge_src_tables,
-                &t!("tables_browse"),
-                &t!("tables_dir_merge_tables_hint"),
-            ) {
-                let _ = self.db.set_merge_source("tables", &self.merge_src_tables);
-            }
-            if pick(
-                &t!("merge_src_vpinmame"),
-                &mut self.merge_src_vpinmame,
-                &t!("tables_browse"),
-                &t!("tables_dir_merge_vpinmame_hint"),
-            ) {
-                let _ = self
-                    .db
-                    .set_merge_source("vpinmame", &self.merge_src_vpinmame);
-            }
-            if pick(
-                &t!("merge_src_backglass"),
-                &mut self.merge_src_backglass,
-                &t!("tables_browse"),
-                &t!("tables_dir_merge_backglass_hint"),
-            ) {
-                let _ = self
-                    .db
-                    .set_merge_source("backglass", &self.merge_src_backglass);
-            }
-            if pick(
-                &t!("merge_src_pupvideos"),
-                &mut self.merge_src_pupvideos,
-                &t!("tables_browse"),
-                &t!("tables_dir_merge_pupvideos_hint"),
-            ) {
-                let _ = self
-                    .db
-                    .set_merge_source("pupvideos", &self.merge_src_pupvideos);
-            }
-            if pick(
-                &t!("merge_src_music"),
-                &mut self.merge_src_music,
-                &t!("tables_browse"),
-                &t!("tables_dir_merge_music_hint"),
-            ) {
-                let _ = self.db.set_merge_source("music", &self.merge_src_music);
-            }
-
-            ui.add_space(8.0);
-            ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(t!("merge_strategy_label")).strong());
-                help_marker(ui, &t!("merge_strategy_help"));
-            });
-            let mut strategy = self.merge_strategy;
-            let mut strategy_changed = false;
-            ui.horizontal(|ui| {
-                if ui
-                    .radio_value(
-                        &mut strategy,
-                        MergeStrategy::Copy,
-                        t!("merge_strategy_copy"),
-                    )
-                    .on_hover_text(t!("tables_dir_merge_strategy_copy_hint"))
-                    .changed()
-                {
-                    strategy_changed = true;
-                }
-                if ui
-                    .radio_value(
-                        &mut strategy,
-                        MergeStrategy::Move,
-                        t!("merge_strategy_move"),
-                    )
-                    .on_hover_text(t!("tables_dir_merge_strategy_move_hint"))
-                    .changed()
-                {
-                    strategy_changed = true;
-                }
-                if ui
-                    .radio_value(
-                        &mut strategy,
-                        MergeStrategy::Symlink,
-                        t!("merge_strategy_symlink"),
-                    )
-                    .on_hover_text(t!("tables_dir_merge_strategy_symlink_hint"))
-                    .changed()
-                {
-                    strategy_changed = true;
-                }
-            });
-            if strategy_changed {
-                self.merge_strategy = strategy;
-                let _ = self.db.set_merge_strategy(strategy.as_db_str());
-            }
-            if matches!(self.merge_strategy, MergeStrategy::Symlink) && cfg!(target_os = "windows")
+            // ---- The one question that decides everything else --------
+            ui.label(egui::RichText::new(t!("merge_layout_question")).strong());
+            let mut layout_changed = false;
+            if ui
+                .radio_value(
+                    &mut self.merge_layout_modern,
+                    true,
+                    t!("merge_layout_modern"),
+                )
+                .on_hover_text(t!("merge_layout_modern_hint"))
+                .changed()
             {
-                ui.colored_label(
-                    egui::Color32::from_rgb(255, 180, 80),
-                    t!("merge_symlink_windows_warning"),
+                layout_changed = true;
+            }
+            if ui
+                .radio_value(
+                    &mut self.merge_layout_modern,
+                    false,
+                    t!("merge_layout_legacy"),
+                )
+                .on_hover_text(t!("merge_layout_legacy_hint"))
+                .changed()
+            {
+                layout_changed = true;
+            }
+            if layout_changed {
+                let _ = self.db.set_config(
+                    "merge_layout_modern",
+                    if self.merge_layout_modern { "1" } else { "0" },
                 );
             }
-
             ui.add_space(8.0);
+
+            // ---- Input --------------------------------------------------
+            if self.merge_layout_modern {
+                // Nothing to ask: the tables dir is both the source and
+                // the destination, and only missing companions are added.
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("📍");
+                    ui.colored_label(
+                        NOTICE_AMBER,
+                        if self.tables_dir.trim().is_empty() {
+                            t!("merge_in_place_notice").to_string()
+                        } else {
+                            t!(
+                                "merge_in_place_notice_path",
+                                path = self.tables_dir.as_str()
+                            )
+                            .to_string()
+                        },
+                    );
+                });
+            } else {
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(t!("merge_src_root")).strong());
+                    help_marker(ui, &t!("merge_src_root_hint"));
+                });
+                ui.horizontal(|ui| {
+                    let changed = ui.text_edit_singleline(&mut self.merge_src_root).changed();
+                    let browsed = if ui.button(t!("tables_browse")).clicked() {
+                        if let Some(p) = rfd::FileDialog::new()
+                            .set_title(t!("merge_src_root_picker"))
+                            .pick_folder()
+                        {
+                            self.merge_src_root = p.to_string_lossy().into_owned();
+                            true
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    };
+                    if changed || browsed {
+                        let _ = self.db.set_merge_source("root", &self.merge_src_root);
+                    }
+                });
+                ui.add_space(4.0);
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("📍");
+                    ui.colored_label(
+                        NOTICE_AMBER,
+                        if self.tables_dir.trim().is_empty() {
+                            t!("merge_destination_notice").to_string()
+                        } else {
+                            t!(
+                                "merge_destination_notice_path",
+                                path = self.tables_dir.as_str()
+                            )
+                            .to_string()
+                        },
+                    );
+                });
+
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(t!("merge_strategy_label")).strong());
+                    help_marker(ui, &t!("merge_strategy_help"));
+                });
+                let mut strategy = self.merge_strategy;
+                let mut strategy_changed = false;
+                ui.horizontal(|ui| {
+                    if ui
+                        .radio_value(
+                            &mut strategy,
+                            MergeStrategy::Copy,
+                            t!("merge_strategy_copy"),
+                        )
+                        .on_hover_text(t!("tables_dir_merge_strategy_copy_hint"))
+                        .changed()
+                    {
+                        strategy_changed = true;
+                    }
+                    if ui
+                        .radio_value(
+                            &mut strategy,
+                            MergeStrategy::Move,
+                            t!("merge_strategy_move"),
+                        )
+                        .on_hover_text(t!("tables_dir_merge_strategy_move_hint"))
+                        .changed()
+                    {
+                        strategy_changed = true;
+                    }
+                });
+                if strategy_changed {
+                    self.merge_strategy = strategy;
+                    let _ = self.db.set_merge_strategy(strategy.as_db_str());
+                }
+            }
+
+            ui.add_space(10.0);
 
             let tables_dir_set =
                 !self.tables_dir.is_empty() && std::path::Path::new(&self.tables_dir).is_dir();
+            let source_set = self.merge_layout_modern
+                || std::path::Path::new(self.merge_src_root.trim()).is_dir();
+            let ready = tables_dir_set && source_set;
 
             ui.horizontal(|ui| {
                 let dry_btn = ui
                     .add_enabled(
-                        tables_dir_set && !self.merge_running,
+                        ready && !self.merge_running,
                         egui::Button::new(t!("merge_dry_run")),
                     )
                     .on_hover_text(t!("tables_dir_merge_dry_run_hint"))
@@ -383,7 +369,7 @@ impl App {
                 }
 
                 let can_commit =
-                    tables_dir_set && !self.merge_running && self.merge_dry_run_report.is_some();
+                    ready && !self.merge_running && self.merge_dry_run_report.is_some();
                 let commit_btn = ui
                     .add_enabled(can_commit, egui::Button::new(t!("merge_confirm_apply")))
                     .on_hover_text(t!("tables_dir_merge_apply_hint"))
@@ -403,6 +389,43 @@ impl App {
                     }
                 }
             });
+
+            // ---- Two-step progress ------------------------------------
+            // Step 1 has no known total (that is the point of a recursive
+            // scan), so it spins; step 2 fills as tables are bundled.
+            if self.merge_running || self.merge_scan_finished {
+                ui.add_space(6.0);
+                if !self.merge_scan_finished {
+                    ui.add(
+                        egui::ProgressBar::new(0.0)
+                            .animate(self.merge_running)
+                            .text(t!(
+                                "merge_step_scan",
+                                files = self.merge_scan_files,
+                                dirs = self.merge_scan_dirs
+                            )),
+                    );
+                } else {
+                    let fraction = if self.merge_table_total == 0 {
+                        1.0
+                    } else {
+                        self.merge_table_index as f32 / self.merge_table_total as f32
+                    };
+                    ui.add(egui::ProgressBar::new(fraction).text(t!(
+                        "merge_step_import",
+                        current = self.merge_table_index,
+                        total = self.merge_table_total
+                    )));
+                    ui.label(
+                        egui::RichText::new(t!(
+                            "merge_step_scan_done",
+                            files = self.merge_scan_files,
+                            dirs = self.merge_scan_dirs
+                        ))
+                        .weak(),
+                    );
+                }
+            }
 
             if let Some(report) = &self.merge_dry_run_report {
                 ui.add_space(6.0);
@@ -439,14 +462,6 @@ impl App {
         if self.merge_running {
             ui.ctx().request_repaint();
         }
-
-        let _ = MergeSources {
-            tables: None,
-            vpinmame: None,
-            backglass: None,
-            pupvideos: None,
-            music: None,
-        };
     }
 
     fn start_merge_run(&mut self, mode: crate::merge::MergeMode, _ctx: &egui::Context) {
@@ -454,34 +469,34 @@ impl App {
             return;
         }
         self.merge_log.clear();
+        self.merge_scan_files = 0;
+        self.merge_scan_dirs = 0;
+        self.merge_scan_finished = false;
+        self.merge_table_index = 0;
+        self.merge_table_total = 0;
         if matches!(mode, crate::merge::MergeMode::DryRun) {
             self.merge_dry_run_report = None;
         }
-        let sources = crate::merge::MergeSources {
-            tables: opt_path(&self.merge_src_tables),
-            vpinmame: opt_path(&self.merge_src_vpinmame),
-            backglass: opt_path(&self.merge_src_backglass),
-            pupvideos: opt_path(&self.merge_src_pupvideos),
-            music: opt_path(&self.merge_src_music),
+        let output_root = std::path::PathBuf::from(&self.tables_dir);
+        let scan_root = if self.merge_layout_modern {
+            output_root.clone()
+        } else {
+            std::path::PathBuf::from(self.merge_src_root.trim())
         };
-        let (rx, cancel, _handle) = crate::merge::spawn(
-            std::path::PathBuf::from(&self.tables_dir),
-            sources,
-            self.merge_strategy,
+        let (rx, cancel, _handle) = crate::merge::spawn(crate::merge::MergeConfig {
+            scan_root,
+            output_root,
+            // In place there is nothing to copy or move: tables stay put.
+            strategy: if self.merge_layout_modern {
+                crate::merge::MergeStrategy::Copy
+            } else {
+                self.merge_strategy
+            },
             mode,
-        );
+        });
         self.merge_progress_rx = Some(rx);
         self.merge_cancel = Some(cancel);
         self.merge_running = true;
-    }
-}
-
-fn opt_path(s: &str) -> Option<std::path::PathBuf> {
-    let trimmed = s.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(std::path::PathBuf::from(trimmed))
     }
 }
 
@@ -492,11 +507,30 @@ fn render_merge_event(ui: &mut egui::Ui, ev: &crate::merge::MergeEvent) {
     let yellow = egui::Color32::from_rgb(220, 200, 120);
     let weak = egui::Color32::from_gray(170);
     match ev {
-        TableStarted { name } => {
-            ui.colored_label(weak, format!("▸ {name}"));
+        ScanProgress { .. } => {}
+        ScanDone {
+            files,
+            dirs,
+            tables,
+        } => {
+            ui.colored_label(
+                weak,
+                t!(
+                    "merge_log_indexed",
+                    files = files,
+                    dirs = dirs,
+                    tables = tables
+                ),
+            );
+        }
+        TableStarted { name, index, total } => {
+            ui.colored_label(weak, format!("▸ [{index}/{total}] {name}"));
         }
         TableSkipped { name } => {
-            ui.colored_label(yellow, format!("▸ {name} — {}", t!("merge_table_no_vpx")));
+            ui.colored_label(
+                yellow,
+                format!("▸ {name} — {}", t!("merge_table_duplicate")),
+            );
         }
         AssetFound { kind, src, .. } => {
             ui.colored_label(green, format!("  + {} : {}", kind.label(), src.display()));

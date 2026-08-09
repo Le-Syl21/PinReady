@@ -226,10 +226,37 @@ impl App {
         let supported = ht::platform_asset_suffix().is_some();
         let running = self.ht_install_rx.is_some();
 
+        // Ask GitHub once what the button would actually install: an
+        // update offer that only names the version you already have says
+        // nothing about whether it is worth clicking.
+        if supported && self.ht_latest_rx.is_none() && self.ht_latest_version.is_none() {
+            self.ht_latest_rx = Some(ht::spawn_latest_version());
+        }
+        if let Some(rx) = &self.ht_latest_rx {
+            if let Ok(version) = rx.try_recv() {
+                self.ht_latest_version = Some(version);
+                self.ht_latest_rx = None;
+            } else {
+                ui.ctx()
+                    .request_repaint_after(std::time::Duration::from_millis(300));
+            }
+        }
+        let latest = self.ht_latest_version.clone().flatten();
+
         ui.horizontal(|ui| {
-            let label = match &installed {
-                Some(v) => t!("ht_update_button", version = v.as_str()).to_string(),
-                None => t!("ht_install_button").to_string(),
+            let label = match (&installed, &latest) {
+                (Some(from), Some(to)) if from != to => t!(
+                    "ht_update_button_to",
+                    from = from.as_str(),
+                    to = to.as_str()
+                )
+                .to_string(),
+                (Some(v), Some(_)) => t!("ht_reinstall_button", version = v.as_str()).to_string(),
+                (Some(v), None) => t!("ht_update_button", version = v.as_str()).to_string(),
+                (None, Some(to)) => {
+                    t!("ht_install_button_version", version = to.as_str()).to_string()
+                }
+                (None, None) => t!("ht_install_button").to_string(),
             };
             let clicked = ui
                 .add_enabled(supported && !running, egui::Button::new(label))

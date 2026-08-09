@@ -72,6 +72,44 @@ pub fn installed_version(vpx_install_dir: &Path) -> Option<String> {
     })
 }
 
+/// The release the button would install, as its bare version (`0.0.30`,
+/// tags carry a `v` prefix the plugin.cfg does not).
+fn latest_release() -> Result<serde_json::Value> {
+    let url = format!("https://api.github.com/repos/{HT_REPO}/releases/latest");
+    let response = ureq::get(&url)
+        .header("User-Agent", "PinReady")
+        .header("Accept", "application/vnd.github.v3+json")
+        .call()
+        .context("query headtracking release")?;
+    let body = response.into_body().read_to_string()?;
+    serde_json::from_str(&body).context("parse release JSON")
+}
+
+/// Strip the `v` a git tag carries so `v0.0.30` and the plugin.cfg's
+/// `0.0.30` compare equal.
+pub fn bare_version(tag: &str) -> &str {
+    tag.trim().strip_prefix('v').unwrap_or(tag.trim())
+}
+
+/// Fire-and-forget lookup of the available version, so the button can
+/// name where the update *goes*, not just where it comes from. Sends
+/// exactly one message: the version, or `None` when offline.
+pub fn spawn_latest_version() -> Receiver<Option<String>> {
+    let (tx, rx) = crossbeam_channel::bounded(1);
+    std::thread::Builder::new()
+        .name("pinready-ht-version".into())
+        .spawn(move || {
+            let version = latest_release().ok().and_then(|json| {
+                json["tag_name"]
+                    .as_str()
+                    .map(|t| bare_version(t).to_string())
+            });
+            let _ = tx.send(version);
+        })
+        .expect("spawn headtracking version thread");
+    rx
+}
+
 #[derive(Debug, Clone)]
 pub enum HtEvent {
     /// Translation key of the current step (checking / downloading /
@@ -107,14 +145,7 @@ fn install(vpx_install_dir: &Path, tx: &Sender<HtEvent>) -> Result<String> {
     };
 
     let _ = tx.send(HtEvent::Status("ht_status_checking"));
-    let url = format!("https://api.github.com/repos/{HT_REPO}/releases/latest");
-    let response = ureq::get(&url)
-        .header("User-Agent", "PinReady")
-        .header("Accept", "application/vnd.github.v3+json")
-        .call()
-        .context("query headtracking release")?;
-    let body = response.into_body().read_to_string()?;
-    let json: serde_json::Value = serde_json::from_str(&body).context("parse release JSON")?;
+    let json = latest_release()?;
     let tag = json["tag_name"]
         .as_str()
         .context("missing tag_name")?

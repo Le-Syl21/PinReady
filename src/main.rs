@@ -428,13 +428,15 @@ fn print_help() {
     println!("                                  (next launch goes back to the wizard).");
     println!();
     println!("Asset merge (legacy folder import)");
-    println!("  --merge-dry-run TABLES VPINMAME PUPVIDEOS MUSIC [--strategy MODE]");
+    println!("  --merge-dry-run SCAN_ROOT [OUTPUT] [--strategy MODE]");
     println!("                                  Detect what would be placed; touch nothing.");
-    println!("  --merge TABLES VPINMAME PUPVIDEOS MUSIC [--strategy MODE] [--yes]");
+    println!("  --merge SCAN_ROOT [OUTPUT] [--strategy MODE] [--yes]");
     println!("                                  Same, but actually apply. --yes skips the");
     println!("                                  interactive confirmation. MODE is one of");
     println!("                                  copy (default), move, symlink.");
-    println!("                                  Use \"\" to skip a source root.");
+    println!("                                  SCAN_ROOT is indexed recursively (a whole");
+    println!("                                  disk is fine). Omit OUTPUT when the");
+    println!("                                  collection is already folder-per-table.");
     println!();
     println!("Diagnostics");
     println!("  --print-paths                   Print resolved DB / log / ini / tables /");
@@ -595,9 +597,9 @@ fn run_merge_cli(args: &[String], mode: merge::MergeMode) -> Result<()> {
     };
     let pos = args.iter().position(|a| a == flag).unwrap();
 
-    let mut positional = Vec::with_capacity(4);
+    let mut positional = Vec::with_capacity(2);
     let mut i = pos + 1;
-    while positional.len() < 4 {
+    while positional.len() < 2 {
         let Some(arg) = args.get(i) else {
             break;
         };
@@ -607,12 +609,16 @@ fn run_merge_cli(args: &[String], mode: merge::MergeMode) -> Result<()> {
         positional.push(arg.clone());
         i += 1;
     }
-    if positional.len() < 4 {
-        anyhow::bail!(
-            "{flag}: expected 4 positional args (TABLES VPINMAME PUPVIDEOS MUSIC), got {}",
-            positional.len()
-        );
+    if positional.is_empty() {
+        anyhow::bail!("{flag}: expected SCAN_ROOT [OUTPUT], got nothing");
     }
+    let scan_root = std::path::PathBuf::from(&positional[0]);
+    // One argument = the collection is already folder-per-table and is
+    // completed where it sits.
+    let output_root = positional
+        .get(1)
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| scan_root.clone());
 
     let strategy = match args
         .iter()
@@ -629,31 +635,29 @@ fn run_merge_cli(args: &[String], mode: merge::MergeMode) -> Result<()> {
     };
     let assume_yes = args.iter().any(|a| a == "--yes" || a == "-y");
 
-    let opt = |s: &str| -> Option<std::path::PathBuf> {
-        if s.trim().is_empty() {
-            None
-        } else {
-            Some(std::path::PathBuf::from(s))
-        }
-    };
-    let tables = std::path::PathBuf::from(&positional[0]);
-    let get = |i: usize| positional.get(i).map(String::as_str).unwrap_or("");
-    let sources = merge::MergeSources {
-        vpinmame: opt(&positional[1]),
-        pupvideos: opt(&positional[2]),
-        music: opt(&positional[3]),
-        backglass: opt(get(4)),
-        tables: opt(get(5)),
+    let config = merge::MergeConfig {
+        scan_root,
+        output_root,
+        strategy,
+        mode,
     };
 
     let mode_label = match mode {
         merge::MergeMode::DryRun => "dry-run",
         merge::MergeMode::Commit => "commit",
     };
-    println!("[merge {mode_label}] tables    = {}", tables.display());
     println!(
-        "[merge {mode_label}] sources   = vpinmame={:?} pupvideos={:?} music={:?}",
-        sources.vpinmame, sources.pupvideos, sources.music
+        "[merge {mode_label}] scan      = {}",
+        config.scan_root.display()
+    );
+    println!(
+        "[merge {mode_label}] output    = {}{}",
+        config.output_root.display(),
+        if config.is_in_place() {
+            " (in place)"
+        } else {
+            ""
+        }
     );
     println!("[merge {mode_label}] strategy  = {}", strategy.as_db_str());
 
@@ -673,13 +677,25 @@ fn run_merge_cli(args: &[String], mode: merge::MergeMode) -> Result<()> {
         }
     }
 
-    let (rx, _cancel, handle) = merge::spawn(tables, sources, strategy, mode);
+    let (rx, _cancel, handle) = merge::spawn(config);
 
     use merge::MergeEvent::*;
     let mut errored = 0usize;
     while let Ok(ev) = rx.recv() {
         match ev {
-            TableStarted { name } => println!("▸ {name}"),
+            ScanProgress { files, dirs } => {
+                print!("\r  indexing… {files} files / {dirs} folders");
+                use std::io::Write as _;
+                let _ = std::io::stdout().flush();
+            }
+            ScanDone {
+                files,
+                dirs,
+                tables,
+            } => println!(
+                "\r[merge {mode_label}] indexed {files} files in {dirs} folders — {tables} tables"
+            ),
+            TableStarted { name, index, total } => println!("▸ [{index}/{total}] {name}"),
             AssetFound { kind, src, dst } => println!(
                 "  + {} : {} -> {}",
                 kind.label(),
@@ -697,7 +713,9 @@ fn run_merge_cli(args: &[String], mode: merge::MergeMode) -> Result<()> {
                 errored += 1;
             }
             TableDone { .. } => {}
-            TableSkipped { name } => println!("▸ {name} — skipped (no .vpx inside)"),
+            TableSkipped { name } => {
+                println!("▸ {name} — skipped (another table already claims that folder)")
+            }
             Done(report) => {
                 println!(
                     "[merge {mode_label}] done — tables={} found={} applied={} skipped={} errors={}",
