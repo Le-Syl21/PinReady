@@ -462,6 +462,7 @@ merge_confirm_apply = "Áp dụng thay đổi"
 merge_cancel = "Hủy"
 merge_progress = "Bàn: %{tables} · Đã tìm: %{found} · Đã áp dụng: %{applied} · Đã bỏ qua: %{skipped}"
 merge_log_done = "Xong — %{tables} bàn đã gom, %{found} tệp phát hiện, %{applied} đã đặt"
+merge_skip_already_present = "đã có sẵn"
 
 # Tables page — mandatory tables_dir + collapsibles
 tables_path_required = "Bắt buộc — chọn thư mục chứa các bàn của bạn trước khi tiếp tục."

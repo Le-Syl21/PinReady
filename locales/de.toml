@@ -465,6 +465,7 @@ merge_confirm_apply = "Änderungen übernehmen"
 merge_cancel = "Abbrechen"
 merge_progress = "Tabellen: %{tables} · Gefunden: %{found} · Angewendet: %{applied} · Übersprungen: %{skipped}"
 merge_log_done = "Fertig — %{tables} Tische gebündelt, %{found} Dateien erkannt, %{applied} abgelegt"
+merge_skip_already_present = "bereits vorhanden"
 
 # Tables page — mandatory tables_dir + collapsibles
 tables_path_required = "Erforderlich — wählen Sie den Ordner mit Ihren Tabellen, bevor Sie fortfahren."

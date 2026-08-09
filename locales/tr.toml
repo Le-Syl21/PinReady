@@ -464,6 +464,7 @@ merge_confirm_apply = "Değişiklikleri uygula"
 merge_cancel = "İptal"
 merge_progress = "Masalar: %{tables} · Bulunan: %{found} · Uygulanan: %{applied} · Atlanan: %{skipped}"
 merge_log_done = "Bitti — %{tables} masa derlendi, %{found} dosya bulundu, %{applied} yerleştirildi"
+merge_skip_already_present = "zaten var"
 
 # Tables page — mandatory tables_dir + collapsibles
 tables_path_required = "Zorunlu — devam etmeden önce masalarınızın bulunduğu klasörü seçin."

@@ -463,6 +463,7 @@ merge_confirm_apply = "Zastosuj zmiany"
 merge_cancel = "Anuluj"
 merge_progress = "Stoły: %{tables} · Znaleziono: %{found} · Zastosowano: %{applied} · Pominięto: %{skipped}"
 merge_log_done = "Gotowe — %{tables} stołów złożonych, %{found} plików wykrytych, %{applied} umieszczonych"
+merge_skip_already_present = "już jest"
 
 # Tables page — mandatory tables_dir + collapsibles
 tables_path_required = "Wymagane — wybierz folder ze stołami przed kontynuacją."

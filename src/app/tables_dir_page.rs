@@ -244,6 +244,14 @@ impl App {
                         self.merge_table_index = *index;
                         self.merge_table_total = *total;
                     }
+                    // An absence is not an event, and "dry run" on every
+                    // line is the mode, not news: both drowned the log
+                    // in noise a hundred lines deep.
+                    MergeEvent::AssetSkipped {
+                        reason:
+                            crate::merge::SkipReason::SourceMissing | crate::merge::SkipReason::DryRun,
+                        ..
+                    } => continue,
                     MergeEvent::Done(report) => {
                         if self.merge_dry_run_report.is_none() {
                             self.merge_dry_run_report = Some(report.clone());
@@ -589,8 +597,16 @@ fn render_merge_event(ui: &mut egui::Ui, ev: &crate::merge::MergeEvent) {
         AssetApplied { kind, dst } => {
             ui.colored_label(green, format!("  ✓ {} → {}", kind.label(), dst.display()));
         }
-        AssetSkipped { kind, reason } => {
-            ui.colored_label(yellow, format!("  · {} ({})", kind.label(), reason.label()));
+        AssetSkipped { kind, .. } => {
+            // Only "already present" survives the drain filter.
+            ui.colored_label(
+                yellow,
+                format!(
+                    "  · {} — {}",
+                    kind.label(),
+                    t!("merge_skip_already_present")
+                ),
+            );
         }
         AssetError { kind, msg } => {
             ui.colored_label(red, format!("  ! {} : {msg}", kind.label()));
@@ -607,12 +623,8 @@ fn render_merge_event(ui: &mut egui::Ui, ev: &crate::merge::MergeEvent) {
                     applied = report.assets_applied
                 ),
             );
-            if report.tables_skipped > 0 {
-                ui.colored_label(
-                    egui::Color32::from_rgb(255, 200, 80),
-                    t!("merge_tables_skipped", count = report.tables_skipped),
-                );
-            }
+            // The skipped/sample tallies live in the summary just above
+            // the log — repeating them here read as two different results.
         }
     }
 }

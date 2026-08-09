@@ -463,6 +463,7 @@ merge_confirm_apply = "Použít změny"
 merge_cancel = "Zrušit"
 merge_progress = "Stoly: %{tables} · Nalezeno: %{found} · Použito: %{applied} · Přeskočeno: %{skipped}"
 merge_log_done = "Hotovo — %{tables} stolů sestaveno, %{found} souborů nalezeno, %{applied} umístěno"
+merge_skip_already_present = "již na místě"
 
 # Tables page — mandatory tables_dir + collapsibles
 tables_path_required = "Povinné — před pokračováním vyberte složku se stoly."

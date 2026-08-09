@@ -462,6 +462,7 @@ merge_confirm_apply = "تطبيق التغييرات"
 merge_cancel = "إلغاء"
 merge_progress = "الطاولات: %{tables} · مكتشَفة: %{found} · مطبَّقة: %{applied} · متخطَّاة: %{skipped}"
 merge_log_done = "تم — %{tables} طاولة مُجمّعة، %{found} ملفًا مكتشفًا، %{applied} موضوعًا"
+merge_skip_already_present = "موجود بالفعل"
 
 # Tables page — mandatory tables_dir + collapsibles
 tables_path_required = "إلزامي — اختر المجلد الذي توجد فيه طاولاتك قبل المتابعة."

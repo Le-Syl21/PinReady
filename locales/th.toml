@@ -462,6 +462,7 @@ merge_confirm_apply = "ใช้การเปลี่ยนแปลง"
 merge_cancel = "ยกเลิก"
 merge_progress = "โต๊ะ: %{tables} · พบ: %{found} · ใช้แล้ว: %{applied} · ข้าม: %{skipped}"
 merge_log_done = "เสร็จแล้ว — จัดชุดโต๊ะ %{tables} รายการ พบไฟล์ %{found} วาง %{applied}"
+merge_skip_already_present = "มีอยู่แล้ว"
 
 # Tables page — mandatory tables_dir + collapsibles
 tables_path_required = "จำเป็น — เลือกโฟลเดอร์ที่มีโต๊ะของคุณก่อนดำเนินการต่อ"

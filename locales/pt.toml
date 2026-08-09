@@ -464,6 +464,7 @@ merge_confirm_apply = "Aplicar alterações"
 merge_cancel = "Cancelar"
 merge_progress = "Mesas: %{tables} · Encontrados: %{found} · Aplicados: %{applied} · Ignorados: %{skipped}"
 merge_log_done = "Concluído — %{tables} mesas agrupadas, %{found} ficheiros detetados, %{applied} colocados"
+merge_skip_already_present = "já existe"
 
 # Tables page — mandatory tables_dir + collapsibles
 tables_path_required = "Obrigatório — escolha a pasta onde estão as suas mesas antes de continuar."

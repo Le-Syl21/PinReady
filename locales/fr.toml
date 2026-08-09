@@ -493,6 +493,7 @@ merge_confirm_apply = "Appliquer les changements"
 merge_cancel = "Annuler"
 merge_progress = "Tables : %{tables} · Trouvés : %{found} · Appliqués : %{applied} · Ignorés : %{skipped}"
 merge_log_done = "Terminé — %{tables} tables constituées, %{found} fichiers détectés, %{applied} placés"
+merge_skip_already_present = "déjà présent"
 
 # Labels des touches nommées — SDL retourne les noms anglais pour les
 # touches non-caractère (Escape, Home, Left Shift…). On les localise ici.

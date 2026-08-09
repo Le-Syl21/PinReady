@@ -464,6 +464,7 @@ merge_confirm_apply = "Tumia mabadiliko"
 merge_cancel = "Ghairi"
 merge_progress = "Meza: %{tables} · Zilizopatikana: %{found} · Zilizotumika: %{applied} · Zilizorukwa: %{skipped}"
 merge_log_done = "Imekamilika — meza %{tables} zimepangwa, faili %{found} zimegunduliwa, %{applied} zimewekwa"
+merge_skip_already_present = "tayari ipo"
 
 # Tables page — mandatory tables_dir + collapsibles
 tables_path_required = "Inahitajika — chagua folda ambayo meza zako zinapatikana kabla ya kuendelea."

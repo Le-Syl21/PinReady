@@ -463,6 +463,7 @@ merge_confirm_apply = "Terapkan perubahan"
 merge_cancel = "Batal"
 merge_progress = "Meja: %{tables} · Ditemukan: %{found} · Diterapkan: %{applied} · Dilewati: %{skipped}"
 merge_log_done = "Selesai — %{tables} meja disusun, %{found} berkas terdeteksi, %{applied} ditempatkan"
+merge_skip_already_present = "sudah ada"
 
 # Tables page — mandatory tables_dir + collapsibles
 tables_path_required = "Wajib — pilih folder tempat meja Anda berada sebelum melanjutkan."

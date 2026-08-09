@@ -463,6 +463,7 @@ merge_confirm_apply = "تبدیلیاں لاگو کریں"
 merge_cancel = "منسوخ کریں"
 merge_progress = "ٹیبلز: %{tables} · ملے: %{found} · لاگو: %{applied} · چھوڑے: %{skipped}"
 merge_log_done = "مکمل — %{tables} میزیں مرتب، %{found} فائلیں دریافت، %{applied} رکھی گئیں"
+merge_skip_already_present = "پہلے سے موجود"
 
 # Tables page — mandatory tables_dir + collapsibles
 tables_path_required = "ضروری — جاری رکھنے سے پہلے وہ فولڈر منتخب کریں جہاں آپ کی ٹیبلز ہیں۔"

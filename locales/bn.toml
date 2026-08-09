@@ -463,6 +463,7 @@ merge_confirm_apply = "পরিবর্তন প্রয়োগ করু�
 merge_cancel = "বাতিল"
 merge_progress = "টেবিল: %{tables} · পাওয়া গেছে: %{found} · প্রয়োগ: %{applied} · এড়ানো হয়েছে: %{skipped}"
 merge_log_done = "সম্পন্ন — %{tables}টি টেবিল গোছানো, %{found}টি ফাইল শনাক্ত, %{applied}টি স্থাপন"
+merge_skip_already_present = "ইতিমধ্যে আছে"
 
 # Tables page — mandatory tables_dir + collapsibles
 tables_path_required = "আবশ্যক — চালিয়ে যাওয়ার আগে আপনার টেবিল যেখানে আছে সেই ফোল্ডারটি নির্বাচন করুন।"

@@ -461,6 +461,7 @@ merge_confirm_apply = "应用更改"
 merge_cancel = "取消"
 merge_progress = "球台：%{tables} · 发现：%{found} · 已应用：%{applied} · 已跳过：%{skipped}"
 merge_log_done = "完成 — 整理 %{tables} 张桌子，检测到 %{found} 个文件，放置 %{applied} 个"
+merge_skip_already_present = "已存在"
 
 # Tables page — mandatory tables_dir + collapsibles
 tables_path_required = "必填 — 继续之前请选择存放球台的文件夹。"

@@ -463,6 +463,7 @@ merge_confirm_apply = "Toteuta muutokset"
 merge_cancel = "Peruuta"
 merge_progress = "Pöydät: %{tables} · Löydetty: %{found} · Toteutettu: %{applied} · Ohitettu: %{skipped}"
 merge_log_done = "Valmis — %{tables} pöytää koottu, %{found} tiedostoa löytyi, %{applied} sijoitettu"
+merge_skip_already_present = "jo paikallaan"
 
 # Tables page — mandatory tables_dir + collapsibles
 tables_path_required = "Pakollinen — valitse pöytäsi sisältävä kansio ennen jatkamista."

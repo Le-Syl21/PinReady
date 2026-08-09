@@ -493,6 +493,7 @@ merge_confirm_apply = "Apply changes"
 merge_cancel = "Cancel"
 merge_progress = "Tables: %{tables} · Found: %{found} · Applied: %{applied} · Skipped: %{skipped}"
 merge_log_done = "Done — %{tables} tables bundled, %{found} files detected, %{applied} placed"
+merge_skip_already_present = "already there"
 
 # Named key labels — SDL returns English-only names for non-character
 # keys (Escape, Home, Left Shift, ...). These override the defaults for
