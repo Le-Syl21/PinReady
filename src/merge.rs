@@ -79,6 +79,33 @@ const INDEXED_EXTS: &[&str] = &[
     "crz",
 ];
 
+/// Tables VPX and VPinMAME ship themselves. An old drive holds one copy
+/// per install — five of each was typical on a real collection — and the
+/// current VPX build already provides them, so importing them is pure
+/// noise. Matched on the file stem, case-insensitively.
+const SAMPLE_TABLES: &[&str] = &[
+    "blanktable",
+    "exampletable",
+    "lightseqtable",
+    "strippedtable",
+    "flexdemo",
+    "nudge test and calibration",
+    "screen size calibration",
+];
+
+/// Same idea, but the physics test table carries its VPX revision in the
+/// name ("JP's VPX8 Physics Rev3.1 Elasticity_Test"), so match the part
+/// that does not move.
+const SAMPLE_TABLE_MARKER: &str = "elasticity_test";
+
+fn is_sample_table(vpx: &Path) -> bool {
+    let Some(stem) = vpx.file_stem().and_then(|s| s.to_str()) else {
+        return false;
+    };
+    let stem = stem.to_lowercase();
+    SAMPLE_TABLES.contains(&stem.as_str()) || stem.contains(SAMPLE_TABLE_MARKER)
+}
+
 /// Directories never worth descending into. Kernel/pseudo filesystems
 /// would make a `/`-rooted scan crawl forever, and package caches hold
 /// nothing a pinball table wants.
@@ -110,6 +137,9 @@ pub struct AssetIndex {
     music_dirs: HashSet<PathBuf>,
     /// Every `.vpx` found, sorted for a stable run order.
     pub tables: Vec<PathBuf>,
+    /// Sample tables that were left out, so the count can be shown
+    /// rather than the filtering being silent.
+    pub samples_skipped: usize,
     pub files_indexed: usize,
     pub dirs_scanned: usize,
 }
@@ -252,7 +282,11 @@ pub fn build_index(
             continue;
         }
         if ext == "vpx" {
-            index.tables.push(path.to_path_buf());
+            if is_sample_table(path) {
+                index.samples_skipped += 1;
+            } else {
+                index.tables.push(path.to_path_buf());
+            }
         }
         index
             .files_by_name
@@ -389,10 +423,17 @@ pub enum MergeEvent {
     TableDone {
         name: String,
     },
-    /// Two tables of the same name in the scan root: the first one wins,
-    /// the others are surfaced instead of silently overwriting it.
+    /// Several copies of the same table in the scan root: the newest one
+    /// wins, the others are surfaced — with the path of each — instead of
+    /// silently overwriting it.
     TableSkipped {
         name: String,
+        index: usize,
+        total: usize,
+        /// The copy that was left behind.
+        src: PathBuf,
+        /// The copy that was imported instead.
+        kept: PathBuf,
     },
     Done(MergeReport),
 }
@@ -417,8 +458,13 @@ impl SkipReason {
 #[derive(Debug, Clone, Default)]
 pub struct MergeReport {
     pub files_indexed: usize,
+    /// Assets the collection simply does not have. Not a decision, so
+    /// kept out of the headline counters.
+    pub assets_absent: usize,
     pub tables_processed: usize,
     pub tables_skipped: usize,
+    /// VPX's own sample tables, left out on purpose.
+    pub tables_sample_skipped: usize,
     pub assets_found: usize,
     pub assets_applied: usize,
     pub assets_skipped: usize,
@@ -604,6 +650,7 @@ fn run(config: &MergeConfig, tx: &Sender<MergeEvent>, cancel: &Arc<AtomicBool>) 
         },
     );
     sink.report.files_indexed = index.files_indexed;
+    sink.report.tables_sample_skipped = index.samples_skipped;
     let _ = tx.send(MergeEvent::ScanDone {
         files: index.files_indexed,
         dirs: index.dirs_scanned,
@@ -615,8 +662,29 @@ fn run(config: &MergeConfig, tx: &Sender<MergeEvent>, cancel: &Arc<AtomicBool>) 
     }
 
     // ---- Step 2: one folder-per-table bundle per .vpx ---------------
+    //
+    // A collection built up over years holds the same table several times
+    // — five copies of VPX's own sample tables, one per install, is
+    // typical. They all target one bundle, so pick a winner up front:
+    // the most recently modified copy, which is the one the user has been
+    // playing. Everything else is reported with both paths so nothing
+    // disappears quietly.
+    let destinations: Vec<PathBuf> = index
+        .tables
+        .iter()
+        .map(|vpx| canonical(&destination_dir(vpx, &config.output_root)))
+        .collect();
+    let mut winners: HashMap<PathBuf, PathBuf> = HashMap::new();
+    for (vpx, dest) in index.tables.iter().zip(&destinations) {
+        match winners.get(dest) {
+            Some(current) if modified_at(current) >= modified_at(vpx) => {}
+            _ => {
+                winners.insert(dest.clone(), vpx.clone());
+            }
+        }
+    }
+
     let total = index.tables.len();
-    let mut claimed: HashSet<PathBuf> = HashSet::new();
     for (i, vpx_src) in index.tables.iter().enumerate() {
         if cancel.load(Ordering::SeqCst) {
             break;
@@ -626,29 +694,23 @@ fn run(config: &MergeConfig, tx: &Sender<MergeEvent>, cancel: &Arc<AtomicBool>) 
         };
         let stem = stem.to_string();
 
-        // Where this table's bundle lives. A table already sitting one
-        // level under the output root is completed in place — moving it
-        // would just rename its own folder.
-        let already_foldered = vpx_src
-            .parent()
-            .and_then(Path::parent)
-            .is_some_and(|gp| canonical(gp) == canonical(&config.output_root));
-        let table_dir = if already_foldered {
-            vpx_src
-                .parent()
-                .unwrap_or(&config.output_root)
-                .to_path_buf()
-        } else {
-            config.output_root.join(&stem)
-        };
+        let table_dir = destination_dir(vpx_src, &config.output_root);
+        // A table already sitting one level under the output root is
+        // completed in place — moving it would just rename its own folder.
+        let already_foldered = table_dir != config.output_root.join(&stem);
 
-        // Two tables with the same name land in the same bundle; the
-        // first one wins and the rest are surfaced rather than silently
-        // overwriting it.
-        if !claimed.insert(canonical(&table_dir)) {
-            sink.report.tables_skipped += 1;
-            let _ = tx.send(MergeEvent::TableSkipped { name: stem });
-            continue;
+        if let Some(kept) = winners.get(&destinations[i]) {
+            if kept != vpx_src {
+                sink.report.tables_skipped += 1;
+                let _ = tx.send(MergeEvent::TableSkipped {
+                    name: stem,
+                    index: i + 1,
+                    total,
+                    src: vpx_src.clone(),
+                    kept: kept.clone(),
+                });
+                continue;
+            }
         }
 
         let _ = tx.send(MergeEvent::TableStarted {
@@ -668,7 +730,6 @@ fn run(config: &MergeConfig, tx: &Sender<MergeEvent>, cancel: &Arc<AtomicBool>) 
                 dst: vpx_dst.clone(),
             });
             if matches!(config.mode, MergeMode::DryRun) {
-                sink.report.assets_skipped += 1;
                 let _ = tx.send(MergeEvent::AssetSkipped {
                     kind: AssetKind::Vpx,
                     reason: SkipReason::DryRun,
@@ -733,6 +794,29 @@ struct TableContext {
     pgame_names: Vec<String>,
     cpup_pack: Option<String>,
     base: String, // .vpx file stem, e.g. "Apollo 13 (Sega 1995)"
+}
+
+/// Where a table's bundle goes: its own folder when it already sits one
+/// level under the output root, a fresh folder named after it otherwise.
+fn destination_dir(vpx: &Path, output_root: &Path) -> PathBuf {
+    let already_foldered = vpx
+        .parent()
+        .and_then(Path::parent)
+        .is_some_and(|gp| canonical(gp) == canonical(output_root));
+    if already_foldered {
+        vpx.parent().unwrap_or(output_root).to_path_buf()
+    } else {
+        let stem = vpx.file_stem().and_then(|s| s.to_str()).unwrap_or_default();
+        output_root.join(stem)
+    }
+}
+
+/// Modification time, oldest-possible when unreadable so a file we cannot
+/// stat never wins a tie.
+fn modified_at(p: &Path) -> std::time::SystemTime {
+    std::fs::metadata(p)
+        .and_then(|m| m.modified())
+        .unwrap_or(std::time::UNIX_EPOCH)
 }
 
 /// Bundle one table. `vpx_src` is where it was found — its neighbours are
@@ -943,7 +1027,14 @@ fn report_skipped(
     tx: &Sender<MergeEvent>,
     report: &mut MergeReport,
 ) {
-    report.assets_skipped += 1;
+    match reason {
+        // Neither is an outcome the user chose: one is an absence, the
+        // other is the mode itself. Counting them made "skipped" the
+        // biggest number on screen and the least meaningful.
+        SkipReason::SourceMissing => report.assets_absent += 1,
+        SkipReason::DryRun => {}
+        SkipReason::AlreadyPresent => report.assets_skipped += 1,
+    }
     let _ = tx.send(MergeEvent::AssetSkipped { kind, reason });
 }
 
@@ -979,7 +1070,6 @@ impl Sink<'_> {
             dst: dst.clone(),
         });
         if matches!(mode, MergeMode::DryRun) {
-            report.assets_skipped += 1;
             let _ = tx.send(MergeEvent::AssetSkipped {
                 kind,
                 reason: SkipReason::DryRun,
@@ -1025,7 +1115,6 @@ impl Sink<'_> {
             dst: dst.clone(),
         });
         if matches!(mode, MergeMode::DryRun) {
-            report.assets_skipped += 1;
             let _ = tx.send(MergeEvent::AssetSkipped {
                 kind,
                 reason: SkipReason::DryRun,
@@ -1583,6 +1672,76 @@ mod run_tests {
         );
         assert!(out.join("Fresh (Gottlieb 1985)").is_dir());
         let _ = std::fs::remove_dir_all(&source);
+    }
+
+    /// VPX ships four sample tables and an old drive holds one copy per
+    /// install. They are noise, and the current VPX build provides them.
+    #[test]
+    fn vpx_sample_tables_are_left_out() {
+        let source = fresh_dir("samples");
+        let out = fresh_dir("samples-out");
+        for name in [
+            "blankTable",
+            "exampleTable",
+            "lightSeqTable",
+            "strippedTable",
+            "FlexDemo",
+            "JP's VPX8 Physics Rev3.1 Elasticity_Test",
+        ] {
+            write(source.join(format!("install/assets/{name}.vpx")), b"stub");
+        }
+        write(source.join("mine/TZ (Bally 1993).vpx"), b"stub");
+
+        let (report, _) = run_and_collect(config(&source, &out, MergeMode::Commit));
+        assert_eq!(
+            report.tables_processed, 1,
+            "only the real table is imported"
+        );
+        assert_eq!(report.tables_sample_skipped, 6);
+        assert!(out.join("TZ (Bally 1993)").is_dir());
+        assert!(!out.join("blankTable").exists());
+        let _ = std::fs::remove_dir_all(&source);
+        let _ = std::fs::remove_dir_all(&out);
+    }
+
+    /// Among several copies of one table, the one the user has been
+    /// playing is the most recently modified — importing an older backup
+    /// instead would be a silent downgrade.
+    #[test]
+    fn the_newest_copy_of_a_duplicate_wins() {
+        let source = fresh_dir("newest");
+        let out = fresh_dir("newest-out");
+        let old = write(source.join("backup/TZ (Bally 1993).vpx"), b"old");
+        let new = write(source.join("current/TZ (Bally 1993).vpx"), b"new");
+        let base =
+            std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_700_000_000);
+        std::fs::File::options()
+            .write(true)
+            .open(&old)
+            .unwrap()
+            .set_modified(base)
+            .unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(&new)
+            .unwrap()
+            .set_modified(base + std::time::Duration::from_secs(86_400))
+            .unwrap();
+
+        let (report, events) = run_and_collect(config(&source, &out, MergeMode::Commit));
+        assert_eq!(report.tables_processed, 1);
+        assert_eq!(report.tables_skipped, 1);
+        assert_eq!(
+            std::fs::read_to_string(out.join("TZ (Bally 1993)/TZ (Bally 1993).vpx")).unwrap(),
+            "new"
+        );
+        // The dropped copy is named, so nothing vanishes quietly.
+        assert!(events.iter().any(|e| matches!(
+            e,
+            MergeEvent::TableSkipped { src, kept, .. } if src == &old && kept == &new
+        )));
+        let _ = std::fs::remove_dir_all(&source);
+        let _ = std::fs::remove_dir_all(&out);
     }
 
     /// Dry run must not touch the disk but still report the work.

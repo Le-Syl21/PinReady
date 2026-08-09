@@ -713,16 +713,27 @@ fn run_merge_cli(args: &[String], mode: merge::MergeMode) -> Result<()> {
                 errored += 1;
             }
             TableDone { .. } => {}
-            TableSkipped { name } => {
-                println!("▸ {name} — skipped (another table already claims that folder)")
-            }
+            TableSkipped {
+                name,
+                index,
+                total,
+                src,
+                kept,
+            } => println!(
+                "▸ [{index}/{total}] {name} — skipped {} (kept the newer copy {})",
+                src.display(),
+                kept.display()
+            ),
             Done(report) => {
                 println!(
-                    "[merge {mode_label}] done — tables={} found={} applied={} skipped={} errors={}",
+                    "[merge {mode_label}] done — {} tables bundled, {} files detected, {} placed \
+                     ({} already there, {} not in the collection, {} sample tables ignored, {} errors)",
                     report.tables_processed,
                     report.assets_found,
                     report.assets_applied,
                     report.assets_skipped,
+                    report.assets_absent,
+                    report.tables_sample_skipped,
                     report.assets_errored
                 );
             }
