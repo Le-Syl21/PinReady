@@ -633,6 +633,7 @@ fn run(config: &MergeConfig, tx: &Sender<MergeEvent>, cancel: &Arc<AtomicBool>) 
         op: pick_op(config.strategy),
         tx,
         report: MergeReport::default(),
+        table_dir: PathBuf::new(),
     };
     let in_place = config.is_in_place();
 
@@ -674,14 +675,23 @@ fn run(config: &MergeConfig, tx: &Sender<MergeEvent>, cancel: &Arc<AtomicBool>) 
         .iter()
         .map(|vpx| canonical(&destination_dir(vpx, &config.output_root)))
         .collect();
-    let mut winners: HashMap<PathBuf, PathBuf> = HashMap::new();
+    let mut groups: HashMap<&PathBuf, Vec<&PathBuf>> = HashMap::new();
     for (vpx, dest) in index.tables.iter().zip(&destinations) {
-        match winners.get(dest) {
-            Some(current) if modified_at(current) >= modified_at(vpx) => {}
-            _ => {
-                winners.insert(dest.clone(), vpx.clone());
-            }
-        }
+        groups.entry(dest).or_default().push(vpx);
+    }
+    let mut winners: HashMap<PathBuf, PathBuf> = HashMap::new();
+    for (dest, copies) in groups {
+        let winner = if copies.len() == 1 {
+            copies[0].clone()
+        } else {
+            copies
+                .iter()
+                .map(|p| (table_rank(p), *p))
+                .max_by(|a, b| a.0.cmp(&b.0))
+                .map(|(_, p)| p.clone())
+                .unwrap_or_else(|| copies[0].clone())
+        };
+        winners.insert(dest.clone(), winner);
     }
 
     let total = index.tables.len();
@@ -775,6 +785,7 @@ fn run(config: &MergeConfig, tx: &Sender<MergeEvent>, cancel: &Arc<AtomicBool>) 
             }
         }
 
+        sink.table_dir = table_dir.clone();
         process_table(&table_dir, vpx_src, &effective_vpx, &index, &mut sink);
         sink.report.tables_processed += 1;
         let _ = tx.send(MergeEvent::TableDone { name: stem });
@@ -817,6 +828,49 @@ fn modified_at(p: &Path) -> std::time::SystemTime {
     std::fs::metadata(p)
         .and_then(|m| m.modified())
         .unwrap_or(std::time::UNIX_EPOCH)
+}
+
+/// How good one copy of a table is, most significant first.
+///
+/// The file date only says when it was last written — a fresh copy of an
+/// old table beats the newer one on that measure alone. The table itself
+/// knows better: authors bump `table_version`, and VPX increments
+/// `table_save_rev` on every save. Both are read from inside the .vpx,
+/// so this costs a file open and is only computed for duplicates.
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+struct TableRank {
+    /// Declared version, split into numbers so "1.10" beats "1.9".
+    /// `None` sorts first: a copy that declares one wins over one that
+    /// does not.
+    version: Option<Vec<u32>>,
+    save_rev: Option<u64>,
+    modified: std::time::SystemTime,
+}
+
+fn numeric_version(raw: &str) -> Option<Vec<u32>> {
+    let parts: Vec<u32> = raw
+        .split(|c: char| !c.is_ascii_digit())
+        .filter(|s| !s.is_empty())
+        .filter_map(|s| s.parse().ok())
+        .collect();
+    (!parts.is_empty()).then_some(parts)
+}
+
+fn table_rank(vpx: &Path) -> TableRank {
+    let info = vpin::vpx::open(vpx)
+        .ok()
+        .and_then(|mut v| v.read_tableinfo().ok());
+    TableRank {
+        version: info
+            .as_ref()
+            .and_then(|i| i.table_version.as_deref())
+            .and_then(numeric_version),
+        save_rev: info
+            .as_ref()
+            .and_then(|i| i.table_save_rev.as_deref())
+            .and_then(|r| r.trim().parse().ok()),
+        modified: modified_at(vpx),
+    }
 }
 
 /// Bundle one table. `vpx_src` is where it was found — its neighbours are
@@ -1038,6 +1092,16 @@ fn report_skipped(
     let _ = tx.send(MergeEvent::AssetSkipped { kind, reason });
 }
 
+/// True when the file being placed already lives inside the table's own
+/// folder. The placement is then a tidy-up, not an import: it moves the
+/// file into the canonical subfolder instead of leaving a duplicate
+/// behind. This is what lets a collection that is already
+/// folder-per-table — but keeps its ROMs and packs loose, or in the
+/// discouraged `roms/`-at-the-root layout — be put back in order.
+fn is_tidying(table_dir: &Path, src: &Path) -> bool {
+    !table_dir.as_os_str().is_empty() && src.starts_with(table_dir)
+}
+
 /// Everything a placement needs: the mode, the I/O strategy, the event
 /// channel and the running tally. Owning the report keeps the borrow
 /// checker out of the per-table loop.
@@ -1046,11 +1110,19 @@ struct Sink<'a> {
     op: Box<dyn FsOp>,
     tx: &'a Sender<MergeEvent>,
     report: MergeReport,
+    /// Folder of the table being bundled, so a file already inside it can
+    /// be recognised as tidying rather than importing.
+    table_dir: PathBuf,
 }
 
 impl Sink<'_> {
     fn file(&mut self, kind: AssetKind, src: Option<PathBuf>, dst: PathBuf) {
-        let (mode, op, tx, report) = (self.mode, self.op.as_ref(), self.tx, &mut self.report);
+        static TIDY: MoveOp = MoveOp;
+        let tidy = src
+            .as_deref()
+            .is_some_and(|s| is_tidying(&self.table_dir, s));
+        let (mode, tx, report) = (self.mode, self.tx, &mut self.report);
+        let op: &dyn FsOp = if tidy { &TIDY } else { &*self.op };
         let Some(src) = src else {
             report_skipped(kind, SkipReason::SourceMissing, tx, report);
             return;
@@ -1095,7 +1167,12 @@ impl Sink<'_> {
     }
 
     fn dir(&mut self, kind: AssetKind, src: Option<PathBuf>, dst: PathBuf) {
-        let (mode, op, tx, report) = (self.mode, self.op.as_ref(), self.tx, &mut self.report);
+        static TIDY: MoveOp = MoveOp;
+        let tidy = src
+            .as_deref()
+            .is_some_and(|s| is_tidying(&self.table_dir, s));
+        let (mode, tx, report) = (self.mode, self.tx, &mut self.report);
+        let op: &dyn FsOp = if tidy { &TIDY } else { &*self.op };
         let Some(src) = src else {
             report_skipped(kind, SkipReason::SourceMissing, tx, report);
             return;
@@ -1617,6 +1694,58 @@ mod run_tests {
         assert!(root.join(format!("{table}/{table}.directb2s")).is_file());
         assert!(!root.join(format!("{table}/{table}/{table}.vpx")).exists());
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// A collection already folder-per-table but keeping its ROM loose
+    /// (or in the discouraged roms/-at-the-root layout) gets tidied: the
+    /// file moves into the canonical subfolder instead of being copied,
+    /// which would leave the mess behind next to the tidy version.
+    #[test]
+    fn in_place_tidies_files_already_inside_the_table_folder() {
+        let root = fresh_dir("tidy");
+        let table = "Medieval Madness (Williams 1997)";
+        write(root.join(format!("{table}/{table}.vpx")), b"stub");
+        write(
+            root.join(format!("{table}/{table}.vbs")),
+            b"Const cGameName = \"mm_109c\"\n",
+        );
+        let loose_rom = write(root.join(format!("{table}/roms/mm_109c.zip")), b"zip");
+
+        let (report, _) = run_and_collect(config(&root, &root, MergeMode::Commit));
+        assert_eq!(report.tables_processed, 1);
+        assert!(root
+            .join(format!("{table}/pinmame/roms/mm_109c.zip"))
+            .is_file());
+        assert!(
+            !loose_rom.exists(),
+            "tidying moves the file, it does not leave a copy behind"
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// Between two copies, the table's own declared version outranks the
+    /// file date: a fresh copy of an old table is still the old table.
+    #[test]
+    fn a_declared_version_outranks_the_file_date() {
+        let older = TableRank {
+            version: numeric_version("1.9"),
+            save_rev: Some(400),
+            modified: std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(2_000),
+        };
+        let newer = TableRank {
+            version: numeric_version("1.10"),
+            save_rev: Some(12),
+            modified: std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000),
+        };
+        assert!(newer > older, "1.10 is a later version than 1.9");
+
+        // No declared version at all loses to one that has it.
+        let undeclared = TableRank {
+            version: None,
+            save_rev: None,
+            modified: std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(9_999),
+        };
+        assert!(older > undeclared);
     }
 
     /// Loose tables at the output root are folderized by moving: copying
