@@ -455,7 +455,6 @@ pub struct App {
     merge_log: Vec<crate::merge::MergeEvent>,
     merge_dry_run_report: Option<crate::merge::MergeReport>,
     merge_running: bool,
-    merge_section_open: bool,
 
     // Opt-in: auto-patch VBS scripts at scan from
     // jsm174/vpx-standalone-scripts. Off by default — the catalog
@@ -621,7 +620,6 @@ impl App {
             .get_config("merge_layout_modern")
             .is_none_or(|v| v != "0");
         let merge_strategy = crate::merge::MergeStrategy::from_db_str(&db.get_merge_strategy());
-        let merge_section_open = merge_src_root.is_empty();
         let mirror_base_url = db.mirror_base_url().unwrap_or_default();
 
         let mut s = Self {
@@ -727,7 +725,6 @@ impl App {
             merge_log: Vec::new(),
             merge_dry_run_report: None,
             merge_running: false,
-            merge_section_open,
             jsm174_patching,
             catalog_enrichment,
             catalog_cancel_token: None,

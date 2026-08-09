@@ -261,11 +261,11 @@ impl App {
             self.merge_cancel = None;
         }
 
-        let header_text = format!("📥 {}", t!("merge_section_title"));
-        let header = egui::CollapsingHeader::new(egui::RichText::new(header_text).strong())
-            .default_open(self.merge_section_open);
-
-        header.show(ui, |ui| {
+        // Not a collapsible section: bundling the collection is what this
+        // page is for, not an optional extra.
+        ui.strong(format!("📥 {}", t!("merge_section_title")));
+        ui.add_space(4.0);
+        {
             ui.label(t!("merge_section_desc"));
             ui.add_space(8.0);
 
@@ -450,7 +450,7 @@ impl App {
                         }
                     });
             }
-        });
+        }
 
         if self.merge_running {
             ui.ctx().request_repaint();
