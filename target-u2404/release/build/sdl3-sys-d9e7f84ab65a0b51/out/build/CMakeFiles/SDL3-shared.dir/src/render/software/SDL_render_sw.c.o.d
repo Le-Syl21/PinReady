@@ -1,0 +1,27 @@
+CMakeFiles/SDL3-shared.dir/src/render/software/SDL_render_sw.c.o: \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/render/software/SDL_render_sw.c \
+ /usr/include/stdc-predef.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/SDL_internal.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/render/software/../SDL_sysrender.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/render/software/../../video/SDL_surface_c.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/render/software/../../video/SDL_blit.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/render/software/../SDL_yuv_sw_c.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/render/software/SDL_render_sw_c.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/render/software/SDL_draw.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/render/software/../../video/SDL_surface_c.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/render/software/SDL_blendfillrect.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/render/software/SDL_blendline.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/render/software/SDL_blendpoint.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/render/software/SDL_drawline.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/render/software/SDL_drawpoint.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/render/software/SDL_triangle.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/render/software/../../video/SDL_pixels_c.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/render/software/../../video/SDL_rotate.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/render/software/../../video/SDL_sysvideo.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/include/SDL3/SDL_vulkan.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/include/SDL3/SDL_stdinc.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/include/SDL3/SDL_error.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/include/SDL3/SDL_video.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/include/SDL3/SDL_begin_code.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/include/SDL3/SDL_close_code.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/render/software/../../video/SDL_surface_c.h

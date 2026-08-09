@@ -1,0 +1,1 @@
+{"rustc":12019306335353385202,"features":"[]","declared_features":"[\"debug\", \"generate_bitmaps\"]","target":1089503997142669903,"profile":9651243259619121090,"path":9403380308616131008,"deps":[],"local":[{"CheckDepInfo":{"dep_info":"release/.fingerprint/fax-64cfd8f55ab94f17/dep-lib-fax","checksum":false}}],"rustflags":[],"config":9396254390672932401,"compile_kind":0}

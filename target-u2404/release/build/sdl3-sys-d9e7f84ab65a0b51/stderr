@@ -1,0 +1,41 @@
+running: cd "/src/target-u2404/release/build/sdl3-sys-d9e7f84ab65a0b51/out/build" && CMAKE_PREFIX_PATH="" LC_ALL="C" "cmake" "/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL" "-B" "/src/target-u2404/release/build/sdl3-sys-d9e7f84ab65a0b51/out/build" "-DSDL_EXAMPLES=OFF" "-DSDL_REVISION=SDL-3.4.10" "-DSDL_TESTS=OFF" "-DSDL_STATIC=ON" "-DCMAKE_INSTALL_PREFIX=/src/target-u2404/release/build/sdl3-sys-d9e7f84ab65a0b51/out" "-DCMAKE_C_FLAGS= -ffunction-sections -fdata-sections -fPIC -m64 -w" "-DCMAKE_C_COMPILER=/usr/bin/cc" "-DCMAKE_CXX_FLAGS= -ffunction-sections -fdata-sections -fPIC -m64 -w" "-DCMAKE_CXX_COMPILER=/usr/bin/c++" "-DCMAKE_ASM_FLAGS= -ffunction-sections -fdata-sections -fPIC -m64 -w" "-DCMAKE_ASM_COMPILER=/usr/bin/cc" "-DCMAKE_BUILD_TYPE=Release"
+CMake Warning:
+  Manually-specified variables were not used by the project:
+
+    CMAKE_ASM_COMPILER
+    CMAKE_ASM_FLAGS
+    CMAKE_CXX_COMPILER
+    CMAKE_CXX_FLAGS
+
+
+running: cd "/src/target-u2404/release/build/sdl3-sys-d9e7f84ab65a0b51/out/build" && LC_ALL="C" MAKEFLAGS="-j --jobserver-fds=3,5 --jobserver-auth=3,5" "cmake" "--build" "/src/target-u2404/release/build/sdl3-sys-d9e7f84ab65a0b51/out/build" "--target" "install" "--config" "Release"
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/wayland-protocols/color-management-v1.xml:328: element entry: validity error : No declaration for attribute deprecated-since of element entry
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/wayland-protocols/color-management-v1.xml:338: element entry: validity error : No declaration for attribute deprecated-since of element entry
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/wayland-protocols/color-management-v1.xml:781: element event: validity error : No declaration for attribute deprecated-since of element event
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/wayland-protocols/color-management-v1.xml:1443: element event: validity error : No declaration for attribute deprecated-since of element event
+*******************************************************
+*                                                     *
+* WARNING: XML failed validation against built-in DTD *
+*                                                     *
+*******************************************************
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/wayland-protocols/wayland.xml:2314: element event: validity error : No declaration for attribute deprecated-since of element event
+*******************************************************
+*                                                     *
+* WARNING: XML failed validation against built-in DTD *
+*                                                     *
+*******************************************************
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/wayland-protocols/color-management-v1.xml:328: element entry: validity error : No declaration for attribute deprecated-since of element entry
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/wayland-protocols/color-management-v1.xml:338: element entry: validity error : No declaration for attribute deprecated-since of element entry
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/wayland-protocols/color-management-v1.xml:781: element event: validity error : No declaration for attribute deprecated-since of element event
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/wayland-protocols/color-management-v1.xml:1443: element event: validity error : No declaration for attribute deprecated-since of element event
+*******************************************************
+*                                                     *
+* WARNING: XML failed validation against built-in DTD *
+*                                                     *
+*******************************************************
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/wayland-protocols/wayland.xml:2314: element event: validity error : No declaration for attribute deprecated-since of element event
+*******************************************************
+*                                                     *
+* WARNING: XML failed validation against built-in DTD *
+*                                                     *
+*******************************************************

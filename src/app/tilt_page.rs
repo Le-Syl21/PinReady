@@ -93,7 +93,12 @@ impl App {
         let viz_size = egui::vec2(240.0, 240.0);
         let (rect, _response) = ui.allocate_exact_size(viz_size, egui::Sense::hover());
         let painter = ui.painter_at(rect);
-        let center = rect.center();
+        // Snap to the pixel grid: a centre landing on a half pixel smears the
+        // 1px crosshair over two rows and the rings read as off-centre.
+        let center = {
+            use egui::emath::GuiRounding as _;
+            rect.center().round_to_pixel_center(ui.pixels_per_point())
+        };
         let radius = 110.0;
 
         // Outer circle (max range)

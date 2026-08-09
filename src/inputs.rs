@@ -862,6 +862,24 @@ struct OpenedJoystick {
     axis_names: Vec<String>,
 }
 
+/// Rest-centred normalization of a raw SDL axis to -1.0..1.0.
+///
+/// A pad or accelerometer whose axis runs over an even number of steps has
+/// no exact centre: an 0..255 axis rests at 128 while the true middle is
+/// 127.5, and SDL maps that half-step to +128 instead of 0. The tilt
+/// visualization amplifies the value up to 8x, so that quantisation
+/// artefact alone parks the dot a couple of pixels off the crosshair with
+/// nothing plugged in but a controller at rest. Half a percent of full
+/// scale is below any usable nudge, so treat it as centred.
+fn normalize_axis(raw: i16) -> f32 {
+    const REST_EPSILON: i16 = 196; // 0.6% of full scale, > the 128 half-step
+    if raw.abs() <= REST_EPSILON {
+        0.0
+    } else {
+        raw as f32 / 32767.0
+    }
+}
+
 /// Spawn the SDL3 joystick polling thread (keyboard is handled via egui).
 /// Uses direct state polling (SDL_GetJoystickButton/Axis) instead of SDL_PollEvent
 /// to avoid the SDL3 main-thread assertion on event pumping.
@@ -1026,8 +1044,8 @@ pub fn spawn_joystick_thread() -> (
 
                     // Send raw normalized accel data for tilt visualization (axes 0+1)
                     if js.num_axes >= 2 {
-                        let ax = SDL_GetJoystickAxis(js.handle, 0) as f32 / 32767.0;
-                        let ay = SDL_GetJoystickAxis(js.handle, 1) as f32 / 32767.0;
+                        let ax = normalize_axis(SDL_GetJoystickAxis(js.handle, 0));
+                        let ay = normalize_axis(SDL_GetJoystickAxis(js.handle, 1));
                         let _ = evt_tx.send(JoystickEvent::AccelUpdate { x: ax, y: ay });
                     }
                 }
@@ -1074,6 +1092,18 @@ mod tests {
             name: "Button 7".to_string(),
         };
         assert_eq!(input.to_mapping_string(), "SDLJoy_PSC004;7");
+    }
+
+    #[test]
+    fn axis_rest_quantisation_reads_as_centred() {
+        // 0..255 pad resting at 128 -> SDL reports +128, not 0.
+        assert_eq!(normalize_axis(128), 0.0);
+        assert_eq!(normalize_axis(-128), 0.0);
+        assert_eq!(normalize_axis(0), 0.0);
+        // A real nudge still gets through, unscaled.
+        assert!(normalize_axis(16000) > 0.48);
+        assert!((normalize_axis(32767) - 1.0).abs() < 1e-6);
+        assert!(normalize_axis(-16000) < -0.48);
     }
 
     #[test]

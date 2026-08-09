@@ -1,0 +1,35 @@
+CMakeFiles/SDL3-static.dir/src/misc/SDL_libusb.c.o: \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/misc/SDL_libusb.c \
+ /usr/include/stdc-predef.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/SDL_internal.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/misc/SDL_libusb.h \
+ /usr/include/libusb-1.0/libusb.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/limits.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h \
+ /usr/include/limits.h \
+ /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
+ /usr/include/features.h /usr/include/x86_64-linux-gnu/bits/posix1_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/wordsize.h \
+ /usr/include/x86_64-linux-gnu/bits/local_lim.h \
+ /usr/include/linux/limits.h \
+ /usr/include/x86_64-linux-gnu/bits/pthread_stack_min-dynamic.h \
+ /usr/include/x86_64-linux-gnu/bits/posix2_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/xopen_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/uio_lim.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h \
+ /usr/include/x86_64-linux-gnu/sys/types.h \
+ /usr/include/x86_64-linux-gnu/sys/time.h \
+ /usr/include/x86_64-linux-gnu/bits/types.h \
+ /usr/include/x86_64-linux-gnu/bits/types/time_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/struct_timeval.h \
+ /usr/include/x86_64-linux-gnu/sys/select.h /usr/include/time.h \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h \
+ /usr/include/x86_64-linux-gnu/bits/time.h \
+ /usr/include/x86_64-linux-gnu/bits/timex.h \
+ /usr/include/x86_64-linux-gnu/bits/types/clock_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/struct_tm.h \
+ /usr/include/x86_64-linux-gnu/bits/types/struct_timespec.h \
+ /usr/include/x86_64-linux-gnu/bits/types/clockid_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/timer_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h \
+ /usr/include/x86_64-linux-gnu/bits/types/locale_t.h

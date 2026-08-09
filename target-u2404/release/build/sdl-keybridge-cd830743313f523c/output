@@ -1,0 +1,4 @@
+cargo:rerun-if-changed=data/cldr-43/keyboards
+cargo:rerun-if-changed=data/cldr-48-v3/keyboards
+cargo:rerun-if-changed=build.rs
+cargo:warning=sdl-keybridge: generated 601 CLDR 2.x + 8 CLDR 3.0 layouts

@@ -1,0 +1,37 @@
+CMakeFiles/SDL3-static.dir/src/joystick/SDL_joystick.c.o: \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/SDL_joystick.c \
+ /usr/include/stdc-predef.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/SDL_internal.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/SDL_sysjoystick.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/SDL_joystick_c.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/../SDL_hints_c.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/../SDL_internal.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/SDL_gamepad_c.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/SDL_steam_virtual_gamepad.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/../events/SDL_events_c.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/../events/../video/SDL_sysvideo.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/include/SDL3/SDL_vulkan.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/include/SDL3/SDL_stdinc.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/include/SDL3/SDL_error.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/include/SDL3/SDL_video.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/include/SDL3/SDL_begin_code.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/include/SDL3/SDL_close_code.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/../events/../video/SDL_surface_c.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/../events/../video/SDL_blit.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/../events/SDL_clipboardevents_c.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/../events/SDL_displayevents_c.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/../events/SDL_dropevents_c.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/../events/SDL_keyboard_c.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/../events/SDL_keymap_c.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/../events/SDL_mouse_c.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/../events/SDL_touch_c.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/../events/SDL_pen_c.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/../events/../SDL_internal.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/../events/SDL_windowevents_c.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/../video/SDL_sysvideo.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/../sensor/SDL_sensor_c.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/hidapi/SDL_hidapijoystick_c.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/hidapi/../usb_ids.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/controller_type.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/./virtual/SDL_virtualjoystick_c.h \
+ /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdl3-src-3.4.10/SDL/src/joystick/./virtual/../SDL_sysjoystick.h

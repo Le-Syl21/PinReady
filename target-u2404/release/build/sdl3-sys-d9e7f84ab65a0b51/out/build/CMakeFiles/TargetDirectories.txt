@@ -1,0 +1,13 @@
+/src/target-u2404/release/build/sdl3-sys-d9e7f84ab65a0b51/out/build/CMakeFiles/SDL3-shared.dir
+/src/target-u2404/release/build/sdl3-sys-d9e7f84ab65a0b51/out/build/CMakeFiles/SDL3-static.dir
+/src/target-u2404/release/build/sdl3-sys-d9e7f84ab65a0b51/out/build/CMakeFiles/SDL3_test.dir
+/src/target-u2404/release/build/sdl3-sys-d9e7f84ab65a0b51/out/build/CMakeFiles/SDL_uclibc.dir
+/src/target-u2404/release/build/sdl3-sys-d9e7f84ab65a0b51/out/build/CMakeFiles/uninstall.dir
+/src/target-u2404/release/build/sdl3-sys-d9e7f84ab65a0b51/out/build/CMakeFiles/package.dir
+/src/target-u2404/release/build/sdl3-sys-d9e7f84ab65a0b51/out/build/CMakeFiles/package_source.dir
+/src/target-u2404/release/build/sdl3-sys-d9e7f84ab65a0b51/out/build/CMakeFiles/edit_cache.dir
+/src/target-u2404/release/build/sdl3-sys-d9e7f84ab65a0b51/out/build/CMakeFiles/rebuild_cache.dir
+/src/target-u2404/release/build/sdl3-sys-d9e7f84ab65a0b51/out/build/CMakeFiles/list_install_components.dir
+/src/target-u2404/release/build/sdl3-sys-d9e7f84ab65a0b51/out/build/CMakeFiles/install.dir
+/src/target-u2404/release/build/sdl3-sys-d9e7f84ab65a0b51/out/build/CMakeFiles/install/local.dir
+/src/target-u2404/release/build/sdl3-sys-d9e7f84ab65a0b51/out/build/CMakeFiles/install/strip.dir

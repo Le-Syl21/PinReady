@@ -1,0 +1,13 @@
+/src/target-u2404/release/deps/peniko-4a3119816d0209cf.d: /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/lib.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/blend.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/brush.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/gradient.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/image.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/style.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/impl_bytemuck.rs
+
+/src/target-u2404/release/deps/libpeniko-4a3119816d0209cf.rlib: /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/lib.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/blend.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/brush.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/gradient.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/image.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/style.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/impl_bytemuck.rs
+
+/src/target-u2404/release/deps/libpeniko-4a3119816d0209cf.rmeta: /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/lib.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/blend.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/brush.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/gradient.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/image.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/style.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/impl_bytemuck.rs
+
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/lib.rs:
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/blend.rs:
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/brush.rs:
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/gradient.rs:
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/image.rs:
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/style.rs:
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/peniko-0.6.1/src/impl_bytemuck.rs:
