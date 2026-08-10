@@ -371,6 +371,14 @@ pub struct App {
     // pointer-constraints lock during focus thrashing with secondary
     // viewports), so the user doesn't perceive it as a teleport-to-centre.
     kiosk_last_virtual_pos: Option<egui::Pos2>,
+    // Cursor diagnostics (PINREADY_CURSOR_DIAG): last logged state and when,
+    // so the log carries transitions instead of one line per frame.
+    kiosk_diag_state: Option<(bool, bool, bool, bool)>,
+    kiosk_diag_at: Option<std::time::Instant>,
+    // Focus-reclaim attempts for the kiosk playfield, throttled and capped:
+    // a compositor that refuses three times will refuse the thirtieth too.
+    kiosk_focus_tries: u32,
+    kiosk_focus_at: Option<std::time::Instant>,
     // Launcher joystick nav auto-repeat: track which nav button is held
     nav_held: Option<(
         u8,
@@ -696,6 +704,10 @@ impl App {
             kiosk_cursor: false,
             kiosk_cursor_warped: false,
             kiosk_last_virtual_pos: None,
+            kiosk_diag_state: None,
+            kiosk_diag_at: None,
+            kiosk_focus_tries: 0,
+            kiosk_focus_at: None,
             nav_held: None,
             bg_rx: None,
             scan_generation: 0,
@@ -1589,14 +1601,37 @@ impl eframe::App for App {
             // on top of the playfield.
             ctx.send_viewport_cmd(egui::ViewportCommand::CursorVisible(false));
 
-            // Reclaim focus only when the compositor will honour it. On
-            // Wayland, `ViewportCommand::Focus` is a no-op without an
-            // `xdg_activation_v1` token (egui#8142) and may trigger Mutter's
-            // anti-focus-stealing protection, demoting the playfield. Skip
-            // the reclaim entirely there; on X11 it works normally.
+            // No focus, no pointer. A compositor only grants a pointer
+            // constraint to a focused surface, so an unfocused playfield
+            // means the cursor cannot be confined (it wanders onto the
+            // backglass) and receives no motion (it sits still) — both at
+            // once, which is exactly what a cabinet reports as "the mouse is
+            // dead". Wayland was excluded here because bare `Focus` is a
+            // no-op without an activation token; but doing nothing leaves the
+            // launcher unfocused from startup to the first click, so try the
+            // same raise combo the second-launch path uses. Throttled, and
+            // given up after a few rounds so we never fight the compositor.
             let focused = ctx.input(|i| i.viewport().focused).unwrap_or(false);
-            if !focused && std::env::var("WAYLAND_DISPLAY").is_err() {
+            if focused {
+                self.kiosk_focus_tries = 0;
+            } else if self.kiosk_focus_tries < 5
+                && self
+                    .kiosk_focus_at
+                    .is_none_or(|t| t.elapsed() >= std::time::Duration::from_secs(2))
+            {
+                self.kiosk_focus_tries += 1;
+                self.kiosk_focus_at = Some(std::time::Instant::now());
+                log::info!(
+                    "kiosk: playfield unfocused, raising (attempt {})",
+                    self.kiosk_focus_tries
+                );
+                ctx.send_viewport_cmd(egui::ViewportCommand::WindowLevel(
+                    egui::WindowLevel::AlwaysOnTop,
+                ));
                 ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+                ctx.send_viewport_cmd(egui::ViewportCommand::WindowLevel(
+                    egui::WindowLevel::Normal,
+                ));
                 ctx.request_repaint();
             }
 
@@ -1605,15 +1640,48 @@ impl eframe::App for App {
             // capture loss (Mutter Wayland drops the pointer-constraints
             // lock during focus thrash), and detect said capture loss to
             // reset the warp latch.
-            let (virtual_pos, is_captured) = ctx
+            let (virtual_pos, is_captured, is_dormant, opacity) = ctx
                 .with_plugin::<egui_rotate::RotationPlugin, _>(|p| {
                     let c = p.software_cursor();
                     (
                         c.and_then(|c| c.virtual_pos()),
                         c.is_some_and(|c| c.is_captured()),
+                        c.is_some_and(|c| c.is_dormant()),
+                        c.map_or(0.0, |c| c.opacity()),
                     )
                 })
-                .unwrap_or((None, false));
+                .unwrap_or((None, false, false, 0.0));
+
+            // Cursor diagnostics, once a second and only when something
+            // changed: "it vanishes and never comes back" has at least three
+            // distinct causes (dormancy that won't wake, a capture the
+            // compositor dropped, a pointer that left for another surface)
+            // and they are indistinguishable from the outside.
+            if std::env::var("PINREADY_CURSOR_DIAG").is_ok() {
+                let state = (is_captured, is_dormant, focused, virtual_pos.is_some());
+                let now = std::time::Instant::now();
+                let due = self
+                    .kiosk_diag_at
+                    .is_none_or(|t| now.duration_since(t).as_millis() >= 1000);
+                if due && self.kiosk_diag_state != Some(state) {
+                    self.kiosk_diag_state = Some(state);
+                    self.kiosk_diag_at = Some(now);
+                    let (moves, keys, gone) = ctx.input(|i| {
+                        i.raw.events.iter().fold((0, 0, 0), |(m, k, g), e| match e {
+                            egui::Event::MouseMoved(_) | egui::Event::PointerMoved(_) => {
+                                (m + 1, k, g)
+                            }
+                            egui::Event::Key { .. } | egui::Event::Text(_) => (m, k + 1, g),
+                            egui::Event::PointerGone => (m, k, g + 1),
+                            _ => (m, k, g),
+                        })
+                    });
+                    log::info!(
+                        "cursor: captured={is_captured} dormant={is_dormant} opacity={opacity:.2} \
+                         focused={focused} pos={virtual_pos:?} events(move={moves} key={keys} gone={gone})"
+                    );
+                }
+            }
             if let Some(p) = virtual_pos {
                 self.kiosk_last_virtual_pos = Some(p);
             }
