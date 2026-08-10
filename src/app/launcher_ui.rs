@@ -636,7 +636,32 @@ impl App {
     /// Backglass image on BG, VPX logo cover on DMD and Topper.
     /// Uses `with_monitor(idx)` to place each viewport — same mechanism as the
     /// main PF viewport. Monitor index = position in `self.displays`.
+    /// Report, once per focus change, whether a cover viewport is the one
+    /// holding the keyboard focus. Only a viewport can tell for itself, so
+    /// the answer has to come from inside its own render closure.
+    fn diag_cover_focus(ctx: &egui::Context, name: &str) {
+        if std::env::var("PINREADY_CURSOR_DIAG").is_err() {
+            return;
+        }
+        let focused = ctx.input(|i| i.viewport().focused).unwrap_or(false);
+        let id = egui::Id::new(("cover_focus_diag", name));
+        let previous = ctx.data(|d| d.get_temp::<bool>(id));
+        if previous != Some(focused) {
+            ctx.data_mut(|d| d.insert_temp(id, focused));
+            log::info!("cover {name}: focused={focused}");
+        }
+    }
+
     fn render_cover_viewports(&self, ui: &mut egui::Ui) {
+        // Diagnostic escape hatch: the playfield never gets focus in cabinet
+        // mode, and the covers are the prime suspect — they map after it, and
+        // Mutter is known to ignore their `with_active(false)` (which is why
+        // egui-keyfunnel exists at all). Running without them says whether
+        // they are the ones holding the focus.
+        if std::env::var("PINREADY_NO_COVERS").is_ok() {
+            return;
+        }
+
         // Backglass image
         if let Some(bg_idx) = self
             .displays
@@ -667,6 +692,7 @@ impl App {
                         .with_mouse_passthrough(true),
                     move |ui, _class| {
                         let ctx = ui.ctx().clone();
+                        Self::diag_cover_focus(&ctx, "backglass");
                         egui_extras::install_image_loaders(&ctx);
                         egui::CentralPanel::default()
                             .frame(egui::Frame::NONE.fill(egui::Color32::BLACK))
@@ -725,6 +751,7 @@ impl App {
                 .with_mouse_passthrough(true),
             move |ui, _class| {
                 let ctx = ui.ctx().clone();
+                Self::diag_cover_focus(&ctx, id);
                 egui_extras::install_image_loaders(&ctx);
                 ctx.include_bytes("bytes://vpx_logo", VPX_LOGO);
                 egui::CentralPanel::default()
