@@ -21,7 +21,7 @@ impl App {
         });
         ui.add_sized(
             [ui.available_width(), 24.0],
-            egui::Slider::new(&mut self.tilt.nudge_scale_pct, 0.0..=100.0)
+            egui::Slider::new(&mut self.tilt.nudge_scale_pct, 0.0..=200.0)
                 .custom_formatter(|v, _| format!("{:.0}%", v)),
         );
         ui.add_space(4.0);

@@ -38,9 +38,13 @@ const TILT_ANGLE_RANGE: f32 = TILT_ANGLE_MAX - TILT_ANGLE_MIN;
 /// Driving sensitivity through `scale` meant lying to the engine about what
 /// the sensor is, and made a 4 g or 8 g board impossible to describe.
 const GRAVITY: f32 = 9.806_65;
-/// Slider percent → Strength. 50 % is neutral (1.0), 100 % is the 2.0 ceiling
-/// VPX accepts.
-const NUDGE_STRENGTH_PER_PCT: f32 = 2.0 / 100.0;
+/// Slider percent → Strength, on VPX's own scale: its live UI shows this
+/// field multiplied by 100, so neutral reads 100 % there. Using a 0-100 range
+/// here would have shown 50 % for the very same setting — two numbers for one
+/// value across two screens.
+const NUDGE_STRENGTH_PER_PCT: f32 = 1.0 / 100.0;
+/// Matching the 0..2 range of the underlying field.
+const NUDGE_STRENGTH_MAX_PCT: f32 = 200.0;
 
 impl Default for TiltConfig {
     fn default() -> Self {
@@ -49,7 +53,7 @@ impl Default for TiltConfig {
             // the tilt page: nudge 50 %, deadzone 10 %, tilt 75 %.
             tilt_sensitivity_pct: 75.0,
             plumb_damping: 1.0,
-            nudge_scale_pct: 50.0,
+            nudge_scale_pct: 100.0,
             nudge_range_g: 1.0,
             nudge_deadzone_pct: 10.0,
             nudge_sensor_type: 1,
@@ -92,7 +96,7 @@ impl TiltConfig {
             self.nudge_sensor_type = v;
         }
         if let Some(v) = config.get_f32("Input", "Mapping.Nudge0.Strength") {
-            self.nudge_scale_pct = (v / NUDGE_STRENGTH_PER_PCT).clamp(0.0, 100.0);
+            self.nudge_scale_pct = (v / NUDGE_STRENGTH_PER_PCT).clamp(0.0, NUDGE_STRENGTH_MAX_PCT);
         }
     }
 
@@ -153,7 +157,7 @@ mod tests {
         let tilt = TiltConfig::default();
         assert!((tilt.tilt_sensitivity_pct - 75.0).abs() < f32::EPSILON);
         assert!((tilt.plumb_damping - 1.0).abs() < f32::EPSILON);
-        assert!((tilt.nudge_scale_pct - 50.0).abs() < f32::EPSILON);
+        assert!((tilt.nudge_scale_pct - 100.0).abs() < f32::EPSILON);
         assert!((tilt.nudge_deadzone_pct - 10.0).abs() < f32::EPSILON);
     }
 
@@ -168,8 +172,10 @@ mod tests {
         tilt.load_from_config(&cfg);
         assert!((tilt.tilt_sensitivity_pct - 50.0).abs() < 0.1);
         assert!((tilt.plumb_damping - 0.5).abs() < f32::EPSILON);
-        // 1g is mid-course on the slider.
-        assert!((tilt.nudge_scale_pct - 50.0).abs() < 0.1);
+        // The mapping declares 1 g; sensitivity is untouched by that and
+        // keeps its default, since no Strength is present in this ini.
+        assert!((tilt.nudge_range_g - 1.0).abs() < 0.01);
+        assert!((tilt.nudge_scale_pct - 100.0).abs() < 0.1);
         assert!((tilt.nudge_deadzone_pct - 10.0).abs() < 0.1);
     }
 
@@ -242,7 +248,7 @@ mod tests {
         let mut cfg = config_from_str(ini);
         let mut tilt = TiltConfig::default();
         tilt.load_from_config(&cfg);
-        tilt.nudge_scale_pct = 100.0;
+        tilt.nudge_scale_pct = 200.0;
         tilt.nudge_range_g = 2.0;
         tilt.save_to_config(&mut cfg);
 
@@ -294,7 +300,7 @@ mod tests {
             tilt.nudge_range_g
         );
         assert!(
-            (tilt.nudge_scale_pct - 75.0).abs() < 0.1,
+            (tilt.nudge_scale_pct - 150.0).abs() < 0.1,
             "got {}",
             tilt.nudge_scale_pct
         );
