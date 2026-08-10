@@ -1217,6 +1217,7 @@ dependencies = [
 [[package]]
 name = "egui-keyfunnel"
 version = "0.2.0"
+source = "git+https://github.com/Le-Syl21/egui-keyfunnel?branch=main#3de41b58b6eed6e2771468191a89a1477dcc575c"
 dependencies = [
  "egui",
 ]
@@ -1224,6 +1225,7 @@ dependencies = [
 [[package]]
 name = "egui-rotate"
 version = "3.1.1"
+source = "git+https://github.com/Le-Syl21/egui-rotate?branch=main#fe092e2bfdb72567aa2e3de23e69d85923953b41"
 dependencies = [
  "egui",
 ]
