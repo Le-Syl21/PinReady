@@ -404,6 +404,9 @@ pub struct App {
     // a compositor that refuses three times will refuse the thirtieth too.
     kiosk_focus_tries: u32,
     kiosk_focus_at: Option<std::time::Instant>,
+    /// The reset button is armed by a first click and fires on a second:
+    /// it throws away every answer given so far.
+    reset_armed: bool,
     // Launcher joystick nav auto-repeat: track which nav button is held
     nav_held: Option<(
         u8,
@@ -443,6 +446,11 @@ pub struct App {
 
     // Autostart on boot
     autostart: bool,
+    /// A launcher on the desktop, and the app pinned to the dock. Read once
+    /// at startup: both are filesystem/GSettings state, not ours to own.
+    desktop_shortcut: bool,
+    dock_pinned: bool,
+    dock_pinning_available: bool,
 
     // Desktop integration: app-menu shortcuts (PinReady + VPinballX) and
     // .vpx file association. Mirrors `autostart` — flipped from the wizard's
@@ -733,6 +741,7 @@ impl App {
             kiosk_diag_at: None,
             kiosk_focus_tries: 0,
             kiosk_focus_at: None,
+            reset_armed: false,
             nav_held: None,
             bg_rx: None,
             scan_generation: 0,
@@ -744,6 +753,9 @@ impl App {
             vpx_hide_covers: false,
             vpx_error_log: None,
             autostart: is_autostart_enabled(),
+            desktop_shortcut: desktop_integration::is_desktop_shortcut_installed(),
+            dock_pinned: desktop_integration::is_pinned_to_dock(),
+            dock_pinning_available: desktop_integration::dock_pinning_available(),
             desktop_integration: is_desktop_integration_installed(),
             mirror_base_url,
             ht_install_rx: None,
@@ -1384,6 +1396,26 @@ impl App {
         if self.page == WizardPage::Outputs && self.output_discovery.loop_running {
             self.output_discovery.stop_loop();
         }
+    }
+
+    /// Back to a blank wizard: the stored settings are already gone, so
+    /// rebuild the in-memory state the same way a first run would and return
+    /// to page one. Restarting the process would be simpler but would lose
+    /// the window we are drawing in.
+    pub(super) fn restart_wizard(&mut self) {
+        for page in 0..8 {
+            if let Some(p) = WizardPage::from_index(page) {
+                self.page = p;
+                self.reset_current_page();
+            }
+        }
+        self.page = WizardPage::Screens;
+        self.tilt = crate::tilt::TiltConfig::default();
+        self.tables_dir.clear();
+        self.merge_src_root.clear();
+        self.autostart = false;
+        self.desktop_integration = false;
+        self.mirror_base_url.clear();
     }
 
     fn reset_current_page(&mut self) {

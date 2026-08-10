@@ -1,5 +1,7 @@
 use super::*;
 
+const ASTERISK_RED_SCREENS: egui::Color32 = egui::Color32::from_rgb(255, 80, 80);
+
 impl App {
     pub(super) fn render_screens_page(&mut self, ui: &mut egui::Ui) {
         ui.heading(t!("screens_heading"));
@@ -40,6 +42,43 @@ impl App {
                 let _ = self.db.set_config("language", code);
             }
         });
+        ui.add_space(8.0);
+        ui.separator();
+        ui.add_space(8.0);
+
+        // Start over. Two clicks, because it throws away every answer given
+        // so far — and it is placed on the first page precisely because that
+        // is where someone who wants a clean slate comes looking.
+        ui.horizontal(|ui| {
+            if self.reset_armed {
+                if ui
+                    .button(
+                        egui::RichText::new(t!("config_reset_confirm")).color(ASTERISK_RED_SCREENS),
+                    )
+                    .clicked()
+                {
+                    match self.db.reset_config() {
+                        Ok(()) => {
+                            log::info!("Configuration reset — restarting the wizard");
+                            self.restart_wizard();
+                        }
+                        Err(e) => log::error!("Configuration reset failed: {e:#}"),
+                    }
+                    self.reset_armed = false;
+                }
+                if ui.button(t!("config_reset_cancel")).clicked() {
+                    self.reset_armed = false;
+                }
+            } else if ui
+                .button(t!("config_reset"))
+                .on_hover_text(t!("config_reset_hint"))
+                .clicked()
+            {
+                self.reset_armed = true;
+            }
+            help_marker(ui, &t!("config_reset_hint"));
+        });
+
         ui.add_space(8.0);
         ui.separator();
         ui.add_space(8.0);

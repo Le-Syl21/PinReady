@@ -411,6 +411,20 @@ impl Database {
         self.set_config("wizard_completed", "true")
     }
 
+    /// Wipe every setting PinReady holds, so the next start runs the wizard
+    /// from a blank slate.
+    ///
+    /// Only PinReady's own table is cleared: the scanned tables, their cached
+    /// backglasses and the VPX ini are left alone. Re-answering the wizard is
+    /// meant to be cheap, not to cost a rescan of the collection — and the
+    /// ini gets rewritten when the wizard is validated anyway.
+    pub fn reset_config(&self) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM config", [])
+            .context("Failed to clear the configuration")?;
+        Ok(())
+    }
+
     /// Get a config value by key.
     pub fn get_config(&self, key: &str) -> Option<String> {
         self.conn

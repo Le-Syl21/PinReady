@@ -817,10 +817,16 @@ fn run_eframe_for_mode(mode: app::AppMode) -> Result<()> {
                 cc.egui_ctx.set_fonts(font_defs);
                 log::info!("Loaded {} Noto font(s) for non-Latin scripts", font_count);
             }
-            // Bump the UI a bit beyond egui's default sizing. Composes with
-            // the OS-reported DPI scale (native_pixels_per_point), so HiDPI
-            // is still honored — this is an additional user-level zoom.
-            cc.egui_ctx.set_zoom_factor(1.20);
+            // Bump the UI beyond egui's default sizing. Composes with the
+            // OS-reported DPI scale (native_pixels_per_point), so HiDPI is
+            // still honored — this is an additional user-level zoom.
+            //
+            // The wizard gets twice the launcher's zoom: it is read standing
+            // beside a cabinet, on a playfield lying flat a metre away, often
+            // while holding a screwdriver. The launcher is browsed from the
+            // same distance but its cards carry their own scale.
+            cc.egui_ctx
+                .set_zoom_factor(if start_in_wizard { 2.4 } else { 1.20 });
             // Register the egui-rotate plugin unconditionally. It owns
             // per-viewport input rotation, output rotation and the
             // software cursor. Registered even when the initial rotation

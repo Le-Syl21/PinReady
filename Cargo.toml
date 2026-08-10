@@ -76,7 +76,7 @@ time = { version = "0.3", features = ["local-offset", "formatting", "macros"] }
 rust-i18n = "4"
 
 # Fonts for non-Latin scripts (Arabic, CJK, Devanagari, Thai, etc.)
-noto-fonts-dl = { version = "0.1.2", features = ["ar", "hi", "bn", "zh", "zh_tw", "ja", "ko", "th", "ur"] }
+noto-fonts-dl = { version = "0.1.4", features = ["ar", "hi", "bn", "zh", "zh_tw", "ja", "ko", "th", "ur", "vi"] }
 
 # Platform directories (data, config, home)
 dirs = "6"
@@ -181,6 +181,9 @@ strip = true
 #
 # Rotation lives in `egui-rotate`, keyboard funneling in `egui-keyfunnel`.
 [patch.crates-io]
+# noto-fonts-dl 0.1.4 (the `vi` feature) is tagged but its crates.io publish
+# is still waiting for approval — drop this line once it lands.
+noto-fonts-dl = { git = "https://github.com/Le-Syl21/noto-fonts-dl", branch = "main" }
 egui        = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.36-slim" }
 eframe      = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.36-slim" }
 egui_extras = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.36-slim" }

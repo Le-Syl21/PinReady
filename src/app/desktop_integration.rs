@@ -457,3 +457,189 @@ fn install(_vpx_exe_path: &str) -> anyhow::Result<()> {
 fn uninstall() -> anyhow::Result<()> {
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// Desktop shortcut and dock pinning
+//
+// Both are conveniences the app-menu entry above does not cover: a launcher
+// sitting on the desktop, and the app pinned to the dock/taskbar. They are
+// deliberately separate toggles — someone running a cabinet wants the desktop
+// icon, someone using PinReady from a workstation usually wants neither.
+//
+// Linux only. The desktop file is standard freedesktop, but pinning is
+// shell-specific: GNOME keeps its list in a GSettings key, KDE and XFCE have
+// their own panel configuration with no shared interface. Rather than pretend
+// otherwise, `dock_pinning_available` reports whether we can do it here, and
+// the UI hides the option when we can't.
+// ---------------------------------------------------------------------------
+
+/// Path of the desktop launcher, if the platform has a desktop folder.
+#[cfg(target_os = "linux")]
+fn desktop_shortcut_path() -> Option<PathBuf> {
+    dirs::desktop_dir().map(|d| d.join("pinready.desktop"))
+}
+
+/// Whether a launcher currently sits on the desktop.
+pub(super) fn is_desktop_shortcut_installed() -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        desktop_shortcut_path().is_some_and(|p| p.exists())
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        false
+    }
+}
+
+/// Put a launcher on the desktop, or take it away.
+///
+/// The file is a copy of the app-menu entry, marked executable — GNOME 42+
+/// still shows it as an untrusted launcher until the user picks "Allow
+/// launching" once, which is the shell's decision to make, not ours.
+pub(super) fn set_desktop_shortcut(enabled: bool) -> anyhow::Result<()> {
+    #[cfg(target_os = "linux")]
+    {
+        let target = desktop_shortcut_path().ok_or_else(|| anyhow::anyhow!("no desktop folder"))?;
+        if !enabled {
+            if target.exists() {
+                std::fs::remove_file(&target)?;
+            }
+            return Ok(());
+        }
+        // `Icon=pinready` only resolves once the artwork sits in the icon
+        // theme, which is the menu integration's job — and this toggle is
+        // independent of it. Write the icon here too (same bytes, same path,
+        // so enabling both is idempotent) or the launcher shows up blank.
+        if let Some(h) = home() {
+            let icons = h.join(".local/share/icons/hicolor/128x128/apps");
+            if std::fs::create_dir_all(&icons).is_ok() {
+                let _ = std::fs::write(icons.join("pinready.png"), PINREADY_LOGO_PNG);
+            }
+        }
+
+        // Reuse the menu entry when it exists so both always agree; write a
+        // standalone one otherwise, since the desktop icon has to work even
+        // if the user never enabled the menu integration.
+        let source = pinready_marker_path().filter(|p| p.exists());
+        let contents = match source {
+            Some(p) => std::fs::read_to_string(p)?,
+            None => {
+                let exe = std::env::current_exe()?;
+                format!(
+                    "[Desktop Entry]\n\
+                     Type=Application\n\
+                     Name=PinReady\n\
+                     GenericName=Visual Pinball Launcher\n\
+                     Comment=Visual Pinball configurator and table launcher\n\
+                     Exec={}\n\
+                     Icon=pinready\n\
+                     Terminal=false\n\
+                     Categories=Game;ArcadeGame;\n\
+                     StartupNotify=true\n\
+                     StartupWMClass=PinReady\n",
+                    shell_quote(&exe.display().to_string())
+                )
+            }
+        };
+        if let Some(parent) = target.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&target, contents)?;
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o755))?;
+        }
+        Ok(())
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = enabled;
+        anyhow::bail!("desktop shortcuts are only implemented on Linux")
+    }
+}
+
+/// Whether this session exposes a dock we know how to pin to (GNOME).
+pub(super) fn dock_pinning_available() -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        gsettings(&["get", "org.gnome.shell", "favorite-apps"]).is_some()
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        false
+    }
+}
+
+/// Whether PinReady is pinned to the dock.
+pub(super) fn is_pinned_to_dock() -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        gsettings(&["get", "org.gnome.shell", "favorite-apps"])
+            .is_some_and(|list| list.contains("'pinready.desktop'"))
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        false
+    }
+}
+
+/// Pin PinReady to the dock, or unpin it.
+pub(super) fn set_pinned_to_dock(enabled: bool) -> anyhow::Result<()> {
+    #[cfg(target_os = "linux")]
+    {
+        let current = gsettings(&["get", "org.gnome.shell", "favorite-apps"])
+            .ok_or_else(|| anyhow::anyhow!("no GNOME shell settings on this session"))?;
+        // The value is a GVariant string array: ['a.desktop', 'b.desktop'].
+        // Parse it back to entries rather than string-splice, so a list we
+        // did not write stays intact.
+        let mut apps: Vec<String> = current
+            .trim()
+            .trim_start_matches('@')
+            .trim_start_matches("as")
+            .trim()
+            .trim_start_matches('[')
+            .trim_end_matches(']')
+            .split(',')
+            .map(|s| s.trim().trim_matches('\'').to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        let entry = "pinready.desktop".to_string();
+        apps.retain(|a| a != &entry);
+        if enabled {
+            apps.push(entry);
+        }
+        let value = format!(
+            "[{}]",
+            apps.iter()
+                .map(|a| format!("'{a}'"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        gsettings(&["set", "org.gnome.shell", "favorite-apps", &value])
+            .ok_or_else(|| anyhow::anyhow!("could not write the favourites list"))?;
+        Ok(())
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = enabled;
+        anyhow::bail!("dock pinning is only implemented for GNOME")
+    }
+}
+
+/// Run `gsettings`, returning its stdout on success.
+///
+/// This is the one place PinReady shells out: GNOME's favourites live in
+/// dconf, and reaching them otherwise means speaking the dconf D-Bus protocol
+/// by hand for a purely cosmetic feature. Absent binary or failed call simply
+/// means "no dock pinning here", which the UI treats as the option not
+/// existing.
+#[cfg(target_os = "linux")]
+fn gsettings(args: &[&str]) -> Option<String> {
+    let out = std::process::Command::new("gsettings")
+        .args(args)
+        .output()
+        .ok()?;
+    out.status
+        .success()
+        .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
+}

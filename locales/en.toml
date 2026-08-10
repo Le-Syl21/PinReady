@@ -442,6 +442,10 @@ autostart_hint = "Recommended for a dedicated pincab. PinReady will start when t
 # Desktop integration (menu shortcuts + .vpx file association)
 desktop_integration_label = "Add PinReady & Visual Pinball to the system menu, with .vpx file association"
 desktop_integration_hint = "Installs application shortcuts in your desktop's app menu (GNOME/KDE/XFCE on Linux, Launchpad on macOS, Start Menu on Windows) and registers .vpx files to open with Visual Pinball X. Reversible by unticking this and finishing the wizard again."
+desktop_shortcut_label = "Add a PinReady shortcut to the desktop"
+desktop_shortcut_hint = "Copies the PinReady launcher into your desktop folder. On GNOME you have to allow launching once, the first time you click it."
+dock_pin_label = "Pin PinReady to the launch bar"
+dock_pin_hint = "Adds PinReady to the dock's favourites. GNOME only."
 
 # System wizard page (autostart + desktop integration)
 system_heading = "System integration"
@@ -590,6 +594,10 @@ outputs_discover_label_hint = "Name the device wired to this output (e.g. Left F
 outputs_discover_copy_hint = "Copies the numbered list of your labelled outputs to the clipboard, as a reference while filling in configtool.vpuniverse.com."
 outputs_discover_end_session_hint = "Ends the discovery session and clears the current output labels. Copy the summary first if you still need it."
 screens_language_hint = "Interface language for PinReady. This does not change Visual Pinball's own language."
+config_reset = "Reset the configuration"
+config_reset_confirm = "Confirm reset"
+config_reset_cancel = "Cancel"
+config_reset_hint = "Throws away every answer given to the wizard and starts again at page one. Your tables and VPinballX.ini are left alone — the ini is rewritten when you finish the wizard."
 screens_vpx_auto_hint = "Downloads and installs a recent build of the Visual Pinball X fork tested with PinReady (from Le-Syl21/vpinball) — not the official VPX. Recommended if you don't already have VPX installed."
 screens_vpx_install_button_hint = "Download the version shown above and install it into the folder below."
 screens_vpx_browse_dir_hint = "Choose the folder where Visual Pinball X will be installed."
