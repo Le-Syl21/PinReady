@@ -45,25 +45,38 @@ It replaces the non-existent native configuration tools for VPX standalone (SDL3
 Cabinet behaviour lives in **two standalone published `egui::Plugin` crates**,
 not in the fork:
 
-- **`egui-rotate 2.0`** — viewport rotation, the software cursor, the OS pointer
+- **`egui-rotate 3.1`** — viewport rotation, the software cursor, the OS pointer
   grab, the soft/hard edge lock, the keyboard/gamepad auto-hide and the
   dissolve/reform fade. Registered as one `RotationPlugin` in `main.rs`.
-- **`egui-keyfunnel 0.1`** — funnels keyboard events from the BG/DMD/Topper cover
+- **`egui-keyfunnel 0.2`** — funnels keyboard events from the BG/DMD/Topper cover
   viewports to the playfield (ROOT). Under Mutter Wayland a freshly-mapped cover
   viewport can steal keyboard focus despite `with_active(false)`; the plugin
   moves its key events back to ROOT so flipper keys + launcher navigation always
   reach the playfield. Registered as one `KeyFunnel` in `main.rs`. **This
   replaces the old eframe "kiosk routing"** that used to live in the fork.
 
-The egui fork is now down to a **single patch** — pinned in `[patch.crates-io]`
-on the `pinready-0.35-slim` branch (egui 0.35.0 + one commit):
+The egui fork carries four patches — pinned in `[patch.crates-io]` on the
+`pinready-0.36-slim` branch (egui 0.36.0 + four commits):
 
 - **`ViewportCommand::RequestActivationToken` + `Event::ActivationTokenReceived`** — Wayland xdg-activation / X11 startup-id token, used to hand focus to the freshly-launched VPX window (pending upstream as [emilk/egui#8282]).
+- **eframe glow: apply `ViewportBuilder::with_monitor`** — borderless fullscreen on the target output; upstream only does it in the wgpu path (pending as [emilk/egui#8302]).
+- **eframe: consume the activation token from the environment** — `XDG_ACTIVATION_TOKEN` / `DESKTOP_STARTUP_ID` applied at window creation, so a `StartupNotify=true` desktop entry can give the window its focus. Upstreamable.
+- **`DeviceEvent::MouseMotion` routed to ROOT, unconditionally** — the mouse half of the old kiosk routing, restored.
+
+That last one is the load-bearing one on a cabinet, and it was dropped once on
+the assumption that "the mouse follows the focused window". It follows nobody
+here: Mutter hands the focus to a cover viewport as it maps (`with_active(false)`
+is a Wayland no-op) and refuses to give it back (`ViewportCommand::Focus` is
+exactly what focus-stealing prevention blocks — measured, five refusals in a
+row). An unfocused playfield gets no pointer constraint and no motion events, so
+the software cursor sits still while the real pointer wanders onto the
+backglass. `DeviceEvent::MouseMotion` is a device-level event with no surface
+attached, so routing it to ROOT is both correct and what makes the cursor work
+without focus.
 
 `with_monitor`/`SetMonitor` (#8140) and the physical modifier keys (#8127) ship
-in egui 0.35 itself. The mouse follows the focused window (by design); gamepad /
-joystick is read via SDL, independent of window focus — so neither needs any
-routing. When #8282 lands + ships, the fork goes away entirely.
+in egui itself. Keyboard is handled by `egui-keyfunnel`; gamepad/joystick is read
+via SDL, independent of window focus.
 
 Branch pinned in `Cargo.toml`.
 

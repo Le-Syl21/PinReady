@@ -164,11 +164,20 @@ strip = true
 #     `create_winit_window_attributes`, so `with_monitor` was a no-op and every
 #     viewport opened on the default monitor un-fullscreen. Upstreamable.
 #
-# The old eframe "kiosk routing" (KeyboardInput + raw MouseMotion forced to ROOT)
-# is GONE. Keyboard now reaches the playfield via the `egui-keyfunnel` plugin
-# (above); the mouse follows the focused window (by design); gamepad/joystick is
-# read via SDL, independent of window focus. The `with_monitor` API (#8140) and
-# the physical modifier keys (#8127) ship in egui 0.35 itself.
+# The branch also carries the mouse half of the old kiosk routing, restored
+# after it was dropped on the assumption that "the mouse follows the focused
+# window". On a cabinet it follows nobody: Mutter hands the focus to a cover
+# viewport as it maps and refuses to give it back, so the playfield sees no
+# motion at all. `DeviceEvent::MouseMotion` is a device-level event with no
+# surface attached, so it is routed to ROOT unconditionally — which is what
+# makes the software cursor work without focus. Keyboard is covered by the
+# `egui-keyfunnel` plugin (above); gamepad/joystick is read via SDL,
+# independent of window focus.
+#
+# Fourth patch: eframe consumes the activation token from
+# XDG_ACTIVATION_TOKEN / DESKTOP_STARTUP_ID at window creation, so a desktop
+# entry with StartupNotify=true can hand the window its focus in the first
+# place. Upstreamable.
 #
 # Rotation lives in `egui-rotate`, keyboard funneling in `egui-keyfunnel`.
 [patch.crates-io]
