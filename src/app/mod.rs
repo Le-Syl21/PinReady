@@ -1599,7 +1599,9 @@ impl eframe::App for App {
             // captureless gap right after VPX exits (until the warp latch
             // below re-seeds the cursor) where the OS pointer would flicker
             // on top of the playfield.
-            ctx.send_viewport_cmd(egui::ViewportCommand::CursorVisible(false));
+            // (Sent below, once the capture state is known: hiding the OS
+            // pointer while nothing is captured leaves the screen with no
+            // cursor at all.)
 
             // No focus, no pointer. A compositor only grants a pointer
             // constraint to a focused surface, so an unfocused playfield
@@ -1682,6 +1684,16 @@ impl eframe::App for App {
                     );
                 }
             }
+            // Hide the OS pointer only while the software cursor is actually
+            // drawn. The two vanish together otherwise: the pointer leaves
+            // the window, `PointerGone` releases the software cursor in a
+            // single frame, and a hidden OS pointer on top of that leaves the
+            // screen with nothing to aim — and no way to click the playfield
+            // back into focus.
+            ctx.send_viewport_cmd(egui::ViewportCommand::CursorVisible(
+                !(is_captured && virtual_pos.is_some()),
+            ));
+
             if let Some(p) = virtual_pos {
                 self.kiosk_last_virtual_pos = Some(p);
             }
