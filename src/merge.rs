@@ -200,7 +200,7 @@ pub fn build_index(
     root: &Path,
     skip_subtree: Option<&Path>,
     cancel: &Arc<AtomicBool>,
-    mut on_progress: impl FnMut(usize, usize),
+    mut on_progress: impl FnMut(usize, usize, &Path),
 ) -> AssetIndex {
     let mut index = AssetIndex::default();
     let skip = skip_subtree.map(canonical);
@@ -234,7 +234,7 @@ pub fn build_index(
         if entry.file_type().is_dir() {
             index.dirs_scanned += 1;
             if index.dirs_scanned.is_multiple_of(200) {
-                on_progress(index.files_indexed, index.dirs_scanned);
+                on_progress(index.files_indexed, index.dirs_scanned, entry.path());
             }
             continue;
         }
@@ -295,7 +295,11 @@ pub fn build_index(
             .push(path.to_path_buf());
         index.files_indexed += 1;
         if index.files_indexed.is_multiple_of(500) {
-            on_progress(index.files_indexed, index.dirs_scanned);
+            on_progress(
+                index.files_indexed,
+                index.dirs_scanned,
+                path.parent().unwrap_or(path),
+            );
         }
     }
 
@@ -312,7 +316,7 @@ pub fn build_index(
     }
     index.tables.sort();
     index.tables.dedup();
-    on_progress(index.files_indexed, index.dirs_scanned);
+    on_progress(index.files_indexed, index.dirs_scanned, root);
     index
 }
 
@@ -390,6 +394,9 @@ pub enum MergeEvent {
     ScanProgress {
         files: usize,
         dirs: usize,
+        /// Folder being walked right now — a counter alone looks frozen
+        /// on a spinning disk.
+        folder: PathBuf,
     },
     /// Step 1 done: how much was indexed, and how many tables came out.
     ScanDone {
@@ -646,8 +653,12 @@ fn run(config: &MergeConfig, tx: &Sender<MergeEvent>, cancel: &Arc<AtomicBool>) 
         &config.scan_root,
         (!in_place).then_some(config.output_root.as_path()),
         cancel,
-        |files, dirs| {
-            let _ = tx.send(MergeEvent::ScanProgress { files, dirs });
+        |files, dirs, folder| {
+            let _ = tx.send(MergeEvent::ScanProgress {
+                files,
+                dirs,
+                folder: folder.to_path_buf(),
+            });
         },
     );
     sink.report.files_indexed = index.files_indexed;
@@ -1645,7 +1656,7 @@ mod run_tests {
         write(root.join("Music/Some Table/track.ogg"), b"x");
 
         let cancel = Arc::new(AtomicBool::new(false));
-        let index = build_index(&root, None, &cancel, |_, _| {});
+        let index = build_index(&root, None, &cancel, |_, _, _| {});
         assert!(index.dir_in("apollo13", &index.altsound_dirs).is_some());
         assert!(index.dir_in("apollo13", &index.music_dirs).is_none());
         assert!(index.dir_in("Some Table", &index.music_dirs).is_some());

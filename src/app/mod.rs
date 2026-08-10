@@ -449,6 +449,10 @@ pub struct App {
     merge_scan_finished: bool,
     merge_table_index: usize,
     merge_table_total: usize,
+    /// What the worker is busy with right now — the folder being walked,
+    /// then the table being bundled. A bar that only counts looks frozen
+    /// on a spinning disk.
+    merge_busy_with: String,
     merge_strategy: crate::merge::MergeStrategy,
     merge_progress_rx: Option<crossbeam_channel::Receiver<crate::merge::MergeEvent>>,
     merge_cancel: Option<Arc<AtomicBool>>,
@@ -719,6 +723,7 @@ impl App {
             merge_scan_finished: false,
             merge_table_index: 0,
             merge_table_total: 0,
+            merge_busy_with: String::new(),
             merge_strategy,
             merge_progress_rx: None,
             merge_cancel: None,

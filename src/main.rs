@@ -683,8 +683,15 @@ fn run_merge_cli(args: &[String], mode: merge::MergeMode) -> Result<()> {
     let mut errored = 0usize;
     while let Ok(ev) = rx.recv() {
         match ev {
-            ScanProgress { files, dirs } => {
-                print!("\r  indexing… {files} files / {dirs} folders");
+            ScanProgress {
+                files,
+                dirs,
+                folder,
+            } => {
+                print!(
+                    "\r\x1b[2K  indexing… {files} files / {dirs} folders — {}",
+                    folder.display()
+                );
                 use std::io::Write as _;
                 let _ = std::io::stdout().flush();
             }

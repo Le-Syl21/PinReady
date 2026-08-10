@@ -96,11 +96,25 @@ impl App {
                     }
                     ui.ctx().request_repaint();
                 } else if let Some(release) = self.vpx_latest_release.clone() {
-                    if release.tag != self.vpx_installed_tag
-                        && ui
-                            .button(t!("vpx_install_button"))
-                            .on_hover_text(t!("screens_vpx_install_button_hint"))
-                            .clicked()
+                    // Already on the latest build is not a reason to hide the
+                    // button: a botched install has to be repairable, and the
+                    // page looked broken without it. Name the destination the
+                    // same way the head-tracking button does.
+                    let label = if self.vpx_installed_tag.is_empty() {
+                        t!("vpx_install_button")
+                    } else if release.tag == self.vpx_installed_tag {
+                        t!("vpx_reinstall_button", tag = release.tag.as_str())
+                    } else {
+                        t!(
+                            "vpx_update_button_to",
+                            from = self.vpx_installed_tag.as_str(),
+                            to = release.tag.as_str()
+                        )
+                    };
+                    if ui
+                        .button(label)
+                        .on_hover_text(t!("screens_vpx_install_button_hint"))
+                        .clicked()
                     {
                         self.start_vpx_download(&release);
                     }

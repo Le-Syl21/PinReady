@@ -3,6 +3,26 @@ use super::*;
 const ASTERISK_RED: egui::Color32 = egui::Color32::from_rgb(255, 80, 80);
 const NOTICE_AMBER: egui::Color32 = egui::Color32::from_rgb(255, 200, 80);
 
+/// Last two components of a path — a whole-disk scan walks paths far too
+/// long for one line, and the tail is the part that says where we are.
+fn tail_of(path: &std::path::Path) -> String {
+    let mut parts: Vec<_> = path
+        .components()
+        .rev()
+        .take(2)
+        .map(|c| c.as_os_str().to_string_lossy().into_owned())
+        .collect();
+    parts.reverse();
+    parts.join("/")
+}
+
+/// A slow sine between 0.45 and 1.0 — visibly alive, never blinking in
+/// the eye-catching sense.
+fn pulse_alpha(ctx: &egui::Context) -> f32 {
+    let t = ctx.input(|i| i.time) as f32;
+    0.72 + 0.28 * (t * 2.2).sin()
+}
+
 impl App {
     pub(super) fn render_tables_dir_page(&mut self, ui: &mut egui::Ui) {
         ui.heading(t!("tables_heading"));
@@ -221,9 +241,14 @@ impl App {
         if let Some(rx) = &self.merge_progress_rx {
             while let Ok(ev) = rx.try_recv() {
                 match &ev {
-                    MergeEvent::ScanProgress { files, dirs } => {
+                    MergeEvent::ScanProgress {
+                        files,
+                        dirs,
+                        folder,
+                    } => {
                         self.merge_scan_files = *files;
                         self.merge_scan_dirs = *dirs;
+                        self.merge_busy_with = tail_of(folder);
                         continue; // a moving counter, not a log line
                     }
                     MergeEvent::ScanDone {
@@ -236,13 +261,16 @@ impl App {
                         self.merge_table_total = *tables;
                         self.merge_scan_finished = true;
                     }
-                    MergeEvent::TableStarted { index, total, .. }
-                    | MergeEvent::TableSkipped { index, total, .. } => {
+                    MergeEvent::TableStarted { name, index, total }
+                    | MergeEvent::TableSkipped {
+                        name, index, total, ..
+                    } => {
                         // Skipped tables count towards the bar too, or it
                         // stalls short of the end on a collection full of
                         // duplicates.
                         self.merge_table_index = *index;
                         self.merge_table_total = *total;
+                        self.merge_busy_with = name.clone();
                     }
                     // An absence is not an event, and "dry run" on every
                     // line is the mode, not news: both drowned the log
@@ -403,11 +431,15 @@ impl App {
                     } else {
                         self.merge_table_index as f32 / self.merge_table_total as f32
                     };
-                    ui.add(egui::ProgressBar::new(fraction).text(t!(
-                        "merge_step_import",
-                        current = self.merge_table_index,
-                        total = self.merge_table_total
-                    )));
+                    ui.add(
+                        egui::ProgressBar::new(fraction)
+                            .animate(self.merge_running)
+                            .text(t!(
+                                "merge_step_import",
+                                current = self.merge_table_index,
+                                total = self.merge_table_total
+                            )),
+                    );
                     ui.label(
                         egui::RichText::new(t!(
                             "merge_step_scan_done",
@@ -416,6 +448,18 @@ impl App {
                         ))
                         .weak(),
                     );
+                }
+                // Name what is being handled, breathing gently: on a hard
+                // disk a single big table can hold the bar still for
+                // seconds, and a still bar reads as a crash.
+                if self.merge_running && !self.merge_busy_with.is_empty() {
+                    let pulse = pulse_alpha(ui.ctx());
+                    ui.label(
+                        egui::RichText::new(&self.merge_busy_with)
+                            .weak()
+                            .color(ui.visuals().weak_text_color().gamma_multiply(pulse)),
+                    );
+                    ui.ctx().request_repaint();
                 }
             }
 
@@ -475,6 +519,7 @@ impl App {
         self.merge_scan_finished = false;
         self.merge_table_index = 0;
         self.merge_table_total = 0;
+        self.merge_busy_with.clear();
         if matches!(mode, crate::merge::MergeMode::DryRun) {
             self.merge_dry_run_report = None;
         }
