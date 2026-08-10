@@ -944,6 +944,13 @@ fn build_viewport(
         .with_title(format!("PinReady v{VERSION}"))
         .with_inner_size(initial_size);
 
+    // The wizard is a long form with side-by-side columns (inputs, screens,
+    // import): a square 80 % window makes it scroll for no reason. Open it
+    // maximised — `inner_size` above stays as the restored-down size.
+    if matches!(mode, app::AppMode::Wizard) {
+        viewport = viewport.with_maximized(true);
+    }
+
     let mut want_kiosk_cursor = false;
     let mut rotation = egui_rotate::Rotation::None;
     if matches!(mode, app::AppMode::Launcher) {

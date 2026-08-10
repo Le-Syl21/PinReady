@@ -1659,6 +1659,20 @@ impl eframe::App for App {
                         })
                         .unwrap_or_else(|| vr.center());
                     Self::with_software_cursor(ctx, |c| c.set_virtual_pos(target));
+                    // Re-assert the OS grab by hand. The plugin only sends
+                    // `CursorGrab` when its own captured/released state
+                    // flips, and it still believes it holds one — but Mutter
+                    // silently dropped the pointer constraint when focus
+                    // thrashed. Without this the cursor is captured on our
+                    // side and free on the compositor's: it drifts off onto
+                    // the backglass and stops moving.
+                    ctx.send_viewport_cmd(egui::ViewportCommand::CursorGrab(
+                        if cfg!(target_os = "macos") {
+                            egui::viewport::CursorGrab::Locked
+                        } else {
+                            egui::viewport::CursorGrab::Confined
+                        },
+                    ));
                     self.kiosk_cursor_warped = true;
                 }
                 ctx.request_repaint();

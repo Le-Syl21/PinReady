@@ -656,7 +656,15 @@ impl App {
                         .with_title("PinReady — Backglass")
                         .with_decorations(false)
                         .with_monitor(bg_idx)
-                        .with_active(false),
+                        .with_active(false)
+                        // A cover is a picture, never a target. Left
+                        // clickable, Mutter hands it the pointer focus when
+                        // the cursor grazes the backglass screen, which drops
+                        // the playfield's pointer constraint: the arrow
+                        // escapes onto the backglass and freezes there,
+                        // because the moves it needs are now being delivered
+                        // to this window.
+                        .with_mouse_passthrough(true),
                     move |ui, _class| {
                         let ctx = ui.ctx().clone();
                         egui_extras::install_image_loaders(&ctx);
@@ -712,7 +720,9 @@ impl App {
                 .with_title(title)
                 .with_decorations(false)
                 .with_monitor(monitor_idx)
-                .with_active(false),
+                .with_active(false)
+                // See the backglass cover: covers must not attract the pointer.
+                .with_mouse_passthrough(true),
             move |ui, _class| {
                 let ctx = ui.ctx().clone();
                 egui_extras::install_image_loaders(&ctx);
