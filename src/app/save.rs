@@ -227,10 +227,14 @@ impl App {
                 "Mapping.Plunger0.Position",
                 &format!("{psc_id};514;P;0.000000;1.000000;1.000000"),
             );
+            // The velocity scale is a unit conversion, not a sensitivity: VPX
+            // wants per-unit/s (one unit = the plunger travel length), and its
+            // own sensor page offers 12.5 as the Pinscape reading. Left at 1.0,
+            // the launch impulse comes out two orders of magnitude short.
             self.config.set(
                 "Input",
                 "Mapping.Plunger0.Velocity",
-                &format!("{psc_id};517;V;0.000000;1.000000;1.000000"),
+                &format!("{psc_id};517;V;0.000000;12.500000;1.000000"),
             );
 
             // Nudge sensor 0 — accelerometer axes 512 (X) / 513 (Y). Sensitivity

@@ -23,6 +23,15 @@ const TILT_ANGLE_MIN: f32 = 0.15;
 const TILT_ANGLE_MAX: f32 = 4.0;
 const TILT_ANGLE_RANGE: f32 = TILT_ANGLE_MAX - TILT_ANGLE_MIN;
 
+/// A sensor mapping's scale stopped being a relative sensitivity factor when
+/// VPX rewrote its nudge handlers (10.8.1 rev 5277+): it is now the unit
+/// conversion that turns the axis reading into m/s². Writing the slider
+/// straight into that field asked the engine to treat a full-scale reading as
+/// half a m/s² — nudge you can barely see. Anchor the slider on 1g at
+/// mid-course instead, so 50 % is a standard board and 100 % a 2g one.
+const GRAVITY: f32 = 9.806_65;
+const NUDGE_SCALE_PER_PCT: f32 = 2.0 * GRAVITY / 100.0;
+
 impl Default for TiltConfig {
     fn default() -> Self {
         Self {
@@ -57,7 +66,7 @@ impl TiltConfig {
                     self.nudge_deadzone_pct = dz * 100.0;
                 }
                 if let Ok(s) = parts[4].parse::<f32>() {
-                    self.nudge_scale_pct = s * 100.0;
+                    self.nudge_scale_pct = (s / NUDGE_SCALE_PER_PCT).clamp(0.0, 100.0);
                 }
             }
         }
@@ -91,7 +100,7 @@ impl TiltConfig {
                     parts[1],
                     parts[2],
                     self.nudge_deadzone_pct / 100.0,
-                    self.nudge_scale_pct / 100.0,
+                    self.nudge_scale_pct * NUDGE_SCALE_PER_PCT,
                     parts[5]
                 );
                 config.set("Input", &mapping_key, &new_mapping);
@@ -127,13 +136,14 @@ mod tests {
         // PlumbThresholdAngle=2.075 (mid range 0.15..4) → pct = (4 - 2.075)/3.85 * 100 = 50%
         let cfg = config_from_str(
             "[Player]\nPlumbThresholdAngle = 2.075\nPlumbDamping = 0.5\n\
-             [Input]\nMapping.Nudge0.AccX = dev;512;A;0.1;0.8;1.0\n",
+             [Input]\nMapping.Nudge0.AccX = dev;512;A;0.1;9.80665;1.0\n",
         );
         let mut tilt = TiltConfig::default();
         tilt.load_from_config(&cfg);
         assert!((tilt.tilt_sensitivity_pct - 50.0).abs() < 0.1);
         assert!((tilt.plumb_damping - 0.5).abs() < f32::EPSILON);
-        assert!((tilt.nudge_scale_pct - 80.0).abs() < 0.1);
+        // 1g is mid-course on the slider.
+        assert!((tilt.nudge_scale_pct - 50.0).abs() < 0.1);
         assert!((tilt.nudge_deadzone_pct - 10.0).abs() < 0.1);
     }
 
@@ -206,13 +216,14 @@ mod tests {
         let mut cfg = config_from_str(ini);
         let mut tilt = TiltConfig::default();
         tilt.load_from_config(&cfg);
-        tilt.nudge_scale_pct = 120.0;
+        tilt.nudge_scale_pct = 100.0;
         tilt.save_to_config(&mut cfg);
 
+        // Full slider = a 2g board, in m/s^2.
         let mapping = cfg.get("Input", "Mapping.Nudge0.AccX").unwrap();
         assert!(
-            mapping.contains("1.200000"),
-            "expected scale 1.2 in: {mapping}"
+            mapping.contains("19.613300"),
+            "expected 2g scale in: {mapping}"
         );
 
         let angle = cfg.get_f32("Player", "PlumbThresholdAngle").unwrap();
@@ -230,17 +241,18 @@ mod tests {
         tilt.save_to_config(&mut cfg);
         let mapping = cfg.get("Input", "Mapping.Nudge0.AccX").unwrap();
         assert!(mapping.starts_with("SDLJoy_PSC004;512;A;"));
-        assert!(mapping.contains("0.500000"));
+        assert!(mapping.contains("9.806650"));
         assert!(mapping.ends_with(";1.000000"));
     }
 
     #[test]
     fn nudge_scale_parsed_from_mapping() {
+        // A 4g board reads past the top of the slider and clamps there.
         let cfg = config_from_str(
-            "[Input]\nMapping.Nudge0.AccX = dev;512;A;0.000000;1.750000;1.000000\n",
+            "[Input]\nMapping.Nudge0.AccX = dev;512;A;0.000000;39.226600;1.000000\n",
         );
         let mut tilt = TiltConfig::default();
         tilt.load_from_config(&cfg);
-        assert!((tilt.nudge_scale_pct - 175.0).abs() < 0.1);
+        assert!((tilt.nudge_scale_pct - 100.0).abs() < 0.1);
     }
 }
