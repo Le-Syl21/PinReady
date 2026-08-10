@@ -283,6 +283,21 @@ fn main() -> Result<()> {
     // so rotating the log is safe and desired.
     init_logging();
     log::info!("PinReady v{VERSION} starting...");
+    // Whether our launcher handed us an activation token decides whether the
+    // window can take focus at all under a compositor with focus-stealing
+    // prevention — and an unfocused window gets no pointer constraint, so the
+    // cursor can neither be confined nor moved. A desktop entry with
+    // StartupNotify=true provides one; a shell prompt does not.
+    log::info!(
+        "activation token from launcher: {}",
+        if std::env::var("XDG_ACTIVATION_TOKEN").is_ok() {
+            "yes (wayland)"
+        } else if std::env::var("DESKTOP_STARTUP_ID").is_ok() {
+            "yes (x11)"
+        } else {
+            "none — window may open unfocused"
+        }
+    );
     log::info!(
         "PID lock held at {}",
         lock_dir.join("PinReady.pid").display()
