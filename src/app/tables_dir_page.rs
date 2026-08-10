@@ -119,7 +119,7 @@ impl App {
                     .unwrap_or(0);
                 ui.colored_label(
                     egui::Color32::from_rgb(120, 200, 120),
-                    format!("✓ {}", t!("tables_valid", count = count)),
+                    format!("✔ {}", t!("tables_valid", count = count)),
                 );
             } else {
                 ui.colored_label(ASTERISK_RED, format!("⚠ {}", t!("tables_invalid")));
@@ -640,7 +640,7 @@ fn render_merge_event(ui: &mut egui::Ui, ev: &crate::merge::MergeEvent) {
             ui.colored_label(green, format!("  + {} : {}", kind.label(), src.display()));
         }
         AssetApplied { kind, dst } => {
-            ui.colored_label(green, format!("  ✓ {} → {}", kind.label(), dst.display()));
+            ui.colored_label(green, format!("  ✔ {} → {}", kind.label(), dst.display()));
         }
         AssetSkipped { kind, .. } => {
             // Only "already present" survives the drain filter.

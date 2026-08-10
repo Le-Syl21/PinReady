@@ -181,10 +181,6 @@ strip = true
 #
 # Rotation lives in `egui-rotate`, keyboard funneling in `egui-keyfunnel`.
 [patch.crates-io]
-# egui-rotate 3.1.1 and egui-keyfunnel 0.2.0 are cut but not published yet:
-# track their `main` until they land on crates.io, then drop these two lines.
-egui-rotate = { git = "https://github.com/Le-Syl21/egui-rotate", branch = "main" }
-egui-keyfunnel = { git = "https://github.com/Le-Syl21/egui-keyfunnel", branch = "main" }
 egui        = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.36-slim" }
 eframe      = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.36-slim" }
 egui_extras = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.36-slim" }

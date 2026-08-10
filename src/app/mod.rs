@@ -58,6 +58,29 @@ enum VpxStatus {
     LaunchError(String),
 }
 
+/// The rotation the user picked with the `↻` button, as stored in the DB.
+/// Kept as degrees so the value reads for itself in a sqlite dump.
+fn rotation_to_db(rotation: egui_rotate::Rotation) -> &'static str {
+    match rotation {
+        egui_rotate::Rotation::None => "0",
+        egui_rotate::Rotation::CW90 => "90",
+        egui_rotate::Rotation::CW180 => "180",
+        egui_rotate::Rotation::CW270 => "270",
+    }
+}
+
+/// Inverse of [`rotation_to_db`]. `None` when nothing was ever stored, which
+/// is what lets cabinet mode fall back to its own default.
+pub(crate) fn rotation_from_db(value: &str) -> Option<egui_rotate::Rotation> {
+    match value.trim() {
+        "0" => Some(egui_rotate::Rotation::None),
+        "90" => Some(egui_rotate::Rotation::CW90),
+        "180" => Some(egui_rotate::Rotation::CW180),
+        "270" => Some(egui_rotate::Rotation::CW270),
+        _ => None,
+    }
+}
+
 /// Viewport ID for the backglass window
 const BG_VIEWPORT: &str = "backglass_viewport";
 /// Viewport ID for the DMD cover window. The string stays
@@ -875,6 +898,13 @@ impl App {
             ctx.with_plugin::<egui_rotate::RotationPlugin, _>(|p| {
                 p.set_rotation(next_rotation);
             });
+            // Remember it. Someone setting a cabinet up turns the wizard
+            // upright once, on a playfield lying flat; coming back to the
+            // configuration later and finding it sideways again means doing
+            // it every single time.
+            let _ = self
+                .db
+                .set_config("ui_rotation", rotation_to_db(next_rotation));
             ctx.request_repaint();
         }
 

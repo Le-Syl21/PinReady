@@ -249,7 +249,7 @@ outputs_discover_apply_udev = "✨ تثبيت القواعد (تتطلب كلم�
 outputs_discover_apply_udev_busy = "بانتظار كلمة المرور..."
 outputs_discover_apply_udev_tooltip = "يكتب القواعد في /etc/udev/rules.d/ ويعيد تحميل udev. يطلب كلمة المرور الخاصة بك عبر مربع حوار المصادقة الرسومي للنظام (polkit / pkexec)."
 outputs_discover_apply_udev_running = "جارٍ تثبيت القواعد..."
-outputs_discover_apply_udev_ok = "✓ تم تثبيت القواعد. انقر على إعادة الفحص للمحاولة مرة أخرى."
+outputs_discover_apply_udev_ok = "✔ تم تثبيت القواعد. انقر على إعادة الفحص للمحاولة مرة أخرى."
 outputs_discover_apply_udev_err = "✗ فشل التثبيت: %{msg}"
 outputs_discover_configtool_title = "🎯 VPUniverse ConfigTool — ماذا تختار"
 outputs_discover_configtool_firmware = "البرنامج الثابت المكتشف:"
@@ -263,7 +263,7 @@ outputs_discover_driver_soon_tooltip = "يكتشف PinReady هذه اللوحة 
 # تفعيلها صراحة بمجرد الانتهاء من توليد إعدادات DOF واستخراجها.
 outputs_dof_enable_title = "تفعيل DOF في Visual Pinball"
 outputs_dof_enable_desc = "يأتي VPX بجميع الإضافات معطلة. حتى مع ربط العتاد ووجود directoutputconfigNN.ini صالح في مكانه، لن يقوم DOF بإطلاق أي شيء أثناء اللعب حتى يتم تعيين [Plugin.DOF].Enable إلى 1 في VPinballX.ini. فعّله أدناه بعد توليد إعداداتك على ConfigTool واستخراج ملف zip إلى المجلد الهدف."
-outputs_dof_enable_status_on = "✓ DOF مُفعّل حالياً في VPinballX.ini"
+outputs_dof_enable_status_on = "✔ DOF مُفعّل حالياً في VPinballX.ini"
 outputs_dof_enable_status_off = "✗ DOF معطّل حالياً — لن يتم إطلاق التأثيرات أثناء اللعب"
 outputs_dof_enable_activate = "✅ تحققت من إعداداتي — فعّل DOF"
 outputs_dof_enable_disable = "تعطيل DOF"

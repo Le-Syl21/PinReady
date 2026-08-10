@@ -35,9 +35,9 @@ const NUDGE_SCALE_PER_PCT: f32 = 2.0 * GRAVITY / 100.0;
 impl Default for TiltConfig {
     fn default() -> Self {
         Self {
-            // User-tuned defaults: scale 50, deadzone 10, sensitivity 50
-            // — matches the slider order on the tilt wizard page.
-            tilt_sensitivity_pct: 50.0,
+            // Cabinet-tuned defaults, in the order the sliders appear on
+            // the tilt page: nudge 50 %, deadzone 10 %, tilt 75 %.
+            tilt_sensitivity_pct: 75.0,
             plumb_damping: 1.0,
             nudge_scale_pct: 50.0,
             nudge_deadzone_pct: 10.0,
@@ -125,7 +125,7 @@ mod tests {
     #[test]
     fn default_values() {
         let tilt = TiltConfig::default();
-        assert!((tilt.tilt_sensitivity_pct - 50.0).abs() < f32::EPSILON);
+        assert!((tilt.tilt_sensitivity_pct - 75.0).abs() < f32::EPSILON);
         assert!((tilt.plumb_damping - 1.0).abs() < f32::EPSILON);
         assert!((tilt.nudge_scale_pct - 50.0).abs() < f32::EPSILON);
         assert!((tilt.nudge_deadzone_pct - 10.0).abs() < f32::EPSILON);
@@ -152,7 +152,7 @@ mod tests {
         let cfg = config_from_str("");
         let mut tilt = TiltConfig::default();
         tilt.load_from_config(&cfg);
-        assert!((tilt.tilt_sensitivity_pct - 50.0).abs() < f32::EPSILON);
+        assert!((tilt.tilt_sensitivity_pct - 75.0).abs() < f32::EPSILON);
         assert!((tilt.plumb_damping - 1.0).abs() < f32::EPSILON);
     }
 

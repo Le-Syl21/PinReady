@@ -249,7 +249,7 @@ outputs_discover_apply_udev = "✨ नियम इंस्टॉल करे�
 outputs_discover_apply_udev_busy = "पासवर्ड की प्रतीक्षा..."
 outputs_discover_apply_udev_tooltip = "नियमों को /etc/udev/rules.d/ में लिखता है और udev को फिर से लोड करता है। सिस्टम के ग्राफिकल प्रमाणीकरण संवाद (polkit / pkexec) के माध्यम से आपका पासवर्ड मांगता है।"
 outputs_discover_apply_udev_running = "नियम इंस्टॉल हो रहे हैं..."
-outputs_discover_apply_udev_ok = "✓ नियम इंस्टॉल हो गए। फिर से प्रयास करने के लिए फिर से स्कैन करें पर क्लिक करें।"
+outputs_discover_apply_udev_ok = "✔ नियम इंस्टॉल हो गए। फिर से प्रयास करने के लिए फिर से स्कैन करें पर क्लिक करें।"
 outputs_discover_apply_udev_err = "✗ इंस्टॉल विफल: %{msg}"
 outputs_discover_configtool_title = "🎯 VPUniverse ConfigTool — क्या चुनें"
 outputs_discover_configtool_firmware = "पहचाना गया फ़र्मवेयर:"
@@ -264,7 +264,7 @@ outputs_discover_driver_soon_tooltip = "PinReady इस बोर्ड को �
 # जनरेट और निकालने के बाद इसे स्पष्ट रूप से चालू करना आवश्यक है।
 outputs_dof_enable_title = "Visual Pinball में DOF सक्रिय करें"
 outputs_dof_enable_desc = "VPX सभी प्लगइन को अक्षम करके आता है। यहां तक कि आपके हार्डवेयर को मैप किया गया हो और मान्य directoutputconfigNN.ini अपनी जगह पर हो, VPinballX.ini में [Plugin.DOF].Enable को 1 पर सेट किए जाने तक DOF गेम में कुछ भी ट्रिगर नहीं करेगा। ConfigTool पर अपना कॉन्फ़िगरेशन जनरेट करने और ज़िप को लक्ष्य फ़ोल्डर में निकालने के बाद नीचे इसे चालू करें।"
-outputs_dof_enable_status_on = "✓ DOF वर्तमान में VPinballX.ini में सक्षम है"
+outputs_dof_enable_status_on = "✔ DOF वर्तमान में VPinballX.ini में सक्षम है"
 outputs_dof_enable_status_off = "✗ DOF वर्तमान में अक्षम है — गेम में प्रभाव ट्रिगर नहीं होंगे"
 outputs_dof_enable_activate = "✅ मैंने अपना कॉन्फ़िगरेशन सत्यापित किया है — DOF सक्रिय करें"
 outputs_dof_enable_disable = "DOF अक्षम करें"

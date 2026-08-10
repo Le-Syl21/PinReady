@@ -1,6 +1,6 @@
 use super::*;
 
-/// A small ⓘ info marker placed next to an option's label.
+/// A small ℹ info marker placed next to an option's label.
 ///
 /// Hovering shows `help` as a quick tooltip; clicking pins it in a popup that
 /// stays open until the user clicks elsewhere (handy on a pincab where holding
@@ -9,7 +9,7 @@ use super::*;
 pub(crate) fn help_marker(ui: &mut egui::Ui, help: &str) {
     let response = ui
         .add(
-            egui::Label::new(egui::RichText::new("ⓘ").color(ui.visuals().hyperlink_color))
+            egui::Label::new(egui::RichText::new("ℹ").color(ui.visuals().hyperlink_color))
                 .sense(egui::Sense::click()),
         )
         .on_hover_cursor(egui::CursorIcon::Help)

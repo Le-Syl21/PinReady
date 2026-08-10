@@ -728,7 +728,7 @@ fn run_merge_cli(args: &[String], mode: merge::MergeMode) -> Result<()> {
                 println!("  · {} ({})", kind.label(), reason.label())
             }
             AssetApplied { kind, dst } => {
-                println!("  ✓ {} -> {}", kind.label(), dst.display())
+                println!("  ✔ {} -> {}", kind.label(), dst.display())
             }
             AssetError { kind, msg } => {
                 println!("  ! {} : {msg}", kind.label());
@@ -967,13 +967,20 @@ fn build_viewport(
     }
 
     let mut want_kiosk_cursor = false;
-    let mut rotation = egui_rotate::Rotation::None;
+    // A rotation the user picked with the `↻` button outlives the run that
+    // set it. Cabinet mode still defaults to CW90 — a playfield lying flat
+    // under a landscape monitor — but an explicit choice wins over the
+    // guess, in the wizard as well as in the launcher.
+    let stored_rotation = db
+        .get_config("ui_rotation")
+        .and_then(|v| app::rotation_from_db(&v));
+    let mut rotation = stored_rotation.unwrap_or(egui_rotate::Rotation::None);
     if matches!(mode, app::AppMode::Launcher) {
         viewport = viewport.with_decorations(false);
         if cabinet_mode {
-            rotation = egui_rotate::Rotation::CW90;
+            rotation = stored_rotation.unwrap_or(egui_rotate::Rotation::CW90);
             if let Some(idx) = playfield_idx {
-                log::info!("Cabinet mode: rotating launcher CW90 on monitor index {idx}");
+                log::info!("Cabinet mode: rotating launcher {rotation:?} on monitor index {idx}");
                 viewport = viewport.with_monitor(idx);
                 want_kiosk_cursor = true;
             } else {

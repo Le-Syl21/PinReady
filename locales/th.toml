@@ -249,7 +249,7 @@ outputs_discover_apply_udev = "✨ ติดตั้งกฎ (ต้องก�
 outputs_discover_apply_udev_busy = "กำลังรอรหัสผ่าน..."
 outputs_discover_apply_udev_tooltip = "เขียนกฎไปยัง /etc/udev/rules.d/ และโหลด udev ใหม่ ขอรหัสผ่านผ่านกล่องโต้ตอบการยืนยันตัวตนแบบกราฟิกของระบบ (polkit / pkexec)"
 outputs_discover_apply_udev_running = "กำลังติดตั้งกฎ..."
-outputs_discover_apply_udev_ok = "✓ ติดตั้งกฎแล้ว คลิกสแกนใหม่เพื่อลองอีกครั้ง"
+outputs_discover_apply_udev_ok = "✔ ติดตั้งกฎแล้ว คลิกสแกนใหม่เพื่อลองอีกครั้ง"
 outputs_discover_apply_udev_err = "✗ การติดตั้งล้มเหลว: %{msg}"
 outputs_discover_configtool_title = "🎯 VPUniverse ConfigTool — ควรเลือกอะไร"
 outputs_discover_configtool_firmware = "เฟิร์มแวร์ที่ตรวจพบ:"
@@ -264,7 +264,7 @@ outputs_discover_driver_soon_tooltip = "PinReady ตรวจพบบอร์�
 # DOF เสร็จแล้ว
 outputs_dof_enable_title = "เปิดใช้งาน DOF ใน Visual Pinball"
 outputs_dof_enable_desc = "VPX มาพร้อมกับปลั๊กอินทั้งหมดที่ถูกปิดใช้งาน แม้ว่าฮาร์ดแวร์ของคุณจะถูกแมปและ directoutputconfigNN.ini ที่ถูกต้องอยู่ในที่ของมัน DOF จะไม่ทำงานในเกมจนกว่า [Plugin.DOF].Enable จะถูกตั้งเป็น 1 ใน VPinballX.ini เปิดใช้งานด้านล่างเมื่อคุณสร้างการกำหนดค่าใน ConfigTool และแตก zip ไปยังโฟลเดอร์เป้าหมายแล้ว"
-outputs_dof_enable_status_on = "✓ DOF ขณะนี้เปิดใช้งานอยู่ใน VPinballX.ini"
+outputs_dof_enable_status_on = "✔ DOF ขณะนี้เปิดใช้งานอยู่ใน VPinballX.ini"
 outputs_dof_enable_status_off = "✗ DOF ขณะนี้ปิดใช้งาน — เอฟเฟกต์จะไม่ทำงานในเกม"
 outputs_dof_enable_activate = "✅ ฉันได้ตรวจสอบการกำหนดค่าแล้ว — เปิดใช้งาน DOF"
 outputs_dof_enable_disable = "ปิดใช้งาน DOF"
