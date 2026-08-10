@@ -16,9 +16,9 @@ win-icon = ["winres"]
 
 [dependencies]
 # UI
-eframe = { version = "0.35", default-features = false, features = ["accesskit", "default_fonts", "glow", "wayland", "x11"] }
-egui = "0.35"
-egui_extras = { version = "0.35", features = ["image", "file"] }
+eframe = { version = "0.36", default-features = false, features = ["accesskit", "default_fonts", "glow", "wayland", "x11"] }
+egui = "0.36"
+egui_extras = { version = "0.36", features = ["image", "file"] }
 
 # Display / Input
 sdl3-sys = { version = "0.6", features = ["build-from-source-static"] }
@@ -114,7 +114,7 @@ sdl-keybridge = { version = "0.3", features = ["all-locales"] }
 # for cabinet mode. Registered as an egui Plugin from `main.rs`; the plugin owns
 # input rotation, primitive rotation and the software cursor draw — PinReady
 # has no eframe hooks left to wire.
-egui-rotate = { version = "2.0.0", features = ["software-cursor"] }
+egui-rotate = { version = "3.1.1", features = ["software-cursor"] }
 
 # Funnel keyboard input to the playfield (ROOT) viewport. In cabinet mode the
 # BG/DMD/Topper cover viewports can steal keyboard focus under Mutter Wayland
@@ -122,7 +122,7 @@ egui-rotate = { version = "2.0.0", features = ["software-cursor"] }
 # ROOT so flipper keys and launcher navigation always reach the playfield.
 # Registered as an egui Plugin from `main.rs`. Replaces the old eframe kiosk
 # routing that used to live in the egui fork.
-egui-keyfunnel = "0.1"
+egui-keyfunnel = "0.2"
 
 [target.'cfg(windows)'.build-dependencies]
 winres = { version = "0.1", optional = true }
@@ -152,7 +152,7 @@ lto = false
 codegen-units = 16
 strip = true
 
-# Le-Syl21/egui fork, `pinready-0.35-slim` branch = egui 0.35.0 + two patches
+# Le-Syl21/egui fork, `pinready-0.36-slim` branch = egui 0.36.1 + two patches
 # not upstream-released yet:
 #   - ViewportCommand::RequestActivationToken + Event::ActivationTokenReceived
 #     (Wayland xdg-activation / X11 startup-id token) — used to hand focus to the
@@ -172,12 +172,11 @@ strip = true
 #
 # Rotation lives in `egui-rotate`, keyboard funneling in `egui-keyfunnel`.
 [patch.crates-io]
-# egui-rotate 2.0.1 + one fix: a dormant cursor also wakes on absolute
-# pointer motion. Relative `MouseMoved` only flows while the OS grab holds,
-# and Mutter drops it whenever a cover viewport takes the pointer focus —
-# after which moving the mouse could not bring the cursor back. Drop this
-# patch when the 0.36 bump lands and 3.x carries the fix.
-egui-rotate = { git = "https://github.com/Le-Syl21/egui-rotate", branch = "2.0.x" }
-egui        = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.35-slim" }
-eframe      = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.35-slim" }
-egui_extras = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.35-slim" }
+# Local checkouts while egui-rotate 3.1.1 and egui-keyfunnel 0.2 are validated
+# on the cabinet; both are published from these very trees, so the patch comes
+# off once they land on crates.io.
+egui-rotate = { path = "/home/sylvain/dev/egui-rotate" }
+egui-keyfunnel = { path = "/home/sylvain/dev/egui-keyfunnel" }
+egui        = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.36-slim" }
+eframe      = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.36-slim" }
+egui_extras = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.36-slim" }
