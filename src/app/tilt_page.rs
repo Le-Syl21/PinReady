@@ -37,6 +37,42 @@ impl App {
         );
         ui.add_space(8.0);
 
+        // Accelerometer range. This is a fact about the hardware, not a
+        // preference — it tells the engine what a full-scale reading means.
+        // The peak readout below is what makes it answerable: shake the
+        // cabinet and read how much of the scale you actually use.
+        ui.horizontal(|ui| {
+            ui.label(t!("tilt_range"));
+            help_marker(ui, &t!("tilt_range_help"));
+        });
+        ui.horizontal(|ui| {
+            for g in [1.0_f32, 2.0, 4.0, 8.0] {
+                ui.selectable_value(&mut self.tilt.nudge_range_g, g, format!("{g:.0} g"));
+            }
+        });
+        ui.add_space(2.0);
+        {
+            // Peak of |x|,|y| since entering the page, as a share of full
+            // scale. A shake that never passes ~20 % means the range is set
+            // wider than the cabinet ever exercises.
+            let peak = self.accel_x.abs().max(self.accel_y.abs());
+            self.nudge_peak = self.nudge_peak.max(peak);
+            ui.horizontal(|ui| {
+                ui.label(
+                    egui::RichText::new(t!(
+                        "tilt_peak",
+                        pct = format!("{:.0}", self.nudge_peak * 100.0),
+                        g = format!("{:.2}", self.nudge_peak * self.tilt.nudge_range_g)
+                    ))
+                    .weak(),
+                );
+                if ui.small_button(t!("tilt_peak_reset")).clicked() {
+                    self.nudge_peak = 0.0;
+                }
+            });
+        }
+        ui.add_space(8.0);
+
         // Nudge sensor type (VPX new sensor schema: Mapping.Nudge0.Type).
         let sensor_types = [
             (0_i32, t!("tilt_nudge_type_game")),

@@ -8,8 +8,13 @@ pub struct TiltConfig {
     pub tilt_sensitivity_pct: f32,
     /// PlumbDamping: tilt plumb simulation damping (0..2, VPX default 1.0). Replaces the older PlumbInertia.
     pub plumb_damping: f32,
-    /// Nudge sensitivity 0–100% — written as scale in the nudge accelerometer mapping
+    /// Nudge sensitivity 0–100% — written as `Mapping.Nudge0.Strength`
+    /// (0..2, neutral at 1.0), *not* as the mapping's unit scale.
     pub nudge_scale_pct: f32,
+    /// Accelerometer full-scale range in g (1, 2, 4 or 8) — written as the
+    /// mapping's scale, converted to m/s². mjr recommends 1 g for a cabinet:
+    /// "a 1G acceleration is pretty strong in this context".
+    pub nudge_range_g: f32,
     /// Nudge deadzone 0–100% — movements below this are ignored (anti-noise)
     pub nudge_deadzone_pct: f32,
     /// Nudge sensor type — VPX `Mapping.Nudge0.Type` enum after the nudge-handler
@@ -23,14 +28,19 @@ const TILT_ANGLE_MIN: f32 = 0.15;
 const TILT_ANGLE_MAX: f32 = 4.0;
 const TILT_ANGLE_RANGE: f32 = TILT_ANGLE_MAX - TILT_ANGLE_MIN;
 
-/// A sensor mapping's scale stopped being a relative sensitivity factor when
-/// VPX rewrote its nudge handlers (10.8.1 rev 5277+): it is now the unit
-/// conversion that turns the axis reading into m/s². Writing the slider
-/// straight into that field asked the engine to treat a full-scale reading as
-/// half a m/s² — nudge you can barely see. Anchor the slider on 1g at
-/// mid-course instead, so 50 % is a standard board and 100 % a 2g one.
+/// VPX splits two things PinReady used to conflate. A mapping's `scale` is a
+/// **unit conversion**: the accelerometer's physical range, so that a
+/// full-scale reading becomes the right number of m/s² (VPX's own sensor page
+/// offers 1/2/4/8 g, "which is what Pinscape boards propose"). Sensitivity —
+/// how hard a given shake should hit the ball — has its own field,
+/// `Mapping.Nudge0.Strength`, running 0..2 around a neutral 1.
+///
+/// Driving sensitivity through `scale` meant lying to the engine about what
+/// the sensor is, and made a 4 g or 8 g board impossible to describe.
 const GRAVITY: f32 = 9.806_65;
-const NUDGE_SCALE_PER_PCT: f32 = 2.0 * GRAVITY / 100.0;
+/// Slider percent → Strength. 50 % is neutral (1.0), 100 % is the 2.0 ceiling
+/// VPX accepts.
+const NUDGE_STRENGTH_PER_PCT: f32 = 2.0 / 100.0;
 
 impl Default for TiltConfig {
     fn default() -> Self {
@@ -40,6 +50,7 @@ impl Default for TiltConfig {
             tilt_sensitivity_pct: 75.0,
             plumb_damping: 1.0,
             nudge_scale_pct: 50.0,
+            nudge_range_g: 1.0,
             nudge_deadzone_pct: 10.0,
             nudge_sensor_type: 1,
         }
@@ -66,12 +77,22 @@ impl TiltConfig {
                     self.nudge_deadzone_pct = dz * 100.0;
                 }
                 if let Ok(s) = parts[4].parse::<f32>() {
-                    self.nudge_scale_pct = (s / NUDGE_SCALE_PER_PCT).clamp(0.0, 100.0);
+                    // Snap to the nearest range VPX offers; anything else was
+                    // written by hand and is best left readable as its
+                    // closest neighbour.
+                    let g = (s / GRAVITY).max(0.0);
+                    self.nudge_range_g = [1.0, 2.0, 4.0, 8.0]
+                        .into_iter()
+                        .min_by(|a: &f32, b: &f32| (a - g).abs().total_cmp(&(b - g).abs()))
+                        .unwrap_or(1.0);
                 }
             }
         }
         if let Some(v) = config.get_i32("Input", "Mapping.Nudge0.Type") {
             self.nudge_sensor_type = v;
+        }
+        if let Some(v) = config.get_f32("Input", "Mapping.Nudge0.Strength") {
+            self.nudge_scale_pct = (v / NUDGE_STRENGTH_PER_PCT).clamp(0.0, 100.0);
         }
     }
 
@@ -86,6 +107,11 @@ impl TiltConfig {
         self.update_nudge_mapping(config, "Nudge0.AccX");
         self.update_nudge_mapping(config, "Nudge0.AccY");
         config.set_i32("Input", "Mapping.Nudge0.Type", self.nudge_sensor_type);
+        config.set(
+            "Input",
+            "Mapping.Nudge0.Strength",
+            &format!("{:.6}", self.nudge_scale_pct * NUDGE_STRENGTH_PER_PCT),
+        );
     }
 
     fn update_nudge_mapping(&self, config: &mut crate::config::VpxConfig, key: &str) {
@@ -100,7 +126,7 @@ impl TiltConfig {
                     parts[1],
                     parts[2],
                     self.nudge_deadzone_pct / 100.0,
-                    self.nudge_scale_pct * NUDGE_SCALE_PER_PCT,
+                    self.nudge_range_g * GRAVITY,
                     parts[5]
                 );
                 config.set("Input", &mapping_key, &new_mapping);
@@ -217,13 +243,20 @@ mod tests {
         let mut tilt = TiltConfig::default();
         tilt.load_from_config(&cfg);
         tilt.nudge_scale_pct = 100.0;
+        tilt.nudge_range_g = 2.0;
         tilt.save_to_config(&mut cfg);
 
-        // Full slider = a 2g board, in m/s^2.
+        // The mapping scale is the sensor range in m/s^2 …
         let mapping = cfg.get("Input", "Mapping.Nudge0.AccX").unwrap();
         assert!(
             mapping.contains("19.613300"),
-            "expected 2g scale in: {mapping}"
+            "expected the 2g range in: {mapping}"
+        );
+        // … and the slider rides Strength, 100 % being VPX's 2.0 ceiling.
+        let strength = cfg.get_f32("Input", "Mapping.Nudge0.Strength").unwrap();
+        assert!(
+            (strength - 2.0).abs() < 0.001,
+            "expected 2.0, got {strength}"
         );
 
         let angle = cfg.get_f32("Player", "PlumbThresholdAngle").unwrap();
@@ -247,12 +280,23 @@ mod tests {
 
     #[test]
     fn nudge_scale_parsed_from_mapping() {
-        // A 4g board reads past the top of the slider and clamps there.
+        // A mapping written for a 4g board reads back as 4g, and the
+        // sensitivity comes from Strength rather than from that scale.
         let cfg = config_from_str(
-            "[Input]\nMapping.Nudge0.AccX = dev;512;A;0.000000;39.226600;1.000000\n",
+            "[Input]\nMapping.Nudge0.AccX = dev;512;A;0.000000;39.226600;1.000000\n\
+             Mapping.Nudge0.Strength = 1.500000\n",
         );
         let mut tilt = TiltConfig::default();
         tilt.load_from_config(&cfg);
-        assert!((tilt.nudge_scale_pct - 100.0).abs() < 0.1);
+        assert!(
+            (tilt.nudge_range_g - 4.0).abs() < 0.01,
+            "got {}",
+            tilt.nudge_range_g
+        );
+        assert!(
+            (tilt.nudge_scale_pct - 75.0).abs() < 0.1,
+            "got {}",
+            tilt.nudge_scale_pct
+        );
     }
 }

@@ -407,6 +407,9 @@ pub struct App {
     /// The reset button is armed by a first click and fires on a second:
     /// it throws away every answer given so far.
     reset_armed: bool,
+    /// Largest |accel| seen on the tilt page, so the user can size the
+    /// accelerometer range against what their cabinet actually produces.
+    nudge_peak: f32,
     // Launcher joystick nav auto-repeat: track which nav button is held
     nav_held: Option<(
         u8,
@@ -742,6 +745,7 @@ impl App {
             kiosk_focus_tries: 0,
             kiosk_focus_at: None,
             reset_armed: false,
+            nudge_peak: 0.0,
             nav_held: None,
             bg_rx: None,
             scan_generation: 0,
