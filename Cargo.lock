@@ -2740,7 +2740,8 @@ dependencies = [
 [[package]]
 name = "noto-fonts-dl"
 version = "0.1.4"
-source = "git+https://github.com/Le-Syl21/noto-fonts-dl?branch=main#ded122520c4c163db875908905d11cb081e039b4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f9e8950a7161e910ecb7cd12c9fff8e0eb7242bcf783a437ec6e8666690e907"
 dependencies = [
  "serde_json",
  "ureq 2.12.1",

@@ -60,6 +60,7 @@ impl App {
                     match self.db.reset_config() {
                         Ok(()) => {
                             log::info!("Configuration reset — restarting the wizard");
+                            Self::archive_vpx_ini();
                             self.restart_wizard();
                         }
                         Err(e) => log::error!("Configuration reset failed: {e:#}"),

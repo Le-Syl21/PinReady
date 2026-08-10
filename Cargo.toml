@@ -181,9 +181,6 @@ strip = true
 #
 # Rotation lives in `egui-rotate`, keyboard funneling in `egui-keyfunnel`.
 [patch.crates-io]
-# noto-fonts-dl 0.1.4 (the `vi` feature) is tagged but its crates.io publish
-# is still waiting for approval — drop this line once it lands.
-noto-fonts-dl = { git = "https://github.com/Le-Syl21/noto-fonts-dl", branch = "main" }
 egui        = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.36-slim" }
 eframe      = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.36-slim" }
 egui_extras = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.36-slim" }

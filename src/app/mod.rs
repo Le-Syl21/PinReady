@@ -1402,6 +1402,25 @@ impl App {
     /// rebuild the in-memory state the same way a first run would and return
     /// to page one. Restarting the process would be simpler but would lose
     /// the window we are drawing in.
+    /// Move the global VPinballX.ini aside, so the wizard rebuilds it from
+    /// VPX's own documented defaults instead of layering answers onto a file
+    /// whose history nobody remembers.
+    ///
+    /// Renamed rather than deleted: a cabinet's ini holds hand-tuned values
+    /// that are nowhere else, and losing them to a misclick is not a
+    /// recoverable mistake. One backup, overwritten on each reset.
+    fn archive_vpx_ini() {
+        let ini = crate::config::default_ini_path();
+        if !ini.is_file() {
+            return;
+        }
+        let backup = ini.with_extension("ini.reset-backup");
+        match std::fs::rename(&ini, &backup) {
+            Ok(()) => log::info!("VPX ini moved aside to {}", backup.display()),
+            Err(e) => log::error!("Could not move the VPX ini aside: {e:#}"),
+        }
+    }
+
     pub(super) fn restart_wizard(&mut self) {
         for page in 0..8 {
             if let Some(p) = WizardPage::from_index(page) {
