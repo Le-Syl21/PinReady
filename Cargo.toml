@@ -172,6 +172,12 @@ strip = true
 #
 # Rotation lives in `egui-rotate`, keyboard funneling in `egui-keyfunnel`.
 [patch.crates-io]
+# egui-rotate 2.0.1 + one fix: a dormant cursor also wakes on absolute
+# pointer motion. Relative `MouseMoved` only flows while the OS grab holds,
+# and Mutter drops it whenever a cover viewport takes the pointer focus —
+# after which moving the mouse could not bring the cursor back. Drop this
+# patch when the 0.36 bump lands and 3.x carries the fix.
+egui-rotate = { git = "https://github.com/Le-Syl21/egui-rotate", branch = "2.0.x" }
 egui        = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.35-slim" }
 eframe      = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.35-slim" }
 egui_extras = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.35-slim" }
