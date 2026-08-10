@@ -723,7 +723,7 @@ impl App {
             .iter()
             .position(|d| d.role == DisplayRole::Dmd)
         {
-            Self::show_logo_viewport(ui, PF_VIEWPORT, "PinReady — DMD", dmd_idx);
+            Self::show_logo_viewport(ui, DMD_VIEWPORT, "PinReady — DMD", dmd_idx);
         }
 
         // Topper cover

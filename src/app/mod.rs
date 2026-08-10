@@ -60,8 +60,10 @@ enum VpxStatus {
 
 /// Viewport ID for the backglass window
 const BG_VIEWPORT: &str = "backglass_viewport";
-/// Viewport ID for the playfield cover window
-const PF_VIEWPORT: &str = "playfield_viewport";
+/// Viewport ID for the DMD cover window. The string stays
+/// `playfield_viewport` — it is the viewport's identity, and renaming it
+/// would orphan the window egui already tracks under that hash.
+const DMD_VIEWPORT: &str = "playfield_viewport";
 /// Viewport ID for the topper cover window
 const TOPPER_VIEWPORT: &str = "topper_viewport";
 /// VPX logo bytes (embedded at compile time)
@@ -1608,15 +1610,19 @@ impl eframe::App for App {
             // means the cursor cannot be confined (it wanders onto the
             // backglass) and receives no motion (it sits still) — both at
             // once, which is exactly what a cabinet reports as "the mouse is
-            // dead". Wayland was excluded here because bare `Focus` is a
-            // no-op without an activation token; but doing nothing leaves the
-            // launcher unfocused from startup to the first click, so try the
-            // same raise combo the second-launch path uses. Throttled, and
-            // given up after a few rounds so we never fight the compositor.
+            // dead". Measured on the cabinet: the DMD cover takes the focus
+            // when it maps — it is created after the playfield — and Mutter
+            // then refuses every `Focus` we send, five in a row, because
+            // asking is exactly what focus-stealing prevention blocks.
+            //
+            // So stop asking. A window that has just appeared gets the focus
+            // without requesting it, and hiding then re-showing the playfield
+            // maps it after the covers. One shot, and only in cabinet mode,
+            // where the covers exist at all.
             let focused = ctx.input(|i| i.viewport().focused).unwrap_or(false);
             if focused {
                 self.kiosk_focus_tries = 0;
-            } else if self.kiosk_focus_tries < 5
+            } else if self.kiosk_focus_tries < 3
                 && self
                     .kiosk_focus_at
                     .is_none_or(|t| t.elapsed() >= std::time::Duration::from_secs(2))
@@ -1624,16 +1630,12 @@ impl eframe::App for App {
                 self.kiosk_focus_tries += 1;
                 self.kiosk_focus_at = Some(std::time::Instant::now());
                 log::info!(
-                    "kiosk: playfield unfocused, raising (attempt {})",
+                    "kiosk: playfield unfocused, remapping (attempt {})",
                     self.kiosk_focus_tries
                 );
-                ctx.send_viewport_cmd(egui::ViewportCommand::WindowLevel(
-                    egui::WindowLevel::AlwaysOnTop,
-                ));
+                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
                 ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
-                ctx.send_viewport_cmd(egui::ViewportCommand::WindowLevel(
-                    egui::WindowLevel::Normal,
-                ));
                 ctx.request_repaint();
             }
 

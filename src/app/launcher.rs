@@ -1238,7 +1238,7 @@ impl App {
     pub(super) fn close_cover_viewports(ctx: &egui::Context) {
         for cover_id in [
             crate::app::BG_VIEWPORT,
-            crate::app::PF_VIEWPORT,
+            crate::app::DMD_VIEWPORT,
             crate::app::TOPPER_VIEWPORT,
         ] {
             let viewport_id = egui::ViewportId::from_hash_of(cover_id);
