@@ -51,11 +51,10 @@ impl Default for TiltConfig {
         Self {
             // Cabinet-tuned defaults, in the order the sliders appear on the
             // tilt page: nudge 100 % (neutral, VPX's own default for
-            // Strength), deadzone 3 %, tilt 10 % — that last one being 3.61°,
-            // well above VPX's 1° default, because a cabinet that tilts on
-            // every shot is worse than one that tilts late. VPX itself sets
-            // no deadzone at all; 3 % only swallows the sensor's own noise.
-            tilt_sensitivity_pct: 10.0,
+            // Strength), deadzone 3 %, tilt 75 % = 1.11°, which lands within
+            // a tenth of a degree of VPX's own 1° default. VPX itself sets no
+            // deadzone at all; 3 % only swallows the sensor's own noise.
+            tilt_sensitivity_pct: 75.0,
             plumb_damping: 1.0,
             nudge_scale_pct: 100.0,
             nudge_range_g: 1.0,
@@ -164,7 +163,7 @@ mod tests {
     #[test]
     fn default_values() {
         let tilt = TiltConfig::default();
-        assert!((tilt.tilt_sensitivity_pct - 10.0).abs() < f32::EPSILON);
+        assert!((tilt.tilt_sensitivity_pct - 75.0).abs() < f32::EPSILON);
         assert!((tilt.plumb_damping - 1.0).abs() < f32::EPSILON);
         assert!((tilt.nudge_scale_pct - 100.0).abs() < f32::EPSILON);
         assert!((tilt.nudge_deadzone_pct - 3.0).abs() < f32::EPSILON);
@@ -193,7 +192,7 @@ mod tests {
         let cfg = config_from_str("");
         let mut tilt = TiltConfig::default();
         tilt.load_from_config(&cfg);
-        assert!((tilt.tilt_sensitivity_pct - 10.0).abs() < f32::EPSILON);
+        assert!((tilt.tilt_sensitivity_pct - 75.0).abs() < f32::EPSILON);
         assert!((tilt.plumb_damping - 1.0).abs() < f32::EPSILON);
     }
 
