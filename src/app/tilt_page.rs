@@ -1,5 +1,7 @@
 use super::*;
 
+const NOTICE_AMBER_TILT: egui::Color32 = egui::Color32::from_rgb(255, 200, 80);
+
 impl App {
     pub(super) fn render_tilt_page(&mut self, ui: &mut egui::Ui) {
         ui.heading(t!("tilt_heading"));
@@ -93,9 +95,18 @@ impl App {
                 });
                 // Peak of |x|,|y| since entering the page, as a share of full
                 // scale: a shake that never passes ~20 % means the board is
-                // set wider than the cabinet ever exercises.
+                // set wider than the cabinet ever exercises. It doubles as a
+                // presence test — an axis that never leaves zero is either
+                // unmapped or has nothing wired to it, and telling that apart
+                // from "badly scaled" is the first question to answer.
                 let peak = self.accel_x.abs().max(self.accel_y.abs());
                 self.nudge_peak = self.nudge_peak.max(peak);
+                ui.label(if self.nudge_peak > 0.004 {
+                    egui::RichText::new(t!("tilt_accel_present"))
+                        .color(egui::Color32::from_rgb(120, 200, 120))
+                } else {
+                    egui::RichText::new(t!("tilt_accel_absent")).color(NOTICE_AMBER_TILT)
+                });
                 ui.label(
                     egui::RichText::new(t!(
                         "tilt_peak",
@@ -147,8 +158,17 @@ impl App {
         });
         ui.add_sized(
             [ui.available_width(), 24.0],
-            egui::Slider::new(&mut self.tilt.tilt_sensitivity_pct, 0.0..=100.0)
-                .custom_formatter(|v, _| format!("{:.0}%", v)),
+            // The percentage is ours; the degrees are what VPX stores and
+            // what its own UI shows, so print both rather than make anyone
+            // convert between the two.
+            egui::Slider::new(&mut self.tilt.tilt_sensitivity_pct, 0.0..=100.0).custom_formatter(
+                |v, _| {
+                    format!(
+                        "{v:.0}% ({:.2}°)",
+                        crate::tilt::TiltConfig::threshold_angle(v as f32)
+                    )
+                },
+            ),
         );
         ui.add_space(8.0);
 
@@ -209,7 +229,14 @@ impl App {
         }
 
         // TILT threshold ring (red) — beyond this = TILT
-        let threshold_radius = radius * (self.tilt.tilt_sensitivity_pct / 100.0);
+        // The ring is where a tilt triggers, so it must follow the *angle*,
+        // not the sensitivity percentage: full sensitivity is the smallest
+        // angle and therefore the tightest ring. Drawing it from the
+        // percentage put the ring at the rim exactly when the tilt was at its
+        // most touchy.
+        let threshold_radius = radius
+            * (crate::tilt::TiltConfig::threshold_angle(self.tilt.tilt_sensitivity_pct)
+                / crate::tilt::TILT_ANGLE_MAX);
         painter.circle_stroke(
             center,
             threshold_radius,
@@ -230,12 +257,17 @@ impl App {
         let dot_pos = egui::pos2(dot_x, dot_y);
         let dist = ((dot_x - center.x).powi(2) + (dot_y - center.y).powi(2)).sqrt();
         let dot_color = if dist > threshold_radius {
-            egui::Color32::from_rgb(255, 50, 50) // in TILT zone
+            egui::Color32::from_rgba_unmultiplied(255, 50, 50, 200) // in TILT zone
         } else if dist < deadzone_radius {
-            egui::Color32::from_rgb(150, 150, 150) // in deadzone (ignored)
+            egui::Color32::from_rgba_unmultiplied(150, 150, 150, 200) // ignored
         } else {
-            egui::Color32::from_rgb(100, 220, 100) // active zone
+            egui::Color32::from_rgba_unmultiplied(100, 220, 100, 200) // active
         };
-        painter.circle_filled(dot_pos, 7.0, dot_color);
+        // Small and translucent, like a laser dot: a 7px opaque disc covered
+        // the deadzone ring whole at the low percentages that actually make
+        // sense, hiding the very thing being adjusted. The halo keeps it
+        // findable at a glance without painting over what is underneath.
+        painter.circle_filled(dot_pos, 8.0, dot_color.gamma_multiply(0.25));
+        painter.circle_filled(dot_pos, 3.5, dot_color);
     }
 }

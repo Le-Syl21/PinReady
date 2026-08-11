@@ -25,7 +25,7 @@ pub struct TiltConfig {
 }
 
 const TILT_ANGLE_MIN: f32 = 0.15;
-const TILT_ANGLE_MAX: f32 = 4.0;
+pub const TILT_ANGLE_MAX: f32 = 4.0;
 const TILT_ANGLE_RANGE: f32 = TILT_ANGLE_MAX - TILT_ANGLE_MIN;
 
 /// VPX splits two things PinReady used to conflate. A mapping's `scale` is a
@@ -49,19 +49,30 @@ const NUDGE_STRENGTH_MAX_PCT: f32 = 200.0;
 impl Default for TiltConfig {
     fn default() -> Self {
         Self {
-            // Cabinet-tuned defaults, in the order the sliders appear on
-            // the tilt page: nudge 50 %, deadzone 10 %, tilt 75 %.
-            tilt_sensitivity_pct: 75.0,
+            // Cabinet-tuned defaults, in the order the sliders appear on the
+            // tilt page: nudge 100 % (neutral, VPX's own default for
+            // Strength), deadzone 3 %, tilt 10 % — that last one being 3.61°,
+            // well above VPX's 1° default, because a cabinet that tilts on
+            // every shot is worse than one that tilts late. VPX itself sets
+            // no deadzone at all; 3 % only swallows the sensor's own noise.
+            tilt_sensitivity_pct: 10.0,
             plumb_damping: 1.0,
             nudge_scale_pct: 100.0,
             nudge_range_g: 1.0,
-            nudge_deadzone_pct: 10.0,
+            nudge_deadzone_pct: 3.0,
             nudge_sensor_type: 1,
         }
     }
 }
 
 impl TiltConfig {
+    /// The plumb threshold angle a given sensitivity percentage writes.
+    /// Inverted by nature: 100 % is the *smallest* angle, so the tilt trips
+    /// soonest.
+    pub fn threshold_angle(sensitivity_pct: f32) -> f32 {
+        TILT_ANGLE_MAX - (sensitivity_pct / 100.0) * TILT_ANGLE_RANGE
+    }
+
     pub fn load_from_config(&mut self, config: &crate::config::VpxConfig) {
         if let Some(v) = config.get_f32("Player", "PlumbThresholdAngle") {
             // Inverted mapping: small angle = high sensitivity, large angle = low sensitivity.
@@ -103,9 +114,7 @@ impl TiltConfig {
     pub fn save_to_config(&self, config: &mut crate::config::VpxConfig) {
         config.set_plumb_damping(self.plumb_damping);
         // Inverted mapping: 0% (insensitive) → 4°, 100% (ultra-sensitive) → 0.15°.
-        config.set_plumb_threshold_angle(
-            TILT_ANGLE_MAX - (self.tilt_sensitivity_pct / 100.0) * TILT_ANGLE_RANGE,
-        );
+        config.set_plumb_threshold_angle(Self::threshold_angle(self.tilt_sensitivity_pct));
         // Update scale and deadZone on the accelerometer axes of the new nudge
         // sensor schema, and persist the sensor type.
         self.update_nudge_mapping(config, "Nudge0.AccX");
@@ -155,10 +164,10 @@ mod tests {
     #[test]
     fn default_values() {
         let tilt = TiltConfig::default();
-        assert!((tilt.tilt_sensitivity_pct - 75.0).abs() < f32::EPSILON);
+        assert!((tilt.tilt_sensitivity_pct - 10.0).abs() < f32::EPSILON);
         assert!((tilt.plumb_damping - 1.0).abs() < f32::EPSILON);
         assert!((tilt.nudge_scale_pct - 100.0).abs() < f32::EPSILON);
-        assert!((tilt.nudge_deadzone_pct - 10.0).abs() < f32::EPSILON);
+        assert!((tilt.nudge_deadzone_pct - 3.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -184,7 +193,7 @@ mod tests {
         let cfg = config_from_str("");
         let mut tilt = TiltConfig::default();
         tilt.load_from_config(&cfg);
-        assert!((tilt.tilt_sensitivity_pct - 75.0).abs() < f32::EPSILON);
+        assert!((tilt.tilt_sensitivity_pct - 10.0).abs() < f32::EPSILON);
         assert!((tilt.plumb_damping - 1.0).abs() < f32::EPSILON);
     }
 
