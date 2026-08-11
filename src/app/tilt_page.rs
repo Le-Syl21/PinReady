@@ -72,10 +72,23 @@ impl App {
                             ))
                             .strong(),
                         ),
-                        None => ui.label(t!(
-                            "tilt_range_default",
-                            range = format!("{:.0}", self.tilt.nudge_range_g)
-                        )),
+                        // Naming the board that stayed silent beats implying
+                        // there is none.
+                        None => match self.pinscape_cfg.map(|c| c.board) {
+                            Some(board) => ui.label(t!(
+                                "tilt_range_unsupported",
+                                range = format!("{:.0}", self.tilt.nudge_range_g),
+                                board = match board {
+                                    crate::pinscape_config::Board::Kl25z => "Pinscape KL25Z",
+                                    crate::pinscape_config::Board::Pico => "Pinscape Pico",
+                                    crate::pinscape_config::Board::Opaque(name) => name,
+                                }
+                            )),
+                            None => ui.label(t!(
+                                "tilt_range_default",
+                                range = format!("{:.0}", self.tilt.nudge_range_g)
+                            )),
+                        },
                     };
                 });
                 // Peak of |x|,|y| since entering the page, as a share of full

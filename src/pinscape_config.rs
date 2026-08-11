@@ -24,6 +24,9 @@ use hidapi::{HidApi, HidDevice};
 const PINSCAPE_VID: u16 = 0x1209;
 const PINSCAPE_PID: u16 = 0xEAEA;
 
+/// Boards we can recognise on the bus but not question.
+const OPAQUE_BOARDS: &[(u16, u16, &str)] = &[(0x2E8A, 0x106F, "DudesCab")];
+
 const CMD_EXTENDED: u8 = 65;
 const CMD_QUERY_CONFIG_VAR: u8 = 9;
 
@@ -57,6 +60,12 @@ pub enum Board {
     /// interface, plus a small HID "feedback controller" that answers a
     /// status query.
     Pico,
+    /// A board we recognise but cannot interrogate: DudesCab and PinOne have
+    /// closed firmware with no documented query protocol (libdof drives their
+    /// *outputs* only, and PinOne talks over a serial port at that). Worth
+    /// naming anyway — "your DudesCab does not publish this" is honest, where
+    /// "no board detected" would be a lie.
+    Opaque(&'static str),
 }
 
 /// What the board says about itself. Fields are optional because the two
@@ -127,7 +136,28 @@ pub fn read() -> Option<PinscapeConfig> {
             } else {
                 Board::Kl25z
             }
+        })
+        .or_else(|| {
+            api.device_list().find_map(|d| {
+                OPAQUE_BOARDS
+                    .iter()
+                    .find(|(vid, pid, _)| d.vendor_id() == *vid && d.product_id() == *pid)
+                    .map(|(_, _, name)| Board::Opaque(name))
+            })
         })?;
+
+    if let Board::Opaque(name) = board {
+        log::info!("{name} detected — its firmware publishes no input settings");
+        return Some(PinscapeConfig {
+            board,
+            accel_range_g: None,
+            accel_orientation: None,
+            accel_autocenter: None,
+            plunger_type: None,
+            plunger_enabled: None,
+            plunger_calibrated: None,
+        });
+    }
 
     let device = api
         .open(PINSCAPE_VID, PINSCAPE_PID)
@@ -137,6 +167,8 @@ pub fn read() -> Option<PinscapeConfig> {
     match board {
         Board::Pico => read_pico(&device),
         Board::Kl25z => read_kl25z(&device),
+        // Returned above, before the device is even opened.
+        Board::Opaque(_) => None,
     }
 }
 
