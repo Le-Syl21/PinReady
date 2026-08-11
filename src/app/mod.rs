@@ -410,6 +410,13 @@ pub struct App {
     /// Largest |accel| seen on the tilt page, so the user can size the
     /// accelerometer range against what their cabinet actually produces.
     nudge_peak: f32,
+    /// VPX's tilt plumb, simulated here so the page can be shaken rather
+    /// than guessed at: the tilt is a pendulum's angle over time, not a
+    /// threshold on acceleration.
+    plumb: crate::plumb::Plumb,
+    plumb_last_step: Option<std::time::Instant>,
+    /// Latches a tilt for a moment so a 1 ms crossing is still readable.
+    plumb_tilt_until: Option<std::time::Instant>,
     /// What the Pinscape board says about itself — its accelerometer range
     /// and orientation, whether a plunger exists. Read over HID at startup,
     /// `None` while pending or when no board answers.
@@ -752,6 +759,9 @@ impl App {
             kiosk_focus_at: None,
             reset_armed: false,
             nudge_peak: 0.0,
+            plumb: crate::plumb::Plumb::default(),
+            plumb_last_step: None,
+            plumb_tilt_until: None,
             pinscape_cfg: None,
             pinscape_cfg_rx: Some(crate::pinscape_config::spawn_read()),
             nav_held: None,

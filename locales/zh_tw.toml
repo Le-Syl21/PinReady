@@ -310,6 +310,8 @@ tilt_threshold = "TILT 觸發閾值："
 tilt_threshold_help = "決定你能多用力推動，遊戲才會判定 TILT 並讓你失去這顆球。\n• 數值低：嚴格（小力推動就會 TILT）。\n• 數值高：寬鬆（你可以推得更用力才會受罰）。\n必須保持高於死區。"
 tilt_threshold_low = "← 不靈敏（4°）"
 tilt_threshold_high = "非常靈敏（0.15°）→"
+tilt_plumb_angle = "擺錘角度：%{angle}°（閾值 %{threshold}°）"
+tilt_plumb_tilted = "⚠ 已觸發 TILT"
 tilt_visualization = "推動機台查看圓點移動。如果碰到紅圈 = TILT："
 
 # Audio page

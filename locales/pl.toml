@@ -311,6 +311,8 @@ tilt_threshold = "Próg wyzwolenia TILT:"
 tilt_threshold_help = "Określa, jak mocno możesz potrząsnąć, zanim gra wywoła TILT i odbierze kulkę.\n• Niska: surowa (małe potrząśnięcie wywołuje tilt).\n• Wysoka: pobłażliwa (możesz popchnąć mocniej, zanim gra ukarze).\nMusi pozostać powyżej strefy martwej."
 tilt_threshold_low = "← mało czuły (4°)"
 tilt_threshold_high = "bardzo czuły (0,15°) →"
+tilt_plumb_angle = "Kąt wahadła: %{angle}° (próg %{threshold}°)"
+tilt_plumb_tilted = "⚠ TILT wyzwolony"
 tilt_visualization = "Popchnij gabinet, aby zobaczyć ruch punktu. Jeśli dotknie czerwonego pierścienia = TILT:"
 
 # Audio page

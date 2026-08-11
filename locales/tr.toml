@@ -311,6 +311,8 @@ tilt_threshold = "TILT tetikleme eşiği:"
 tilt_threshold_help = "Oyunun bir TILT tetikleyip topu kaybettirmeden önce ne kadar sert sallamaya izin verdiğini belirler.\n• Düşük: katıdır (küçük bir sallama tilt yaptırır).\n• Yüksek: hoşgörülüdür (daha sert itebilirsiniz).\nÖlü bölgenin üzerinde kalmalıdır."
 tilt_threshold_low = "← az hassas (4°)"
 tilt_threshold_high = "çok hassas (0,15°) →"
+tilt_plumb_angle = "Şakul açısı: %{angle}° (eşik %{threshold}°)"
+tilt_plumb_tilted = "⚠ TILT tetiklendi"
 tilt_visualization = "Noktanın hareket etmesini görmek için kabineti itin. Kırmızı halkaya değerse = TILT:"
 
 # Audio page

@@ -311,6 +311,8 @@ tilt_threshold = "Prah spustenia TILT:"
 tilt_threshold_help = "Určuje, akú silu zatrasenia hra toleruje, kým vyhlási TILT a pripraví vás o guľu.\n• Nízka hodnota: prísna (aj malé zatrasenie spôsobí TILT).\n• Vysoká hodnota: zhovievavá (môžete tlačiť silnejšie, kým vás potrestá).\nMusí zostať nad mŕtvou zónou."
 tilt_threshold_low = "← málo citlivé (4°)"
 tilt_threshold_high = "veľmi citlivé (0,15°) →"
+tilt_plumb_angle = "Uhol olovnice: %{angle}° (prah %{threshold}°)"
+tilt_plumb_tilted = "⚠ TILT spustený"
 tilt_visualization = "Zatlačte na kabinet a sledujte pohyb bodu. Ak sa dotkne červeného kruhu = TILT:"
 
 # Audio page

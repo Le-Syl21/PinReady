@@ -311,6 +311,8 @@ tilt_threshold = "TILT-Auslöseschwelle:"
 tilt_threshold_help = "Legt fest, wie stark du rütteln darfst, bevor das Spiel einen TILT auslöst und die Kugel verloren geht.\n• Niedriger Wert: streng (schon ein kleines Rütteln löst TILT aus).\n• Hoher Wert: nachsichtig (du kannst kräftiger stoßen, bevor du bestraft wirst).\nMuss über der Totzone bleiben."
 tilt_threshold_low = "← wenig empfindlich (4°)"
 tilt_threshold_high = "sehr empfindlich (0,15°) →"
+tilt_plumb_angle = "Pendelwinkel: %{angle}° (Schwelle %{threshold}°)"
+tilt_plumb_tilted = "⚠ TILT ausgelöst"
 tilt_visualization = "Schieben Sie das Cabinet, um den Punkt zu bewegen. Berührt er den roten Ring = TILT:"
 
 # Audio page

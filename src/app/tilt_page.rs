@@ -243,15 +243,54 @@ impl App {
             );
         }
 
+        // Advance the plumb with what the sensor is actually reporting, put
+        // through the same chain VPX applies: deadzone, then the range as a
+        // unit conversion to m/s², then this sensor's strength factor.
+        {
+            let raw = |v: f32| {
+                let dz = self.tilt.nudge_deadzone_pct / 100.0;
+                let magnitude = v.abs();
+                if magnitude <= dz {
+                    0.0
+                } else {
+                    v.signum() * (magnitude - dz) / (1.0 - dz)
+                }
+            };
+            let to_ms2 = self.tilt.nudge_range_g * 9.806_65 * (self.tilt.nudge_scale_pct / 100.0);
+            let accel = (raw(self.accel_x) * to_ms2, raw(self.accel_y) * to_ms2);
+            let threshold =
+                crate::tilt::TiltConfig::threshold_angle(self.tilt.tilt_sensitivity_pct);
+            // Catch up in 1 ms steps, VPX's own integration period, capped so
+            // a stalled frame doesn't spin here.
+            let now = std::time::Instant::now();
+            let elapsed = self
+                .plumb_last_step
+                .map_or(1, |t| now.duration_since(t).as_millis().min(50) as u32);
+            self.plumb_last_step = Some(now);
+            for _ in 0..elapsed {
+                self.plumb.step(accel, self.tilt.plumb_damping, threshold);
+                if self.plumb.tilted {
+                    self.plumb_tilt_until = Some(now + std::time::Duration::from_millis(700));
+                }
+            }
+        }
+
         // TILT threshold ring (red) — beyond this = TILT
         // The ring is where a tilt triggers, so it must follow the *angle*,
         // not the sensitivity percentage: full sensitivity is the smallest
         // angle and therefore the tightest ring. Drawing it from the
         // percentage put the ring at the rim exactly when the tilt was at its
         // most touchy.
-        let threshold_radius = radius
-            * (crate::tilt::TiltConfig::threshold_angle(self.tilt.tilt_sensitivity_pct)
-                / crate::tilt::TILT_ANGLE_MAX);
+        // Both ring and bob are drawn in the plumb's own space — the bob's
+        // offset as a fraction of the rod length — so the circle finally
+        // means one thing throughout. The rim is the widest threshold VPX
+        // allows (4°), which is what makes a shake readable at any setting.
+        let angle_to_radius = |deg: f32| {
+            radius * deg.to_radians().sin() / crate::tilt::TILT_ANGLE_MAX.to_radians().sin()
+        };
+        let threshold_radius = angle_to_radius(crate::tilt::TiltConfig::threshold_angle(
+            self.tilt.tilt_sensitivity_pct,
+        ));
         painter.circle_stroke(
             center,
             threshold_radius,
@@ -265,10 +304,13 @@ impl App {
             egui::Color32::from_rgb(255, 80, 80),
         );
 
-        // Live accelerometer dot
-        let scale = (self.tilt.nudge_scale_pct / 100.0) * 8.0;
-        let dot_x = center.x + (self.accel_x * scale).clamp(-1.0, 1.0) * radius;
-        let dot_y = center.y + (self.accel_y * scale).clamp(-1.0, 1.0) * radius;
+        // The bob itself. Its offset is already a fraction of the rod length,
+        // and the rim stands for a 4° swing, so the dot and the ring are
+        // directly comparable — which is the whole point of the picture.
+        let (bob_x, bob_y) = self.plumb.plane_offset();
+        let rim = crate::tilt::TILT_ANGLE_MAX.to_radians().sin();
+        let dot_x = center.x + (bob_x / rim).clamp(-1.2, 1.2) * radius;
+        let dot_y = center.y + (bob_y / rim).clamp(-1.2, 1.2) * radius;
         let dot_pos = egui::pos2(dot_x, dot_y);
         let dist = ((dot_x - center.x).powi(2) + (dot_y - center.y).powi(2)).sqrt();
         let dot_color = if dist > threshold_radius {
@@ -284,5 +326,31 @@ impl App {
         // findable at a glance without painting over what is underneath.
         painter.circle_filled(dot_pos, 8.0, dot_color.gamma_multiply(0.25));
         painter.circle_filled(dot_pos, 3.5, dot_color);
+
+        // Say it in numbers too: the angle is what VPX compares, and seeing
+        // how close a given shake came is the whole point of shaking here
+        // rather than in a table.
+        let tilted = self
+            .plumb_tilt_until
+            .is_some_and(|t| std::time::Instant::now() < t);
+        ui.add_space(4.0);
+        if tilted {
+            ui.colored_label(
+                egui::Color32::from_rgb(255, 80, 80),
+                egui::RichText::new(t!("tilt_plumb_tilted")).strong(),
+            );
+        } else {
+            ui.label(
+                egui::RichText::new(t!(
+                    "tilt_plumb_angle",
+                    angle = format!("{:.2}", self.plumb.angle_deg()),
+                    threshold = format!(
+                        "{:.2}",
+                        crate::tilt::TiltConfig::threshold_angle(self.tilt.tilt_sensitivity_pct)
+                    )
+                ))
+                .weak(),
+            );
+        }
     }
 }

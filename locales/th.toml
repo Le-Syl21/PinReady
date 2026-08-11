@@ -311,6 +311,8 @@ tilt_threshold = "เกณฑ์กระตุ้น TILT:"
 tilt_threshold_help = "กำหนดว่าคุณเขย่าตู้ได้แรงแค่ไหนก่อนที่เกมจะเรียก TILT และทำให้เสียลูกบอล\n• ค่าต่ำ: เข้มงวด (เขย่าเบา ๆ ก็ทำให้ tilt)\n• ค่าสูง: ผ่อนปรน (คุณดันได้แรงขึ้นก่อนจะถูกลงโทษ)\nต้องคงค่าไว้สูงกว่าโซนตาย"
 tilt_threshold_low = "← ไวน้อย (4°)"
 tilt_threshold_high = "ไวมาก (0.15°) →"
+tilt_plumb_angle = "มุมลูกดิ่ง: %{angle}° (เกณฑ์ %{threshold}°)"
+tilt_plumb_tilted = "⚠ TILT ทำงาน"
 tilt_visualization = "ดันตู้เพื่อดูจุดเคลื่อนที่ ถ้าชนวงแดง = TILT:"
 
 # Audio page

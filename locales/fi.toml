@@ -311,6 +311,8 @@ tilt_threshold = "TILT-laukaisukynnys:"
 tilt_threshold_help = "Kuinka kovaa voit tönäistä kaappia ennen kuin peli laukaisee TILTin ja vie pallon.\n• Matala: tiukka (pienetkin tönäisyt tiltaavat).\n• Korkea: salliva (voit työntää kovempaa ennen kuin peli rankaisee).\nTäytyy pysyä kuolleen alueen yläpuolella."
 tilt_threshold_low = "← vähän herkkä (4°)"
 tilt_threshold_high = "erittäin herkkä (0,15°) →"
+tilt_plumb_angle = "Luotilangan kulma: %{angle}° (kynnys %{threshold}°)"
+tilt_plumb_tilted = "⚠ TILT laukesi"
 tilt_visualization = "Työnnä kabinettia nähdäksesi pisteen liikkuvan. Jos se osuu punaiseen renkaaseen = TILT:"
 
 # Audio page

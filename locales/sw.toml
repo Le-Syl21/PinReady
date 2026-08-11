@@ -311,6 +311,8 @@ tilt_threshold = "Kizingiti cha kuchochea TILT:"
 tilt_threshold_help = "Huamua kwa nguvu kiasi gani unaweza kusukuma kabati kabla mchezo haujatangaza TILT na kupoteza mpira.\n• Chini: kali (misukumo midogo huleta tilt).\n• Juu: ya kuruhusu (unaweza kusukuma kwa nguvu zaidi kabla ya kuadhibiwa).\nLazima ibaki juu ya eneo tulivu."
 tilt_threshold_low = "← nyeti kidogo (4°)"
 tilt_threshold_high = "nyeti sana (0.15°) →"
+tilt_plumb_angle = "Pembe ya timazi: %{angle}° (kizingiti %{threshold}°)"
+tilt_plumb_tilted = "⚠ TILT imeanzishwa"
 tilt_visualization = "Sukuma kabati kuona nukta ikisogea. Ikigusa pete nyekundu = TILT:"
 
 # Audio page
