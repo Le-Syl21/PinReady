@@ -340,6 +340,12 @@ tilt_nudge_type_game = "Manette de jeu"
 tilt_nudge_type_intent = "Capteur d'intention"
 tilt_nudge_type_cabinet = "Capteur de cabinet"
 tilt_nudge_type_help = "Type de capteur utilisé pour les secousses.\n• Manette de jeu : utilise la position du stick — pour manettes, pas pour un accéléromètre de flipper.\n• Capteur d'intention (recommandé) : lit l'accéléromètre pour estimer votre intention de secousse, puis applique la physique VPX — idéal pour les cartes Pinscape/KL25Z.\n• Capteur de cabinet : applique l'accélération brute directement au jeu — uniquement pour un vrai flipper avec un capteur haute fréquence, faible latence et sans bruit."
+tilt_modes_title = "En quoi les trois modes diffèrent"
+tilt_modes_gamepad = "Manette — pour un pad ou un stick VR. Il déduit le nudge de l'amplitude et de la vitesse de poussée du stick ; rien à voir avec un accéléromètre."
+tilt_modes_intent = "Capteur d'intention — pour les cabs équipés d'une carte à accéléromètre (Pinscape, DudesCab…). Il ne transmet pas votre accélération : il détecte les pics, ignore les oscillations propres du meuble, et au-delà de 1 m/s² injecte une impulsion calibrée de 25 ms. En dessous de ce seuil, rien n'atteint la bille. Conçu pour les cartes bruitées, biaisées ou lentes."
+tilt_modes_cabinet = "Capteur de cabinet — pour un capteur rapide, propre et à faible latence sur un lien haut débit. Votre accélération est appliquée telle que mesurée, pondérée par le poids du meuble. Pas de seuil : les petites secousses comptent — le bruit du capteur aussi."
+tilt_modes_chain = "Ordre des filtres"
+tilt_modes_chain_detail = "Zone morte (sur le signal brut) → force (×0 à ×2) → seuil d'intention, dans ce mode seulement → modèle de meuble → angle du pendule → TILT. La force s'applique avant le seuil d'intention : la monter rend les nudges à la fois plus puissants et plus faciles à déclencher."
 
 # Page Audio
 audio_heading = "Configuration audio"

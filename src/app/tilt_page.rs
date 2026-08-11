@@ -125,6 +125,21 @@ impl App {
         }
         ui.add_space(8.0);
 
+        // What the three modes actually mean, and in what order the filters
+        // apply — none of which VPX documents, and all of which decides
+        // whether a nudge reaches the ball.
+        ui.collapsing(t!("tilt_modes_title"), |ui| {
+            ui.label(t!("tilt_modes_gamepad"));
+            ui.add_space(4.0);
+            ui.label(t!("tilt_modes_intent"));
+            ui.add_space(4.0);
+            ui.label(t!("tilt_modes_cabinet"));
+            ui.add_space(8.0);
+            ui.label(egui::RichText::new(t!("tilt_modes_chain")).strong());
+            ui.label(t!("tilt_modes_chain_detail"));
+        });
+        ui.add_space(6.0);
+
         // Nudge sensor type (VPX new sensor schema: Mapping.Nudge0.Type).
         let sensor_types = [
             (0_i32, t!("tilt_nudge_type_game")),
@@ -228,125 +243,77 @@ impl App {
             egui::Stroke::new(1.0, egui::Color32::DARK_GRAY),
         );
 
-        // Both rings and the bob share one space: the plumb's angle, with the
-        // rim standing for the widest threshold VPX allows (4°).
-        let angle_to_radius = |deg: f32| {
-            radius * deg.to_radians().sin() / crate::tilt::TILT_ANGLE_MAX.to_radians().sin()
+        // One scale for every ring: the fraction of the accelerometer's own
+        // range, magnified so the small thresholds are aimable. Each ring is
+        // the shake it takes to reach that limit, which is the only way to
+        // compare a deadzone (a threshold on the signal) with a tilt angle (a
+        // pendulum's state). The tilt rings are converted through
+        // tan θ = a/g — a steady push that would settle the plumb there.
+        const FULL_SCALE: f32 = 0.25; // rim = a quarter of the sensor range
+        let to_radius = |fraction: f32| radius * (fraction / FULL_SCALE).clamp(0.0, 1.0);
+        let angle_to_fraction = |deg: f32| {
+            // Acceleration that holds the plumb at this angle, back to a
+            // fraction of the sensor's range.
+            let accel = deg.to_radians().tan() * 9.806_65;
+            accel / (self.tilt.nudge_range_g * 9.806_65).max(0.001)
         };
+        let strength = (self.tilt.nudge_scale_pct / 100.0).max(0.01);
 
-        // Deadzone ring (green) — movements inside are ignored
-        // TILT threshold ring (red) — beyond this = TILT
-        // The ring is where a tilt triggers, so it must follow the *angle*,
-        // not the sensitivity percentage: full sensitivity is the smallest
-        // angle and therefore the tightest ring. Drawing it from the
-        // percentage put the ring at the rim exactly when the tilt was at its
-        // most touchy.
-        // Both ring and bob are drawn in the plumb's own space — the bob's
-        // offset as a fraction of the rod length — so the circle finally
-        // means one thing throughout. The rim is the widest threshold VPX
-        // allows (4°), which is what makes a shake readable at any setting.
-        let threshold_radius = angle_to_radius(crate::tilt::TiltConfig::threshold_angle(
-            self.tilt.tilt_sensitivity_pct,
+        // Outermost meaningful ring: the widest tilt VPX allows.
+        let max_tilt_radius = to_radius(angle_to_fraction(crate::tilt::TILT_ANGLE_MAX));
+        painter.circle_stroke(
+            center,
+            max_tilt_radius,
+            egui::Stroke::new(1.5, egui::Color32::from_rgb(150, 90, 90)),
+        );
+
+        // The tilt threshold in force.
+        let threshold_radius = to_radius(angle_to_fraction(
+            crate::tilt::TiltConfig::threshold_angle(self.tilt.tilt_sensitivity_pct),
         ));
         painter.circle_stroke(
             center,
             threshold_radius,
-            egui::Stroke::new(2.0, egui::Color32::from_rgb(255, 80, 80)),
-        );
-        painter.text(
-            center + egui::vec2(threshold_radius + 4.0, -10.0),
-            egui::Align2::LEFT_CENTER,
-            "TILT",
-            egui::FontId::proportional(12.0),
-            egui::Color32::from_rgb(255, 80, 80),
+            egui::Stroke::new(2.0, egui::Color32::from_rgb(255, 120, 120)),
         );
 
-        // The bob itself. Its offset is already a fraction of the rod length,
-        // and the rim stands for a 4° swing, so the dot and the ring are
-        // directly comparable — which is the whole point of the picture.
-        let (bob_x, bob_y) = self.plumb.plane_offset();
-        let rim = crate::tilt::TILT_ANGLE_MAX.to_radians().sin();
-        let dot_x = center.x + (bob_x / rim).clamp(-1.2, 1.2) * radius;
-        let dot_y = center.y + (bob_y / rim).clamp(-1.2, 1.2) * radius;
-        let dot_pos = egui::pos2(dot_x, dot_y);
-        let dist = ((dot_x - center.x).powi(2) + (dot_y - center.y).powi(2)).sqrt();
-        let dot_color = if dist > threshold_radius {
-            egui::Color32::from_rgba_unmultiplied(255, 50, 50, 200) // past the tilt
-        } else {
-            egui::Color32::from_rgba_unmultiplied(100, 220, 100, 200) // swinging
-        };
-        // Small and translucent, like a laser dot, so it never paints over
-        // the ring it is being compared against.
-        painter.circle_filled(dot_pos, 8.0, dot_color.gamma_multiply(0.25));
-        painter.circle_filled(dot_pos, 3.5, dot_color);
-
-        // ---- Sensor gauge -------------------------------------------------
-        //
-        // The deadzone belongs here, not in the circle above: it gates the
-        // raw signal, and below it the plumb does not move at all — so a
-        // circle of degrees can never show movement "inside the deadzone",
-        // which is exactly what needs watching to size it. A linear gauge of
-        // the raw magnitude does, with both thresholds marked: the deadzone,
-        // and (in Intent mode) the 1 m/s² an intent has to clear before VPX
-        // acts on it.
-        ui.add_space(6.0);
-        ui.label(egui::RichText::new(t!("tilt_sensor_gauge")).small().weak());
-        let gauge_size = egui::vec2(240.0, 22.0);
-        let (gauge_rect, _) = ui.allocate_exact_size(gauge_size, egui::Sense::hover());
-        let gp = ui.painter_at(gauge_rect);
-        gp.rect_filled(gauge_rect, 3.0, egui::Color32::from_gray(40));
-
-        // Full width is a quarter of the accelerometer's range: cabinets
-        // rarely exercise more, and the deadzone stays a visible band.
-        const GAUGE_FULL_SCALE: f32 = 0.25;
-        let magnitude = (self.accel_x.powi(2) + self.accel_y.powi(2)).sqrt();
-        let frac = |v: f32| (v / GAUGE_FULL_SCALE).clamp(0.0, 1.0);
-
-        // Deadzone band.
-        let dz = frac(self.tilt.nudge_deadzone_pct / 100.0);
-        gp.rect_filled(
-            egui::Rect::from_min_size(
-                gauge_rect.min,
-                egui::vec2(gauge_rect.width() * dz, gauge_rect.height()),
-            ),
-            3.0,
-            egui::Color32::from_rgba_unmultiplied(80, 200, 80, 60),
-        );
-
-        // Intent threshold, where it lands on this scale.
+        // Intent threshold — fixed at 1 m/s², but Strength is applied before
+        // the comparison, so raising it moves this ring inwards.
         if self.tilt.nudge_sensor_type == 1 {
-            let intent_g = crate::nudge_sim::INTENT_THRESHOLD_MS2
-                / (self.tilt.nudge_range_g * 9.806_65)
-                / (self.tilt.nudge_scale_pct / 100.0).max(0.01);
-            if intent_g < GAUGE_FULL_SCALE {
-                let x = gauge_rect.min.x + gauge_rect.width() * frac(intent_g);
-                gp.line_segment(
-                    [
-                        egui::pos2(x, gauge_rect.min.y),
-                        egui::pos2(x, gauge_rect.max.y),
-                    ],
-                    egui::Stroke::new(2.0, egui::Color32::from_rgb(230, 160, 60)),
-                );
-            }
+            let intent_fraction = crate::nudge_sim::INTENT_THRESHOLD_MS2
+                / (self.tilt.nudge_range_g * 9.806_65 * strength);
+            painter.circle_stroke(
+                center,
+                to_radius(intent_fraction),
+                egui::Stroke::new(2.0, egui::Color32::from_rgb(230, 160, 60)),
+            );
         }
 
-        // The live level, and the peak it reached.
-        gp.rect_filled(
-            egui::Rect::from_min_size(
-                gauge_rect.min,
-                egui::vec2(gauge_rect.width() * frac(magnitude), gauge_rect.height()),
-            ),
-            3.0,
-            egui::Color32::from_rgba_unmultiplied(140, 170, 255, 180),
+        // Deadzone, innermost by nature: it gates the raw signal first.
+        let deadzone_radius = to_radius(self.tilt.nudge_deadzone_pct / 100.0);
+        if deadzone_radius > 1.0 {
+            painter.circle_filled(
+                center,
+                deadzone_radius,
+                egui::Color32::from_rgba_unmultiplied(80, 200, 80, 40),
+            );
+            painter.circle_stroke(
+                center,
+                deadzone_radius,
+                egui::Stroke::new(2.0, egui::Color32::from_rgb(80, 200, 80)),
+            );
+        }
+
+        // The live sensor reading, thin and translucent — a laser dot that
+        // shows movement everywhere, including inside the deadzone, which is
+        // the one place the plumb can never show anything.
+        let dot_pos = egui::pos2(
+            center.x + (self.accel_x / FULL_SCALE).clamp(-1.05, 1.05) * radius,
+            center.y + (self.accel_y / FULL_SCALE).clamp(-1.05, 1.05) * radius,
         );
-        let peak_x = gauge_rect.min.x + gauge_rect.width() * frac(self.nudge_peak);
-        gp.line_segment(
-            [
-                egui::pos2(peak_x, gauge_rect.min.y),
-                egui::pos2(peak_x, gauge_rect.max.y),
-            ],
-            egui::Stroke::new(1.5, egui::Color32::from_gray(200)),
-        );
+        let laser = egui::Color32::from_rgba_unmultiplied(255, 60, 60, 210);
+        painter.circle_filled(dot_pos, 7.0, laser.gamma_multiply(0.18));
+        painter.circle_filled(dot_pos, 2.0, laser);
 
         // A banner naming what just happened. Rising is instant, falling
         // waits a second: a tilt that lasts one millisecond would otherwise

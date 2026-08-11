@@ -147,12 +147,6 @@ impl Plumb {
             .atan2(-self.pos[2])
             .to_degrees()
     }
-
-    /// Bob position projected on the cabinet plane, as a fraction of the rod
-    /// length: what to draw, in the same space as the threshold ring.
-    pub fn plane_offset(&self) -> (f32, f32) {
-        (self.pos[0] / POLE_LENGTH, self.pos[1] / POLE_LENGTH)
-    }
 }
 
 #[cfg(test)]
