@@ -36,7 +36,9 @@ const VAR_PLUNGER_TYPE: u8 = 5;
 /// Pico feedback-controller HID: request report ID, and the status query it
 /// carries; the reply comes back under its own report ID.
 const PICO_REPORT_ID_REQUEST: u8 = 0x04;
+const PICO_REQ_QUERY_ID: u8 = 0x01;
 const PICO_REQ_QUERY_STATUS: u8 = 0x02;
+const PICO_REPORT_ID_ID: u8 = 0x01;
 const PICO_REPORT_ID_STATUS: u8 = 0x02;
 
 /// Reply header for a configuration variable report (little-endian 0x9800).
@@ -224,12 +226,17 @@ fn read_pico(device: &HidDevice) -> Option<PinscapeConfig> {
         let read = device.read_timeout(&mut buffer, REPLY_TIMEOUT_MS).ok()?;
         if read > 1 && buffer[0] == PICO_REPORT_ID_STATUS {
             let flags = buffer[1];
+            // The identification report carries the plunger *type*, which the
+            // status flags only summarise as enabled/disabled. Its layout:
+            // <0x01> <UnitNumber:BYTE> <UnitName:CHAR[32]> <ProtocolVer:UINT16>
+            // <HardwareID:BYTE[8]> <NumPorts:UINT16> <PlungerType:UINT16> …
+            let plunger_type = query_pico_id(device);
             let config = PinscapeConfig {
                 board: Board::Pico,
                 accel_range_g: None,
                 accel_orientation: None,
                 accel_autocenter: None,
-                plunger_type: None,
+                plunger_type,
                 plunger_enabled: Some(flags & 0x01 != 0),
                 plunger_calibrated: Some(flags & 0x02 != 0),
             };
@@ -250,6 +257,27 @@ fn read_pico(device: &HidDevice) -> Option<PinscapeConfig> {
         }
     }
     log::debug!("Pinscape Pico: no status reply");
+    None
+}
+
+/// Plunger sensor type from the Pico's identification report, if it answers.
+fn query_pico_id(device: &HidDevice) -> Option<u8> {
+    let mut request = [0u8; 64];
+    request[0] = PICO_REPORT_ID_REQUEST;
+    request[1] = PICO_REQ_QUERY_ID;
+    device.write(&request).ok()?;
+
+    // Offset of PlungerType: 1 (report type) + 1 (unit) + 32 (name)
+    // + 2 (protocol version) + 8 (hardware ID) + 2 (port count) = 46.
+    const PLUNGER_TYPE_OFFSET: usize = 46;
+    let mut buffer = [0u8; 64];
+    for _ in 0..MAX_REPORTS {
+        let read = device.read_timeout(&mut buffer, REPLY_TIMEOUT_MS).ok()?;
+        if read > PLUNGER_TYPE_OFFSET + 1 && buffer[0] == PICO_REPORT_ID_ID {
+            // UINT16 little-endian, but every defined code fits in a byte.
+            return Some(buffer[PLUNGER_TYPE_OFFSET]);
+        }
+    }
     None
 }
 
