@@ -411,16 +411,29 @@ impl Database {
         self.set_config("wizard_completed", "true")
     }
 
+    /// Settings a reset keeps, because they describe the room rather than the
+    /// configuration: the screen is still lying flat after a reset, and being
+    /// made to straighten the wizard again every time is the opposite of what
+    /// remembering the rotation was for.
+    const RESET_KEEPS: [&'static str; 1] = ["ui_rotation"];
+
     /// Wipe every setting PinReady holds, so the next start runs the wizard
-    /// from a blank slate.
+    /// from a blank slate — bar the few in [`RESET_KEEPS`].
     ///
     /// Only PinReady's own table is cleared: the scanned tables, their cached
     /// backglasses and the VPX ini are left alone. Re-answering the wizard is
     /// meant to be cheap, not to cost a rescan of the collection — and the
     /// ini gets rewritten when the wizard is validated anyway.
+    ///
+    /// [`RESET_KEEPS`]: Self::RESET_KEEPS
     pub fn reset_config(&self) -> Result<()> {
+        let kept = Self::RESET_KEEPS
+            .iter()
+            .map(|k| format!("'{k}'"))
+            .collect::<Vec<_>>()
+            .join(", ");
         self.conn
-            .execute("DELETE FROM config", [])
+            .execute(&format!("DELETE FROM config WHERE key NOT IN ({kept})"), [])
             .context("Failed to clear the configuration")?;
         Ok(())
     }
@@ -820,5 +833,22 @@ mod tests {
         db.clear_vbs_patches().unwrap();
         assert!(db.get_vbs_patch("a.vpx").is_none());
         assert!(db.get_vbs_patch("b.vpx").is_none());
+    }
+
+    #[test]
+    fn a_reset_forgets_the_configuration_but_not_the_screen_orientation() {
+        let db = temp_db();
+        db.set_config("ui_rotation", "90").unwrap();
+        db.set_config("wizard_completed", "true").unwrap();
+        db.set_config("tables_dir", "/somewhere").unwrap();
+
+        db.reset_config().unwrap();
+
+        // The wizard starts over…
+        assert_eq!(db.get_config("wizard_completed"), None);
+        assert_eq!(db.get_config("tables_dir"), None);
+        // …but the playfield is still lying flat, so the wizard comes back
+        // the right way up instead of sideways.
+        assert_eq!(db.get_config("ui_rotation").as_deref(), Some("90"));
     }
 }
