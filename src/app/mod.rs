@@ -1517,6 +1517,37 @@ impl App {
         }
     }
 
+    /// Advance the tilt plumb by the time elapsed since the previous sensor
+    /// sample, applying the same chain VPX does: deadzone, then the
+    /// accelerometer range as a unit conversion to m/s², then this sensor's
+    /// strength factor.
+    fn step_plumb(&mut self, x: f32, y: f32) {
+        let deadzone = self.tilt.nudge_deadzone_pct / 100.0;
+        let gate = |v: f32| {
+            let magnitude = v.abs();
+            if magnitude <= deadzone {
+                0.0
+            } else {
+                v.signum() * (magnitude - deadzone) / (1.0 - deadzone)
+            }
+        };
+        let to_ms2 = self.tilt.nudge_range_g * 9.806_65 * (self.tilt.nudge_scale_pct / 100.0);
+        let accel = (gate(x) * to_ms2, gate(y) * to_ms2);
+        let threshold = crate::tilt::TiltConfig::threshold_angle(self.tilt.tilt_sensitivity_pct);
+
+        let now = std::time::Instant::now();
+        let elapsed_ms = self
+            .plumb_last_step
+            .map_or(8, |t| now.duration_since(t).as_millis().clamp(1, 50) as u32);
+        self.plumb_last_step = Some(now);
+        for _ in 0..elapsed_ms {
+            self.plumb.step(accel, self.tilt.plumb_damping, threshold);
+            if self.plumb.tilted {
+                self.plumb_tilt_until = Some(now + std::time::Duration::from_millis(700));
+            }
+        }
+    }
+
     /// Process joystick events during wizard mode (tilt viz, input capture, device detection).
     fn process_wizard_joystick_events(&mut self) {
         let events: Vec<JoystickEvent> = self
@@ -1530,6 +1561,14 @@ impl App {
                 JoystickEvent::AccelUpdate { x, y } => {
                     self.accel_x = *x;
                     self.accel_y = *y;
+                    // Step the plumb here, on every sample, rather than once
+                    // per frame: the board reports at ~125 Hz and a late
+                    // nudge lasts a few milliseconds, so keeping only the
+                    // last sample of each frame either misses the knock or
+                    // smears it over three times its real duration. Either
+                    // way the pendulum barely moved — which is exactly how
+                    // it looked.
+                    self.step_plumb(*x, *y);
                 }
                 JoystickEvent::ButtonDown {
                     device_id,

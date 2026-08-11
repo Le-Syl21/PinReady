@@ -239,10 +239,11 @@ impl App {
         // plumb angles — so express it as the angle a steady push right at
         // that threshold would settle the bob at: tan(angle) = a / g. Below
         // this, nothing reaches the physics at all.
-        let deadzone_accel = (self.tilt.nudge_deadzone_pct / 100.0)
-            * self.tilt.nudge_range_g
-            * 9.806_65
-            * (self.tilt.nudge_scale_pct / 100.0);
+        // Strength deliberately absent: the deadzone gates the raw sensor
+        // signal, before any scaling, so folding it in made the ring move
+        // when the nudge strength changed — which it must not.
+        let deadzone_accel =
+            (self.tilt.nudge_deadzone_pct / 100.0) * self.tilt.nudge_range_g * 9.806_65;
         let deadzone_angle = (deadzone_accel / 9.806_65).atan().to_degrees();
         let deadzone_radius = angle_to_radius(deadzone_angle);
         if deadzone_radius > 1.0 {
@@ -256,38 +257,6 @@ impl App {
                 deadzone_radius,
                 egui::Stroke::new(2.0, egui::Color32::from_rgb(80, 200, 80)),
             );
-        }
-
-        // Advance the plumb with what the sensor is actually reporting, put
-        // through the same chain VPX applies: deadzone, then the range as a
-        // unit conversion to m/s², then this sensor's strength factor.
-        {
-            let raw = |v: f32| {
-                let dz = self.tilt.nudge_deadzone_pct / 100.0;
-                let magnitude = v.abs();
-                if magnitude <= dz {
-                    0.0
-                } else {
-                    v.signum() * (magnitude - dz) / (1.0 - dz)
-                }
-            };
-            let to_ms2 = self.tilt.nudge_range_g * 9.806_65 * (self.tilt.nudge_scale_pct / 100.0);
-            let accel = (raw(self.accel_x) * to_ms2, raw(self.accel_y) * to_ms2);
-            let threshold =
-                crate::tilt::TiltConfig::threshold_angle(self.tilt.tilt_sensitivity_pct);
-            // Catch up in 1 ms steps, VPX's own integration period, capped so
-            // a stalled frame doesn't spin here.
-            let now = std::time::Instant::now();
-            let elapsed = self
-                .plumb_last_step
-                .map_or(1, |t| now.duration_since(t).as_millis().min(50) as u32);
-            self.plumb_last_step = Some(now);
-            for _ in 0..elapsed {
-                self.plumb.step(accel, self.tilt.plumb_damping, threshold);
-                if self.plumb.tilted {
-                    self.plumb_tilt_until = Some(now + std::time::Duration::from_millis(700));
-                }
-            }
         }
 
         // TILT threshold ring (red) — beyond this = TILT
