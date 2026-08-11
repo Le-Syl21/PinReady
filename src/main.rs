@@ -25,6 +25,7 @@ mod mediadb;
 mod merge;
 mod outputs_hid;
 mod pidlock;
+mod pinscape_config;
 mod scan_worker;
 mod screens;
 mod session;

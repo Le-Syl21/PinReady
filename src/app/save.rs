@@ -221,21 +221,34 @@ impl App {
             // delivered as SDL joystick axes.
             //
             // Plunger sensor 0 — position axis 514, velocity axis 517.
-            self.config.set("Input", "PlungerSensorCount", "1");
-            self.config.set(
-                "Input",
-                "Mapping.Plunger0.Position",
-                &format!("{psc_id};514;P;0.000000;1.000000;1.000000"),
-            );
-            // The velocity scale is a unit conversion, not a sensitivity: VPX
-            // wants per-unit/s (one unit = the plunger travel length), and its
-            // own sensor page offers 12.5 as the Pinscape reading. Left at 1.0,
-            // the launch impulse comes out two orders of magnitude short.
-            self.config.set(
-                "Input",
-                "Mapping.Plunger0.Velocity",
-                &format!("{psc_id};517;V;0.000000;12.500000;1.000000"),
-            );
+            //
+            // Declared only when a plunger actually exists. A Pinscape board
+            // states its plunger sensor type in its own configuration (type 0
+            // = none), so a cabinet wired without one no longer gets a
+            // phantom sensor mapped to an axis that never moves. When no
+            // board answers, assume there is one — that was the behaviour
+            // before we could ask.
+            let has_plunger = self.pinscape_cfg.is_none_or(|cfg| cfg.has_plunger());
+            if has_plunger {
+                self.config.set("Input", "PlungerSensorCount", "1");
+                self.config.set(
+                    "Input",
+                    "Mapping.Plunger0.Position",
+                    &format!("{psc_id};514;P;0.000000;1.000000;1.000000"),
+                );
+                // The velocity scale is a unit conversion, not a sensitivity: VPX
+                // wants per-unit/s (one unit = the plunger travel length), and its
+                // own sensor page offers 12.5 as the Pinscape reading. Left at 1.0,
+                // the launch impulse comes out two orders of magnitude short.
+                self.config.set(
+                    "Input",
+                    "Mapping.Plunger0.Velocity",
+                    &format!("{psc_id};517;V;0.000000;12.500000;1.000000"),
+                );
+            } else {
+                log::info!("Board reports no plunger sensor — leaving the plunger unmapped");
+                self.config.set("Input", "PlungerSensorCount", "0");
+            }
 
             // Nudge sensor 0 — accelerometer axes 512 (X) / 513 (Y). Sensitivity
             // (scale) and deadzone come from the tilt page; the sensor type is

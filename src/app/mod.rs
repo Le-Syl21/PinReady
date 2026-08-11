@@ -410,6 +410,12 @@ pub struct App {
     /// Largest |accel| seen on the tilt page, so the user can size the
     /// accelerometer range against what their cabinet actually produces.
     nudge_peak: f32,
+    /// What the Pinscape board says about itself — its accelerometer range
+    /// and orientation, whether a plunger exists. Read over HID at startup,
+    /// `None` while pending or when no board answers.
+    pinscape_cfg: Option<crate::pinscape_config::PinscapeConfig>,
+    pinscape_cfg_rx:
+        Option<crossbeam_channel::Receiver<Option<crate::pinscape_config::PinscapeConfig>>>,
     // Launcher joystick nav auto-repeat: track which nav button is held
     nav_held: Option<(
         u8,
@@ -746,6 +752,8 @@ impl App {
             kiosk_focus_at: None,
             reset_armed: false,
             nudge_peak: 0.0,
+            pinscape_cfg: None,
+            pinscape_cfg_rx: Some(crate::pinscape_config::spawn_read()),
             nav_held: None,
             bg_rx: None,
             scan_generation: 0,

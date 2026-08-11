@@ -37,27 +37,45 @@ impl App {
         );
         ui.add_space(8.0);
 
-        // Accelerometer range. This is a fact about the hardware, not a
-        // preference — it tells the engine what a full-scale reading means.
-        // The peak readout below is what makes it answerable: shake the
-        // cabinet and read how much of the scale you actually use.
-        ui.horizontal(|ui| {
-            ui.label(t!("tilt_range"));
-            help_marker(ui, &t!("tilt_range_help"));
-        });
-        ui.horizontal(|ui| {
-            for g in [1.0_f32, 2.0, 4.0, 8.0] {
-                ui.selectable_value(&mut self.tilt.nudge_range_g, g, format!("{g:.0} g"));
+        // Accelerometer range — read from the board, not asked. The
+        // firmware knows it (Pinscape config variable 4) and the user
+        // generally does not, so this is a readout, not a question. The peak
+        // below stays: it says whether the cabinet actually exercises that
+        // range.
+        if let Some(rx) = &self.pinscape_cfg_rx {
+            if let Ok(cfg) = rx.try_recv() {
+                self.pinscape_cfg_rx = None;
+                if let Some(cfg) = cfg {
+                    self.tilt.nudge_range_g = cfg.accel_range_g;
+                }
+                self.pinscape_cfg = cfg;
             }
-        });
-        ui.add_space(2.0);
-        {
-            // Peak of |x|,|y| since entering the page, as a share of full
-            // scale. A shake that never passes ~20 % means the range is set
-            // wider than the cabinet ever exercises.
-            let peak = self.accel_x.abs().max(self.accel_y.abs());
-            self.nudge_peak = self.nudge_peak.max(peak);
-            ui.horizontal(|ui| {
+        }
+        ui.add_enabled_ui(false, |ui| {
+            egui::Frame::group(ui.style()).show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(t!("tilt_range"))
+                        .on_hover_text(t!("tilt_range_help"));
+                    match &self.pinscape_cfg {
+                        Some(cfg) => ui.label(
+                            egui::RichText::new(t!(
+                                "tilt_range_detected",
+                                range = format!("{:.0}", cfg.accel_range_g),
+                                orientation = cfg.orientation_label()
+                            ))
+                            .strong(),
+                        ),
+                        None => ui.label(t!(
+                            "tilt_range_default",
+                            range = format!("{:.0}", self.tilt.nudge_range_g)
+                        )),
+                    };
+                });
+                // Peak of |x|,|y| since entering the page, as a share of full
+                // scale: a shake that never passes ~20 % means the board is
+                // set wider than the cabinet ever exercises.
+                let peak = self.accel_x.abs().max(self.accel_y.abs());
+                self.nudge_peak = self.nudge_peak.max(peak);
                 ui.label(
                     egui::RichText::new(t!(
                         "tilt_peak",
@@ -66,10 +84,10 @@ impl App {
                     ))
                     .weak(),
                 );
-                if ui.small_button(t!("tilt_peak_reset")).clicked() {
-                    self.nudge_peak = 0.0;
-                }
             });
+        });
+        if ui.small_button(t!("tilt_peak_reset")).clicked() {
+            self.nudge_peak = 0.0;
         }
         ui.add_space(8.0);
 
