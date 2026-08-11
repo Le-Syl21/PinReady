@@ -24,7 +24,7 @@ pub struct TiltConfig {
     pub nudge_sensor_type: i32,
 }
 
-const TILT_ANGLE_MIN: f32 = 0.15;
+pub const TILT_ANGLE_MIN: f32 = 0.15;
 pub const TILT_ANGLE_MAX: f32 = 4.0;
 const TILT_ANGLE_RANGE: f32 = TILT_ANGLE_MAX - TILT_ANGLE_MIN;
 
@@ -37,7 +37,7 @@ const TILT_ANGLE_RANGE: f32 = TILT_ANGLE_MAX - TILT_ANGLE_MIN;
 ///
 /// Driving sensitivity through `scale` meant lying to the engine about what
 /// the sensor is, and made a 4 g or 8 g board impossible to describe.
-const GRAVITY: f32 = 9.806_65;
+pub const GRAVITY: f32 = 9.806_65;
 /// Slider percent → Strength, on VPX's own scale: its live UI shows this
 /// field multiplied by 100, so neutral reads 100 % there. Using a 0-100 range
 /// here would have shown 50 % for the very same setting — two numbers for one
@@ -64,7 +64,150 @@ impl Default for TiltConfig {
     }
 }
 
+/// The four full-scale ranges Pinscape boards expose and VPX's own sensor
+/// page offers.
+pub const SENSOR_RANGES_G: [f32; 4] = [1.0, 2.0, 4.0, 8.0];
+
+/// Everything the tilt dial draws, in the one unit that lets a dead zone, an
+/// intent threshold and a tilt angle be compared: acceleration as the sensor
+/// reads it, in m/s².
+///
+/// Computing this runs the physics a few dozen times, so callers cache it
+/// against [`TiltConfig::rings_key`] rather than recomputing per frame.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TiltRings {
+    /// Shove needed to tilt. Infinite when no shove does.
+    pub tilt: f32,
+    /// Fixed intent threshold, referred back to the sensor: Strength is
+    /// applied before the comparison, so raising it moves this inwards.
+    /// `None` outside Intent mode, which has no such gate.
+    pub intent: Option<f32>,
+    /// Dead zone, the first gate the raw signal meets.
+    pub deadzone: f32,
+    /// Full scale — the rim, and the hard ceiling on everything above.
+    pub full_scale: f32,
+    /// Usable tilt window per entry of [`SENSOR_RANGES_G`]: the narrowest
+    /// threshold the first shove through the filters already trips, and the
+    /// widest one full scale still reaches.
+    pub reach: [(f32, f32); 4],
+    /// Strength, in percent, that would bring the tilt ring back inside full
+    /// scale. `None` when it already is, or when even 200 % would not.
+    pub strength_to_reach_pct: Option<f32>,
+}
+
+impl TiltRings {
+    /// Whether the tilt threshold is out of the sensor's reach — the shove it
+    /// needs exceeds what the sensor can report, so the table cannot tilt at
+    /// all however hard the cabinet is shaken.
+    pub fn tilt_out_of_reach(&self) -> bool {
+        // Infinity is a legitimate answer here — no shove tilts at all — and
+        // it must read as "out of reach", which a plain `>` gives.
+        self.tilt.is_infinite() || self.tilt > self.full_scale
+    }
+}
+
 impl TiltConfig {
+    /// Sensor full scale in m/s² — a full-deflection reading.
+    pub fn full_scale_ms2(&self) -> f32 {
+        self.nudge_range_g * GRAVITY
+    }
+
+    /// The dead zone in the units it actually bites in. It is stored as a
+    /// fraction of the axis, so the same percentage swallows eight times more
+    /// real movement on an 8 g board than on a 1 g one — the one setting
+    /// whose effect changes with the range.
+    pub fn deadzone_ms2(&self) -> f32 {
+        (self.nudge_deadzone_pct / 100.0) * self.full_scale_ms2()
+    }
+
+    /// `Mapping.NudgeN.Strength`, on VPX's own 0..2 scale.
+    pub fn strength(&self) -> f32 {
+        (self.nudge_scale_pct / 100.0).max(0.01)
+    }
+
+    /// The plumb threshold angle currently configured.
+    pub fn threshold_deg(&self) -> f32 {
+        Self::threshold_angle(self.tilt_sensitivity_pct)
+    }
+
+    /// Smallest shove that survives the filters and reaches the cabinet: the
+    /// dead zone, and in Intent mode the fixed nudge threshold on top of it.
+    fn floor_ms2(&self, range_g: f32) -> f32 {
+        let deadzone = (self.nudge_deadzone_pct / 100.0) * range_g * GRAVITY;
+        if self.nudge_sensor_type == 1 {
+            // Referred back to the sensor: Strength multiplies before the
+            // comparison, and a sideways nudge carries the 4/3 the intent
+            // detector applies to its X axis.
+            deadzone.max(crate::nudge_sim::INTENT_THRESHOLD_MS2 / (self.strength() * 4.0 / 3.0))
+        } else {
+            deadzone
+        }
+    }
+
+    /// Run the physics and place every ring. A few dozen simulated shoves —
+    /// milliseconds, but not per-frame work.
+    pub fn rings(&self) -> TiltRings {
+        let strength = self.strength();
+        let full_scale = self.full_scale_ms2();
+        let threshold = self.threshold_deg();
+        let sim = |accel: f32| {
+            crate::nudge_sim::peak_tilt_angle(
+                accel,
+                self.nudge_sensor_type,
+                strength,
+                crate::nudge_sim::DEFAULT_CAB_WEIGHT_KG,
+                self.plumb_damping,
+            )
+        };
+        let tilt = crate::nudge_sim::sensor_accel_for_tilt(
+            threshold,
+            self.nudge_sensor_type,
+            strength,
+            crate::nudge_sim::DEFAULT_CAB_WEIGHT_KG,
+            self.plumb_damping,
+        );
+        let mut reach = [(TILT_ANGLE_MIN, TILT_ANGLE_MAX); 4];
+        for (slot, range_g) in reach.iter_mut().zip(SENSOR_RANGES_G) {
+            *slot = (
+                sim(self.floor_ms2(range_g)).clamp(TILT_ANGLE_MIN, TILT_ANGLE_MAX),
+                sim(range_g * GRAVITY).clamp(TILT_ANGLE_MIN, TILT_ANGLE_MAX),
+            );
+        }
+        // The shove needed is inversely proportional to Strength, so the fix
+        // is a division — aimed at 90 % of full scale, since a threshold
+        // sitting exactly on the rim needs a perfect shove to reach.
+        let strength_to_reach_pct = (tilt > full_scale && tilt.is_finite())
+            .then(|| self.nudge_scale_pct * tilt / (0.9 * full_scale))
+            .filter(|pct| *pct <= NUDGE_STRENGTH_MAX_PCT);
+        TiltRings {
+            tilt,
+            intent: (self.nudge_sensor_type == 1)
+                .then(|| crate::nudge_sim::INTENT_THRESHOLD_MS2 / (strength * 4.0 / 3.0)),
+            deadzone: self.deadzone_ms2(),
+            full_scale,
+            reach,
+            strength_to_reach_pct,
+        }
+    }
+
+    /// Identifies the inputs [`rings`] depends on, so a cached result can be
+    /// reused until one of them moves.
+    ///
+    /// [`rings`]: Self::rings
+    pub fn rings_key(&self) -> u64 {
+        let mut key = self.nudge_sensor_type as u64;
+        for v in [
+            self.tilt_sensitivity_pct,
+            self.nudge_scale_pct,
+            self.nudge_range_g,
+            self.nudge_deadzone_pct,
+            self.plumb_damping,
+        ] {
+            key = key.wrapping_mul(0x100_0000_01b3) ^ v.to_bits() as u64;
+        }
+        key
+    }
+
     /// The plumb threshold angle a given sensitivity percentage writes.
     /// Inverted by nature: 100 % is the *smallest* angle, so the tilt trips
     /// soonest.
@@ -158,6 +301,120 @@ mod tests {
         let mut tmp = NamedTempFile::new().unwrap();
         tmp.write_all(content.as_bytes()).unwrap();
         VpxConfig::load(Some(tmp.path())).unwrap()
+    }
+
+    #[test]
+    fn the_dial_orders_its_rings_the_way_the_filters_apply() {
+        let tilt = TiltConfig::default();
+        let rings = tilt.rings();
+        assert!(rings.deadzone > 0.0);
+        assert!(
+            rings.deadzone < rings.intent.unwrap(),
+            "the dead zone gates the raw signal before the intent threshold sees it"
+        );
+        assert!(
+            rings.intent.unwrap() < rings.tilt,
+            "clearing the nudge threshold must be easier than tilting"
+        );
+        // The defaults sit inside a 1 g board's reach, but only just — the
+        // whole reason the page has to say so.
+        assert!(!rings.tilt_out_of_reach(), "tilt at {}", rings.tilt);
+        assert!(rings.tilt > 0.6 * rings.full_scale);
+    }
+
+    #[test]
+    fn cabinet_mode_has_no_intent_ring() {
+        let tilt = TiltConfig {
+            nudge_sensor_type: 2,
+            ..Default::default()
+        };
+        assert!(tilt.rings().intent.is_none());
+    }
+
+    #[test]
+    fn a_wide_tilt_angle_falls_out_of_a_1g_sensor_reach() {
+        let tilt = TiltConfig {
+            tilt_sensitivity_pct: 0.0, // the widest angle, 4°
+            ..Default::default()
+        };
+        let rings = tilt.rings();
+        assert!(rings.tilt_out_of_reach(), "tilt at {}", rings.tilt);
+        // 4° needs more than twice full scale at 1 g, so no strength within
+        // VPX's 0..2 range brings it back — only a wider sensor range does.
+        assert!(rings.strength_to_reach_pct.is_none());
+        assert!(
+            rings.reach[0].1 < 4.0 && rings.reach[2].1 >= 4.0,
+            "a 1 g board should fall short where a 4 g one reaches: {:?}",
+            rings.reach
+        );
+    }
+
+    #[test]
+    fn strength_is_offered_when_it_would_actually_help() {
+        // Just out of reach: a threshold a stronger setting can recover.
+        let tilt = TiltConfig {
+            tilt_sensitivity_pct: 62.0,
+            ..Default::default()
+        };
+        let rings = tilt.rings();
+        assert!(rings.tilt_out_of_reach(), "tilt at {}", rings.tilt);
+        let pct = rings
+            .strength_to_reach_pct
+            .expect("a reachable fix should be offered");
+        assert!((100.0..=200.0).contains(&pct), "got {pct}");
+        let fixed = TiltConfig {
+            nudge_scale_pct: pct,
+            ..tilt.clone()
+        };
+        assert!(
+            !fixed.rings().tilt_out_of_reach(),
+            "applying the offered strength should bring the tilt within reach"
+        );
+    }
+
+    #[test]
+    fn the_dead_zone_bites_in_proportion_to_the_range() {
+        // The one setting whose real effect follows the range, which is why
+        // the page prints it in m/s² next to its percentage.
+        let narrow = TiltConfig::default();
+        let wide = TiltConfig {
+            nudge_range_g: 8.0,
+            ..Default::default()
+        };
+        assert!((wide.deadzone_ms2() / narrow.deadzone_ms2() - 8.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn the_rings_cache_key_tracks_every_input_it_depends_on() {
+        let base = TiltConfig::default();
+        for changed in [
+            TiltConfig {
+                tilt_sensitivity_pct: 50.0,
+                ..base.clone()
+            },
+            TiltConfig {
+                nudge_scale_pct: 150.0,
+                ..base.clone()
+            },
+            TiltConfig {
+                nudge_range_g: 2.0,
+                ..base.clone()
+            },
+            TiltConfig {
+                nudge_deadzone_pct: 10.0,
+                ..base.clone()
+            },
+            TiltConfig {
+                plumb_damping: 0.5,
+                ..base.clone()
+            },
+            TiltConfig {
+                nudge_sensor_type: 2,
+                ..base.clone()
+            },
+        ] {
+            assert_ne!(base.rings_key(), changed.rings_key());
+        }
     }
 
     #[test]

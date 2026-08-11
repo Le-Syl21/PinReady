@@ -368,3 +368,221 @@ mod tests {
         assert!(resting < 0.05, "still moving at {resting} m/s²");
     }
 }
+
+/// Widest angle the plumb reaches for a 100 ms shove of `sensor_accel`
+/// (m/s², as read by the sensor), running the whole chain: dead zone already
+/// applied by the caller, then Kalman, then the mode's own handling, then the
+/// cabinet oscillator, then the pendulum.
+///
+/// This single number answers both questions the wizard asks — how hard a
+/// shove a given tilt threshold needs, and how far a given sensor range can
+/// still tilt — so neither needs a nested search.
+pub fn peak_tilt_angle(
+    sensor_accel: f32,
+    sensor_type: i32,
+    strength: f32,
+    cab_weight: f32,
+    damping: f32,
+) -> f32 {
+    // A threshold no shove reaches, so the plumb is never pinned and reports
+    // the angle it would have swung to.
+    const UNREACHABLE_DEG: f32 = 90.0;
+    // The estimator takes the very first sample it sees as bias ("idle-start
+    // assumption", MotionKalmanAxis::UpdateAcceleration), and only trusts an
+    // axis as being at rest after 275 quiet samples. Shoving from the first
+    // millisecond would therefore book the whole knock as a sensor offset and
+    // report a cabinet that barely moved. A real sensor idles first, so idle
+    // here too.
+    const SETTLE_MS: usize = 400;
+    // 1.5 s is well past the peak of a 100 ms shove on a 9 Hz cabinet.
+    const DURATION_MS: usize = SETTLE_MS + 1500;
+    const SHOVE_MS: usize = SETTLE_MS + 100;
+
+    let mut sim = NudgeSim::default();
+    let mut plumb = crate::plumb::Plumb::default();
+    let mut peak = 0.0_f32;
+    for i in 0..DURATION_MS {
+        let accel = if (SETTLE_MS..SHOVE_MS).contains(&i) {
+            (sensor_accel, 0.0)
+        } else {
+            (0.0, 0.0)
+        };
+        sim.step(accel, strength, cab_weight, sensor_type);
+        plumb.step(sim.cabinet_acceleration(), damping, UNREACHABLE_DEG);
+        let angle = plumb.angle_deg();
+        if !angle.is_finite() {
+            // A shove far past any real sensor's range destabilises the 1 kHz
+            // integration — the same integration VPX runs, which simply never
+            // meets such a value in play. Report the rod laid flat rather than
+            // the angle reached just before it blew up: a shove that violent
+            // passes every threshold, so answering "barely moved" would be
+            // exactly backwards.
+            return 180.0;
+        }
+        peak = peak.max(angle);
+    }
+    peak
+}
+
+/// Sensor acceleration, in m/s², a 100 ms shove must reach for the plumb to
+/// pass `threshold_deg`; infinite when no shove within a sensor's reach does.
+///
+/// This is what places the tilt ring on the wizard's dial: the ring is drawn
+/// where the shove has to land, so the dot crossing it means the table tilts.
+pub fn sensor_accel_for_tilt(
+    threshold_deg: f32,
+    sensor_type: i32,
+    strength: f32,
+    cab_weight: f32,
+    damping: f32,
+) -> f32 {
+    let reaches =
+        |a: f32| peak_tilt_angle(a, sensor_type, strength, cab_weight, damping) >= threshold_deg;
+    // Climb rather than bisect from the top: past a sensor's range the
+    // integration destabilises, so probing the high bound first would answer
+    // "never" for a threshold a much gentler shove reaches. 100 m/s² is 10 g,
+    // beyond every cabinet sensor's full scale.
+    let mut lo = 0.0_f32;
+    let mut hi = f32::INFINITY;
+    let mut probe = 0.05_f32;
+    while probe < 100.0 {
+        if reaches(probe) {
+            hi = probe;
+            break;
+        }
+        lo = probe;
+        probe *= 1.2;
+    }
+    if !hi.is_finite() {
+        return f32::INFINITY;
+    }
+    for _ in 0..14 {
+        let mid = 0.5 * (lo + hi);
+        if reaches(mid) {
+            hi = mid
+        } else {
+            lo = mid
+        }
+    }
+    0.5 * (lo + hi)
+}
+
+#[cfg(test)]
+mod settle_tests {
+    use super::*;
+
+    /// The estimator books its very first sample as sensor bias, so a shove
+    /// starting on the first millisecond is read as an offset. The reading
+    /// does not merely shrink — it stops tracking the shove altogether, and
+    /// the harder the knock the worse it gets. Every measurement here idles
+    /// first; this test exists because getting it wrong produces numbers that
+    /// look plausible and are off by two orders of magnitude.
+    #[test]
+    fn a_hard_shove_from_a_cold_start_never_reaches_the_cabinet() {
+        let cold = {
+            let mut sim = NudgeSim::default();
+            let mut peak = 0.0_f32;
+            for i in 0..1500 {
+                let a = if i < 100 { (70.0, 0.0) } else { (0.0, 0.0) };
+                sim.step(a, 1.0, DEFAULT_CAB_WEIGHT_KG, 1);
+                peak = peak.max(sim.cabinet_acceleration().0.abs());
+            }
+            peak
+        };
+        assert!(
+            cold < 5.0,
+            "a 70 m/s² shove read as bias should barely move the cabinet, got {cold}"
+        );
+        // The same shove, once the sensor has idled, lays the plumb well past
+        // any threshold VPX offers.
+        let settled = peak_tilt_angle(70.0, 1, 1.0, DEFAULT_CAB_WEIGHT_KG, 1.0);
+        assert!(settled > 4.0, "a settled shove should tilt, got {settled}");
+    }
+
+    /// Harder shoves tilt further, across every range a cabinet sensor offers.
+    #[test]
+    fn peak_angle_grows_with_the_shove() {
+        for mode in [1, 2] {
+            let mut previous = 0.0;
+            for accel in [1.0_f32, 2.5, 5.0, 10.0, 20.0, 40.0, 78.5] {
+                let angle = peak_tilt_angle(accel, mode, 1.0, DEFAULT_CAB_WEIGHT_KG, 1.0);
+                assert!(
+                    angle >= previous,
+                    "mode {mode}: {accel} m/s² gave {angle}°, below the {previous}° of a softer shove"
+                );
+                previous = angle;
+            }
+        }
+    }
+
+    /// Strength divides the shove needed, which is what lets the wizard offer
+    /// it as the fix when a tilt threshold sits out of the sensor's reach.
+    #[test]
+    fn strength_scales_the_shove_needed_inversely() {
+        let at_one = sensor_accel_for_tilt(1.1125, 1, 1.0, DEFAULT_CAB_WEIGHT_KG, 1.0);
+        let at_two = sensor_accel_for_tilt(1.1125, 1, 2.0, DEFAULT_CAB_WEIGHT_KG, 1.0);
+        let ratio = at_one / at_two;
+        assert!((ratio - 2.0).abs() < 0.15, "expected ~2x, got {ratio}");
+    }
+}
+
+#[cfg(test)]
+mod bench {
+    use super::*;
+
+    /// Not an assertion — a bench printing what each tilt threshold costs, so
+    /// the numbers quoted in the UI can be re-derived after any port change.
+    /// `cargo test -- --ignored --nocapture bench`
+    #[test]
+    #[ignore]
+    fn tilt_thresholds_in_sensor_acceleration() {
+        for (mode, name) in [(1, "intent"), (2, "cabinet")] {
+            println!("\n=== {name} (strength 1.0, damping 1.0) ===");
+            println!("  angle    m/s²      g    % of ±1g   % of ±2g");
+            for deg in [0.15_f32, 1.0, 1.1125, 2.075, 4.0] {
+                let a = sensor_accel_for_tilt(deg, mode, 1.0, DEFAULT_CAB_WEIGHT_KG, 1.0);
+                println!(
+                    "  {deg:5.2}° {a:7.2} {:6.2} {:9.0} % {:9.0} %",
+                    a / 9.80665,
+                    100.0 * a / 9.80665,
+                    100.0 * a / (2.0 * 9.80665)
+                );
+            }
+        }
+        println!("\n=== intent, effect of strength on the 1.11° ring ===");
+        for s in [0.5_f32, 1.0, 1.5, 2.0] {
+            let a = sensor_accel_for_tilt(1.1125, 1, s, DEFAULT_CAB_WEIGHT_KG, 1.0);
+            println!(
+                "  strength {s:.1} → {a:6.2} m/s² = {:3.0} % of ±1g",
+                100.0 * a / 9.80665
+            );
+        }
+    }
+    /// Reach of each sensor range: the widest tilt a full-scale shove still
+    /// trips, and the narrowest one that the first shove clearing the filters
+    /// already trips — the two ends of the usable tilt slider.
+    #[test]
+    #[ignore]
+    fn reachable_tilt_range_per_sensor_range() {
+        const G: f32 = 9.80665;
+        for (mode, name) in [(1, "intent"), (2, "cabinet")] {
+            println!("\n=== {name} ===");
+            for range in [1.0_f32, 2.0, 4.0, 8.0] {
+                let full = range * G;
+                let dead = 0.03 * full;
+                let floor = if mode == 1 {
+                    dead.max(INTENT_THRESHOLD_MS2)
+                } else {
+                    dead
+                };
+                let ceiling =
+                    peak_tilt_angle(full, mode, 1.0, DEFAULT_CAB_WEIGHT_KG, 1.0).clamp(0.15, 4.0);
+                let bottom =
+                    peak_tilt_angle(floor, mode, 1.0, DEFAULT_CAB_WEIGHT_KG, 1.0).clamp(0.15, 4.0);
+                println!(
+                    "  ±{range:.0} g  full scale {full:5.1} m/s²  min tilt {bottom:.2}°  max tilt {ceiling:.2}°"
+                );
+            }
+        }
+    }
+}

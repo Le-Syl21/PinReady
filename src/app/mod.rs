@@ -427,6 +427,11 @@ pub struct App {
     /// glance catches what a shake did rather than what it is doing now.
     nudge_state: u8,
     nudge_state_since: Option<std::time::Instant>,
+    /// Where the tilt dial draws its rings, and the key that says whether it
+    /// still matches the settings. Placing them runs the cabinet physics a few
+    /// dozen times, so it happens when a slider moves, not every frame.
+    tilt_rings: crate::tilt::TiltRings,
+    tilt_rings_key: u64,
     /// What the Pinscape board says about itself — its accelerometer range
     /// and orientation, whether a plunger exists. Read over HID at startup,
     /// `None` while pending or when no board answers.
@@ -693,6 +698,7 @@ impl App {
         let merge_strategy = crate::merge::MergeStrategy::from_db_str(&db.get_merge_strategy());
         let mirror_base_url = db.mirror_base_url().unwrap_or_default();
 
+        let (tilt_rings, tilt_rings_key) = (tilt.rings(), tilt.rings_key());
         let mut s = Self {
             mode: if start_in_wizard {
                 AppMode::Wizard
@@ -775,6 +781,8 @@ impl App {
             plumb_tilt_until: None,
             nudge_state: 0,
             nudge_state_since: None,
+            tilt_rings,
+            tilt_rings_key,
             pinscape_cfg: None,
             pinscape_cfg_rx: Some(crate::pinscape_config::spawn_read()),
             nav_held: None,

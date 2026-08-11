@@ -1,8 +1,23 @@
 use super::*;
+use crate::tilt::SENSOR_RANGES_G;
 
 const NOTICE_AMBER_TILT: egui::Color32 = egui::Color32::from_rgb(255, 200, 80);
+const RING_TILT: egui::Color32 = egui::Color32::from_rgb(255, 120, 120);
+const RING_INTENT: egui::Color32 = egui::Color32::from_rgb(230, 160, 60);
+const RING_DEADZONE: egui::Color32 = egui::Color32::from_rgb(80, 200, 80);
+const STRENGTH_RED: egui::Color32 = egui::Color32::from_rgb(235, 90, 90);
 
 impl App {
+    /// Keep the dial's rings in step with the sliders. Placing them runs the
+    /// cabinet physics a few dozen times — cheap, but not per-frame cheap.
+    fn refresh_tilt_rings(&mut self) {
+        let key = self.tilt.rings_key();
+        if key != self.tilt_rings_key {
+            self.tilt_rings = self.tilt.rings();
+            self.tilt_rings_key = key;
+        }
+    }
+
     pub(super) fn render_tilt_page(&mut self, ui: &mut egui::Ui) {
         ui.heading(t!("tilt_heading"));
         ui.add_space(4.0);
@@ -17,36 +32,10 @@ impl App {
         ui.strong(t!("tilt_nudge"));
         ui.add_space(4.0);
 
-        ui.horizontal(|ui| {
-            ui.label(t!("tilt_sensitivity"));
-            help_marker(ui, &t!("tilt_sensitivity_help"));
-        });
-        ui.add_sized(
-            [ui.available_width(), 24.0],
-            egui::Slider::new(&mut self.tilt.nudge_scale_pct, 0.0..=200.0)
-                .custom_formatter(|v, _| format!("{:.0}%", v)),
-        );
-        ui.add_space(4.0);
-
-        ui.horizontal(|ui| {
-            ui.label(t!("tilt_deadzone"));
-            help_marker(ui, &t!("tilt_deadzone_help"));
-        });
-        ui.add_sized(
-            [ui.available_width(), 24.0],
-            // VPX caps this at 0.3 of the axis range ("relative amount of
-            // the axis range to nullify to avoid noise at rest position"), so
-            // offering more would write values its own UI cannot show.
-            egui::Slider::new(&mut self.tilt.nudge_deadzone_pct, 0.0..=30.0)
-                .custom_formatter(|v, _| format!("{v:.0}%")),
-        );
-        ui.add_space(8.0);
-
-        // Accelerometer range — read from the board, not asked. The
-        // firmware knows it (Pinscape config variable 4) and the user
-        // generally does not, so this is a readout, not a question. The peak
-        // below stays: it says whether the cabinet actually exercises that
-        // range.
+        // Sensor range — read from the board, not asked. The firmware knows it
+        // (Pinscape config variable 4) and the user generally does not, so the
+        // detected value is adopted and the choice stays available for boards
+        // that will not answer.
         if let Some(rx) = &self.pinscape_cfg_rx {
             if let Ok(cfg) = rx.try_recv() {
                 self.pinscape_cfg_rx = None;
@@ -56,46 +45,133 @@ impl App {
                 self.pinscape_cfg = cfg;
             }
         }
+        let detected_range = self.pinscape_cfg.and_then(|c| c.accel_range_g);
+        self.refresh_tilt_rings();
+
+        ui.horizontal(|ui| {
+            ui.label(t!("tilt_range"));
+            help_marker(ui, &t!("tilt_range_help"));
+        });
+        ui.horizontal(|ui| {
+            for range in SENSOR_RANGES_G {
+                let selected = (self.tilt.nudge_range_g - range).abs() < 0.01;
+                if ui
+                    .selectable_label(selected, format!("{range:.0} G"))
+                    .clicked()
+                {
+                    self.tilt.nudge_range_g = range;
+                }
+            }
+        });
+        match detected_range {
+            Some(detected) if (detected - self.tilt.nudge_range_g).abs() < 0.01 => {
+                ui.label(
+                    egui::RichText::new(t!(
+                        "tilt_range_matches",
+                        range = format!("{detected:.0}"),
+                        orientation = self
+                            .pinscape_cfg
+                            .map(|c| c.orientation_label())
+                            .unwrap_or_default()
+                    ))
+                    .color(egui::Color32::from_rgb(120, 200, 120)),
+                );
+            }
+            // A range that disagrees with the firmware is the single most
+            // damaging setting on this page: it is a unit conversion, so it
+            // scales nudge and tilt together, and nothing downstream can undo
+            // it. Name the factor — that is what makes the symptom
+            // recognisable.
+            Some(detected) => {
+                let factor = self.tilt.nudge_range_g / detected;
+                ui.colored_label(
+                    egui::Color32::from_rgb(255, 140, 60),
+                    t!(
+                        if factor > 1.0 {
+                            "tilt_range_mismatch_high"
+                        } else {
+                            "tilt_range_mismatch_low"
+                        },
+                        detected = format!("{detected:.0}"),
+                        chosen = format!("{:.0}", self.tilt.nudge_range_g),
+                        factor = if factor > 1.0 {
+                            format!("×{factor:.0}")
+                        } else {
+                            format!("÷{:.0}", 1.0 / factor)
+                        }
+                    ),
+                );
+                if ui
+                    .button(t!("tilt_range_adopt", range = format!("{detected:.0}")))
+                    .clicked()
+                {
+                    self.tilt.nudge_range_g = detected;
+                }
+            }
+            None => {
+                // Naming the board that stayed silent beats implying there is
+                // none.
+                ui.label(
+                    egui::RichText::new(match self.pinscape_cfg.map(|c| c.board) {
+                        Some(board) => t!(
+                            "tilt_range_unsupported",
+                            board = match board {
+                                crate::pinscape_config::Board::Kl25z => "Pinscape KL25Z",
+                                crate::pinscape_config::Board::Pico => "Pinscape Pico",
+                                crate::pinscape_config::Board::Opaque(name) => name,
+                            }
+                        ),
+                        None => t!("tilt_range_unknown"),
+                    })
+                    .weak(),
+                );
+            }
+        }
+        self.render_range_tables(ui);
+        ui.add_space(8.0);
+
+        // Strength — in practice the only setting worth touching once the
+        // range is read off the board, so it is the one that stands out.
+        ui.horizontal(|ui| {
+            ui.label(
+                egui::RichText::new(t!("tilt_sensitivity"))
+                    .strong()
+                    .color(STRENGTH_RED),
+            );
+            help_marker(ui, &t!("tilt_sensitivity_help"));
+        });
+        ui.scope(|ui| {
+            let visuals = &mut ui.style_mut().visuals;
+            visuals.selection.bg_fill = STRENGTH_RED;
+            visuals.widgets.inactive.fg_stroke.color = STRENGTH_RED;
+            ui.add_sized(
+                [ui.available_width(), 24.0],
+                egui::Slider::new(&mut self.tilt.nudge_scale_pct, 0.0..=200.0)
+                    .custom_formatter(|v, _| format!("{v:.0}%")),
+            );
+        });
+        ui.add_space(4.0);
+
+        ui.horizontal(|ui| {
+            ui.label(t!("tilt_deadzone"));
+            help_marker(ui, &t!("tilt_deadzone_help"));
+        });
+        let full_scale = self.tilt.full_scale_ms2();
+        ui.add_sized(
+            [ui.available_width(), 24.0],
+            // VPX caps this at 0.3 of the axis range ("relative amount of
+            // the axis range to nullify to avoid noise at rest position"), so
+            // offering more would write values its own UI cannot show. The
+            // m/s² is not decoration: this is the one setting whose real
+            // effect changes with the sensor range.
+            egui::Slider::new(&mut self.tilt.nudge_deadzone_pct, 0.0..=30.0).custom_formatter(
+                move |v, _| format!("{v:.0}% ({:.2} m/s²)", (v as f32 / 100.0) * full_scale),
+            ),
+        );
+        ui.add_space(8.0);
+
         ui.add_enabled_ui(false, |ui| {
             egui::Frame::group(ui.style()).show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label(t!("tilt_range"))
-                        .on_hover_text(t!("tilt_range_help"));
-                    // A Pico answers about its plunger but keeps its
-                    // accelerometer settings in a file we can't reach over
-                    // HID, so "a board is present" is not "the range is
-                    // known".
-                    match self.pinscape_cfg.and_then(|c| c.accel_range_g) {
-                        Some(range) => ui.label(
-                            egui::RichText::new(t!(
-                                "tilt_range_detected",
-                                range = format!("{range:.0}"),
-                                orientation = self
-                                    .pinscape_cfg
-                                    .map(|c| c.orientation_label())
-                                    .unwrap_or_default()
-                            ))
-                            .strong(),
-                        ),
-                        // Naming the board that stayed silent beats implying
-                        // there is none.
-                        None => match self.pinscape_cfg.map(|c| c.board) {
-                            Some(board) => ui.label(t!(
-                                "tilt_range_unsupported",
-                                range = format!("{:.0}", self.tilt.nudge_range_g),
-                                board = match board {
-                                    crate::pinscape_config::Board::Kl25z => "Pinscape KL25Z",
-                                    crate::pinscape_config::Board::Pico => "Pinscape Pico",
-                                    crate::pinscape_config::Board::Opaque(name) => name,
-                                }
-                            )),
-                            None => ui.label(t!(
-                                "tilt_range_default",
-                                range = format!("{:.0}", self.tilt.nudge_range_g)
-                            )),
-                        },
-                    };
-                });
                 // Peak of |x|,|y| since entering the page, as a share of full
                 // scale: a shake that never passes ~20 % means the board is
                 // set wider than the cabinet ever exercises. It doubles as a
@@ -114,7 +190,7 @@ impl App {
                     egui::RichText::new(t!(
                         "tilt_peak",
                         pct = format!("{:.0}", self.nudge_peak * 100.0),
-                        g = format!("{:.2}", self.nudge_peak * self.tilt.nudge_range_g)
+                        accel = format!("{:.2}", self.nudge_peak * self.tilt.full_scale_ms2())
                     ))
                     .weak(),
                 );
@@ -200,21 +276,170 @@ impl App {
                 );
             });
         });
-        ui.add_space(8.0);
+        ui.add_space(6.0);
 
-        // Warning if deadzone >= tilt threshold
-        if self.tilt.nudge_deadzone_pct >= self.tilt.tilt_sensitivity_pct {
+        self.refresh_tilt_rings();
+        // Comparable at last: both are accelerations now, so this says
+        // something true. The old version compared a dead-zone percentage
+        // against a sensitivity percentage — two different scales, and the
+        // warning fired on settings that worked perfectly.
+        if self.tilt_rings.deadzone >= self.tilt_rings.tilt {
             ui.colored_label(
                 egui::Color32::from_rgb(255, 180, 50),
                 t!("tilt_deadzone_warning"),
             );
         }
+        self.render_out_of_reach_notice(ui);
         ui.add_space(4.0);
 
-        // Visualization: deadzone (green ring) + tilt (red ring) + live dot
+        self.render_tilt_dial(ui);
+    }
+
+    /// Warn — and offer the two ways out — when the configured tilt threshold
+    /// needs a harder shove than the sensor can report. Raising the range is
+    /// the honest fix and costs nothing; Strength only compensates.
+    fn render_out_of_reach_notice(&mut self, ui: &mut egui::Ui) {
+        if !self.tilt_rings.tilt_out_of_reach() {
+            return;
+        }
+        let wider = SENSOR_RANGES_G
+            .iter()
+            .copied()
+            .find(|r| *r > self.tilt.nudge_range_g && self.reach_covers(*r));
+        egui::Frame::group(ui.style())
+            .fill(egui::Color32::from_rgb(70, 45, 20))
+            .show(ui, |ui| {
+                ui.label(
+                    egui::RichText::new(t!(
+                        "tilt_unreachable",
+                        range = format!("{:.0}", self.tilt.nudge_range_g),
+                        angle = format!("{:.2}", self.tilt.threshold_deg())
+                    ))
+                    .color(NOTICE_AMBER_TILT)
+                    .strong(),
+                );
+                if let Some(range) = wider {
+                    ui.label(t!("tilt_unreachable_range", range = format!("{range:.0}")));
+                }
+                ui.horizontal(|ui| {
+                    if let Some(range) = wider {
+                        if ui
+                            .button(t!("tilt_range_adopt", range = format!("{range:.0}")))
+                            .clicked()
+                        {
+                            self.tilt.nudge_range_g = range;
+                        }
+                    }
+                    if let Some(pct) = self.tilt_rings.strength_to_reach_pct {
+                        if ui
+                            .button(t!("tilt_unreachable_strength", pct = format!("{pct:.0}")))
+                            .clicked()
+                        {
+                            self.tilt.nudge_scale_pct = pct;
+                        }
+                    }
+                });
+            });
+    }
+
+    /// Whether a given sensor range still reaches the configured threshold.
+    fn reach_covers(&self, range_g: f32) -> bool {
+        SENSOR_RANGES_G
+            .iter()
+            .position(|r| (*r - range_g).abs() < 0.01)
+            .is_some_and(|i| self.tilt_rings.reach[i].1 >= self.tilt.threshold_deg())
+    }
+
+    /// The two tables that make the range choice decidable rather than a
+    /// guess: what a wrong declaration does, and what each range can reach.
+    fn render_range_tables(&mut self, ui: &mut egui::Ui) {
+        ui.collapsing(t!("tilt_range_tables_title"), |ui| {
+            ui.label(t!("tilt_range_table_mismatch_intro"));
+            ui.add_space(4.0);
+            egui::Grid::new("tilt_range_mismatch")
+                .striped(true)
+                .show(ui, |ui| {
+                    ui.label("");
+                    for vpx in SENSOR_RANGES_G {
+                        ui.label(egui::RichText::new(format!("VPX {vpx:.0} G")).strong());
+                    }
+                    ui.end_row();
+                    for firmware in SENSOR_RANGES_G {
+                        ui.label(
+                            egui::RichText::new(t!(
+                                "tilt_range_table_firmware",
+                                range = format!("{firmware:.0}")
+                            ))
+                            .strong(),
+                        );
+                        for vpx in SENSOR_RANGES_G {
+                            let factor = vpx / firmware;
+                            ui.label(if (factor - 1.0).abs() < 0.01 {
+                                egui::RichText::new(t!("tilt_range_table_exact"))
+                                    .color(egui::Color32::from_rgb(120, 200, 120))
+                            } else if factor > 1.0 {
+                                egui::RichText::new(format!("×{factor:.0}"))
+                                    .color(egui::Color32::from_rgb(255, 140, 60))
+                            } else {
+                                egui::RichText::new(format!("÷{:.0}", 1.0 / factor))
+                                    .color(NOTICE_AMBER_TILT)
+                            });
+                        }
+                        ui.end_row();
+                    }
+                });
+            ui.add_space(4.0);
+            ui.label(t!("tilt_range_table_mismatch_read"));
+            ui.add_space(10.0);
+
+            ui.label(t!("tilt_range_table_reach_intro"));
+            ui.add_space(4.0);
+            egui::Grid::new("tilt_range_reach")
+                .striped(true)
+                .show(ui, |ui| {
+                    ui.label("");
+                    ui.label(egui::RichText::new(t!("tilt_range_table_full_scale")).strong());
+                    ui.label(egui::RichText::new(t!("tilt_range_table_min")).strong());
+                    ui.label(egui::RichText::new(t!("tilt_range_table_max")).strong());
+                    ui.end_row();
+                    for (i, range) in SENSOR_RANGES_G.into_iter().enumerate() {
+                        let (min, max) = self.tilt_rings.reach[i];
+                        let current = (range - self.tilt.nudge_range_g).abs() < 0.01;
+                        let cell = |text: String| {
+                            let rich = egui::RichText::new(text);
+                            if current {
+                                rich.strong()
+                            } else {
+                                rich
+                            }
+                        };
+                        ui.label(cell(format!("{range:.0} G")));
+                        ui.label(cell(format!("{:.1} m/s²", range * crate::tilt::GRAVITY)));
+                        ui.label(cell(format!("{min:.2}°")));
+                        ui.label(cell(format!("{max:.2}°")));
+                        ui.end_row();
+                    }
+                });
+            ui.add_space(4.0);
+            ui.label(
+                egui::RichText::new(t!(
+                    "tilt_range_table_reach_note",
+                    pct = format!("{:.0}", self.tilt.nudge_scale_pct)
+                ))
+                .weak(),
+            );
+        });
+    }
+
+    /// The dial. Everything on it — dead zone, intent gate, tilt threshold,
+    /// live reading — is drawn in one unit, acceleration as the sensor reads
+    /// it, so distances on screen mean the same thing everywhere. The rim is
+    /// full scale, which is the hard ceiling: a ring outside it names a
+    /// setting the sensor can never satisfy.
+    fn render_tilt_dial(&mut self, ui: &mut egui::Ui) {
         ui.label(t!("tilt_visualization"));
         ui.add_space(4.0);
-        let viz_size = egui::vec2(240.0, 240.0);
+        let viz_size = egui::vec2(260.0, 260.0);
         let (rect, _response) = ui.allocate_exact_size(viz_size, egui::Sense::hover());
         let painter = ui.painter_at(rect);
         // Snap to the pixel grid: a centre landing on a half pixel smears the
@@ -223,74 +448,59 @@ impl App {
             use egui::emath::GuiRounding as _;
             rect.center().round_to_pixel_center(ui.pixels_per_point())
         };
-        let radius = 110.0;
+        let radius = 118.0;
+        let rings = self.tilt_rings;
+        let to_radius = |accel: f32| radius * (accel / rings.full_scale).clamp(0.0, 1.0);
 
-        // Outer circle (max range)
+        // Rim: full scale.
         painter.circle_stroke(center, radius, egui::Stroke::new(2.0, egui::Color32::GRAY));
-        // Cross hairs
-        painter.line_segment(
-            [
-                center - egui::vec2(radius, 0.0),
-                center + egui::vec2(radius, 0.0),
-            ],
-            egui::Stroke::new(1.0, egui::Color32::DARK_GRAY),
-        );
-        painter.line_segment(
-            [
-                center - egui::vec2(0.0, radius),
-                center + egui::vec2(0.0, radius),
-            ],
-            egui::Stroke::new(1.0, egui::Color32::DARK_GRAY),
-        );
-
-        // One scale for every ring: the fraction of the accelerometer's own
-        // range, magnified so the small thresholds are aimable. Each ring is
-        // the shake it takes to reach that limit, which is the only way to
-        // compare a deadzone (a threshold on the signal) with a tilt angle (a
-        // pendulum's state). The tilt rings are converted through
-        // tan θ = a/g — a steady push that would settle the plumb there.
-        const FULL_SCALE: f32 = 0.25; // rim = a quarter of the sensor range
-        let to_radius = |fraction: f32| radius * (fraction / FULL_SCALE).clamp(0.0, 1.0);
-        let angle_to_fraction = |deg: f32| {
-            // Acceleration that holds the plumb at this angle, back to a
-            // fraction of the sensor's range.
-            let accel = deg.to_radians().tan() * 9.806_65;
-            accel / (self.tilt.nudge_range_g * 9.806_65).max(0.001)
-        };
-        let strength = (self.tilt.nudge_scale_pct / 100.0).max(0.01);
-
-        // Outermost meaningful ring: the widest tilt VPX allows.
-        let max_tilt_radius = to_radius(angle_to_fraction(crate::tilt::TILT_ANGLE_MAX));
-        painter.circle_stroke(
-            center,
-            max_tilt_radius,
-            egui::Stroke::new(1.5, egui::Color32::from_rgb(150, 90, 90)),
-        );
-
-        // The tilt threshold in force.
-        let threshold_radius = to_radius(angle_to_fraction(
-            crate::tilt::TiltConfig::threshold_angle(self.tilt.tilt_sensitivity_pct),
-        ));
-        painter.circle_stroke(
-            center,
-            threshold_radius,
-            egui::Stroke::new(2.0, egui::Color32::from_rgb(255, 120, 120)),
-        );
-
-        // Intent threshold — fixed at 1 m/s², but Strength is applied before
-        // the comparison, so raising it moves this ring inwards.
-        if self.tilt.nudge_sensor_type == 1 {
-            let intent_fraction = crate::nudge_sim::INTENT_THRESHOLD_MS2
-                / (self.tilt.nudge_range_g * 9.806_65 * strength);
-            painter.circle_stroke(
-                center,
-                to_radius(intent_fraction),
-                egui::Stroke::new(2.0, egui::Color32::from_rgb(230, 160, 60)),
+        for (dx, dy) in [(1.0, 0.0), (0.0, 1.0)] {
+            painter.line_segment(
+                [
+                    center - egui::vec2(radius * dx, radius * dy),
+                    center + egui::vec2(radius * dx, radius * dy),
+                ],
+                egui::Stroke::new(1.0, egui::Color32::DARK_GRAY),
             );
         }
 
-        // Deadzone, innermost by nature: it gates the raw signal first.
-        let deadzone_radius = to_radius(self.tilt.nudge_deadzone_pct / 100.0);
+        // Tilt threshold. Beyond the rim it is unreachable, so it is drawn on
+        // the rim as a dashed ring rather than silently clamped — the ring has
+        // to say "no shove gets here", not "shove this hard".
+        if rings.tilt_out_of_reach() {
+            painter.circle_stroke(
+                center,
+                radius - 2.0,
+                egui::Stroke::new(2.0, RING_TILT.gamma_multiply(0.55)),
+            );
+            for step in 0..48 {
+                let angle = std::f32::consts::TAU * (step as f32 + 0.25) / 48.0;
+                let dir = egui::vec2(angle.cos(), angle.sin());
+                painter.line_segment(
+                    [center + dir * (radius - 8.0), center + dir * (radius - 2.0)],
+                    egui::Stroke::new(1.5, RING_TILT),
+                );
+            }
+        } else {
+            painter.circle_stroke(
+                center,
+                to_radius(rings.tilt),
+                egui::Stroke::new(2.0, RING_TILT),
+            );
+        }
+
+        // Intent gate — fixed at 1 m/s², but Strength applies before the
+        // comparison, so raising it moves this ring inwards.
+        if let Some(intent) = rings.intent {
+            painter.circle_stroke(
+                center,
+                to_radius(intent),
+                egui::Stroke::new(2.0, RING_INTENT),
+            );
+        }
+
+        // Dead zone, innermost by nature: it gates the raw signal first.
+        let deadzone_radius = to_radius(rings.deadzone);
         if deadzone_radius > 1.0 {
             painter.circle_filled(
                 center,
@@ -300,33 +510,89 @@ impl App {
             painter.circle_stroke(
                 center,
                 deadzone_radius,
-                egui::Stroke::new(2.0, egui::Color32::from_rgb(80, 200, 80)),
+                egui::Stroke::new(2.0, RING_DEADZONE),
             );
         }
 
         // The live sensor reading, thin and translucent — a laser dot that
-        // shows movement everywhere, including inside the deadzone, which is
+        // shows movement everywhere, including inside the dead zone, which is
         // the one place the plumb can never show anything.
         let dot_pos = egui::pos2(
-            center.x + (self.accel_x / FULL_SCALE).clamp(-1.05, 1.05) * radius,
-            center.y + (self.accel_y / FULL_SCALE).clamp(-1.05, 1.05) * radius,
+            center.x + self.accel_x.clamp(-1.05, 1.05) * radius,
+            center.y + self.accel_y.clamp(-1.05, 1.05) * radius,
         );
         let laser = egui::Color32::from_rgba_unmultiplied(255, 60, 60, 210);
         painter.circle_filled(dot_pos, 7.0, laser.gamma_multiply(0.18));
         painter.circle_filled(dot_pos, 2.0, laser);
+
+        // A legend, because a ring nobody can name is decoration.
+        ui.add_space(2.0);
+        let legend = |ui: &mut egui::Ui, color: egui::Color32, text: String| {
+            ui.horizontal(|ui| {
+                let (rect, _) =
+                    ui.allocate_exact_size(egui::vec2(12.0, 12.0), egui::Sense::hover());
+                ui.painter()
+                    .circle_stroke(rect.center(), 5.0, egui::Stroke::new(2.0, color));
+                ui.label(egui::RichText::new(text).small());
+            });
+        };
+        legend(
+            ui,
+            egui::Color32::GRAY,
+            t!(
+                "tilt_legend_rim",
+                accel = format!("{:.1}", rings.full_scale),
+                range = format!("{:.0}", self.tilt.nudge_range_g)
+            )
+            .to_string(),
+        );
+        legend(
+            ui,
+            RING_TILT,
+            if rings.tilt_out_of_reach() {
+                t!(
+                    "tilt_legend_tilt_unreachable",
+                    angle = format!("{:.2}", self.tilt.threshold_deg())
+                )
+                .to_string()
+            } else {
+                t!(
+                    "tilt_legend_tilt",
+                    angle = format!("{:.2}", self.tilt.threshold_deg()),
+                    accel = format!("{:.1}", rings.tilt),
+                    pct = format!("{:.0}", 100.0 * rings.tilt / rings.full_scale)
+                )
+                .to_string()
+            },
+        );
+        if let Some(intent) = rings.intent {
+            legend(
+                ui,
+                RING_INTENT,
+                t!("tilt_legend_intent", accel = format!("{intent:.1}")).to_string(),
+            );
+        }
+        legend(
+            ui,
+            RING_DEADZONE,
+            t!(
+                "tilt_legend_deadzone",
+                accel = format!("{:.2}", rings.deadzone),
+                pct = format!("{:.0}", self.tilt.nudge_deadzone_pct)
+            )
+            .to_string(),
+        );
 
         // A banner naming what just happened. Rising is instant, falling
         // waits a second: a tilt that lasts one millisecond would otherwise
         // be gone before the eye arrives, and the point of shaking the
         // cabinet here is to see what the shake did.
         let now = std::time::Instant::now();
-        let sensor_magnitude = self.accel_x.abs().max(self.accel_y.abs());
+        let sensor_magnitude = self.accel_x.abs().max(self.accel_y.abs()) * rings.full_scale;
         let instant_state = if self.plumb_tilt_until.is_some_and(|t| now < t) {
             2
-        } else if sensor_magnitude > self.tilt.nudge_deadzone_pct / 100.0
-            || self.nudge_sim.impulse_active()
-        {
-            // Either the raw signal cleared the deadzone, or the intent
+        } else if sensor_magnitude > rings.deadzone || self.nudge_sim.impulse_active() {
+            // Either the raw signal cleared the dead zone, or the intent
             // detector recognised a nudge and is delivering its impulse.
             1
         } else {
@@ -368,10 +634,7 @@ impl App {
             egui::RichText::new(t!(
                 "tilt_plumb_angle",
                 angle = format!("{:.2}", self.plumb.angle_deg()),
-                threshold = format!(
-                    "{:.2}",
-                    crate::tilt::TiltConfig::threshold_angle(self.tilt.tilt_sensitivity_pct)
-                )
+                threshold = format!("{:.2}", self.tilt.threshold_deg())
             ))
             .weak(),
         );
