@@ -309,6 +309,8 @@ tilt_deadzone_warning = "Onyo: eneo tulivu ni kubwa au sawa na kizingiti cha til
 tilt_section = "Mwelekeo"
 tilt_threshold = "Kizingiti cha kuchochea TILT:"
 tilt_threshold_help = "Huamua kwa nguvu kiasi gani unaweza kusukuma kabati kabla mchezo haujatangaza TILT na kupoteza mpira.\n• Chini: kali (misukumo midogo huleta tilt).\n• Juu: ya kuruhusu (unaweza kusukuma kwa nguvu zaidi kabla ya kuadhibiwa).\nLazima ibaki juu ya eneo tulivu."
+tilt_threshold_low = "← nyeti kidogo (4°)"
+tilt_threshold_high = "nyeti sana (0.15°) →"
 tilt_visualization = "Sukuma kabati kuona nukta ikisogea. Ikigusa pete nyekundu = TILT:"
 
 # Audio page

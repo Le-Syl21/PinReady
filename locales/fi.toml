@@ -309,6 +309,8 @@ tilt_deadzone_warning = "Varoitus: kuollut alue on suurempi tai yhtä suuri kuin
 tilt_section = "Tilt"
 tilt_threshold = "TILT-laukaisukynnys:"
 tilt_threshold_help = "Kuinka kovaa voit tönäistä kaappia ennen kuin peli laukaisee TILTin ja vie pallon.\n• Matala: tiukka (pienetkin tönäisyt tiltaavat).\n• Korkea: salliva (voit työntää kovempaa ennen kuin peli rankaisee).\nTäytyy pysyä kuolleen alueen yläpuolella."
+tilt_threshold_low = "← vähän herkkä (4°)"
+tilt_threshold_high = "erittäin herkkä (0,15°) →"
 tilt_visualization = "Työnnä kabinettia nähdäksesi pisteen liikkuvan. Jos se osuu punaiseen renkaaseen = TILT:"
 
 # Audio page

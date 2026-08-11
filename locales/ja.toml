@@ -309,6 +309,8 @@ tilt_deadzone_warning = "警告：デッドゾーンがティルトしきい値�
 tilt_section = "チルト"
 tilt_threshold = "TILT トリガーしきい値："
 tilt_threshold_help = "ゲームが TILT を宣告してボールを失わせるまでに、どれだけ強く揺らせるかを決めます。\n• 値が低い：厳しい（小さな揺らしでも TILT になります）。\n• 値が高い：寛容（反則になる前にもっと強く押せます）。\nデッドゾーンより高く保つ必要があります。"
+tilt_threshold_low = "← 鈍感（4°）"
+tilt_threshold_high = "非常に敏感（0.15°）→"
 tilt_visualization = "キャビネットを押してドットの動きを確認。赤いリングに触れたら = TILT："
 
 # Audio page

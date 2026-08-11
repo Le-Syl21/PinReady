@@ -309,6 +309,8 @@ tilt_deadzone_warning = "Uyarı: ölü bölge tilt eşiğinden büyük veya eşi
 tilt_section = "Tilt"
 tilt_threshold = "TILT tetikleme eşiği:"
 tilt_threshold_help = "Oyunun bir TILT tetikleyip topu kaybettirmeden önce ne kadar sert sallamaya izin verdiğini belirler.\n• Düşük: katıdır (küçük bir sallama tilt yaptırır).\n• Yüksek: hoşgörülüdür (daha sert itebilirsiniz).\nÖlü bölgenin üzerinde kalmalıdır."
+tilt_threshold_low = "← az hassas (4°)"
+tilt_threshold_high = "çok hassas (0,15°) →"
 tilt_visualization = "Noktanın hareket etmesini görmek için kabineti itin. Kırmızı halkaya değerse = TILT:"
 
 # Audio page

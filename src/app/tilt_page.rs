@@ -34,8 +34,11 @@ impl App {
         });
         ui.add_sized(
             [ui.available_width(), 24.0],
-            egui::Slider::new(&mut self.tilt.nudge_deadzone_pct, 0.0..=100.0)
-                .custom_formatter(|v, _| format!("{:.0}%", v)),
+            // VPX caps this at 0.3 of the axis range ("relative amount of
+            // the axis range to nullify to avoid noise at rest position"), so
+            // offering more would write values its own UI cannot show.
+            egui::Slider::new(&mut self.tilt.nudge_deadzone_pct, 0.0..=30.0)
+                .custom_formatter(|v, _| format!("{v:.0}%")),
         );
         ui.add_space(8.0);
 
@@ -170,6 +173,18 @@ impl App {
                 },
             ),
         );
+        // The scale runs backwards from the angle it writes, so label both
+        // ends rather than leave anyone to work out which way is which.
+        ui.horizontal(|ui| {
+            ui.label(egui::RichText::new(t!("tilt_threshold_low")).weak().small());
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label(
+                    egui::RichText::new(t!("tilt_threshold_high"))
+                        .weak()
+                        .small(),
+                );
+            });
+        });
         ui.add_space(8.0);
 
         // Warning if deadzone >= tilt threshold

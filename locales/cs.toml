@@ -309,6 +309,8 @@ tilt_deadzone_warning = "Varování: mrtvá zóna je větší nebo rovna prahu t
 tilt_section = "Tilt"
 tilt_threshold = "Práh spuštění TILT:"
 tilt_threshold_help = "Určuje, jak silně můžete cuknout, než hra vyhlásí TILT a připraví vás o kuličku.\n• Nízká: přísná (i malé cuknutí způsobí tilt).\n• Vysoká: shovívavá (můžete zatlačit silněji, než vás potrestá).\nMusí zůstat nad mrtvou zónou."
+tilt_threshold_low = "← málo citlivé (4°)"
+tilt_threshold_high = "velmi citlivé (0,15°) →"
 tilt_visualization = "Zatlačte na kabinet a sledujte pohyb bodu. Pokud se dotkne červeného kruhu = TILT:"
 
 # Audio page

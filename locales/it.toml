@@ -309,6 +309,8 @@ tilt_deadzone_warning = "Attenzione: la zona morta è maggiore o uguale alla sog
 tilt_section = "Tilt"
 tilt_threshold = "Soglia di attivazione TILT:"
 tilt_threshold_help = "Determina quanto forte puoi scuotere prima che il gioco chiami un TILT e ti faccia perdere la pallina.\n• Valore basso: severo (una piccola scossa fa tiltare).\n• Valore alto: permissivo (puoi spingere più forte prima di essere penalizzato).\nDeve restare sopra la zona morta."
+tilt_threshold_low = "← poco sensibile (4°)"
+tilt_threshold_high = "molto sensibile (0,15°) →"
 tilt_visualization ="Spingi il cabinet per vedere il punto muoversi. Se tocca l'anello rosso = TILT:"
 
 # Audio page

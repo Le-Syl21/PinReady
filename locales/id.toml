@@ -309,6 +309,8 @@ tilt_deadzone_warning = "Peringatan: zona mati lebih besar atau sama dengan amba
 tilt_section = "Tilt"
 tilt_threshold = "Ambang batas pemicu TILT:"
 tilt_threshold_help = "Menentukan seberapa kuat Anda boleh mengguncang kabinet sebelum permainan memicu TILT dan bola hilang.\n• Nilai rendah: ketat (guncangan kecil pun memicu TILT).\n• Nilai tinggi: longgar (Anda bisa mendorong lebih kuat sebelum dihukum).\nHarus tetap di atas zona mati."
+tilt_threshold_low = "← kurang sensitif (4°)"
+tilt_threshold_high = "sangat sensitif (0,15°) →"
 tilt_visualization = "Dorong kabinet untuk melihat titik bergerak. Jika menyentuh lingkaran merah = TILT:"
 
 # Audio page

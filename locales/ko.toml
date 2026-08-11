@@ -309,6 +309,8 @@ tilt_deadzone_warning = "경고: 데드존이 틸트 임계값보다 크거나 �
 tilt_section = "틸트"
 tilt_threshold = "TILT 트리거 임계값:"
 tilt_threshold_help = "게임이 TILT를 선언하고 공을 잃게 만들기까지 얼마나 세게 흔들 수 있는지를 정합니다.\n• 낮음: 엄격합니다(작은 흔들기에도 틸트).\n• 높음: 관대합니다(더 세게 밀어도 벌칙을 받지 않습니다).\n데드존보다 높게 유지해야 합니다."
+tilt_threshold_low = "← 둔감 (4°)"
+tilt_threshold_high = "매우 민감 (0.15°) →"
 tilt_visualization = "캐비닛을 밀어 점이 움직이는지 확인하세요. 빨간 원에 닿으면 = TILT:"
 
 # Audio page

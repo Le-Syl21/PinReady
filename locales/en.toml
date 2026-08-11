@@ -327,6 +327,8 @@ tilt_deadzone_warning = "Warning: deadzone is larger than or equal to tilt thres
 tilt_section = "Tilt"
 tilt_threshold = "TILT trigger threshold:"
 tilt_threshold_help = "How hard you can nudge before the game calls a TILT and forfeits the ball.\n• Low: strict (small nudges tilt).\n• High: lenient (you can shove harder before it penalizes you).\nMust stay above the deadzone."
+tilt_threshold_low = "← barely sensitive (4°)"
+tilt_threshold_high = "very sensitive (0.15°) →"
 tilt_visualization = "Push the cabinet to see the dot move. If it hits the red ring = TILT:"
 tilt_nudge_type = "Nudge sensor type:"
 tilt_nudge_type_game = "Game Controller"

@@ -308,6 +308,8 @@ tilt_deadzone_warning = "警告：死区大于或等于倾斜阈值——推动�
 tilt_section = "倾斜"
 tilt_threshold = "TILT 触发阈值："
 tilt_threshold_help = "决定在游戏判定 TILT 并让你失去这颗球之前，你能摇晃的力度。\n• 数值低：严格（轻轻一晃就会 TILT）。\n• 数值高：宽松（你可以更用力地推而不受罚）。\n必须保持在死区之上。"
+tilt_threshold_low = "← 不灵敏（4°）"
+tilt_threshold_high = "非常灵敏（0.15°）→"
 tilt_visualization = "推动柜体查看圆点移动。如果碰到红圈 = TILT："
 
 # Audio page
