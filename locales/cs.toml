@@ -671,6 +671,8 @@ system_mirror_clear_hint = "Vymaže URL vlastního zrcadla a obnoví přímé st
 # --- Head tracking + merge inputs (added 2026-08-08) ---
 ht_done = "Head tracking %{tag} nainstalován a aktivován — otevírá se demo: nainstalujte tam ovladače kamery, pokud k tomu budete vyzváni, a zkontrolujte, že jste sledováni."
 ht_install_button = "Nainstalovat head tracking"
+ht_enable = "Zapnout head tracking"
+ht_enable_help = "Zapne zásuvný modul ve VPX. Instalace nestačí — nastavení přichází prázdné, takže čerstvě nainstalovaný modul nic nedělá, dokud se toto nezaškrtne."
 ht_launch_demo = "Otevřít demo"
 ht_section_desc = "Pro caby s Kinectem nebo kamerou na backglassu/topperu: perspektiva stolu sleduje vaši hlavu (efekt fish-tank). Jedním kliknutím se stáhne plugin + demo, plugin se aktivuje a otevře se demo, abyste mohli nainstalovat ovladače kamery a vidět, že jste sledováni."
 ht_section_title = "Head tracking (Kinect / kamera)"

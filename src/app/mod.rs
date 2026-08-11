@@ -505,6 +505,11 @@ pub struct App {
     ht_error: Option<String>,
     ht_done_tag: Option<String>,
     ht_installed_version: Option<Option<String>>,
+    /// Whether the head tracking plugin should be enabled in VPX. `None`
+    /// until first read from the ini: installing the plugin without turning
+    /// it on leaves a cabinet with a camera and nothing happening, which is
+    /// exactly what the ini shipped with (`Enable = ` empty).
+    ht_enabled: Option<bool>,
     /// Version offered by the release channel: `None` = not asked yet,
     /// `Some(None)` = asked and unreachable.
     ht_latest_version: Option<Option<String>>,
@@ -806,6 +811,7 @@ impl App {
             ht_error: None,
             ht_done_tag: None,
             ht_installed_version: None,
+            ht_enabled: None,
             ht_latest_version: None,
             ht_latest_rx: None,
             merge_src_root,

@@ -670,6 +670,8 @@ system_mirror_clear_hint = "Xóa URL mirror tự lưu trữ và khôi phục t�
 # --- Head tracking + merge inputs (added 2026-08-08) ---
 ht_done = "Đã cài đặt và bật theo dõi đầu %{tag} — bản demo đang mở: cài trình điều khiển camera trong đó nếu được yêu cầu, và kiểm tra rằng bạn đang được theo dõi."
 ht_install_button = "Cài đặt theo dõi đầu"
+ht_enable = "Bật head tracking"
+ht_enable_help = "Bật plugin trong VPX. Chỉ cài đặt thôi là chưa đủ — thiết lập này để trống sẵn, nên plugin vừa cài sẽ không làm gì cho tới khi ô này được đánh dấu."
 ht_launch_demo = "Mở bản demo"
 ht_section_desc = "Dành cho pincab có Kinect hoặc camera gắn trên backglass/topper: góc nhìn của bàn di chuyển theo đầu bạn (hiệu ứng fish-tank). Một cú nhấp sẽ tải plugin + bản demo, bật plugin, và mở bản demo để bạn cài trình điều khiển camera và thấy mình được theo dõi."
 ht_section_title = "Theo dõi đầu (Kinect / camera)"

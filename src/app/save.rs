@@ -10,7 +10,15 @@ impl App {
             WizardPage::Screens => self.save_screens(),
             WizardPage::Rendering => self.save_rendering(),
             WizardPage::Inputs => self.save_inputs(),
-            WizardPage::Outputs => {} // purely informational page, nothing to persist
+            WizardPage::Outputs => {
+                // The one thing this page owns: whether head tracking runs.
+                // The installer already writes it, but the checkbox has to
+                // be able to turn it back off.
+                if let Some(enabled) = self.ht_enabled {
+                    self.config
+                        .set_i32("Plugin.HeadTracking", "Enable", enabled as i32);
+                }
+            }
             WizardPage::Tilt => self.save_tilt(),
             WizardPage::Audio => self.save_audio(),
             WizardPage::TablesDir => self.save_tables_dir(),

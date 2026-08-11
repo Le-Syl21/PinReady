@@ -189,6 +189,10 @@ impl App {
                     ht::HtEvent::Done { tag } => {
                         self.ht_done_tag = Some(tag);
                         self.ht_installed_version = None; // re-read from disk
+                                                          // The installer enables the plugin in the ini; keep
+                                                          // the checkbox in step rather than letting it show a
+                                                          // stale "off" read from before the install.
+                        self.ht_enabled = Some(true);
                         done = true;
                     }
                     ht::HtEvent::Error(msg) => {
@@ -281,6 +285,21 @@ impl App {
                 }
             }
         });
+
+        // Enabling is a separate act from installing, and the ini ships with
+        // `Enable` empty — so a freshly installed plugin sits there doing
+        // nothing until this is ticked. Default it on once the plugin is
+        // present: someone who just installed it wants it running.
+        if installed.is_some() {
+            let default_on = self
+                .config
+                .get_i32("Plugin.HeadTracking", "Enable")
+                .map(|v| v != 0)
+                .unwrap_or(true);
+            let enabled = self.ht_enabled.get_or_insert(default_on);
+            ui.checkbox(enabled, t!("ht_enable"))
+                .on_hover_text(t!("ht_enable_help"));
+        }
 
         if let Some(key) = self.ht_status_key {
             ui.colored_label(egui::Color32::from_gray(170), t!(key));

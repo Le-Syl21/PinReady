@@ -1348,6 +1348,9 @@ impl App {
         }
     }
 
+    /// How long the launcher stays deaf after VPX exits.
+    pub(super) const INPUT_GRACE_AFTER_VPX: std::time::Duration = std::time::Duration::from_secs(1);
+
     /// True while the post-VPX-exit grace window is still open. Clears the
     /// deadline once it has elapsed so the check stays cheap afterwards.
     pub(super) fn launcher_input_suppressed(&mut self) -> bool {
@@ -1501,8 +1504,13 @@ impl App {
         // joystick channel) when control returns here, and the launcher
         // would read it as `Cancel` and quit itself. Input paths drain and
         // ignore events until this instant.
-        self.input_resume_at =
-            Some(std::time::Instant::now() + std::time::Duration::from_millis(300));
+        //
+        // A second, not a few frames. The key does not arrive when VPX dies
+        // but when the compositor hands focus back, which on a cabinet comes
+        // after the window teardown, the output remode and our own repaint —
+        // easily past a short window, and the launcher then quits along with
+        // the table.
+        self.input_resume_at = Some(std::time::Instant::now() + Self::INPUT_GRACE_AFTER_VPX);
     }
 
     pub(super) fn process_update_check(&mut self) {

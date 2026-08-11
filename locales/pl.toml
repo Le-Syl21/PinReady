@@ -671,6 +671,8 @@ system_mirror_clear_hint = "Czyści adres URL własnego mirrora i przywraca bezp
 # --- Head tracking + merge inputs (added 2026-08-08) ---
 ht_done = "Head tracking %{tag} zainstalowany i włączony — demo się otwiera: zainstaluj tam sterowniki kamery, jeśli pojawi się prośba, i sprawdź, czy jesteś śledzony."
 ht_install_button = "Zainstaluj head tracking"
+ht_enable = "Włącz head tracking"
+ht_enable_help = "Włącza wtyczkę w VPX. Sama instalacja nie wystarczy — ustawienie przychodzi puste, więc świeżo zainstalowana wtyczka nic nie robi, dopóki tego nie zaznaczysz."
 ht_launch_demo = "Otwórz demo"
 ht_section_desc = "Dla cabów z Kinectem lub kamerą na backglass/topperze: perspektywa stołu podąża za twoją głową (efekt fish-tank). Jedno kliknięcie pobiera wtyczkę + demo, włącza wtyczkę i otwiera demo, abyś mógł zainstalować sterowniki kamery i zobaczyć, że jesteś śledzony."
 ht_section_title = "Head tracking (Kinect / kamera)"

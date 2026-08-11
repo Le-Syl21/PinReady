@@ -672,6 +672,8 @@ system_mirror_clear_hint = "Hufuta URL ya kioo kilichojipangisha na kurejesha up
 # --- Head tracking + merge inputs (added 2026-08-08) ---
 ht_done = "Ufuatiliaji wa kichwa %{tag} umesakinishwa na kuwashwa — demo inafunguka: sakinisha viendeshi vya kamera humo ukiombwa, na uhakikishe kuwa unafuatiliwa."
 ht_install_button = "Sakinisha ufuatiliaji wa kichwa"
+ht_enable = "Washa head tracking"
+ht_enable_help = "Huwasha programu-jalizi katika VPX. Kuisakinisha pekee hakutoshi — mpangilio huja ukiwa tupu, hivyo programu-jalizi iliyosakinishwa hivi karibuni haifanyi chochote hadi hii itiwe alama."
 ht_launch_demo = "Fungua demo"
 ht_section_desc = "Kwa makabati yenye Kinect au kamera juu ya backglass/topper: mtazamo wa meza hufuata kichwa chako (athari ya fish-tank). Kubofya mara moja hupakua programu-jalizi + demo, huwasha programu-jalizi, na kufungua demo ili usakinishe viendeshi vya kamera na kujiona ukifuatiliwa."
 ht_section_title = "Ufuatiliaji wa kichwa (Kinect / kamera)"

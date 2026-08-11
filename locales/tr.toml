@@ -674,6 +674,8 @@ system_mirror_clear_hint = "Kendi barındırdığınız ayna URL'sini temizler v
 # --- Head tracking + merge inputs (added 2026-08-08) ---
 ht_done = "Head tracking %{tag} kuruldu ve etkinleştirildi — demo açılıyor: istenirse kamera sürücülerini oradan kurun ve izlendiğinizi kontrol edin."
 ht_install_button = "Head tracking'i kur"
+ht_enable = "Head tracking'i etkinleştir"
+ht_enable_help = "Eklentiyi VPX'te açar. Kurmak yetmez — ayar boş gelir, dolayısıyla yeni kurulmuş bir eklenti bu işaretlenene kadar hiçbir şey yapmaz."
 ht_launch_demo = "Demoyu aç"
 ht_section_desc = "Backglass/topper üzerinde Kinect veya kamera bulunan pincab'ler için: masanın perspektifi başınızı takip eder (fish-tank efekti). Tek tıkla eklenti + demo indirilir, eklenti etkinleştirilir ve kamera sürücülerini kurup izlendiğinizi görebilmeniz için demo açılır."
 ht_section_title = "Head tracking (Kinect / kamera)"

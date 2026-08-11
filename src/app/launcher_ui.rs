@@ -35,12 +35,17 @@ impl App {
         // call site stays a one-liner. Joystick events go through the
         // same `apply_launcher_action` dispatch from
         // `handle_launcher_joystick`.
-        if !self.tables.is_empty()
-            && !self.vpx_running.load(Ordering::Relaxed)
-            && !self.launcher_input_suppressed()
-        {
-            for action in launcher_input::collect_actions(ui, self.rotation) {
-                self.apply_launcher_action(action, ui.ctx());
+        if !self.vpx_running.load(Ordering::Relaxed) {
+            if self.launcher_input_suppressed() {
+                // Drop what is queued rather than merely skipping our own
+                // reader: the exit key that closed VPX is still in flight,
+                // and anything left in the queue fires the moment the window
+                // closes — which is the bug this window exists to prevent.
+                ui.input_mut(|i| i.events.clear());
+            } else if !self.tables.is_empty() {
+                for action in launcher_input::collect_actions(ui, self.rotation) {
+                    self.apply_launcher_action(action, ui.ctx());
+                }
             }
         }
 
