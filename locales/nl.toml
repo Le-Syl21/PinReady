@@ -312,7 +312,9 @@ tilt_threshold_help = "Bepaalt hoeveel kracht je bij het porren mag gebruiken vo
 tilt_threshold_low = "← weinig gevoelig (4°)"
 tilt_threshold_high = "zeer gevoelig (0,15°) →"
 tilt_plumb_angle = "Slingerhoek: %{angle}° (drempel %{threshold}°)"
-tilt_plumb_tilted = "⚠ TILT geactiveerd"
+tilt_state_deadzone = "Dode zone — niets bereikt de simulatie"
+tilt_state_nudge = "Nudge"
+tilt_state_tilt = "TILT"
 tilt_visualization = "Duw het cabinet om het punt te zien bewegen. Als het de rode ring raakt = TILT:"
 
 # Audio page

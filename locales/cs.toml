@@ -312,7 +312,9 @@ tilt_threshold_help = "Určuje, jak silně můžete cuknout, než hra vyhlásí 
 tilt_threshold_low = "← málo citlivé (4°)"
 tilt_threshold_high = "velmi citlivé (0,15°) →"
 tilt_plumb_angle = "Úhel olovnice: %{angle}° (práh %{threshold}°)"
-tilt_plumb_tilted = "⚠ TILT spuštěn"
+tilt_state_deadzone = "Mrtvá zóna — do simulace nic nejde"
+tilt_state_nudge = "Nudge"
+tilt_state_tilt = "TILT"
 tilt_visualization = "Zatlačte na kabinet a sledujte pohyb bodu. Pokud se dotkne červeného kruhu = TILT:"
 
 # Audio page

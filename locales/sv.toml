@@ -312,7 +312,9 @@ tilt_threshold_help = "Bestämmer hur hårt du får knuffa innan spelet utlöser
 tilt_threshold_low = "← lite känslig (4°)"
 tilt_threshold_high = "mycket känslig (0,15°) →"
 tilt_plumb_angle = "Lodets vinkel: %{angle}° (tröskel %{threshold}°)"
-tilt_plumb_tilted = "⚠ TILT utlöst"
+tilt_state_deadzone = "Dödzon — inget når simuleringen"
+tilt_state_nudge = "Nudge"
+tilt_state_tilt = "TILT"
 tilt_visualization = "Tryck på kabinettet för att se punkten röra sig. Om den når den röda ringen = TILT:"
 
 # Audio page

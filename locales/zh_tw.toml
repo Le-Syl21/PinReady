@@ -311,7 +311,9 @@ tilt_threshold_help = "決定你能多用力推動，遊戲才會判定 TILT 並
 tilt_threshold_low = "← 不靈敏（4°）"
 tilt_threshold_high = "非常靈敏（0.15°）→"
 tilt_plumb_angle = "擺錘角度：%{angle}°（閾值 %{threshold}°）"
-tilt_plumb_tilted = "⚠ 已觸發 TILT"
+tilt_state_deadzone = "死區 — 沒有訊號進入模擬"
+tilt_state_nudge = "推動"
+tilt_state_tilt = "TILT"
 tilt_visualization = "推動機台查看圓點移動。如果碰到紅圈 = TILT："
 
 # Audio page

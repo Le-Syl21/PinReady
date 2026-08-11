@@ -311,7 +311,9 @@ tilt_threshold_help = "决定在游戏判定 TILT 并让你失去这颗球之前
 tilt_threshold_low = "← 不灵敏（4°）"
 tilt_threshold_high = "非常灵敏（0.15°）→"
 tilt_plumb_angle = "摆锤角度：%{angle}°（阈值 %{threshold}°）"
-tilt_plumb_tilted = "⚠ 已触发 TILT"
+tilt_state_deadzone = "死区 — 没有信号进入模拟"
+tilt_state_nudge = "推动"
+tilt_state_tilt = "TILT"
 tilt_visualization = "推动柜体查看圆点移动。如果碰到红圈 = TILT："
 
 # Audio page

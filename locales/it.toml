@@ -312,7 +312,9 @@ tilt_threshold_help = "Determina quanto forte puoi scuotere prima che il gioco c
 tilt_threshold_low = "← poco sensibile (4°)"
 tilt_threshold_high = "molto sensibile (0,15°) →"
 tilt_plumb_angle = "Angolo del pendolo: %{angle}° (soglia %{threshold}°)"
-tilt_plumb_tilted = "⚠ TILT scattato"
+tilt_state_deadzone = "Zona morta — nulla raggiunge la simulazione"
+tilt_state_nudge = "Nudge"
+tilt_state_tilt = "TILT"
 tilt_visualization ="Spingi il cabinet per vedere il punto muoversi. Se tocca l'anello rosso = TILT:"
 
 # Audio page

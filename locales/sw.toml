@@ -312,7 +312,9 @@ tilt_threshold_help = "Huamua kwa nguvu kiasi gani unaweza kusukuma kabati kabla
 tilt_threshold_low = "← nyeti kidogo (4°)"
 tilt_threshold_high = "nyeti sana (0.15°) →"
 tilt_plumb_angle = "Pembe ya timazi: %{angle}° (kizingiti %{threshold}°)"
-tilt_plumb_tilted = "⚠ TILT imeanzishwa"
+tilt_state_deadzone = "Eneo fu — hakuna kinachofika kwenye uigaji"
+tilt_state_nudge = "Nudge"
+tilt_state_tilt = "TILT"
 tilt_visualization = "Sukuma kabati kuona nukta ikisogea. Ikigusa pete nyekundu = TILT:"
 
 # Audio page

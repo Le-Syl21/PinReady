@@ -417,6 +417,11 @@ pub struct App {
     plumb_last_step: Option<std::time::Instant>,
     /// Latches a tilt for a moment so a 1 ms crossing is still readable.
     plumb_tilt_until: Option<std::time::Instant>,
+    /// Coarse state of the nudge, for the banner: 0 inside the deadzone,
+    /// 1 nudging, 2 tilted. It only ever falls back after a second, so a
+    /// glance catches what a shake did rather than what it is doing now.
+    nudge_state: u8,
+    nudge_state_since: Option<std::time::Instant>,
     /// What the Pinscape board says about itself — its accelerometer range
     /// and orientation, whether a plunger exists. Read over HID at startup,
     /// `None` while pending or when no board answers.
@@ -762,6 +767,8 @@ impl App {
             plumb: crate::plumb::Plumb::default(),
             plumb_last_step: None,
             plumb_tilt_until: None,
+            nudge_state: 0,
+            nudge_state_since: None,
             pinscape_cfg: None,
             pinscape_cfg_rx: Some(crate::pinscape_config::spawn_read()),
             nav_held: None,

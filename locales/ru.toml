@@ -312,7 +312,9 @@ tilt_threshold_help = "Определяет, насколько сильно м�
 tilt_threshold_low = "← малочувствительно (4°)"
 tilt_threshold_high = "очень чувствительно (0,15°) →"
 tilt_plumb_angle = "Угол отвеса: %{angle}° (порог %{threshold}°)"
-tilt_plumb_tilted = "⚠ TILT сработал"
+tilt_state_deadzone = "Мёртвая зона — до симуляции ничего не доходит"
+tilt_state_nudge = "Наджинг"
+tilt_state_tilt = "TILT"
 tilt_visualization = "Толкните кабинет, чтобы увидеть движение точки. Если она коснётся красного кольца = TILT:"
 
 # Audio page

@@ -312,7 +312,9 @@ tilt_threshold_help = "Kuinka kovaa voit tönäistä kaappia ennen kuin peli lau
 tilt_threshold_low = "← vähän herkkä (4°)"
 tilt_threshold_high = "erittäin herkkä (0,15°) →"
 tilt_plumb_angle = "Luotilangan kulma: %{angle}° (kynnys %{threshold}°)"
-tilt_plumb_tilted = "⚠ TILT laukesi"
+tilt_state_deadzone = "Kuollut alue — mikään ei päädy simulaatioon"
+tilt_state_nudge = "Nudge"
+tilt_state_tilt = "TILT"
 tilt_visualization = "Työnnä kabinettia nähdäksesi pisteen liikkuvan. Jos se osuu punaiseen renkaaseen = TILT:"
 
 # Audio page

@@ -312,7 +312,9 @@ tilt_threshold_help = "게임이 TILT를 선언하고 공을 잃게 만들기까
 tilt_threshold_low = "← 둔감 (4°)"
 tilt_threshold_high = "매우 민감 (0.15°) →"
 tilt_plumb_angle = "추 각도: %{angle}° (임계값 %{threshold}°)"
-tilt_plumb_tilted = "⚠ TILT 발생"
+tilt_state_deadzone = "데드존 — 시뮬레이션에 아무것도 전달되지 않음"
+tilt_state_nudge = "너지"
+tilt_state_tilt = "TILT"
 tilt_visualization = "캐비닛을 밀어 점이 움직이는지 확인하세요. 빨간 원에 닿으면 = TILT:"
 
 # Audio page

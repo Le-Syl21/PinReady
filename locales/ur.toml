@@ -312,7 +312,9 @@ tilt_threshold_help = "طے کرتا ہے کہ گیم کے TILT پکارنے ا�
 tilt_threshold_low = "← کم حساس (4°)"
 tilt_threshold_high = "بہت حساس (0.15°) →"
 tilt_plumb_angle = "ساہول کا زاویہ: %{angle}° (حد %{threshold}°)"
-tilt_plumb_tilted = "⚠ TILT ہو گیا"
+tilt_state_deadzone = "ڈیڈ زون — سمولیشن تک کچھ نہیں پہنچتا"
+tilt_state_nudge = "نج"
+tilt_state_tilt = "TILT"
 tilt_visualization = "کیبنٹ کو دھکیلیں اور نقطے کو حرکت کرتے دیکھیں۔ اگر سرخ حلقے کو چھوئے = TILT:"
 
 # Audio page

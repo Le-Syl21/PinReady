@@ -312,7 +312,9 @@ tilt_threshold_help = "গেম একটি TILT ডেকে বল বাত
 tilt_threshold_low = "← কম সংবেদনশীল (4°)"
 tilt_threshold_high = "খুব সংবেদনশীল (0.15°) →"
 tilt_plumb_angle = "প্লাম্বের কোণ: %{angle}° (সীমা %{threshold}°)"
-tilt_plumb_tilted = "⚠ TILT হয়েছে"
+tilt_state_deadzone = "ডেড জোন — কিছুই সিমুলেশনে পৌঁছায় না"
+tilt_state_nudge = "নাজ"
+tilt_state_tilt = "TILT"
 tilt_visualization = "ক্যাবিনেট ধাক্কা দিন এবং বিন্দু নড়তে দেখুন। লাল বলয় স্পর্শ করলে = TILT:"
 
 # Audio page

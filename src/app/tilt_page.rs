@@ -228,8 +228,23 @@ impl App {
             egui::Stroke::new(1.0, egui::Color32::DARK_GRAY),
         );
 
+        // Both rings and the bob share one space: the plumb's angle, with the
+        // rim standing for the widest threshold VPX allows (4°).
+        let angle_to_radius = |deg: f32| {
+            radius * deg.to_radians().sin() / crate::tilt::TILT_ANGLE_MAX.to_radians().sin()
+        };
+
         // Deadzone ring (green) — movements inside are ignored
-        let deadzone_radius = radius * (self.tilt.nudge_deadzone_pct / 100.0);
+        // The deadzone is a threshold on the sensor, but the circle speaks in
+        // plumb angles — so express it as the angle a steady push right at
+        // that threshold would settle the bob at: tan(angle) = a / g. Below
+        // this, nothing reaches the physics at all.
+        let deadzone_accel = (self.tilt.nudge_deadzone_pct / 100.0)
+            * self.tilt.nudge_range_g
+            * 9.806_65
+            * (self.tilt.nudge_scale_pct / 100.0);
+        let deadzone_angle = (deadzone_accel / 9.806_65).atan().to_degrees();
+        let deadzone_radius = angle_to_radius(deadzone_angle);
         if deadzone_radius > 1.0 {
             painter.circle_filled(
                 center,
@@ -285,9 +300,6 @@ impl App {
         // offset as a fraction of the rod length — so the circle finally
         // means one thing throughout. The rim is the widest threshold VPX
         // allows (4°), which is what makes a shake readable at any setting.
-        let angle_to_radius = |deg: f32| {
-            radius * deg.to_radians().sin() / crate::tilt::TILT_ANGLE_MAX.to_radians().sin()
-        };
         let threshold_radius = angle_to_radius(crate::tilt::TiltConfig::threshold_angle(
             self.tilt.tilt_sensitivity_pct,
         ));
@@ -327,30 +339,61 @@ impl App {
         painter.circle_filled(dot_pos, 8.0, dot_color.gamma_multiply(0.25));
         painter.circle_filled(dot_pos, 3.5, dot_color);
 
-        // Say it in numbers too: the angle is what VPX compares, and seeing
-        // how close a given shake came is the whole point of shaking here
-        // rather than in a table.
-        let tilted = self
-            .plumb_tilt_until
-            .is_some_and(|t| std::time::Instant::now() < t);
-        ui.add_space(4.0);
-        if tilted {
-            ui.colored_label(
-                egui::Color32::from_rgb(255, 80, 80),
-                egui::RichText::new(t!("tilt_plumb_tilted")).strong(),
-            );
+        // A banner naming what just happened. Rising is instant, falling
+        // waits a second: a tilt that lasts one millisecond would otherwise
+        // be gone before the eye arrives, and the point of shaking the
+        // cabinet here is to see what the shake did.
+        let now = std::time::Instant::now();
+        let sensor_magnitude = self.accel_x.abs().max(self.accel_y.abs());
+        let instant_state = if self.plumb_tilt_until.is_some_and(|t| now < t) {
+            2
+        } else if sensor_magnitude > self.tilt.nudge_deadzone_pct / 100.0 {
+            1
         } else {
-            ui.label(
-                egui::RichText::new(t!(
-                    "tilt_plumb_angle",
-                    angle = format!("{:.2}", self.plumb.angle_deg()),
-                    threshold = format!(
-                        "{:.2}",
-                        crate::tilt::TiltConfig::threshold_angle(self.tilt.tilt_sensitivity_pct)
-                    )
-                ))
-                .weak(),
-            );
+            0
+        };
+        let calmed_down = self
+            .nudge_state_since
+            .is_none_or(|t| now.duration_since(t) >= std::time::Duration::from_secs(1));
+        if instant_state >= self.nudge_state || calmed_down {
+            self.nudge_state = instant_state;
+            self.nudge_state_since = Some(now);
         }
+
+        ui.add_space(6.0);
+        let (bg, label) = match self.nudge_state {
+            2 => (egui::Color32::from_rgb(200, 60, 60), t!("tilt_state_tilt")),
+            1 => (
+                egui::Color32::from_rgb(210, 140, 40),
+                t!("tilt_state_nudge"),
+            ),
+            _ => (
+                egui::Color32::from_rgb(70, 150, 70),
+                t!("tilt_state_deadzone"),
+            ),
+        };
+        egui::Frame::new()
+            .fill(bg)
+            .inner_margin(egui::Margin::symmetric(10, 6))
+            .corner_radius(4)
+            .show(ui, |ui| {
+                ui.label(
+                    egui::RichText::new(label)
+                        .strong()
+                        .color(egui::Color32::WHITE),
+                );
+            });
+        ui.add_space(2.0);
+        ui.label(
+            egui::RichText::new(t!(
+                "tilt_plumb_angle",
+                angle = format!("{:.2}", self.plumb.angle_deg()),
+                threshold = format!(
+                    "{:.2}",
+                    crate::tilt::TiltConfig::threshold_angle(self.tilt.tilt_sensitivity_pct)
+                )
+            ))
+            .weak(),
+        );
     }
 }

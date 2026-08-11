@@ -312,7 +312,9 @@ tilt_threshold_help = "Legt fest, wie stark du rütteln darfst, bevor das Spiel 
 tilt_threshold_low = "← wenig empfindlich (4°)"
 tilt_threshold_high = "sehr empfindlich (0,15°) →"
 tilt_plumb_angle = "Pendelwinkel: %{angle}° (Schwelle %{threshold}°)"
-tilt_plumb_tilted = "⚠ TILT ausgelöst"
+tilt_state_deadzone = "Totzone — nichts erreicht die Simulation"
+tilt_state_nudge = "Nudge"
+tilt_state_tilt = "TILT"
 tilt_visualization = "Schieben Sie das Cabinet, um den Punkt zu bewegen. Berührt er den roten Ring = TILT:"
 
 # Audio page

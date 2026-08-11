@@ -312,7 +312,9 @@ tilt_threshold_help = "Determina com que força pode abanar o gabinete antes de 
 tilt_threshold_low = "← pouco sensível (4°)"
 tilt_threshold_high = "muito sensível (0,15°) →"
 tilt_plumb_angle = "Ângulo do pêndulo: %{angle}° (limiar %{threshold}°)"
-tilt_plumb_tilted = "⚠ TILT acionado"
+tilt_state_deadzone = "Zona morta — nada chega à simulação"
+tilt_state_nudge = "Nudge"
+tilt_state_tilt = "TILT"
 tilt_visualization = "Empurre o gabinete para ver o ponto mover-se. Se tocar no anel vermelho = TILT:"
 
 # Audio page

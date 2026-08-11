@@ -311,7 +311,9 @@ tilt_threshold_help = "Xác định bạn có thể lắc máy mạnh đến đ�
 tilt_threshold_low = "← ít nhạy (4°)"
 tilt_threshold_high = "rất nhạy (0,15°) →"
 tilt_plumb_angle = "Góc quả dọi: %{angle}° (ngưỡng %{threshold}°)"
-tilt_plumb_tilted = "⚠ TILT đã kích hoạt"
+tilt_state_deadzone = "Vùng chết — không gì đến được mô phỏng"
+tilt_state_nudge = "Nudge"
+tilt_state_tilt = "TILT"
 tilt_visualization = "Đẩy tủ để xem chấm di chuyển. Nếu chạm vòng đỏ = TILT:"
 
 # Audio page

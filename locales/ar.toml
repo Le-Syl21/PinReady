@@ -311,7 +311,9 @@ tilt_threshold_help = "يحدّد قوة الهزّ المسموح بها قبل
 tilt_threshold_low = "← حساسية منخفضة (4°)"
 tilt_threshold_high = "حساسية عالية جداً (0.15°) →"
 tilt_plumb_angle = "زاوية الشاقول: %{angle}° (العتبة %{threshold}°)"
-tilt_plumb_tilted = "⚠ تم إطلاق TILT"
+tilt_state_deadzone = "منطقة ميتة — لا يصل شيء إلى المحاكاة"
+tilt_state_nudge = "نَدج"
+tilt_state_tilt = "TILT"
 tilt_visualization = "ادفع الخزانة لرؤية النقطة تتحرك. إذا لمست الحلقة الحمراء = TILT:"
 
 # Audio page

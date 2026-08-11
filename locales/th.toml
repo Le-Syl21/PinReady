@@ -312,7 +312,9 @@ tilt_threshold_help = "กำหนดว่าคุณเขย่าตู้
 tilt_threshold_low = "← ไวน้อย (4°)"
 tilt_threshold_high = "ไวมาก (0.15°) →"
 tilt_plumb_angle = "มุมลูกดิ่ง: %{angle}° (เกณฑ์ %{threshold}°)"
-tilt_plumb_tilted = "⚠ TILT ทำงาน"
+tilt_state_deadzone = "โซนตาย — ไม่มีอะไรถึงการจำลอง"
+tilt_state_nudge = "Nudge"
+tilt_state_tilt = "TILT"
 tilt_visualization = "ดันตู้เพื่อดูจุดเคลื่อนที่ ถ้าชนวงแดง = TILT:"
 
 # Audio page

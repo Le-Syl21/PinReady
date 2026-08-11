@@ -312,7 +312,9 @@ tilt_threshold_help = "Menentukan seberapa kuat Anda boleh mengguncang kabinet s
 tilt_threshold_low = "← kurang sensitif (4°)"
 tilt_threshold_high = "sangat sensitif (0,15°) →"
 tilt_plumb_angle = "Sudut bandul: %{angle}° (ambang %{threshold}°)"
-tilt_plumb_tilted = "⚠ TILT terpicu"
+tilt_state_deadzone = "Zona mati — tidak ada yang sampai ke simulasi"
+tilt_state_nudge = "Nudge"
+tilt_state_tilt = "TILT"
 tilt_visualization = "Dorong kabinet untuk melihat titik bergerak. Jika menyentuh lingkaran merah = TILT:"
 
 # Audio page
