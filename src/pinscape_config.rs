@@ -1,14 +1,21 @@
-//! Read a Pinscape KL25Z's own configuration over HID.
+//! Ask a Pinscape board about its own configuration, over HID.
 //!
-//! The firmware answers `65 9 <variable>` with a "configuration variable
-//! report" — a header of `0x9800`, the variable ID, then its value. That is
-//! how its Config Tool works, and it means the board can be *asked* rather
-//! than the user interrogated: the accelerometer's range and orientation, and
-//! whether a plunger sensor exists at all, are facts the firmware already
-//! knows.
+//! Facts like the accelerometer's range and orientation, or whether a plunger
+//! is wired at all, are things the firmware already knows — so they should be
+//! read, not asked of the user.
 //!
-//! Protocol reference: mjrgh/Pinscape_Controller, `USBProtocol.h` (MIT).
-//! Sections 2D (configuration variable report) and CONFIGURATION VARIABLES.
+//! Both generations answer on VID/PID 1209:EAEA and are told apart by their
+//! USB product string, but they share nothing else:
+//!
+//! - **KL25Z** — numbered configuration variables. `65 9 <var>` returns a
+//!   "configuration variable report": header `0x9800`, the variable ID, then
+//!   its value. Reference: mjrgh/Pinscape_Controller, `USBProtocol.h` (MIT),
+//!   section 2D and CONFIGURATION VARIABLES.
+//! - **Pico** — its settings live in a JSON file reachable only through a
+//!   libusb vendor interface, which would cost a new system dependency. Its
+//!   HID "feedback controller" is free, though, and answers a status query:
+//!   whether a plunger is enabled and calibrated. Reference:
+//!   mjrgh/PinscapePico, `LinuxAPI/FeedbackControllerInterface.cpp`.
 
 use hidapi::{HidApi, HidDevice};
 
@@ -23,6 +30,12 @@ const CMD_QUERY_CONFIG_VAR: u8 = 9;
 const VAR_ACCELEROMETER: u8 = 4;
 const VAR_PLUNGER_TYPE: u8 = 5;
 
+/// Pico feedback-controller HID: request report ID, and the status query it
+/// carries; the reply comes back under its own report ID.
+const PICO_REPORT_ID_REQUEST: u8 = 0x04;
+const PICO_REQ_QUERY_STATUS: u8 = 0x02;
+const PICO_REPORT_ID_STATUS: u8 = 0x02;
+
 /// Reply header for a configuration variable report (little-endian 0x9800).
 const REPLY_CONFIG_VAR: [u8; 2] = [0x00, 0x98];
 
@@ -33,35 +46,61 @@ const REPLY_TIMEOUT_MS: i32 = 50;
 /// Reports to sift through before giving up on one query.
 const MAX_REPORTS: usize = 40;
 
-/// What the board says about itself.
+/// Which board answered. They share VID/PID 1209:EAEA and are told apart by
+/// their USB product string, but speak entirely different protocols.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Board {
+    /// Pinscape Controller on a FRDM-KL25Z — numbered configuration
+    /// variables over HID.
+    Kl25z,
+    /// Pinscape Pico — a JSON configuration file behind a libusb vendor
+    /// interface, plus a small HID "feedback controller" that answers a
+    /// status query.
+    Pico,
+}
+
+/// What the board says about itself. Fields are optional because the two
+/// boards do not expose the same facts over the channel we can reach.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PinscapeConfig {
-    /// Accelerometer full-scale range in g: 1, 2, 4 or 8.
-    pub accel_range_g: f32,
+    pub board: Board,
+    /// Accelerometer full-scale range in g: 1, 2, 4 or 8. KL25Z only — the
+    /// Pico keeps this in its config file, behind libusb.
+    pub accel_range_g: Option<f32>,
     /// Board orientation in the cabinet, which decides how its X/Y map to
     /// side/front: 0 = USB ports at front, 1 = left, 2 = right, 3 = rear.
-    pub accel_orientation: u8,
+    pub accel_orientation: Option<u8>,
     /// Auto-centring: 0 = on with a 5 s timer, 1..60 = on with that delay in
     /// seconds, 255 = off (manual centring only).
-    pub accel_autocenter: u8,
-    /// Plunger sensor type, 0 when no plunger is wired at all.
-    pub plunger_type: u8,
+    pub accel_autocenter: Option<u8>,
+    /// Plunger sensor type, 0 when no plunger is wired at all (KL25Z).
+    pub plunger_type: Option<u8>,
+    /// Whether a plunger is enabled, as the Pico reports it.
+    pub plunger_enabled: Option<bool>,
+    /// Whether the plunger is calibrated (Pico).
+    pub plunger_calibrated: Option<bool>,
 }
 
 impl PinscapeConfig {
     /// Human-readable orientation, for the UI.
     pub fn orientation_label(&self) -> &'static str {
         match self.accel_orientation {
-            0 => "USB ports at front",
-            1 => "USB ports at left",
-            2 => "USB ports at right",
-            3 => "USB ports at rear",
-            _ => "unknown",
+            Some(0) => "USB ports at front",
+            Some(1) => "USB ports at left",
+            Some(2) => "USB ports at right",
+            Some(3) => "USB ports at rear",
+            _ => "unknown orientation",
         }
     }
 
-    pub fn has_plunger(&self) -> bool {
-        self.plunger_type != 0
+    /// Whether a plunger exists. `None` when the board did not say — the
+    /// caller must then keep whatever it was doing before, not assume.
+    pub fn has_plunger(&self) -> Option<bool> {
+        match (self.plunger_type, self.plunger_enabled) {
+            (Some(t), _) => Some(t != 0),
+            (None, Some(enabled)) => Some(enabled),
+            _ => None,
+        }
     }
 }
 
@@ -74,12 +113,36 @@ pub fn read() -> Option<PinscapeConfig> {
     let api = HidApi::new()
         .inspect_err(|e| log::debug!("Pinscape config: HidApi init failed: {e}"))
         .ok()?;
+
+    // Same VID/PID for both generations, so the product string decides which
+    // protocol to speak. Sending KL25Z queries to a Pico would just time out,
+    // slowly.
+    let board = api
+        .device_list()
+        .find(|d| d.vendor_id() == PINSCAPE_VID && d.product_id() == PINSCAPE_PID)
+        .map(|d| {
+            let product = d.product_string().unwrap_or_default().to_lowercase();
+            if product.contains("pico") {
+                Board::Pico
+            } else {
+                Board::Kl25z
+            }
+        })?;
+
     let device = api
         .open(PINSCAPE_VID, PINSCAPE_PID)
         .inspect_err(|e| log::debug!("Pinscape config: no board to query ({e})"))
         .ok()?;
 
-    let accel = query(&device, VAR_ACCELEROMETER, 0)?;
+    match board {
+        Board::Pico => read_pico(&device),
+        Board::Kl25z => read_kl25z(&device),
+    }
+}
+
+/// KL25Z: numbered configuration variables.
+fn read_kl25z(device: &HidDevice) -> Option<PinscapeConfig> {
+    let accel = query(device, VAR_ACCELEROMETER, 0)?;
     // byte 3 = orientation, byte 4 = dynamic range, byte 5 = auto-centring.
     let accel_range_g = match accel[4] {
         1 => 2.0,
@@ -92,21 +155,70 @@ pub fn read() -> Option<PinscapeConfig> {
     };
 
     // A board with no plunger wired answers here too — type 0.
-    let plunger_type = query(&device, VAR_PLUNGER_TYPE, 0).map_or(0, |v| v[3]);
+    let plunger_type = query(device, VAR_PLUNGER_TYPE, 0).map(|v| v[3]);
 
     let config = PinscapeConfig {
-        accel_range_g,
-        accel_orientation: accel[3],
-        accel_autocenter: accel[5],
+        board: Board::Kl25z,
+        accel_range_g: Some(accel_range_g),
+        accel_orientation: Some(accel[3]),
+        accel_autocenter: Some(accel[5]),
         plunger_type,
+        plunger_enabled: None,
+        plunger_calibrated: None,
     };
     log::info!(
-        "Pinscape board: accelerometer ±{} g, {}, plunger type {}",
-        config.accel_range_g,
+        "Pinscape KL25Z: accelerometer ±{accel_range_g} g, {}, plunger type {}",
         config.orientation_label(),
-        config.plunger_type
+        plunger_type.map_or("unknown".to_string(), |t| t.to_string())
     );
     Some(config)
+}
+
+/// Pico: the feedback-controller HID interface answers a status query. Its
+/// accelerometer settings live in the config file, behind libusb, so they
+/// stay unknown here — deliberately, rather than at the price of a new
+/// system dependency and a udev rule.
+fn read_pico(device: &HidDevice) -> Option<PinscapeConfig> {
+    let mut request = [0u8; 64];
+    request[0] = PICO_REPORT_ID_REQUEST;
+    request[1] = PICO_REQ_QUERY_STATUS;
+    device
+        .write(&request)
+        .inspect_err(|e| log::debug!("Pinscape Pico: status query failed: {e}"))
+        .ok()?;
+
+    let mut buffer = [0u8; 64];
+    for _ in 0..MAX_REPORTS {
+        let read = device.read_timeout(&mut buffer, REPLY_TIMEOUT_MS).ok()?;
+        if read > 1 && buffer[0] == PICO_REPORT_ID_STATUS {
+            let flags = buffer[1];
+            let config = PinscapeConfig {
+                board: Board::Pico,
+                accel_range_g: None,
+                accel_orientation: None,
+                accel_autocenter: None,
+                plunger_type: None,
+                plunger_enabled: Some(flags & 0x01 != 0),
+                plunger_calibrated: Some(flags & 0x02 != 0),
+            };
+            log::info!(
+                "Pinscape Pico: plunger {} ({})",
+                if config.plunger_enabled == Some(true) {
+                    "enabled"
+                } else {
+                    "disabled"
+                },
+                if config.plunger_calibrated == Some(true) {
+                    "calibrated"
+                } else {
+                    "not calibrated"
+                }
+            );
+            return Some(config);
+        }
+    }
+    log::debug!("Pinscape Pico: no status reply");
+    None
 }
 
 /// Query one configuration variable, returning its 8-byte report.

@@ -228,7 +228,12 @@ impl App {
             // phantom sensor mapped to an axis that never moves. When no
             // board answers, assume there is one — that was the behaviour
             // before we could ask.
-            let has_plunger = self.pinscape_cfg.is_none_or(|cfg| cfg.has_plunger());
+            // `None` means the board didn't say — keep declaring a plunger,
+            // which is what we did before we could ask.
+            let has_plunger = self
+                .pinscape_cfg
+                .and_then(|cfg| cfg.has_plunger())
+                .unwrap_or(true);
             if has_plunger {
                 self.config.set("Input", "PlungerSensorCount", "1");
                 self.config.set(

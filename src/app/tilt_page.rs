@@ -45,8 +45,8 @@ impl App {
         if let Some(rx) = &self.pinscape_cfg_rx {
             if let Ok(cfg) = rx.try_recv() {
                 self.pinscape_cfg_rx = None;
-                if let Some(cfg) = cfg {
-                    self.tilt.nudge_range_g = cfg.accel_range_g;
+                if let Some(range) = cfg.and_then(|c| c.accel_range_g) {
+                    self.tilt.nudge_range_g = range;
                 }
                 self.pinscape_cfg = cfg;
             }
@@ -56,12 +56,19 @@ impl App {
                 ui.horizontal(|ui| {
                     ui.label(t!("tilt_range"))
                         .on_hover_text(t!("tilt_range_help"));
-                    match &self.pinscape_cfg {
-                        Some(cfg) => ui.label(
+                    // A Pico answers about its plunger but keeps its
+                    // accelerometer settings in a file we can't reach over
+                    // HID, so "a board is present" is not "the range is
+                    // known".
+                    match self.pinscape_cfg.and_then(|c| c.accel_range_g) {
+                        Some(range) => ui.label(
                             egui::RichText::new(t!(
                                 "tilt_range_detected",
-                                range = format!("{:.0}", cfg.accel_range_g),
-                                orientation = cfg.orientation_label()
+                                range = format!("{range:.0}"),
+                                orientation = self
+                                    .pinscape_cfg
+                                    .map(|c| c.orientation_label())
+                                    .unwrap_or_default()
                             ))
                             .strong(),
                         ),
