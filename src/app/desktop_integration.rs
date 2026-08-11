@@ -549,6 +549,33 @@ pub(super) fn set_desktop_shortcut(enabled: bool) -> anyhow::Result<()> {
             use std::os::unix::fs::PermissionsExt as _;
             std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o755))?;
         }
+
+        // Executable is not enough: GNOME 42+ shows a launcher it doesn't
+        // trust as inert until the user right-clicks "Allow launching". What
+        // it looks at is a GIO metadata flag, stored in the desktop
+        // environment's own database rather than in the file, so `gio` is the
+        // way to set it — the same kind of best-effort shell-out as the dock
+        // favourites. A desktop without it just keeps asking once, which is
+        // the behaviour we had.
+        match std::process::Command::new("gio")
+            .args([
+                "set",
+                &target.display().to_string(),
+                "metadata::trusted",
+                "true",
+            ])
+            .output()
+        {
+            Ok(out) if out.status.success() => {
+                log::info!("Desktop launcher marked as trusted");
+            }
+            Ok(out) => log::debug!(
+                "Could not mark the launcher as trusted: {}",
+                String::from_utf8_lossy(&out.stderr).trim()
+            ),
+            Err(e) => log::debug!("`gio` unavailable, launcher left untrusted: {e}"),
+        }
+
         Ok(())
     }
     #[cfg(not(target_os = "linux"))]
