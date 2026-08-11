@@ -716,9 +716,16 @@ fn run(config: &MergeConfig, tx: &Sender<MergeEvent>, cancel: &Arc<AtomicBool>) 
         let stem = stem.to_string();
 
         let table_dir = destination_dir(vpx_src, &config.output_root);
-        // A table already sitting one level under the output root is
-        // completed in place — moving it would just rename its own folder.
-        let already_foldered = table_dir != config.output_root.join(&stem);
+        // The .vpx needs placing only when it is not already sitting in the
+        // folder it belongs to. Asking whether the destination differs from
+        // `output_root/stem` answered a different question, and got it wrong
+        // for the commonest layout of all — a folder named after its table —
+        // where it asked for the file to be placed on top of itself. Unix
+        // let that through; Windows returned a sharing violation, which
+        // aborted the table and left an in-place merge processing nothing.
+        let already_foldered = vpx_src
+            .parent()
+            .is_some_and(|p| canonical(p) == canonical(&table_dir));
 
         if let Some(kept) = winners.get(&destinations[i]) {
             if kept != vpx_src {
@@ -1700,7 +1707,15 @@ mod run_tests {
         let cfg = config(&root, &root, MergeMode::Commit);
         assert!(cfg.is_in_place());
         let (report, _) = run_and_collect(cfg);
-        assert_eq!(report.tables_processed, 1);
+        assert_eq!(
+            report.tables_processed,
+            1,
+            "root={root:?} vpx={vpx:?} indexed={} skipped={} samples={} exists={}",
+            report.files_indexed,
+            report.tables_skipped,
+            report.tables_sample_skipped,
+            vpx.is_file()
+        );
         assert!(vpx.is_file(), "an in-place table must not be moved");
         assert!(root.join(format!("{table}/{table}.directb2s")).is_file());
         assert!(!root.join(format!("{table}/{table}/{table}.vpx")).exists());
@@ -1724,6 +1739,11 @@ mod run_tests {
 
         let (report, _) = run_and_collect(config(&root, &root, MergeMode::Commit));
         assert_eq!(report.tables_processed, 1);
+        assert_eq!(
+            std::fs::read(root.join(format!("{table}/{table}.vpx"))).unwrap(),
+            b"stub",
+            "an in-place table must not be rewritten"
+        );
         assert!(root
             .join(format!("{table}/pinmame/roms/mm_109c.zip"))
             .is_file());
