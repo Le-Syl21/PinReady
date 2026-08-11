@@ -60,6 +60,9 @@ impl App {
                     match self.db.reset_config() {
                         Ok(()) => {
                             log::info!("Configuration reset — restarting the wizard");
+                            // Order matters: move the old ini aside first, so
+                            // the rewrite the restart rearms starts from
+                            // nothing and produces VPX's own defaults.
                             Self::archive_vpx_ini();
                             self.restart_wizard();
                         }

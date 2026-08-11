@@ -1451,6 +1451,14 @@ impl App {
     }
 
     pub(super) fn restart_wizard(&mut self) {
+        // Rearm the once-per-session ini normalisation. With the old file
+        // moved aside, `VPX -h` writes a fresh documented one, and the frame
+        // loop then re-derives the wizard from it — otherwise PinReady keeps
+        // answering from the config it still holds in memory, which is how a
+        // reset could still report "DOF already enabled by the config".
+        self.ini_normalized = false;
+        self.ini_norm_rx = None;
+
         for page in 0..8 {
             if let Some(p) = WizardPage::from_index(page) {
                 self.page = p;
