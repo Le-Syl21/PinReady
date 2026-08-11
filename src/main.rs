@@ -23,6 +23,7 @@ mod i18n;
 mod inputs;
 mod mediadb;
 mod merge;
+mod motion_kalman;
 mod nudge_sim;
 mod outputs_hid;
 mod pidlock;

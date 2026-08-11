@@ -207,6 +207,13 @@ pub struct NudgeSim {
     osc_x: Oscillator,
     osc_y: Oscillator,
     intent: IntentDetector,
+    /// The state estimator VPX always applies, whatever the mode: it removes
+    /// the sensor's bias so a board mounted a degree off level doesn't read
+    /// as a permanent shove.
+    kalman_x: crate::motion_kalman::MotionKalmanAxis,
+    kalman_y: crate::motion_kalman::MotionKalmanAxis,
+    /// Consecutive samples spent below the rest threshold, per axis.
+    rest_count: (i32, i32),
     /// Exponential smoothing used by the Cabinet Sensor path.
     ema: (f32, f32),
     cabinet_acceleration: (f32, f32),
@@ -218,6 +225,9 @@ impl Default for NudgeSim {
             osc_x: Oscillator::new(OSC_X.0, OSC_X.1),
             osc_y: Oscillator::new(OSC_Y.0, OSC_Y.1),
             intent: IntentDetector::default(),
+            kalman_x: crate::motion_kalman::MotionKalmanAxis::default(),
+            kalman_y: crate::motion_kalman::MotionKalmanAxis::default(),
+            rest_count: (0, 0),
             ema: (0.0, 0.0),
             cabinet_acceleration: (0.0, 0.0),
         }
@@ -232,6 +242,33 @@ impl NudgeSim {
     /// `sensor_type` VPX's `Mapping.NudgeN.Type` (0 game controller,
     /// 1 intent, 2 cabinet).
     pub fn step(&mut self, accel: (f32, f32), strength: f32, cab_weight: f32, sensor_type: i32) {
+        // The filter comes first and always, in both modes. Rest constraints
+        // are applied once an axis has been quiet long enough — that is what
+        // lets it tell a constant offset from a slow genuine drift.
+        const REST_THRESHOLD_MS2: f32 = 0.1;
+        const REST_SAMPLES: i32 = 275;
+        self.kalman_x.predict(DT);
+        self.kalman_y.predict(DT);
+        self.kalman_x.update_acceleration(accel.0);
+        self.kalman_y.update_acceleration(accel.1);
+        self.rest_count.0 = if accel.0.abs() < REST_THRESHOLD_MS2 {
+            self.rest_count.0 + 1
+        } else {
+            0
+        };
+        self.rest_count.1 = if accel.1.abs() < REST_THRESHOLD_MS2 {
+            self.rest_count.1 + 1
+        } else {
+            0
+        };
+        if self.rest_count.0 > REST_SAMPLES {
+            self.kalman_x.update_rest();
+        }
+        if self.rest_count.1 > REST_SAMPLES {
+            self.kalman_y.update_rest();
+        }
+        let accel = (self.kalman_x.acceleration(), self.kalman_y.acceleration());
+
         match sensor_type {
             // Cabinet Sensor: the measurement drives the cabinet directly,
             // smoothed, and rescaled from the real cabinet's mass to the
