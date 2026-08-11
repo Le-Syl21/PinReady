@@ -315,6 +315,7 @@ tilt_plumb_angle = "Pendelwinkel: %{angle}° (Schwelle %{threshold}°)"
 tilt_state_deadzone = "Totzone — nichts erreicht die Simulation"
 tilt_state_nudge = "Nudge"
 tilt_state_tilt = "TILT"
+tilt_sensor_gauge = "Sensorsignal — grünes Band ist die Totzone, orange Linie die Intent-Schwelle, graue Linie der Spitzenwert"
 tilt_visualization = "Schieben Sie das Cabinet, um den Punkt zu bewegen. Berührt er den roten Ring = TILT:"
 
 # Audio page

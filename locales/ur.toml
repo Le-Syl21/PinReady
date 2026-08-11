@@ -315,6 +315,7 @@ tilt_plumb_angle = "ساہول کا زاویہ: %{angle}° (حد %{threshold}°)
 tilt_state_deadzone = "ڈیڈ زون — سمولیشن تک کچھ نہیں پہنچتا"
 tilt_state_nudge = "نج"
 tilt_state_tilt = "TILT"
+tilt_sensor_gauge = "سینسر کا سگنل — سبز پٹی ڈیڈ زون، نارنجی لکیر انٹینٹ کی حد، سرمئی لکیر چوٹی"
 tilt_visualization = "کیبنٹ کو دھکیلیں اور نقطے کو حرکت کرتے دیکھیں۔ اگر سرخ حلقے کو چھوئے = TILT:"
 
 # Audio page

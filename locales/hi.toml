@@ -315,6 +315,7 @@ tilt_plumb_angle = "साहुल का कोण: %{angle}° (सीमा %
 tilt_state_deadzone = "डेड ज़ोन — सिमुलेशन तक कुछ नहीं पहुँचता"
 tilt_state_nudge = "नज"
 tilt_state_tilt = "TILT"
+tilt_sensor_gauge = "सेंसर संकेत — हरी पट्टी डेड ज़ोन, नारंगी रेखा इंटेंट सीमा, धूसर रेखा शिखर"
 tilt_visualization = "कैबिनेट को धक्का दें और बिंदु को हिलते देखें। यदि यह लाल रिंग को छूता है = TILT:"
 
 # Audio page

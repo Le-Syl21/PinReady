@@ -315,6 +315,7 @@ tilt_plumb_angle = "振り子の角度：%{angle}°（しきい値 %{threshold}�
 tilt_state_deadzone = "デッドゾーン — シミュレーションには届きません"
 tilt_state_nudge = "ナッジ"
 tilt_state_tilt = "TILT"
+tilt_sensor_gauge = "センサー信号 — 緑帯はデッドゾーン、橙線はインテントしきい値、灰線はピーク"
 tilt_visualization = "キャビネットを押してドットの動きを確認。赤いリングに触れたら = TILT："
 
 # Audio page

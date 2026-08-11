@@ -315,6 +315,7 @@ tilt_plumb_angle = "มุมลูกดิ่ง: %{angle}° (เกณฑ์ 
 tilt_state_deadzone = "โซนตาย — ไม่มีอะไรถึงการจำลอง"
 tilt_state_nudge = "Nudge"
 tilt_state_tilt = "TILT"
+tilt_sensor_gauge = "สัญญาณเซ็นเซอร์ — แถบเขียวคือโซนตาย เส้นส้มคือเกณฑ์เจตนา เส้นเทาคือค่าพีค"
 tilt_visualization = "ดันตู้เพื่อดูจุดเคลื่อนที่ ถ้าชนวงแดง = TILT:"
 
 # Audio page

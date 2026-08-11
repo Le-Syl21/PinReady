@@ -414,6 +414,11 @@ pub struct App {
     /// than guessed at: the tilt is a pendulum's angle over time, not a
     /// threshold on acceleration.
     plumb: crate::plumb::Plumb,
+    /// VPX's nudge chain ahead of the plumb: peak detection or direct
+    /// coupling depending on the sensor type, then the cabinet's own springy
+    /// response. Feeding the plumb raw acceleration instead would show a
+    /// physics nobody plays.
+    nudge_sim: crate::nudge_sim::NudgeSim,
     plumb_last_step: Option<std::time::Instant>,
     /// Latches a tilt for a moment so a 1 ms crossing is still readable.
     plumb_tilt_until: Option<std::time::Instant>,
@@ -765,6 +770,7 @@ impl App {
             reset_armed: false,
             nudge_peak: 0.0,
             plumb: crate::plumb::Plumb::default(),
+            nudge_sim: crate::nudge_sim::NudgeSim::default(),
             plumb_last_step: None,
             plumb_tilt_until: None,
             nudge_state: 0,
@@ -1539,8 +1545,11 @@ impl App {
                 v.signum() * (magnitude - deadzone) / (1.0 - deadzone)
             }
         };
-        let to_ms2 = self.tilt.nudge_range_g * 9.806_65 * (self.tilt.nudge_scale_pct / 100.0);
+        // The range converts the reading to m/s². Strength stays out of it
+        // here — the nudge chain applies it, exactly where VPX does.
+        let to_ms2 = self.tilt.nudge_range_g * 9.806_65;
         let accel = (gate(x) * to_ms2, gate(y) * to_ms2);
+        let strength = self.tilt.nudge_scale_pct / 100.0;
         let threshold = crate::tilt::TiltConfig::threshold_angle(self.tilt.tilt_sensitivity_pct);
 
         let now = std::time::Instant::now();
@@ -1549,7 +1558,19 @@ impl App {
             .map_or(8, |t| now.duration_since(t).as_millis().clamp(1, 50) as u32);
         self.plumb_last_step = Some(now);
         for _ in 0..elapsed_ms {
-            self.plumb.step(accel, self.tilt.plumb_damping, threshold);
+            // Sensor → nudge chain → cabinet acceleration → plumb, the same
+            // order the engine uses.
+            self.nudge_sim.step(
+                accel,
+                strength,
+                crate::nudge_sim::DEFAULT_CAB_WEIGHT_KG,
+                self.tilt.nudge_sensor_type,
+            );
+            self.plumb.step(
+                self.nudge_sim.cabinet_acceleration(),
+                self.tilt.plumb_damping,
+                threshold,
+            );
             if self.plumb.tilted {
                 self.plumb_tilt_until = Some(now + std::time::Duration::from_millis(700));
             }

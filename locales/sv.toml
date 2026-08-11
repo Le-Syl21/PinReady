@@ -315,6 +315,7 @@ tilt_plumb_angle = "Lodets vinkel: %{angle}° (tröskel %{threshold}°)"
 tilt_state_deadzone = "Dödzon — inget når simuleringen"
 tilt_state_nudge = "Nudge"
 tilt_state_tilt = "TILT"
+tilt_sensor_gauge = "Sensorsignal — det gröna bandet är dödzonen, den orange linjen intent-tröskeln, den grå toppvärdet"
 tilt_visualization = "Tryck på kabinettet för att se punkten röra sig. Om den når den röda ringen = TILT:"
 
 # Audio page

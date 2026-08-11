@@ -314,6 +314,7 @@ tilt_plumb_angle = "擺錘角度：%{angle}°（閾值 %{threshold}°）"
 tilt_state_deadzone = "死區 — 沒有訊號進入模擬"
 tilt_state_nudge = "推動"
 tilt_state_tilt = "TILT"
+tilt_sensor_gauge = "感測器訊號 — 綠色區段為死區，橙線為意圖閾值，灰線為峰值"
 tilt_visualization = "推動機台查看圓點移動。如果碰到紅圈 = TILT："
 
 # Audio page

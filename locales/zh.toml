@@ -314,6 +314,7 @@ tilt_plumb_angle = "摆锤角度：%{angle}°（阈值 %{threshold}°）"
 tilt_state_deadzone = "死区 — 没有信号进入模拟"
 tilt_state_nudge = "推动"
 tilt_state_tilt = "TILT"
+tilt_sensor_gauge = "传感器信号 — 绿色区段为死区，橙线为意图阈值，灰线为峰值"
 tilt_visualization = "推动柜体查看圆点移动。如果碰到红圈 = TILT："
 
 # Audio page

@@ -315,6 +315,7 @@ tilt_plumb_angle = "Luotilangan kulma: %{angle}° (kynnys %{threshold}°)"
 tilt_state_deadzone = "Kuollut alue — mikään ei päädy simulaatioon"
 tilt_state_nudge = "Nudge"
 tilt_state_tilt = "TILT"
+tilt_sensor_gauge = "Anturin signaali — vihreä kaista on kuollut alue, oranssi viiva aikomuskynnys, harmaa viiva huippu"
 tilt_visualization = "Työnnä kabinettia nähdäksesi pisteen liikkuvan. Jos se osuu punaiseen renkaaseen = TILT:"
 
 # Audio page

@@ -315,6 +315,7 @@ tilt_plumb_angle = "Ángulo del péndulo: %{angle}° (umbral %{threshold}°)"
 tilt_state_deadzone = "Zona muerta — nada llega a la simulación"
 tilt_state_nudge = "Nudge"
 tilt_state_tilt = "TILT"
+tilt_sensor_gauge = "Señal del sensor — la banda verde es la zona muerta, la línea ámbar el umbral de intención, la gris el pico"
 tilt_visualization = "Empuje el gabinete para ver el punto moverse. Si toca el anillo rojo = TILT:"
 
 # Audio page

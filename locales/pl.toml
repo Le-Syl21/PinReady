@@ -315,6 +315,7 @@ tilt_plumb_angle = "Kąt wahadła: %{angle}° (próg %{threshold}°)"
 tilt_state_deadzone = "Martwa strefa — nic nie dociera do symulacji"
 tilt_state_nudge = "Nudge"
 tilt_state_tilt = "TILT"
+tilt_sensor_gauge = "Sygnał czujnika — zielony pas to martwa strefa, pomarańczowa linia próg intencji, szara szczyt"
 tilt_visualization = "Popchnij gabinet, aby zobaczyć ruch punktu. Jeśli dotknie czerwonego pierścienia = TILT:"
 
 # Audio page

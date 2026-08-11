@@ -315,6 +315,7 @@ tilt_plumb_angle = "Sudut bandul: %{angle}° (ambang %{threshold}°)"
 tilt_state_deadzone = "Zona mati — tidak ada yang sampai ke simulasi"
 tilt_state_nudge = "Nudge"
 tilt_state_tilt = "TILT"
+tilt_sensor_gauge = "Sinyal sensor — pita hijau adalah zona mati, garis jingga ambang intent, garis abu-abu puncak"
 tilt_visualization = "Dorong kabinet untuk melihat titik bergerak. Jika menyentuh lingkaran merah = TILT:"
 
 # Audio page

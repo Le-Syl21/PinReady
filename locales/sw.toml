@@ -315,6 +315,7 @@ tilt_plumb_angle = "Pembe ya timazi: %{angle}° (kizingiti %{threshold}°)"
 tilt_state_deadzone = "Eneo fu — hakuna kinachofika kwenye uigaji"
 tilt_state_nudge = "Nudge"
 tilt_state_tilt = "TILT"
+tilt_sensor_gauge = "Ishara ya kitambuzi — ukanda wa kijani ni eneo fu, mstari wa chungwa ni kizingiti cha nia, wa kijivu ni kilele"
 tilt_visualization = "Sukuma kabati kuona nukta ikisogea. Ikigusa pete nyekundu = TILT:"
 
 # Audio page

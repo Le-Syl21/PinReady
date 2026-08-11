@@ -235,30 +235,6 @@ impl App {
         };
 
         // Deadzone ring (green) — movements inside are ignored
-        // The deadzone is a threshold on the sensor, but the circle speaks in
-        // plumb angles — so express it as the angle a steady push right at
-        // that threshold would settle the bob at: tan(angle) = a / g. Below
-        // this, nothing reaches the physics at all.
-        // Strength deliberately absent: the deadzone gates the raw sensor
-        // signal, before any scaling, so folding it in made the ring move
-        // when the nudge strength changed — which it must not.
-        let deadzone_accel =
-            (self.tilt.nudge_deadzone_pct / 100.0) * self.tilt.nudge_range_g * 9.806_65;
-        let deadzone_angle = (deadzone_accel / 9.806_65).atan().to_degrees();
-        let deadzone_radius = angle_to_radius(deadzone_angle);
-        if deadzone_radius > 1.0 {
-            painter.circle_filled(
-                center,
-                deadzone_radius,
-                egui::Color32::from_rgba_unmultiplied(80, 200, 80, 30),
-            );
-            painter.circle_stroke(
-                center,
-                deadzone_radius,
-                egui::Stroke::new(2.0, egui::Color32::from_rgb(80, 200, 80)),
-            );
-        }
-
         // TILT threshold ring (red) — beyond this = TILT
         // The ring is where a tilt triggers, so it must follow the *angle*,
         // not the sensitivity percentage: full sensitivity is the smallest
@@ -295,18 +271,82 @@ impl App {
         let dot_pos = egui::pos2(dot_x, dot_y);
         let dist = ((dot_x - center.x).powi(2) + (dot_y - center.y).powi(2)).sqrt();
         let dot_color = if dist > threshold_radius {
-            egui::Color32::from_rgba_unmultiplied(255, 50, 50, 200) // in TILT zone
-        } else if dist < deadzone_radius {
-            egui::Color32::from_rgba_unmultiplied(150, 150, 150, 200) // ignored
+            egui::Color32::from_rgba_unmultiplied(255, 50, 50, 200) // past the tilt
         } else {
-            egui::Color32::from_rgba_unmultiplied(100, 220, 100, 200) // active
+            egui::Color32::from_rgba_unmultiplied(100, 220, 100, 200) // swinging
         };
-        // Small and translucent, like a laser dot: a 7px opaque disc covered
-        // the deadzone ring whole at the low percentages that actually make
-        // sense, hiding the very thing being adjusted. The halo keeps it
-        // findable at a glance without painting over what is underneath.
+        // Small and translucent, like a laser dot, so it never paints over
+        // the ring it is being compared against.
         painter.circle_filled(dot_pos, 8.0, dot_color.gamma_multiply(0.25));
         painter.circle_filled(dot_pos, 3.5, dot_color);
+
+        // ---- Sensor gauge -------------------------------------------------
+        //
+        // The deadzone belongs here, not in the circle above: it gates the
+        // raw signal, and below it the plumb does not move at all — so a
+        // circle of degrees can never show movement "inside the deadzone",
+        // which is exactly what needs watching to size it. A linear gauge of
+        // the raw magnitude does, with both thresholds marked: the deadzone,
+        // and (in Intent mode) the 1 m/s² an intent has to clear before VPX
+        // acts on it.
+        ui.add_space(6.0);
+        ui.label(egui::RichText::new(t!("tilt_sensor_gauge")).small().weak());
+        let gauge_size = egui::vec2(240.0, 22.0);
+        let (gauge_rect, _) = ui.allocate_exact_size(gauge_size, egui::Sense::hover());
+        let gp = ui.painter_at(gauge_rect);
+        gp.rect_filled(gauge_rect, 3.0, egui::Color32::from_gray(40));
+
+        // Full width is a quarter of the accelerometer's range: cabinets
+        // rarely exercise more, and the deadzone stays a visible band.
+        const GAUGE_FULL_SCALE: f32 = 0.25;
+        let magnitude = (self.accel_x.powi(2) + self.accel_y.powi(2)).sqrt();
+        let frac = |v: f32| (v / GAUGE_FULL_SCALE).clamp(0.0, 1.0);
+
+        // Deadzone band.
+        let dz = frac(self.tilt.nudge_deadzone_pct / 100.0);
+        gp.rect_filled(
+            egui::Rect::from_min_size(
+                gauge_rect.min,
+                egui::vec2(gauge_rect.width() * dz, gauge_rect.height()),
+            ),
+            3.0,
+            egui::Color32::from_rgba_unmultiplied(80, 200, 80, 60),
+        );
+
+        // Intent threshold, where it lands on this scale.
+        if self.tilt.nudge_sensor_type == 1 {
+            let intent_g = crate::nudge_sim::INTENT_THRESHOLD_MS2
+                / (self.tilt.nudge_range_g * 9.806_65)
+                / (self.tilt.nudge_scale_pct / 100.0).max(0.01);
+            if intent_g < GAUGE_FULL_SCALE {
+                let x = gauge_rect.min.x + gauge_rect.width() * frac(intent_g);
+                gp.line_segment(
+                    [
+                        egui::pos2(x, gauge_rect.min.y),
+                        egui::pos2(x, gauge_rect.max.y),
+                    ],
+                    egui::Stroke::new(2.0, egui::Color32::from_rgb(230, 160, 60)),
+                );
+            }
+        }
+
+        // The live level, and the peak it reached.
+        gp.rect_filled(
+            egui::Rect::from_min_size(
+                gauge_rect.min,
+                egui::vec2(gauge_rect.width() * frac(magnitude), gauge_rect.height()),
+            ),
+            3.0,
+            egui::Color32::from_rgba_unmultiplied(140, 170, 255, 180),
+        );
+        let peak_x = gauge_rect.min.x + gauge_rect.width() * frac(self.nudge_peak);
+        gp.line_segment(
+            [
+                egui::pos2(peak_x, gauge_rect.min.y),
+                egui::pos2(peak_x, gauge_rect.max.y),
+            ],
+            egui::Stroke::new(1.5, egui::Color32::from_gray(200)),
+        );
 
         // A banner naming what just happened. Rising is instant, falling
         // waits a second: a tilt that lasts one millisecond would otherwise
@@ -316,7 +356,11 @@ impl App {
         let sensor_magnitude = self.accel_x.abs().max(self.accel_y.abs());
         let instant_state = if self.plumb_tilt_until.is_some_and(|t| now < t) {
             2
-        } else if sensor_magnitude > self.tilt.nudge_deadzone_pct / 100.0 {
+        } else if sensor_magnitude > self.tilt.nudge_deadzone_pct / 100.0
+            || self.nudge_sim.impulse_active()
+        {
+            // Either the raw signal cleared the deadzone, or the intent
+            // detector recognised a nudge and is delivering its impulse.
             1
         } else {
             0

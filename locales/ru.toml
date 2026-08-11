@@ -315,6 +315,7 @@ tilt_plumb_angle = "Угол отвеса: %{angle}° (порог %{threshold}°
 tilt_state_deadzone = "Мёртвая зона — до симуляции ничего не доходит"
 tilt_state_nudge = "Наджинг"
 tilt_state_tilt = "TILT"
+tilt_sensor_gauge = "Сигнал датчика — зелёная полоса это мёртвая зона, оранжевая линия порог намерения, серая пик"
 tilt_visualization = "Толкните кабинет, чтобы увидеть движение точки. Если она коснётся красного кольца = TILT:"
 
 # Audio page

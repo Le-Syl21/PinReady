@@ -315,6 +315,7 @@ tilt_plumb_angle = "Uhol olovnice: %{angle}° (prah %{threshold}°)"
 tilt_state_deadzone = "Mŕtva zóna — do simulácie nič nejde"
 tilt_state_nudge = "Nudge"
 tilt_state_tilt = "TILT"
+tilt_sensor_gauge = "Signál senzora — zelený pás je mŕtva zóna, oranžová čiara prah zámeru, sivá špička"
 tilt_visualization = "Zatlačte na kabinet a sledujte pohyb bodu. Ak sa dotkne červeného kruhu = TILT:"
 
 # Audio page

@@ -314,6 +314,7 @@ tilt_plumb_angle = "Góc quả dọi: %{angle}° (ngưỡng %{threshold}°)"
 tilt_state_deadzone = "Vùng chết — không gì đến được mô phỏng"
 tilt_state_nudge = "Nudge"
 tilt_state_tilt = "TILT"
+tilt_sensor_gauge = "Tín hiệu cảm biến — dải xanh là vùng chết, vạch cam là ngưỡng ý định, vạch xám là đỉnh"
 tilt_visualization = "Đẩy tủ để xem chấm di chuyển. Nếu chạm vòng đỏ = TILT:"
 
 # Audio page

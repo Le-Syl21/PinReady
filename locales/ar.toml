@@ -314,6 +314,7 @@ tilt_plumb_angle = "زاوية الشاقول: %{angle}° (العتبة %{thresh
 tilt_state_deadzone = "منطقة ميتة — لا يصل شيء إلى المحاكاة"
 tilt_state_nudge = "نَدج"
 tilt_state_tilt = "TILT"
+tilt_sensor_gauge = "إشارة المستشعر — النطاق الأخضر هو المنطقة الميتة، الخط البرتقالي هو عتبة النية، الخط الرمادي هو الذروة"
 tilt_visualization = "ادفع الخزانة لرؤية النقطة تتحرك. إذا لمست الحلقة الحمراء = TILT:"
 
 # Audio page

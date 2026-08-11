@@ -315,6 +315,7 @@ tilt_plumb_angle = "প্লাম্বের কোণ: %{angle}° (সীম
 tilt_state_deadzone = "ডেড জোন — কিছুই সিমুলেশনে পৌঁছায় না"
 tilt_state_nudge = "নাজ"
 tilt_state_tilt = "TILT"
+tilt_sensor_gauge = "সেন্সরের সংকেত — সবুজ ব্যান্ড ডেড জোন, কমলা রেখা ইনটেন্ট সীমা, ধূসর রেখা সর্বোচ্চ"
 tilt_visualization = "ক্যাবিনেট ধাক্কা দিন এবং বিন্দু নড়তে দেখুন। লাল বলয় স্পর্শ করলে = TILT:"
 
 # Audio page

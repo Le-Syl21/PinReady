@@ -315,6 +315,7 @@ tilt_plumb_angle = "Şakul açısı: %{angle}° (eşik %{threshold}°)"
 tilt_state_deadzone = "Ölü bölge — simülasyona hiçbir şey ulaşmıyor"
 tilt_state_nudge = "Nudge"
 tilt_state_tilt = "TILT"
+tilt_sensor_gauge = "Sensör sinyali — yeşil bant ölü bölge, turuncu çizgi niyet eşiği, gri çizgi tepe değeri"
 tilt_visualization = "Noktanın hareket etmesini görmek için kabineti itin. Kırmızı halkaya değerse = TILT:"
 
 # Audio page
