@@ -104,6 +104,25 @@ impl PinscapeConfig {
         }
     }
 
+    /// Translation key for the side the board's USB ports face, `None` when
+    /// the board did not say.
+    ///
+    /// This is a check, not a setting: the firmware already rotates its
+    /// readings into cabinet axes before sending them (`accelRotate` in the
+    /// KL25Z firmware), so a host must never apply it a second time. What it
+    /// is good for is catching a board whose declared orientation does not
+    /// match how it is really screwed down — which silently mirrors or swaps
+    /// the nudge axes, with nothing on screen to say why.
+    pub fn orientation_key(&self) -> Option<&'static str> {
+        match self.accel_orientation {
+            Some(0) => Some("tilt_orientation_front"),
+            Some(1) => Some("tilt_orientation_left"),
+            Some(2) => Some("tilt_orientation_right"),
+            Some(3) => Some("tilt_orientation_rear"),
+            _ => None,
+        }
+    }
+
     /// Whether a plunger exists. `None` when the board did not say — the
     /// caller must then keep whatever it was doing before, not assume.
     pub fn has_plunger(&self) -> Option<bool> {

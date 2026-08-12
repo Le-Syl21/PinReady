@@ -68,11 +68,7 @@ impl App {
                 ui.label(
                     egui::RichText::new(t!(
                         "tilt_range_matches",
-                        range = format!("{detected:.0}"),
-                        orientation = self
-                            .pinscape_cfg
-                            .map(|c| c.orientation_label())
-                            .unwrap_or_default()
+                        range = format!("{detected:.0}")
                     ))
                     .color(egui::Color32::from_rgb(120, 200, 120)),
                 );
@@ -126,6 +122,13 @@ impl App {
                     .weak(),
                 );
             }
+        }
+        // How the board is fitted. Not a setting — the firmware rotates its
+        // readings into cabinet axes itself, so nothing here is written to the
+        // ini. It is shown because a board declared one way and screwed down
+        // another mirrors the nudge, and no other screen would ever say so.
+        if let Some(key) = self.pinscape_cfg.and_then(|c| c.orientation_key()) {
+            ui.label(egui::RichText::new(t!("tilt_orientation", side = t!(key))).weak());
         }
         self.render_range_tables(ui);
         ui.add_space(8.0);
