@@ -327,6 +327,7 @@ tilt_unreachable = "±%{range} g에서 %{angle}° 틸트는 손이 닿지 않습
 tilt_unreachable_range = "범위를 넓히는 것이 깔끔한 해결책입니다. 아무 대가도 없고 다른 것을 바꾸지도 않습니다."
 tilt_unreachable_strength = "또는 강도를 %{pct} %로 올리기"
 tilt_legend_rim = "테두리 — 전체 범위, %{accel} m/s²(±%{range} g)"
+tilt_legend_clipped = "클리핑 — 센서가 최대치에 도달했습니다. 실제 충격은 더 강합니다"
 tilt_legend_tilt = "%{angle}°에서 TILT — %{accel} m/s² 필요, 전체 범위의 %{pct} %"
 tilt_legend_tilt_unreachable = "%{angle}°에서 TILT — 손이 닿지 않음, 어떤 흔들림도 도달하지 못함"
 tilt_legend_intent = "너지 임계값 — %{accel} m/s², 그 아래로는 아무것도 공에 닿지 않음"

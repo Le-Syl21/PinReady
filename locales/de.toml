@@ -327,6 +327,7 @@ tilt_unreachable = "Bei ±%{range} g ist ein Tilt bei %{angle}° unerreichbar: e
 tilt_unreachable_range = "Den Bereich zu erweitern ist die saubere Lösung — sie kostet nichts und ändert sonst nichts."
 tilt_unreachable_strength = "Oder die Stärke auf %{pct} % anheben"
 tilt_legend_rim = "Rand — Vollausschlag, %{accel} m/s² (±%{range} g)"
+tilt_legend_clipped = "Übersteuert — Sensor am Anschlag, der Stoß war stärker als messbar"
 tilt_legend_tilt = "TILT bei %{angle}° — benötigt %{accel} m/s², %{pct} % des Vollausschlags"
 tilt_legend_tilt_unreachable = "TILT bei %{angle}° — unerreichbar, kein Stoß kommt dorthin"
 tilt_legend_intent = "Nudge-Schwelle — %{accel} m/s², darunter erreicht nichts die Kugel"

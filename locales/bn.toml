@@ -327,6 +327,7 @@ tilt_unreachable = "±%{range} g-তে %{angle}° টিল্ট নাগা�
 tilt_unreachable_range = "পরিসর বাড়ানোই পরিচ্ছন্ন সমাধান — এতে কোনো খরচ নেই এবং অন্য কিছু বদলায় না।"
 tilt_unreachable_strength = "অথবা তীব্রতা %{pct} % করুন"
 tilt_legend_rim = "প্রান্ত — পূর্ণ স্কেল, %{accel} মি/সে² (±%{range} g)"
+tilt_legend_clipped = "ক্লিপড — সেন্সর সর্বোচ্চ সীমায় পৌঁছেছে, ধাক্কা আরও জোরালো ছিল"
 tilt_legend_tilt = "%{angle}°-তে TILT — %{accel} মি/সে² দরকার, পূর্ণ স্কেলের %{pct} %"
 tilt_legend_tilt_unreachable = "%{angle}°-তে TILT — নাগালের বাইরে, কোনো ঝাঁকুনি সেখানে পৌঁছায় না"
 tilt_legend_intent = "নাজ সীমা — %{accel} মি/সে², এর নিচে কিছুই বলে পৌঁছায় না"

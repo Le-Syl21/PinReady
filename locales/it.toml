@@ -328,6 +328,7 @@ tilt_unreachable = "A ±%{range} g, un tilt a %{angle}° è fuori portata: richi
 tilt_unreachable_range = "Allargare la portata è la correzione pulita — non costa nulla e non cambia altro."
 tilt_unreachable_strength = "Oppure alza l'intensità a %{pct} %"
 tilt_legend_rim = "Bordo — fondo scala, %{accel} m/s² (±%{range} g)"
+tilt_legend_clipped = "Saturato — il sensore ha raggiunto il fondo scala, la spinta era più forte"
 tilt_legend_tilt = "TILT a %{angle}° — richiede %{accel} m/s², %{pct} % del fondo scala"
 tilt_legend_tilt_unreachable = "TILT a %{angle}° — fuori portata, nessuna scossa ci arriva"
 tilt_legend_intent = "Soglia di nudge — %{accel} m/s², sotto questa nulla raggiunge la pallina"

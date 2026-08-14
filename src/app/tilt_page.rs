@@ -5,6 +5,22 @@ const NOTICE_AMBER_TILT: egui::Color32 = egui::Color32::from_rgb(255, 200, 80);
 const RING_TILT: egui::Color32 = egui::Color32::from_rgb(255, 120, 120);
 const RING_INTENT: egui::Color32 = egui::Color32::from_rgb(230, 160, 60);
 const RING_DEADZONE: egui::Color32 = egui::Color32::from_rgb(80, 200, 80);
+/// The sensor pinned at its own ceiling — not a level, a loss of information.
+const RING_CLIPPED: egui::Color32 = egui::Color32::from_rgb(255, 210, 60);
+
+/// How long a clipping mark stays on screen. A nudge is over in milliseconds,
+/// long before anyone looks up from the cabinet.
+const CLIP_MARK_LIFE: std::time::Duration = std::time::Duration::from_secs(4);
+
+/// How many marks to keep. Enough to show where a shove saturates, few enough
+/// that a violent session does not paint the whole rim.
+const CLIP_MARKS_KEPT: usize = 24;
+
+/// One place, and one moment, where the sensor ran out of range.
+pub struct ClipMark {
+    at: egui::Pos2,
+    seen: std::time::Instant,
+}
 const STRENGTH_RED: egui::Color32 = egui::Color32::from_rgb(235, 90, 90);
 
 impl App {
@@ -66,11 +82,8 @@ impl App {
         match detected_range {
             Some(detected) if (detected - self.tilt.nudge_range_g).abs() < 0.01 => {
                 ui.label(
-                    egui::RichText::new(t!(
-                        "tilt_range_matches",
-                        range = format!("{detected:.0}")
-                    ))
-                    .color(egui::Color32::from_rgb(120, 200, 120)),
+                    egui::RichText::new(t!("tilt_range_matches", range = format!("{detected:.0}")))
+                        .color(egui::Color32::from_rgb(120, 200, 120)),
                 );
             }
             // A range that disagrees with the firmware is the single most
@@ -524,9 +537,47 @@ impl App {
             center.x + self.accel_x.clamp(-1.05, 1.05) * radius,
             center.y + self.accel_y.clamp(-1.05, 1.05) * radius,
         );
-        let laser = egui::Color32::from_rgba_unmultiplied(255, 60, 60, 210);
-        painter.circle_filled(dot_pos, 7.0, laser.gamma_multiply(0.18));
-        painter.circle_filled(dot_pos, 2.0, laser);
+
+        // The rim is the sensor's own ceiling: an axis reading its full scale
+        // is a reading that was cut off there, and the board cannot say how
+        // hard the real shove was. Sitting exactly on the rim and being clipped
+        // by it look identical otherwise — the dot simply stops moving — so
+        // clipping gets its own colour, and a mark that outlives the shove.
+        let clipped = self.accel_x.abs() >= 1.0 || self.accel_y.abs() >= 1.0;
+        if clipped {
+            self.clip_marks.push(ClipMark {
+                at: dot_pos,
+                seen: std::time::Instant::now(),
+            });
+            if self.clip_marks.len() > CLIP_MARKS_KEPT {
+                self.clip_marks.remove(0);
+            }
+        }
+
+        // Marks fade out on their own: a nudge lasts a few milliseconds, far
+        // less than it takes to look up from the cabinet.
+        self.clip_marks
+            .retain(|mark| mark.seen.elapsed() < CLIP_MARK_LIFE);
+        for mark in &self.clip_marks {
+            let left = 1.0 - mark.seen.elapsed().as_secs_f32() / CLIP_MARK_LIFE.as_secs_f32();
+            painter.circle_stroke(
+                mark.at,
+                6.0,
+                egui::Stroke::new(1.5, RING_CLIPPED.gamma_multiply(left.clamp(0.0, 1.0))),
+            );
+        }
+
+        let laser = if clipped {
+            RING_CLIPPED
+        } else {
+            egui::Color32::from_rgba_unmultiplied(255, 60, 60, 210)
+        };
+        painter.circle_filled(
+            dot_pos,
+            if clipped { 9.0 } else { 7.0 },
+            laser.gamma_multiply(0.18),
+        );
+        painter.circle_filled(dot_pos, if clipped { 3.0 } else { 2.0 }, laser);
 
         // A legend, because a ring nobody can name is decoration.
         ui.add_space(2.0);
@@ -549,6 +600,11 @@ impl App {
             )
             .to_string(),
         );
+        // Only worth a line when it has actually happened: a legend entry for
+        // something nobody ever sees is noise.
+        if !self.clip_marks.is_empty() {
+            legend(ui, RING_CLIPPED, t!("tilt_legend_clipped").to_string());
+        }
         legend(
             ui,
             RING_TILT,

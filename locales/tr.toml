@@ -327,6 +327,7 @@ tilt_unreachable = "±%{range} g'de %{angle}° tilt erişilemez: sensörün bild
 tilt_unreachable_range = "Aralığı genişletmek temiz çözümdür — hiçbir bedeli yoktur ve başka hiçbir şeyi değiştirmez."
 tilt_unreachable_strength = "Ya da şiddeti %{pct} %'e çıkarın"
 tilt_legend_rim = "Kenar — tam ölçek, %{accel} m/s² (±%{range} g)"
+tilt_legend_clipped = "Kırpıldı — sensör sınıra ulaştı, sarsıntı daha güçlüydü"
 tilt_legend_tilt = "%{angle}° TILT — %{accel} m/s² ister, tam ölçeğin %{pct} %'i"
 tilt_legend_tilt_unreachable = "%{angle}° TILT — erişilemez, hiçbir sarsıntı oraya ulaşmaz"
 tilt_legend_intent = "Nudge eşiği — %{accel} m/s², altında hiçbir şey topa ulaşmaz"

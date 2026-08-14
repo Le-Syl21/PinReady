@@ -327,6 +327,7 @@ tilt_unreachable = "±%{range} g पर %{angle}° का टिल्ट पह
 tilt_unreachable_range = "रेंज बढ़ाना साफ-सुथरा समाधान है — इसकी कोई कीमत नहीं और यह कुछ और नहीं बदलता।"
 tilt_unreachable_strength = "या तीव्रता %{pct} % तक बढ़ाएँ"
 tilt_legend_rim = "किनारा — पूर्ण पैमाना, %{accel} मी/से² (±%{range} g)"
+tilt_legend_clipped = "क्लिप्ड — सेंसर अपनी सीमा पर पहुँच गया, झटका इससे तेज़ था"
 tilt_legend_tilt = "%{angle}° पर TILT — %{accel} मी/से² चाहिए, पूर्ण पैमाने का %{pct} %"
 tilt_legend_tilt_unreachable = "%{angle}° पर TILT — पहुँच से बाहर, कोई झटका वहाँ नहीं पहुँचता"
 tilt_legend_intent = "नज सीमा — %{accel} मी/से², इससे नीचे कुछ भी गेंद तक नहीं पहुँचता"

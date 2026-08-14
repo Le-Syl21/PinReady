@@ -345,6 +345,7 @@ tilt_unreachable = "At ±%{range} g, a %{angle}° tilt is out of reach: it needs
 tilt_unreachable_range = "Widening the range is the clean fix — it costs nothing and changes nothing else."
 tilt_unreachable_strength = "Or raise the strength to %{pct} %"
 tilt_legend_rim = "Rim — full scale, %{accel} m/s² (±%{range} g)"
+tilt_legend_clipped = "Clipped — the sensor ran out of range, the shove was harder than this"
 tilt_legend_tilt = "TILT at %{angle}° — needs %{accel} m/s², %{pct} % of full scale"
 tilt_legend_tilt_unreachable = "TILT at %{angle}° — out of reach, no shove gets there"
 tilt_legend_intent = "Nudge threshold — %{accel} m/s², below this nothing reaches the ball"

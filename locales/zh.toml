@@ -326,6 +326,7 @@ tilt_unreachable = "在 ±%{range} g 下，%{angle}° 的倾斜无法企及：�
 tilt_unreachable_range = "加宽量程才是干净的修正——它毫无代价，也不改变其他任何东西。"
 tilt_unreachable_strength = "或把强度提高到 %{pct} %"
 tilt_legend_rim = "外圈 — 满量程，%{accel} m/s²（±%{range} g）"
+tilt_legend_clipped = "削波 — 传感器已达满量程，实际晃动更强"
 tilt_legend_tilt = "%{angle}° 触发 TILT — 需要 %{accel} m/s²，即满量程的 %{pct} %"
 tilt_legend_tilt_unreachable = "%{angle}° 触发 TILT — 无法企及，任何晃动都到不了"
 tilt_legend_intent = "推动阈值 — %{accel} m/s²，低于此值没有任何东西传到球上"

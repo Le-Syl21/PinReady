@@ -327,6 +327,7 @@ tilt_unreachable = "±%{range} g پر %{angle}° کا ٹلٹ پہنچ سے با�
 tilt_unreachable_range = "رینج بڑھانا صاف ستھرا حل ہے — اس کی کوئی قیمت نہیں اور یہ کچھ اور نہیں بدلتا۔"
 tilt_unreachable_strength = "یا شدت %{pct} ٪ تک بڑھائیں"
 tilt_legend_rim = "کنارہ — پورا پیمانہ، %{accel} م/ث² (±%{range} g)"
+tilt_legend_clipped = "کٹا ہوا — سینسر اپنی حد کو پہنچ گیا، جھٹکا اس سے زیادہ تھا"
 tilt_legend_tilt = "%{angle}° پر TILT — %{accel} م/ث² درکار، یعنی پورے پیمانے کا %{pct} ٪"
 tilt_legend_tilt_unreachable = "%{angle}° پر TILT — پہنچ سے باہر، کوئی جھٹکا وہاں نہیں پہنچتا"
 tilt_legend_intent = "نج کی حد — %{accel} م/ث²، اس سے نیچے کچھ بھی گیند تک نہیں پہنچتا"

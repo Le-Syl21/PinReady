@@ -326,6 +326,7 @@ tilt_unreachable = "Ở ±%{range} g, tilt tại %{angle}° nằm ngoài tầm v
 tilt_unreachable_range = "Mở rộng dải đo mới là cách sửa sạch sẽ — không tốn gì và không thay đổi thứ gì khác."
 tilt_unreachable_strength = "Hoặc nâng cường độ lên %{pct} %"
 tilt_legend_rim = "Vành — toàn thang, %{accel} m/s² (±%{range} g)"
+tilt_legend_clipped = "Bị cắt — cảm biến đã đạt giới hạn, cú lắc mạnh hơn"
 tilt_legend_tilt = "TILT tại %{angle}° — cần %{accel} m/s², tức %{pct} % toàn thang"
 tilt_legend_tilt_unreachable = "TILT tại %{angle}° — ngoài tầm với, không cú rung nào tới được"
 tilt_legend_intent = "Ngưỡng nudge — %{accel} m/s², dưới mức này không gì tới được bi"

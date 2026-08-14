@@ -327,6 +327,7 @@ tilt_unreachable = "A ±%{range} g, um tilt a %{angle}° está fora de alcance: 
 tilt_unreachable_range = "Alargar o alcance é a correção limpa — não custa nada e não muda mais nada."
 tilt_unreachable_strength = "Ou subir a intensidade para %{pct} %"
 tilt_legend_rim = "Bordo — fundo de escala, %{accel} m/s² (±%{range} g)"
+tilt_legend_clipped = "Saturado — o sensor atingiu o limite, o empurrão foi mais forte"
 tilt_legend_tilt = "TILT a %{angle}° — exige %{accel} m/s², %{pct} % do fundo de escala"
 tilt_legend_tilt_unreachable = "TILT a %{angle}° — fora de alcance, nenhum solavanco lá chega"
 tilt_legend_intent = "Limiar de nudge — %{accel} m/s², abaixo disto nada chega à bola"

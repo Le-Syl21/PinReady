@@ -327,6 +327,7 @@ tilt_unreachable = "Bij ±%{range} g is een tilt op %{angle}° onbereikbaar: hij
 tilt_unreachable_range = "Het bereik verruimen is de schone oplossing — het kost niets en verandert verder niets."
 tilt_unreachable_strength = "Of de intensiteit naar %{pct} % brengen"
 tilt_legend_rim = "Rand — volle schaal, %{accel} m/s² (±%{range} g)"
+tilt_legend_clipped = "Afgekapt — de sensor bereikte zijn maximum, de duw was sterker"
 tilt_legend_tilt = "TILT bij %{angle}° — vraagt %{accel} m/s², %{pct} % van de volle schaal"
 tilt_legend_tilt_unreachable = "TILT bij %{angle}° — onbereikbaar, geen schok komt er"
 tilt_legend_intent = "Nudge-drempel — %{accel} m/s², daaronder bereikt niets de bal"

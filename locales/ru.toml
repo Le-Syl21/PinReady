@@ -327,6 +327,7 @@ tilt_unreachable = "При ±%{range} g тилт на %{angle}° недости�
 tilt_unreachable_range = "Расширить диапазон — чистое решение: оно ничего не стоит и ничего больше не меняет."
 tilt_unreachable_strength = "Или поднять интенсивность до %{pct} %"
 tilt_legend_rim = "Край — полная шкала, %{accel} м/с² (±%{range} g)"
+tilt_legend_clipped = "Обрезано — датчик достиг предела, толчок был сильнее"
 tilt_legend_tilt = "TILT на %{angle}° — требует %{accel} м/с², %{pct} % полной шкалы"
 tilt_legend_tilt_unreachable = "TILT на %{angle}° — недостижим, ни один толчок туда не дотягивает"
 tilt_legend_intent = "Порог наджа — %{accel} м/с², ниже него до шара не доходит ничего"

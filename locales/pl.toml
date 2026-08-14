@@ -327,6 +327,7 @@ tilt_unreachable = "Przy ±%{range} g tilt na %{angle}° jest poza zasięgiem: w
 tilt_unreachable_range = "Poszerzenie zakresu to czysta poprawka — nic nie kosztuje i niczego więcej nie zmienia."
 tilt_unreachable_strength = "Albo podnieś intensywność do %{pct} %"
 tilt_legend_rim = "Krawędź — pełna skala, %{accel} m/s² (±%{range} g)"
+tilt_legend_clipped = "Obcięte — czujnik osiągnął maksimum, szarpnięcie było silniejsze"
 tilt_legend_tilt = "TILT przy %{angle}° — wymaga %{accel} m/s², %{pct} % pełnej skali"
 tilt_legend_tilt_unreachable = "TILT przy %{angle}° — poza zasięgiem, żadne szarpnięcie tam nie dociera"
 tilt_legend_intent = "Próg nudge — %{accel} m/s², poniżej nic nie dociera do kuli"

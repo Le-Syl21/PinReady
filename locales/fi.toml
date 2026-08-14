@@ -327,6 +327,7 @@ tilt_unreachable = "Alueella ±%{range} g tilt kohdassa %{angle}° on ulottumatt
 tilt_unreachable_range = "Mittausalueen laajentaminen on puhdas korjaus — se ei maksa mitään eikä muuta mitään muuta."
 tilt_unreachable_strength = "Tai nosta voimakkuus arvoon %{pct} %"
 tilt_legend_rim = "Reuna — täysi mittausalue, %{accel} m/s² (±%{range} g)"
+tilt_legend_clipped = "Leikkautui — anturi saavutti maksimin, tönäisy oli voimakkaampi"
 tilt_legend_tilt = "TILT kulmassa %{angle}° — vaatii %{accel} m/s², %{pct} % täydestä mittausalueesta"
 tilt_legend_tilt_unreachable = "TILT kulmassa %{angle}° — ulottumattomissa, mikään tönäisy ei yllä sinne"
 tilt_legend_intent = "Nudge-kynnys — %{accel} m/s², sen alle jäävä ei tavoita palloa"

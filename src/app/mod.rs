@@ -302,6 +302,8 @@ pub struct App {
     // Live accelerometer data from joystick thread
     accel_x: f32,
     accel_y: f32,
+    // Where the sensor hit its own ceiling recently, for the tilt page.
+    clip_marks: Vec<crate::app::tilt_page::ClipMark>,
 
     // Page 3 — Inputs
     actions: Vec<InputAction>,
@@ -729,6 +731,7 @@ impl App {
             player_height,
             actions,
             accel_x: 0.0,
+            clip_marks: Vec::new(),
             accel_y: 0.0,
             aa_factor,
             msaa,

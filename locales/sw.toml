@@ -327,6 +327,7 @@ tilt_unreachable = "Kwa ±%{range} g, tilt ya %{angle}° haifikiki: inahitaji ms
 tilt_unreachable_range = "Kupanua kipimo ndiyo suluhisho safi — hakigharimu chochote wala hakibadilishi kingine."
 tilt_unreachable_strength = "Au ongeza nguvu hadi %{pct} %"
 tilt_legend_rim = "Ukingo — kipimo kamili, %{accel} m/s² (±%{range} g)"
+tilt_legend_clipped = "Imekatwa — sensa imefika kikomo, mtikisiko ulikuwa mkubwa zaidi"
 tilt_legend_tilt = "TILT kwa %{angle}° — inahitaji %{accel} m/s², %{pct} % ya kipimo kamili"
 tilt_legend_tilt_unreachable = "TILT kwa %{angle}° — haifikiki, hakuna mtikisiko unaofika hapo"
 tilt_legend_intent = "Kizingiti cha nudge — %{accel} m/s², chini yake hakuna kinachomfikia mpira"

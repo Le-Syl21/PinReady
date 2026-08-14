@@ -327,6 +327,7 @@ tilt_unreachable = "Pri ±%{range} g je tilt na %{angle}° mimo dosahu: vyžaduj
 tilt_unreachable_range = "Rozšíriť rozsah je čistá oprava — nič nestojí a nič iné nemení."
 tilt_unreachable_strength = "Alebo zvýšte intenzitu na %{pct} %"
 tilt_legend_rim = "Okraj — plný rozsah, %{accel} m/s² (±%{range} g)"
+tilt_legend_clipped = "Orezané — senzor dosiahol maximum, náraz bol silnejší"
 tilt_legend_tilt = "TILT pri %{angle}° — vyžaduje %{accel} m/s², %{pct} % plného rozsahu"
 tilt_legend_tilt_unreachable = "TILT pri %{angle}° — mimo dosahu, žiadny otras tam nedosiahne"
 tilt_legend_intent = "Prah nudge — %{accel} m/s², pod ním sa ku guli nedostane nič"

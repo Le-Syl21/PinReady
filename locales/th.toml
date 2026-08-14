@@ -327,6 +327,7 @@ tilt_unreachable = "ที่ ±%{range} g ทิลต์ที่ %{angle}° �
 tilt_unreachable_range = "การขยายช่วงวัดคือการแก้ที่สะอาด — ไม่มีต้นทุนและไม่เปลี่ยนสิ่งอื่นใด"
 tilt_unreachable_strength = "หรือเพิ่มความแรงเป็น %{pct} %"
 tilt_legend_rim = "ขอบ — เต็มสเกล, %{accel} ม./วิ² (±%{range} g)"
+tilt_legend_clipped = "ตัดยอด — เซ็นเซอร์ถึงขีดสุด แรงกระแทกแรงกว่านี้"
 tilt_legend_tilt = "TILT ที่ %{angle}° — ต้องใช้ %{accel} ม./วิ², คิดเป็น %{pct} % ของเต็มสเกล"
 tilt_legend_tilt_unreachable = "TILT ที่ %{angle}° — นอกระยะเอื้อม ไม่มีการเขย่าใดไปถึง"
 tilt_legend_intent = "เกณฑ์นัดจ์ — %{accel} ม./วิ², ต่ำกว่านี้ไม่มีอะไรถึงลูกบอล"

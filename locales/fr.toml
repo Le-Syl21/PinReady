@@ -345,6 +345,7 @@ tilt_unreachable = "En ±%{range} g, un tilt à %{angle}° est hors d’atteinte
 tilt_unreachable_range = "Élargir la plage est la correction propre — elle ne coûte rien et ne change rien d’autre."
 tilt_unreachable_strength = "Ou monter l’intensité à %{pct} %"
 tilt_legend_rim = "Bord — pleine échelle, %{accel} m/s² (±%{range} g)"
+tilt_legend_clipped = "Écrêté — le capteur a saturé, la secousse dépassait sa plage"
 tilt_legend_tilt = "TILT à %{angle}° — demande %{accel} m/s², soit %{pct} % de la pleine échelle"
 tilt_legend_tilt_unreachable = "TILT à %{angle}° — hors d’atteinte, aucune secousse n’y arrive"
 tilt_legend_intent = "Seuil de nudge — %{accel} m/s², en dessous rien n’atteint la bille"

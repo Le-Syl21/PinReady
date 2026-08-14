@@ -327,6 +327,7 @@ tilt_unreachable = "±%{range} g では %{angle}° のチルトは届きませ�
 tilt_unreachable_range = "レンジを広げるのが正攻法です。何の代償もなく、他には何も変わりません。"
 tilt_unreachable_strength = "または強度を %{pct} % に上げる"
 tilt_legend_rim = "外周 — フルスケール、%{accel} m/s²（±%{range} g）"
+tilt_legend_clipped = "クリップ — センサーが上限に達しました。実際の揺れはこれより強いです"
 tilt_legend_tilt = "%{angle}° で TILT — %{accel} m/s² が必要、フルスケールの %{pct} %"
 tilt_legend_tilt_unreachable = "%{angle}° で TILT — 届きません。どんな揺れも到達しません"
 tilt_legend_intent = "ナッジしきい値 — %{accel} m/s²、これ未満は何もボールに届きません"

@@ -327,6 +327,7 @@ tilt_unreachable = "Vid ±%{range} g är en tilt vid %{angle}° utom räckhåll:
 tilt_unreachable_range = "Att vidga mätområdet är den rena lösningen — den kostar ingenting och ändrar inget annat."
 tilt_unreachable_strength = "Eller höj intensiteten till %{pct} %"
 tilt_legend_rim = "Kant — fullskala, %{accel} m/s² (±%{range} g)"
+tilt_legend_clipped = "Klippt — sensorn nådde maxvärdet, stöten var kraftigare"
 tilt_legend_tilt = "TILT vid %{angle}° — kräver %{accel} m/s², %{pct} % av fullskala"
 tilt_legend_tilt_unreachable = "TILT vid %{angle}° — utom räckhåll, ingen skakning når dit"
 tilt_legend_intent = "Nudge-tröskel — %{accel} m/s², under den når ingenting kulan"

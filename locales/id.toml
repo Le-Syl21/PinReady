@@ -327,6 +327,7 @@ tilt_unreachable = "Pada ±%{range} g, tilt %{angle}° di luar jangkauan: ia men
 tilt_unreachable_range = "Melebarkan rentang adalah perbaikan yang bersih — tanpa biaya dan tidak mengubah apa pun yang lain."
 tilt_unreachable_strength = "Atau naikkan intensitas ke %{pct} %"
 tilt_legend_rim = "Tepi — skala penuh, %{accel} m/s² (±%{range} g)"
+tilt_legend_clipped = "Terpotong — sensor mencapai batas, guncangan lebih kuat"
 tilt_legend_tilt = "TILT pada %{angle}° — perlu %{accel} m/s², %{pct} % dari skala penuh"
 tilt_legend_tilt_unreachable = "TILT pada %{angle}° — di luar jangkauan, tak ada guncangan yang sampai"
 tilt_legend_intent = "Ambang nudge — %{accel} m/s², di bawahnya tak ada yang mencapai bola"

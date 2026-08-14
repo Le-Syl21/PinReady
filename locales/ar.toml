@@ -326,6 +326,7 @@ tilt_unreachable = "عند ±%{range} g، التلت عند %{angle}° خارج 
 tilt_unreachable_range = "توسيع المدى هو الإصلاح النظيف — لا يكلّف شيئًا ولا يغيّر أي شيء آخر."
 tilt_unreachable_strength = "أو ارفع الشدّة إلى %{pct} ٪"
 tilt_legend_rim = "الحافة — المدى الكامل، %{accel} م/ث² (±%{range} g)"
+tilt_legend_clipped = "مقصوص — بلغ المستشعر حده الأقصى، وكانت الهزة أقوى"
 tilt_legend_tilt = "TILT عند %{angle}° — يتطلب %{accel} م/ث²، أي %{pct} ٪ من المدى الكامل"
 tilt_legend_tilt_unreachable = "TILT عند %{angle}° — خارج المتناول، لا هزّة تبلغه"
 tilt_legend_intent = "عتبة الدفع — %{accel} م/ث²، ودونها لا يصل إلى الكرة شيء"
