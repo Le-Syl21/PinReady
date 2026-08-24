@@ -210,6 +210,92 @@ fn is_abnormal_exit(status: &std::process::ExitStatus) -> bool {
     }
 }
 
+/// One line read from the child, and which stream it came out of.
+///
+/// Both streams feed a single watcher. Splitting them was a real bug: the
+/// startup/progress detection only ever looked at stdout, so anything VPX
+/// wrote to stderr — which is where a logger routes warnings by default —
+/// could never satisfy it. `Startup done` arriving on the wrong pipe left
+/// `startup_done` false and the 30 s loading hang-detector armed for the
+/// whole session.
+enum VpxLine {
+    Out(String),
+    Err(String),
+    /// A line from VPX's own log file — see [`LogTail`].
+    Log(String),
+}
+
+/// Follow VPX's own log file the way `tail -f` does.
+///
+/// This is the only stream VPX itself controls, and the only one that carries
+/// `SetProgress` and `Startup done`. Its console output does not: the plog
+/// console appender is compiled in under `__STANDALONE__` only, which the MSVC
+/// Windows build does not define, so what lands in our pipes there is whatever
+/// PinMAME and dmdutil happen to print on their own. Deducing VPX's state from
+/// that was guesswork — a table was killed mid-load right after
+/// `loading fshtl_5.rom`, because the ROM chatter stopped for 30 s.
+struct LogTail {
+    path: std::path::PathBuf,
+    pos: u64,
+    /// Bytes read past the last newline, waiting for the rest of their line.
+    carry: String,
+}
+
+impl LogTail {
+    /// Start at the end of whatever is already there: plog opens the file for
+    /// append, so beginning at 0 would replay every previous session as if it
+    /// were happening now. A missing file (first ever launch) starts at 0,
+    /// which is also correct — VPX is about to create it.
+    fn new(path: std::path::PathBuf) -> Self {
+        let pos = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+        Self {
+            path,
+            pos,
+            carry: String::new(),
+        }
+    }
+
+    /// Every complete line appended since the last call. Empty while the file
+    /// does not exist yet, which is the normal state for the first seconds of
+    /// a first launch — and stays empty forever if the user turned VPX's
+    /// logging off, which is why nothing may depend on this being non-empty.
+    fn read_new(&mut self) -> Vec<String> {
+        use std::io::{Read, Seek};
+        let Ok(mut f) = std::fs::File::open(&self.path) else {
+            return Vec::new();
+        };
+        let len = f.metadata().map(|m| m.len()).unwrap_or(0);
+        if len < self.pos {
+            // Rolled over (plog keeps 5 MB and one backup) or truncated:
+            // whatever we were following is gone, follow the new file.
+            self.pos = 0;
+            self.carry.clear();
+        }
+        if len == self.pos {
+            return Vec::new();
+        }
+        if f.seek(std::io::SeekFrom::Start(self.pos)).is_err() {
+            return Vec::new();
+        }
+        let mut buf = Vec::new();
+        let read = f
+            .by_ref()
+            .take(len - self.pos)
+            .read_to_end(&mut buf)
+            .unwrap_or(0);
+        self.pos += read as u64;
+        // Lossy on purpose: a torn multi-byte character at the read boundary
+        // must not stall the tail, and this is a diagnostic stream.
+        self.carry.push_str(&String::from_utf8_lossy(&buf));
+        let mut out = Vec::new();
+        while let Some(i) = self.carry.find('\n') {
+            let line: String = self.carry.drain(..=i).collect();
+            out.push(line.trim_end_matches(['\r', '\n']).to_string());
+        }
+        out
+    }
+}
+
 /// POSIX-shell quote a path or argument: wrap in single quotes and
 /// escape embedded `'` as `'\''`. Result is a string the user can paste
 /// into a shell to re-run the exact same command.
@@ -814,25 +900,19 @@ impl App {
                     "no xdg-activation token available; VPX may launch behind PinReady on Wayland"
                 );
             }
+            // Snapshot where VPX's own log currently ends, BEFORE starting it:
+            // plog appends, so anything already there belongs to a previous
+            // session and must not be replayed as if it were happening now.
+            let mut log_tail =
+                LogTail::new(crate::config::default_ini_path().with_file_name("vpinball.log"));
             let child = cmd.spawn();
             match child {
                 Ok(mut child) => {
                     log::info!("Visual Pinball launched, reading stdout+stderr...");
 
-                    // Capture stderr on a separate thread
-                    let stderr_handle = child.stderr.take().map(|se| {
-                        std::thread::spawn(move || {
-                            let reader = std::io::BufReader::new(se);
-                            let mut lines = Vec::new();
-                            for line in reader.lines().map_while(Result::ok) {
-                                log::warn!("[VPX stderr] {}", line);
-                                lines.push(line);
-                            }
-                            lines
-                        })
-                    });
-
                     let stdout = child.stdout.take();
+                    let stderr = child.stderr.take();
+                    let mut stderr_lines: Vec<String> = Vec::new();
                     // Two-tier log buffer: the loading phase is kept in
                     // full (header + every line up to "Startup done"),
                     // then post-startup lines flow into a ring of the
@@ -845,6 +925,17 @@ impl App {
                     let mut ingame_log: std::collections::VecDeque<String> =
                         std::collections::VecDeque::with_capacity(INGAME_TAIL);
                     let mut startup_done = false;
+                    // Has a line from VPX's OWN logger ever reached us?
+                    //
+                    // Not the same question as "did anything arrive". On
+                    // Windows plenty arrives — PinMAME prints its ROM loading,
+                    // dmdutil64.dll prints its converter warnings — but none of
+                    // it comes from VPX, because VPX's plog only gets a console
+                    // appender under `__STANDALONE__`, which the MSVC build does
+                    // not define. So `SetProgress` and `Startup done` never
+                    // arrive, `startup_done` can never flip, and the loading
+                    // hang-detector below stays armed for the whole session.
+                    let mut saw_vpx_log = false;
                     // Build the full log we hand to ExitError. Always
                     // contains the call header and every loading-phase
                     // line; if startup_done was reached, also a visible
@@ -872,27 +963,129 @@ impl App {
                                 out.push('\n');
                             }
                         }
+                        if loading.is_empty() && ingame.is_empty() {
+                            // Nothing to show is itself the diagnosis: this
+                            // build writes no console log (the native Windows
+                            // one does not), so the only record of what went
+                            // wrong is VPX's own file. Name it rather than
+                            // hand the user an empty report.
+                            out.push_str(
+                                "\n----- no VPX console output -----\n\
+                                 This Visual Pinball build does not log to the console, so \
+                                 PinReady captured nothing.\nIts own log should be here:\n  ",
+                            );
+                            out.push_str(
+                                &crate::config::default_ini_path()
+                                    .with_file_name("vpinball.log")
+                                    .display()
+                                    .to_string(),
+                            );
+                            out.push('\n');
+                        }
                         out
                     };
 
-                    if let Some(so) = stdout {
-                        let reader = std::io::BufReader::new(so);
-                        let timeout = std::time::Duration::from_secs(30);
+                    {
+                        // Poll often, decide slowly: draining every 250 ms
+                        // notices an exit promptly, while the hang rule below
+                        // still measures a real 30 s of silence.
+                        const POLL: std::time::Duration = std::time::Duration::from_millis(250);
+                        const HANG_AFTER: std::time::Duration = std::time::Duration::from_secs(30);
                         let (line_tx, line_rx) = crossbeam_channel::unbounded();
 
-                        // Read stdout lines on a helper thread to allow timeout
-                        std::thread::spawn(move || {
-                            for line in reader.lines().map_while(Result::ok) {
-                                if line_tx.send(line).is_err() {
-                                    break;
+                        // Both pipes feed the channel. They carry the
+                        // third-party output — PinMAME's ROM loading, dmdutil's
+                        // converter warnings — which is worth keeping for the
+                        // report, plus VPX's own lines on the builds that have
+                        // a console appender.
+                        for (stream, tag) in [
+                            (
+                                stdout.map(|s| Box::new(s) as Box<dyn std::io::Read + Send>),
+                                false,
+                            ),
+                            (
+                                stderr.map(|s| Box::new(s) as Box<dyn std::io::Read + Send>),
+                                true,
+                            ),
+                        ] {
+                            let Some(stream) = stream else { continue };
+                            let tx = line_tx.clone();
+                            std::thread::spawn(move || {
+                                let reader = std::io::BufReader::new(stream);
+                                for line in reader.lines().map_while(Result::ok) {
+                                    let item = if tag {
+                                        VpxLine::Err(line)
+                                    } else {
+                                        VpxLine::Out(line)
+                                    };
+                                    if tx.send(item).is_err() {
+                                        break;
+                                    }
                                 }
-                            }
-                        });
+                            });
+                        }
+                        // ...and VPX's own log file, the one stream it drives
+                        // on every platform.
+                        let tail_stop = std::sync::Arc::new(AtomicBool::new(false));
+                        let tail_handle = {
+                            let tx = line_tx.clone();
+                            let stop = std::sync::Arc::clone(&tail_stop);
+                            std::thread::spawn(move || {
+                                loop {
+                                    // Read the flag first, then the file: the
+                                    // pass after VPX exits still collects what
+                                    // it wrote on the way out, which is exactly
+                                    // where a crash reason lives.
+                                    let stopping = stop.load(Ordering::Relaxed);
+                                    for line in log_tail.read_new() {
+                                        if tx.send(VpxLine::Log(line)).is_err() {
+                                            return;
+                                        }
+                                    }
+                                    if stopping {
+                                        return;
+                                    }
+                                    std::thread::sleep(std::time::Duration::from_millis(200));
+                                }
+                            })
+                        };
+                        // Our own handle must go, or `Disconnected` never fires.
+                        drop(line_tx);
 
+                        let mut last_vpx_line = std::time::Instant::now();
+                        let mut drain_until: Option<std::time::Instant> = None;
                         loop {
-                            match line_rx.recv_timeout(timeout) {
-                                Ok(line) => {
-                                    log::info!("[VPX] {}", line);
+                            match line_rx.recv_timeout(POLL) {
+                                Ok(item) => {
+                                    let (line, from_log) = match item {
+                                        VpxLine::Out(l) => {
+                                            log::info!("[VPX] {}", l);
+                                            (l, false)
+                                        }
+                                        VpxLine::Err(l) => {
+                                            log::warn!("[VPX stderr] {}", l);
+                                            stderr_lines.push(l.clone());
+                                            (l, false)
+                                        }
+                                        VpxLine::Log(l) => {
+                                            log::info!("[VPX log] {}", l);
+                                            (l, true)
+                                        }
+                                    };
+                                    // A line is VPX's own if it came from VPX's
+                                    // log file, or if it carries a marker only
+                                    // VPX emits. Anything else is a library
+                                    // shouting into our pipe and says nothing
+                                    // about whether VPX is alive.
+                                    if from_log
+                                        || line.contains("SetProgress")
+                                        || line.contains("Startup done")
+                                        || line.contains("RenderStaticPrepass")
+                                        || line.contains("PluginLog")
+                                    {
+                                        saw_vpx_log = true;
+                                        last_vpx_line = std::time::Instant::now();
+                                    }
                                     if line.contains("SetProgress") {
                                         if let Some(start) = line.find("] ") {
                                             let msg = &line[start + 2..];
@@ -932,42 +1125,84 @@ impl App {
                                         }
                                         ingame_log.push_back(line);
                                     }
+                                    continue;
                                 }
-                                Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
-                                    if startup_done {
-                                        // After startup, silence is normal (in-game VPX
-                                        // logs sparsely). We must keep draining stdout —
-                                        // dropping `line_rx` would close the read side of
-                                        // the pipe, and VPX's next write triggers SIGPIPE
-                                        // and kills the game mid-play. Wait for VPX to
-                                        // close stdout naturally (→ Disconnected).
-                                        continue;
-                                    }
-                                    log::error!(
-                                        "VPX stdout timeout (30s without output during loading)"
-                                    );
-                                    let _ = child.kill();
-                                    let err = build_error_log(
+                                Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
+                                    // Every producer is gone.
+                                    break;
+                                }
+                                Err(crossbeam_channel::RecvTimeoutError::Timeout) => {}
+                            }
+
+                            // Idle tick: has VPX exited, or stopped talking?
+                            if let Some(deadline) = drain_until {
+                                // It exited; keep pumping briefly so the log's
+                                // final lines make it into the report.
+                                if std::time::Instant::now() >= deadline {
+                                    break;
+                                }
+                                continue;
+                            }
+                            if matches!(child.try_wait(), Ok(Some(_))) {
+                                tail_stop.store(true, Ordering::Relaxed);
+                                drain_until = Some(
+                                    std::time::Instant::now() + std::time::Duration::from_secs(2),
+                                );
+                                continue;
+                            }
+                            if last_vpx_line.elapsed() >= HANG_AFTER {
+                                if startup_done {
+                                    // After startup, silence is normal: an
+                                    // in-game VPX logs sparsely. Keep draining —
+                                    // dropping `line_rx` would close the read end
+                                    // of the pipes, and VPX's next write triggers
+                                    // SIGPIPE and kills the game mid-play.
+                                    continue;
+                                }
+                                if !saw_vpx_log {
+                                    // VPX has never spoken to us, so its silence says
+                                    // nothing and killing on it is a guess. On Windows
+                                    // that guess is always wrong: whatever we did
+                                    // receive came from PinMAME or dmdutil, and once
+                                    // those go quiet — a long load, or simply a table
+                                    // running — the 30 s timer fires on a perfectly
+                                    // healthy game. Field report: a table killed
+                                    // mid-load right after `loading fshtl_5.rom`.
+                                    //
+                                    // Treat the process as up instead: mark startup
+                                    // done so the covers lift and the cursor is handed
+                                    // to VPX, keep draining, and let VPX decide when it
+                                    // exits. We lose the hang detector where VPX does
+                                    // not report — there is no signal here to rebuild
+                                    // it from, and killing someone's game on a guess is
+                                    // the worse failure.
+                                    log::warn!(
+                                            "no VPX log line in 30s (only third-party output, if any): \
+                                             this build has no console logger. Assuming it started; \
+                                             VPX's own diagnostics are in vpinball.log."
+                                        );
+                                    startup_done = true;
+                                    let _ = tx.send(VpxStatus::Started);
+                                    continue;
+                                }
+                                log::error!(
+                                    "VPX log silent for 30s during loading — treating as hung"
+                                );
+                                let _ = child.kill();
+                                let err = build_error_log(
                                         "Timeout: Visual Pinball stopped responding during loading (no output for 30s).",
                                         &loading_log,
                                         &ingame_log,
                                     );
-                                    let _ = tx.send(VpxStatus::ExitError(err));
-                                    running.store(false, Ordering::Relaxed);
-                                    return;
-                                }
-                                Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
-                                    // stdout closed — process is exiting
-                                    break;
-                                }
+                                let _ = tx.send(VpxStatus::ExitError(err));
+                                tail_stop.store(true, Ordering::Relaxed);
+                                running.store(false, Ordering::Relaxed);
+                                return;
                             }
                         }
+                        tail_stop.store(true, Ordering::Relaxed);
+                        let _ = tail_handle.join();
                     }
-
-                    // Collect stderr
-                    let stderr_lines = stderr_handle
-                        .and_then(|h| h.join().ok())
-                        .unwrap_or_default();
 
                     let child_pid = child.id();
                     match child.wait() {
@@ -1720,5 +1955,74 @@ mod tests {
         let pct = parse_progress_pct("Loading Textures... 45%");
         assert!(pct.is_some());
         assert!((pct.unwrap() - 0.45).abs() < 0.001);
+    }
+
+    /// A pre-existing log belongs to the previous session: starting at 0 would
+    /// replay it and, worse, re-trigger `Startup done` before VPX had started.
+    #[test]
+    fn log_tail_starts_at_the_end_of_what_is_already_there() {
+        let path = std::env::temp_dir().join("pinready-tail-existing.log");
+        std::fs::write(&path, "old line from last time\n").unwrap();
+        let mut tail = LogTail::new(path.clone());
+        assert!(
+            tail.read_new().is_empty(),
+            "the old session must not replay"
+        );
+        append(&path, "brand new line\n");
+        assert_eq!(tail.read_new(), vec!["brand new line".to_string()]);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// The first launch creates the file after we start watching: a missing
+    /// file is a normal state, not an error, and must be picked up once it
+    /// appears.
+    #[test]
+    fn log_tail_waits_for_a_file_that_does_not_exist_yet() {
+        let path = std::env::temp_dir().join("pinready-tail-absent.log");
+        let _ = std::fs::remove_file(&path);
+        let mut tail = LogTail::new(path.clone());
+        assert!(tail.read_new().is_empty());
+        std::fs::write(&path, "first line\n").unwrap();
+        assert_eq!(tail.read_new(), vec!["first line".to_string()]);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// Reads land mid-line all the time. Half a line must be held back, not
+    /// emitted as if it were complete — `Startup don` matches nothing.
+    #[test]
+    fn log_tail_holds_back_a_partial_line() {
+        let path = std::env::temp_dir().join("pinready-tail-partial.log");
+        std::fs::write(&path, "").unwrap();
+        let mut tail = LogTail::new(path.clone());
+        append(&path, "Startup do");
+        assert!(tail.read_new().is_empty(), "half a line is not a line");
+        append(&path, "ne\nnext\n");
+        assert_eq!(
+            tail.read_new(),
+            vec!["Startup done".to_string(), "next".to_string()]
+        );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// plog rolls the file at 5 MB. After a roll the new file is shorter than
+    /// our cursor; following from the old offset would skip real content or
+    /// read garbage.
+    #[test]
+    fn log_tail_follows_the_file_across_a_rollover() {
+        let path = std::env::temp_dir().join("pinready-tail-roll.log");
+        std::fs::write(&path, "a long first session line\n").unwrap();
+        let mut tail = LogTail::new(path.clone());
+        append(&path, "second line\n");
+        assert_eq!(tail.read_new(), vec!["second line".to_string()]);
+        // Rolled over: same name, fresh and shorter.
+        std::fs::write(&path, "after roll\n").unwrap();
+        assert_eq!(tail.read_new(), vec!["after roll".to_string()]);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    fn append(path: &std::path::Path, text: &str) {
+        use std::io::Write as _;
+        let mut f = std::fs::OpenOptions::new().append(true).open(path).unwrap();
+        f.write_all(text.as_bytes()).unwrap();
     }
 }
