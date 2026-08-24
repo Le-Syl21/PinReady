@@ -677,8 +677,8 @@ system_mirror_clear_hint = "Menghapus URL mirror yang di-host sendiri dan memuli
 # --- Head tracking + merge inputs (added 2026-08-08) ---
 ht_done = "Head tracking %{tag} terpasang dan aktif — demo sedang terbuka: pasang driver kamera di sana jika diminta, dan pastikan kepala Anda terlacak."
 ht_install_button = "Pasang head tracking"
-ht_enable = "Aktifkan head tracking"
-ht_enable_help = "Menyalakan plugin di VPX. Memasangnya saja tidak cukup — pengaturannya datang kosong, jadi plugin yang baru dipasang tidak melakukan apa pun sampai ini dicentang."
+ht_enable = "Aktifkan head tracking (sekaligus beralih ke mode tampilan Window)"
+ht_enable_help = "Menyalakan plugin di VPX. Memasangnya saja tidak cukup — pengaturannya datang kosong, jadi plugin yang baru dipasang tidak melakukan apa pun sampai ini dicentang. Sekaligus memindahkan VPX ke mode tampilan Window: hanya proyeksi itu yang mengikuti mata Anda, jadi pada Legacy atau Camera plugin akan berjalan tanpa ada yang bergerak di layar. Menghapus centang ini membiarkan mode tampilan tetap Window."
 ht_launch_demo = "Buka demo"
 ht_section_desc = "Untuk cab dengan Kinect atau kamera di backglass/topper: perspektif meja mengikuti kepala Anda (efek fish-tank). Satu klik mengunduh plugin + demo, mengaktifkan plugin, dan membuka demo agar Anda bisa memasang driver kamera dan melihat diri Anda terlacak."
 ht_section_title = "Head tracking (Kinect / kamera)"

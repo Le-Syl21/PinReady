@@ -219,6 +219,13 @@ fn install(vpx_install_dir: &Path, tx: &Sender<HtEvent>) -> Result<String> {
     match crate::config::VpxConfig::load(None) {
         Ok(mut ini) => {
             ini.set("Plugin.HeadTracking", "Enable", "1");
+            // ...and put the view set on the Window projection, the only one
+            // that reads the eye position the plugin feeds VPX. Same reason as
+            // above: an installed-but-inert feature just looks broken.
+            // Absent key = VPX's own default (0, Desktop); guessing "cabinet"
+            // here would write the projection into a view set VPX never reads.
+            let view_mode = ini.get_i32("Player", "BGSet").unwrap_or(0);
+            ini.set_window_projection(view_mode);
             if let Err(e) = ini.save() {
                 log::warn!("headtracking: enabling in ini failed: {e:#}");
             }

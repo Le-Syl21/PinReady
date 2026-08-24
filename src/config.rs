@@ -133,6 +133,29 @@ impl VpxConfig {
         self.set_i32("Player", "BGSet", mode);
     }
 
+    /// The `[TableOverride]` key holding the projection mode of a given view
+    /// set. VPX keeps one per set and picks it from `BGSet`
+    /// (`ViewSetup::ApplyTableOverrideSettings`), so writing the wrong one is
+    /// a silent no-op.
+    fn projection_mode_key(view_mode: i32) -> &'static str {
+        match view_mode {
+            0 => "ViewDTMode",
+            2 => "ViewFSSMode",
+            _ => "ViewCabMode",
+        }
+    }
+
+    /// Pin the "Window" projection (`VLM_WINDOW` = 2) on the current view set.
+    ///
+    /// Head tracking feeds VPX an eye position, and only this projection reads
+    /// it: Legacy and Camera build the frustum from a fixed camera, so the
+    /// plugin would run and change nothing on screen. Writing the key matters
+    /// even though Window is VPX's own default for the cabinet set — when the
+    /// key is absent each table's saved mode wins instead.
+    pub fn set_window_projection(&mut self, view_mode: i32) {
+        self.set_i32("TableOverride", Self::projection_mode_key(view_mode), 2);
+    }
+
     // --- Input mapping ---
 
     pub fn set_input_mapping(&mut self, action_id: &str, mapping: &str) {
@@ -276,6 +299,18 @@ mod tests {
         let mut cfg = config_from_str("");
         cfg.set_view_mode(1);
         assert_eq!(cfg.get_i32("Player", "BGSet"), Some(1));
+    }
+
+    #[test]
+    fn window_projection_follows_the_view_set() {
+        // VPX keeps one projection mode per view set and reads the one that
+        // matches BGSet, so head tracking must land on the right key or it
+        // changes nothing at all.
+        for (bg_set, key) in [(0, "ViewDTMode"), (1, "ViewCabMode"), (2, "ViewFSSMode")] {
+            let mut cfg = config_from_str("");
+            cfg.set_window_projection(bg_set);
+            assert_eq!(cfg.get_i32("TableOverride", key), Some(2), "BGSet {bg_set}");
+        }
     }
 
     #[test]

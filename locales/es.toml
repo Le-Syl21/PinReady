@@ -680,8 +680,8 @@ system_mirror_clear_hint = "Borra la URL del mirror autoalojado y restablece las
 # --- Head tracking + merge inputs (added 2026-08-08) ---
 ht_done = "Head tracking %{tag} instalado y activado — la demo se está abriendo: instala allí los controladores de la cámara si se te pide, y comprueba que estás siendo seguido."
 ht_install_button = "Instalar el head tracking"
-ht_enable = "Activar el head tracking"
-ht_enable_help = "Activa el complemento en VPX. Instalarlo no basta: el ajuste viene vacío, así que un complemento recién instalado no hace nada hasta marcar esta casilla."
+ht_enable = "Activar el head tracking (cambia también al modo de vista Window)"
+ht_enable_help = "Activa el complemento en VPX. Instalarlo no basta: el ajuste viene vacío, así que un complemento recién instalado no hace nada hasta marcar esta casilla. También pone VPX en el modo de vista Window: es la única proyección que sigue tu ojo, así que en Legacy o Camera el complemento funcionaría sin que nada se moviera en pantalla. Desmarcarla deja el modo de vista en Window."
 ht_launch_demo = "Abrir la demo"
 ht_section_desc = "Para cabs equipados con una Kinect o una cámara en el backglass/topper: la perspectiva de la mesa sigue tu cabeza (efecto fish-tank). Un clic descarga el plugin + la demo, activa el plugin y abre la demo para que instales los controladores de la cámara y veas que se te sigue."
 ht_section_title = "Head tracking (Kinect / cámara)"

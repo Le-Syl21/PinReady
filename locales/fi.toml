@@ -677,8 +677,8 @@ system_mirror_clear_hint = "Tyhjentää itse ylläpidetyn peilipalvelimen URL-os
 # --- Head tracking + merge inputs (added 2026-08-08) ---
 ht_done = "Head tracking %{tag} asennettu ja otettu käyttöön — demo avautuu: asenna siellä kameran ajurit, jos niitä pyydetään, ja varmista, että sinua seurataan."
 ht_install_button = "Asenna head tracking"
-ht_enable = "Ota head tracking käyttöön"
-ht_enable_help = "Kytkee liitännäisen päälle VPX:ssä. Asentaminen ei riitä — asetus tulee tyhjänä, joten juuri asennettu liitännäinen ei tee mitään ennen kuin tämä on rastitettu."
+ht_enable = "Ota head tracking käyttöön (vaihtaa myös näkymätilaan Window)"
+ht_enable_help = "Kytkee liitännäisen päälle VPX:ssä. Asentaminen ei riitä — asetus tulee tyhjänä, joten juuri asennettu liitännäinen ei tee mitään ennen kuin tämä on rastitettu. Vaihtaa myös VPX:n näkymätilaan Window: se on ainoa projektio, joka seuraa silmääsi, joten Legacy- tai Camera-tilassa liitännäinen pyörisi ilman että ruudulla liikkuu mitään. Rastin poistaminen jättää näkymätilaksi Windowin."
 ht_launch_demo = "Avaa demo"
 ht_section_desc = "Kaapeille, joissa on Kinect tai kamera backglassissa/topperissa: pöydän perspektiivi seuraa päätäsi (fish tank -efekti). Yksi napsautus lataa liitännäisen + demon, ottaa liitännäisen käyttöön ja avaa demon, jotta voit asentaa kameran ajurit ja nähdä, että sinua seurataan."
 ht_section_title = "Head tracking (Kinect / kamera)"

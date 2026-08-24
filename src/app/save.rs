@@ -17,6 +17,15 @@ impl App {
                 if let Some(enabled) = self.ht_enabled {
                     self.config
                         .set_i32("Plugin.HeadTracking", "Enable", enabled as i32);
+                    // Head tracking only shows up through the Window
+                    // projection — under Legacy or Camera the plugin runs and
+                    // the picture never moves. Turning it back off leaves
+                    // Window in place: it is the cabinet default anyway, and
+                    // changing the view a second time behind the user's back
+                    // is worse than leaving it.
+                    if enabled {
+                        self.config.set_window_projection(self.view_mode);
+                    }
                 }
             }
             WizardPage::Tilt => self.save_tilt(),
