@@ -476,6 +476,9 @@ pub struct App {
     vpx_loading_pct: Option<f32>, // loading progress 0.0–1.0, if parseable
     vpx_hide_covers: bool,        // VPX windows are up, hide covers
     vpx_error_log: Option<String>, // set on unexpected exit, shown as popup
+    /// Result of the last "Save" from the error popup: the path written, or
+    /// the failure. Shown under the buttons so saving is not a silent act.
+    vpx_error_saved: Option<Result<String, String>>,
 
     // Autostart on boot
     autostart: bool,
@@ -803,6 +806,7 @@ impl App {
             vpx_loading_pct: None,
             vpx_hide_covers: false,
             vpx_error_log: None,
+            vpx_error_saved: None,
             autostart: is_autostart_enabled(),
             desktop_shortcut: desktop_integration::is_desktop_shortcut_installed(),
             dock_pinned: desktop_integration::is_pinned_to_dock(),

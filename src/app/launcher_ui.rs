@@ -297,29 +297,76 @@ impl App {
                             .color(egui::Color32::RED),
                     );
                     ui.add_space(8.0);
-                    if let Some(ref log) = self.vpx_error_log {
-                        // Force the vertical scrollbar to stay visible so the
-                        // user sees there's more content below — egui's
-                        // default `AlwaysHidden` only shows it on hover, easy
-                        // to miss on a kiosk screen.
-                        egui::ScrollArea::vertical()
+                    if let Some(log) = self.vpx_error_log.clone() {
+                        // Both scrollbars stay visible: egui's default
+                        // `AlwaysHidden` only shows them on hover, easy to miss
+                        // on a kiosk screen. Horizontal too — log lines carry
+                        // long paths, and wrapping them makes a stack of
+                        // aligned entries unreadable.
+                        egui::ScrollArea::both()
                             .max_height(300.0)
                             .auto_shrink([false, false])
                             .scroll_bar_visibility(
                                 egui::scroll_area::ScrollBarVisibility::AlwaysVisible,
                             )
                             .show(ui, |ui| {
-                                let job = highlight_error_keywords(log, ui.style());
-                                ui.label(job);
+                                let job = highlight_error_keywords(&log, ui.style());
+                                ui.add(egui::Label::new(job).wrap_mode(egui::TextWrapMode::Extend));
                             });
-                    }
-                    ui.add_space(8.0);
-                    if ui.button(t!("launcher_close").to_string()).clicked() {
-                        close = true;
+                        ui.add_space(8.0);
+                        ui.horizontal(|ui| {
+                            if ui
+                                .button(t!("launcher_error_copy").to_string())
+                                .on_hover_text(t!("launcher_error_copy_hint").to_string())
+                                .clicked()
+                            {
+                                ui.ctx().output_mut(|o| {
+                                    o.commands.push(egui::OutputCommand::CopyText(log.clone()))
+                                });
+                                self.vpx_error_saved = None;
+                            }
+                            if ui
+                                .button(t!("launcher_error_save").to_string())
+                                .on_hover_text(t!("launcher_error_save_hint").to_string())
+                                .clicked()
+                            {
+                                self.vpx_error_saved = save_error_log(&log);
+                            }
+                            if ui.button(t!("launcher_close").to_string()).clicked() {
+                                close = true;
+                            }
+                        });
+                        match &self.vpx_error_saved {
+                            Some(Ok(path)) => {
+                                ui.label(
+                                    egui::RichText::new(
+                                        t!("launcher_error_saved", path = path.as_str())
+                                            .to_string(),
+                                    )
+                                    .color(egui::Color32::from_rgb(0x66, 0xcc, 0x66)),
+                                );
+                            }
+                            Some(Err(e)) => {
+                                ui.label(
+                                    egui::RichText::new(
+                                        t!("launcher_error_save_failed", error = e.as_str())
+                                            .to_string(),
+                                    )
+                                    .color(egui::Color32::LIGHT_RED),
+                                );
+                            }
+                            None => {}
+                        }
+                    } else {
+                        ui.add_space(8.0);
+                        if ui.button(t!("launcher_close").to_string()).clicked() {
+                            close = true;
+                        }
                     }
                 });
             if close {
                 self.vpx_error_log = None;
+                self.vpx_error_saved = None;
             }
         }
 
@@ -786,7 +833,10 @@ impl App {
         let has_pinready = self.pinready_updating
             || self.pinready_latest_release.is_some()
             || self.pinready_update_error.is_some();
-        if !has_vpx && !has_pinready {
+        // Head tracking decides for itself further down — it has to poll its
+        // worker and its version check first, and both can turn the bar on.
+        let has_ht = self.ht_banner_wanted();
+        if !has_vpx && !has_pinready && !has_ht {
             return;
         }
 
@@ -900,7 +950,154 @@ impl App {
             }
         }
 
+        if has_ht {
+            if has_vpx || has_pinready {
+                ui.add_space(4.0);
+            }
+            self.render_ht_banner(ui, text_size, bar_h, full_w);
+        }
+
         ui.add_space(4.0);
+    }
+
+    /// Is there anything to say about head tracking right now?
+    ///
+    /// Only for someone who actually runs it: the plugin has to be installed
+    /// **and** enabled. Offering an update for something you don't use is
+    /// noise, and the launcher bar is prime real estate on a cabinet.
+    ///
+    /// Also where the version check is kicked off — lazily, once, and only
+    /// under those same conditions, so a desktop user without the plugin never
+    /// makes the network call.
+    fn ht_banner_wanted(&mut self) -> bool {
+        use crate::headtracking_install as ht;
+        if ht::platform_asset_suffix().is_none() {
+            return false;
+        }
+        let install_dir = std::path::PathBuf::from(&self.vpx_install_dir);
+        let installed = self
+            .ht_installed_version
+            .get_or_insert_with(|| ht::installed_version(&install_dir))
+            .clone();
+        if installed.is_none() {
+            return false;
+        }
+        // Absent key = on, matching what the wizard defaults a freshly
+        // installed plugin to.
+        if self.config.get_i32("Plugin.HeadTracking", "Enable") == Some(0) {
+            return false;
+        }
+
+        // Drain the installer worker.
+        let mut finished = false;
+        if let Some(rx) = &self.ht_install_rx {
+            while let Ok(ev) = rx.try_recv() {
+                match ev {
+                    ht::HtEvent::Status(key) => self.ht_status_key = Some(key),
+                    ht::HtEvent::Done { tag } => {
+                        self.ht_done_tag = Some(tag);
+                        self.ht_installed_version = None; // re-read from disk
+                        self.ht_latest_version = None;
+                        finished = true;
+                    }
+                    ht::HtEvent::Error(msg) => {
+                        self.ht_error = Some(msg);
+                        finished = true;
+                    }
+                }
+            }
+        }
+        if finished {
+            self.ht_install_rx = None;
+            self.ht_status_key = None;
+        }
+
+        // Ask GitHub once what the button would install.
+        if self.ht_latest_rx.is_none() && self.ht_latest_version.is_none() {
+            self.ht_latest_rx = Some(ht::spawn_latest_version());
+        }
+        if let Some(rx) = &self.ht_latest_rx {
+            if let Ok(version) = rx.try_recv() {
+                self.ht_latest_version = Some(version);
+                self.ht_latest_rx = None;
+            }
+        }
+
+        let update_available = match (&installed, &self.ht_latest_version) {
+            (Some(from), Some(Some(to))) => from != to,
+            _ => false,
+        };
+        update_available
+            || self.ht_install_rx.is_some()
+            || self.ht_done_tag.is_some()
+            || self.ht_error.is_some()
+    }
+
+    /// The head-tracking bar itself. No byte progress here: the installer
+    /// reports named steps, not a download size, so the running state is a
+    /// label rather than a progress bar that would have to lie.
+    fn render_ht_banner(&mut self, ui: &mut egui::Ui, text_size: f32, bar_h: f32, full_w: f32) {
+        use crate::headtracking_install as ht;
+        if self.ht_install_rx.is_some() {
+            let txt = self.ht_status_key.map_or_else(
+                || t!("ht_status_installing").to_string(),
+                |k| t!(k).to_string(),
+            );
+            ui.add_sized(
+                [full_w, bar_h],
+                egui::Label::new(egui::RichText::new(txt).size(text_size).strong()),
+            );
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_millis(300));
+        } else {
+            let installed = self.ht_installed_version.clone().flatten();
+            let latest = self.ht_latest_version.clone().flatten();
+            if let (Some(from), Some(to)) = (installed, latest) {
+                if from != to {
+                    let label = t!(
+                        "ht_update_button_to",
+                        from = from.as_str(),
+                        to = to.as_str()
+                    )
+                    .to_string();
+                    let btn = ui.add_sized(
+                        [full_w, bar_h],
+                        egui::Button::new(
+                            egui::RichText::new(label)
+                                .size(text_size)
+                                .strong()
+                                .color(egui::Color32::from_rgb(220, 180, 100)),
+                        ),
+                    );
+                    if btn.clicked() {
+                        self.ht_error = None;
+                        self.ht_done_tag = None;
+                        let dir = std::path::PathBuf::from(&self.vpx_install_dir);
+                        self.ht_install_rx = Some(ht::spawn_install(dir));
+                    }
+                }
+            }
+        }
+        if let Some(tag) = self.ht_done_tag.clone() {
+            ui.add_sized(
+                [full_w, bar_h],
+                egui::Label::new(
+                    egui::RichText::new(t!("ht_banner_done", tag = tag.as_str()).to_string())
+                        .size(text_size)
+                        .color(egui::Color32::from_rgb(120, 200, 120)),
+                ),
+            );
+        }
+        if let Some(err) = self.ht_error.clone() {
+            ui.add_sized(
+                [full_w, bar_h],
+                egui::Label::new(
+                    egui::RichText::new(format!("⚠ {err}"))
+                        .size(text_size)
+                        .color(egui::Color32::from_rgb(255, 100, 100)),
+                ),
+            );
+        }
     }
 }
 
@@ -1021,6 +1218,36 @@ fn highlight_error_keywords(text: &str, style: &egui::Style) -> egui::text::Layo
 
 fn is_word_char(b: u8) -> bool {
     b.is_ascii_alphanumeric() || b == b'_'
+}
+
+/// Write the error report where the user chooses. Returns the path written, or
+/// why it could not be — never a silent success: on a cabinet the file has to
+/// be findable again, and "it saved somewhere" is not findable.
+///
+/// `None` when the picker is cancelled, which is a normal answer and leaves the
+/// previous feedback line alone.
+fn save_error_log(log: &str) -> Option<Result<String, String>> {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or_default();
+    let path = rfd::FileDialog::new()
+        .set_title(t!("launcher_error_save").to_string())
+        .set_file_name(format!("pinready-vpx-error-{stamp}.log"))
+        .save_file()?;
+    Some(match std::fs::write(&path, log) {
+        Ok(()) => {
+            log::info!("VPX error report saved to {}", path.display());
+            Ok(path.display().to_string())
+        }
+        Err(e) => {
+            log::warn!(
+                "could not save the VPX error report to {}: {e}",
+                path.display()
+            );
+            Err(e.to_string())
+        }
+    })
 }
 
 #[cfg(test)]
