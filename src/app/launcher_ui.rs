@@ -281,89 +281,110 @@ impl App {
             });
         }
 
-        // VPX error popup
+        // VPX error popup. A `Modal`, not a `Window`: it takes an
+        // input-grabbing layer above everything else in this viewport, so
+        // nothing painted afterwards can end up in front of it.
         if self.vpx_error_log.is_some() {
             let mut close = false;
-            egui::Window::new(t!("launcher_error_title").to_string())
-                .collapsible(false)
-                .resizable(true)
-                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-                .default_size([600.0, 400.0])
-                .show(ui.ctx(), |ui| {
-                    ui.label(
-                        egui::RichText::new(t!("launcher_vpx_crashed").to_string())
-                            .size(16.0)
-                            .strong()
-                            .color(egui::Color32::RED),
-                    );
-                    ui.add_space(8.0);
-                    if let Some(log) = self.vpx_error_log.clone() {
-                        // Both scrollbars stay visible: egui's default
-                        // `AlwaysHidden` only shows them on hover, easy to miss
-                        // on a kiosk screen. Horizontal too — log lines carry
-                        // long paths, and wrapping them makes a stack of
-                        // aligned entries unreadable.
-                        egui::ScrollArea::both()
-                            .max_height(300.0)
-                            .auto_shrink([false, false])
-                            .scroll_bar_visibility(
-                                egui::scroll_area::ScrollBarVisibility::AlwaysVisible,
-                            )
-                            .show(ui, |ui| {
-                                let job = highlight_error_keywords(&log, ui.style());
-                                ui.add(egui::Label::new(job).wrap_mode(egui::TextWrapMode::Extend));
-                            });
-                        ui.add_space(8.0);
-                        ui.horizontal(|ui| {
-                            if ui
-                                .button(t!("launcher_error_copy").to_string())
-                                .on_hover_text(t!("launcher_error_copy_hint").to_string())
-                                .clicked()
-                            {
-                                ui.ctx().output_mut(|o| {
-                                    o.commands.push(egui::OutputCommand::CopyText(log.clone()))
-                                });
-                                self.vpx_error_saved = None;
-                            }
-                            if ui
-                                .button(t!("launcher_error_save").to_string())
-                                .on_hover_text(t!("launcher_error_save_hint").to_string())
-                                .clicked()
-                            {
-                                self.vpx_error_saved = save_error_log(&log);
-                            }
-                            if ui.button(t!("launcher_close").to_string()).clicked() {
-                                close = true;
-                            }
+            // Keyboard first. A cabinet often has no mouse at all, and a
+            // report nobody can act on is a report nobody sends.
+            let (esc, copy_key, save_key) = ui.ctx().input_mut(|i| {
+                (
+                    i.consume_key(egui::Modifiers::NONE, egui::Key::Escape),
+                    i.consume_key(egui::Modifiers::CTRL, egui::Key::C),
+                    i.consume_key(egui::Modifiers::CTRL, egui::Key::S),
+                )
+            });
+            if let Some(log) = self.vpx_error_log.clone() {
+                if copy_key {
+                    ui.ctx().output_mut(|o| {
+                        o.commands.push(egui::OutputCommand::CopyText(log.clone()))
+                    });
+                    self.vpx_error_saved = None;
+                }
+                if save_key {
+                    self.vpx_error_saved = save_error_log(&log);
+                }
+            }
+            close |= esc;
+            egui::Modal::new(egui::Id::new("vpx-error-modal")).show(ui.ctx(), |ui| {
+                ui.set_max_width(720.0);
+                ui.label(
+                    egui::RichText::new(t!("launcher_vpx_crashed").to_string())
+                        .size(16.0)
+                        .strong()
+                        .color(egui::Color32::RED),
+                );
+                ui.add_space(8.0);
+                if let Some(log) = self.vpx_error_log.clone() {
+                    // Both scrollbars stay visible: egui's default
+                    // `AlwaysHidden` only shows them on hover, easy to miss
+                    // on a kiosk screen. Horizontal too — log lines carry
+                    // long paths, and wrapping them makes a stack of
+                    // aligned entries unreadable.
+                    egui::ScrollArea::both()
+                        .max_height(300.0)
+                        .auto_shrink([false, false])
+                        .scroll_bar_visibility(
+                            egui::scroll_area::ScrollBarVisibility::AlwaysVisible,
+                        )
+                        .show(ui, |ui| {
+                            let job = highlight_error_keywords(&log, ui.style());
+                            ui.add(egui::Label::new(job).wrap_mode(egui::TextWrapMode::Extend));
                         });
-                        match &self.vpx_error_saved {
-                            Some(Ok(path)) => {
-                                ui.label(
-                                    egui::RichText::new(
-                                        t!("launcher_error_saved", path = path.as_str())
-                                            .to_string(),
-                                    )
-                                    .color(egui::Color32::from_rgb(0x66, 0xcc, 0x66)),
-                                );
-                            }
-                            Some(Err(e)) => {
-                                ui.label(
-                                    egui::RichText::new(
-                                        t!("launcher_error_save_failed", error = e.as_str())
-                                            .to_string(),
-                                    )
-                                    .color(egui::Color32::LIGHT_RED),
-                                );
-                            }
-                            None => {}
+                    ui.add_space(8.0);
+                    ui.horizontal(|ui| {
+                        if ui
+                            .button(format!("{} (Ctrl+C)", t!("launcher_error_copy")))
+                            .on_hover_text(t!("launcher_error_copy_hint").to_string())
+                            .clicked()
+                        {
+                            ui.ctx().output_mut(|o| {
+                                o.commands.push(egui::OutputCommand::CopyText(log.clone()))
+                            });
+                            self.vpx_error_saved = None;
                         }
-                    } else {
-                        ui.add_space(8.0);
-                        if ui.button(t!("launcher_close").to_string()).clicked() {
+                        if ui
+                            .button(format!("{} (Ctrl+S)", t!("launcher_error_save")))
+                            .on_hover_text(t!("launcher_error_save_hint").to_string())
+                            .clicked()
+                        {
+                            self.vpx_error_saved = save_error_log(&log);
+                        }
+                        if ui
+                            .button(format!("{} (Esc)", t!("launcher_close")))
+                            .clicked()
+                        {
                             close = true;
                         }
+                    });
+                    match &self.vpx_error_saved {
+                        Some(Ok(path)) => {
+                            ui.label(
+                                egui::RichText::new(
+                                    t!("launcher_error_saved", path = path.as_str()).to_string(),
+                                )
+                                .color(egui::Color32::from_rgb(0x66, 0xcc, 0x66)),
+                            );
+                        }
+                        Some(Err(e)) => {
+                            ui.label(
+                                egui::RichText::new(
+                                    t!("launcher_error_save_failed", error = e.as_str())
+                                        .to_string(),
+                                )
+                                .color(egui::Color32::LIGHT_RED),
+                            );
+                        }
+                        None => {}
                     }
-                });
+                } else {
+                    ui.add_space(8.0);
+                    if ui.button(t!("launcher_close").to_string()).clicked() {
+                        close = true;
+                    }
+                }
+            });
             if close {
                 self.vpx_error_log = None;
                 self.vpx_error_saved = None;
@@ -680,7 +701,12 @@ impl App {
             self.begin_table_launch(path, &ctx);
         }
 
-        if !self.vpx_hide_covers {
+        // Covers stay down while the crash report is up. They are documented
+        // right below as taking the pointer focus when the cursor grazes their
+        // screen — which strands the arrow on the backglass. Bringing them back
+        // at the exact moment the user has to click Copy or Save is how a
+        // report ends up unreachable, which is what a field report described.
+        if !self.vpx_hide_covers && self.vpx_error_log.is_none() {
             self.render_cover_viewports(ui);
         }
     }
