@@ -300,6 +300,7 @@ impl App {
                     ui.ctx().output_mut(|o| {
                         o.commands.push(egui::OutputCommand::CopyText(log.clone()))
                     });
+                    self.vpx_error_copied_at = Some(std::time::Instant::now());
                     self.vpx_error_saved = None;
                 }
                 if save_key {
@@ -334,14 +335,35 @@ impl App {
                         });
                     ui.add_space(8.0);
                     ui.horizontal(|ui| {
+                        // Confirmation flash: a clipboard write leaves no
+                        // trace on screen, so a working button and a dead one
+                        // look exactly alike — which is the doubt a field
+                        // report just described.
+                        const FLASH: f32 = 0.9;
+                        let flashing = self
+                            .vpx_error_copied_at
+                            .is_some_and(|t| t.elapsed().as_secs_f32() < FLASH);
+                        let copy_label = if flashing {
+                            format!("✔ {}", t!("launcher_error_copy"))
+                        } else {
+                            format!("{} (Ctrl+C)", t!("launcher_error_copy"))
+                        };
+                        let mut copy_btn = egui::Button::new(copy_label);
+                        if flashing {
+                            copy_btn = copy_btn.fill(egui::Color32::from_rgb(0x2e, 0x7d, 0x32));
+                            // Keep repainting so it fades on its own, even if
+                            // nothing else ever moves.
+                            ui.ctx().request_repaint();
+                        }
                         if ui
-                            .button(format!("{} (Ctrl+C)", t!("launcher_error_copy")))
+                            .add(copy_btn)
                             .on_hover_text(t!("launcher_error_copy_hint").to_string())
                             .clicked()
                         {
                             ui.ctx().output_mut(|o| {
                                 o.commands.push(egui::OutputCommand::CopyText(log.clone()))
                             });
+                            self.vpx_error_copied_at = Some(std::time::Instant::now());
                             self.vpx_error_saved = None;
                         }
                         if ui
@@ -388,6 +410,7 @@ impl App {
             if close {
                 self.vpx_error_log = None;
                 self.vpx_error_saved = None;
+                self.vpx_error_copied_at = None;
             }
         }
 
