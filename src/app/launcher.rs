@@ -210,6 +210,102 @@ fn is_abnormal_exit(status: &std::process::ExitStatus) -> bool {
     }
 }
 
+/// Per-launch transcript of everything we heard from VPX, written as it
+/// arrives.
+///
+/// Three problems, one file. VPX appends every session to the same
+/// `vpinball.log`, so a report can carry two launches with no way to tell
+/// where one ends. A hard crash costs the tail of whatever was still
+/// buffered. And when the error popup itself misbehaves — it has — the user
+/// is left looking at a report they cannot get off the screen.
+///
+/// So: one file per launch, opened before VPX starts, carrying the exact
+/// command line, flushed line by line, and named in the error report.
+struct RunLog {
+    path: std::path::PathBuf,
+    file: Option<std::fs::File>,
+}
+
+impl RunLog {
+    /// Directory holding the transcripts, next to `PinReady.log`.
+    fn dir() -> Option<std::path::PathBuf> {
+        Some(crate::db::default_db_path().parent()?.join("vpx-runs"))
+    }
+
+    /// Open the transcript for a launch and write `header` into it. Failing is
+    /// never fatal: losing a diagnostic must not stop anyone playing.
+    fn create(table: &std::path::Path, header: &str) -> Self {
+        let stem: String = table
+            .file_stem()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "table".into())
+            .chars()
+            .map(|c| if c.is_alphanumeric() { c } else { '-' })
+            .take(60)
+            .collect();
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or_default();
+        let Some(dir) = Self::dir() else {
+            return Self {
+                path: std::path::PathBuf::new(),
+                file: None,
+            };
+        };
+        let _ = std::fs::create_dir_all(&dir);
+        Self::prune(&dir);
+        let path = dir.join(format!("vpx-{stamp}-{stem}.log"));
+        let file = std::fs::File::create(&path)
+            .inspect_err(|e| {
+                log::warn!("could not open the run transcript {}: {e}", path.display());
+            })
+            .ok();
+        let mut me = Self { path, file };
+        me.write(header);
+        me
+    }
+
+    /// Keep the most recent runs and drop the rest: this is a diagnostic aid,
+    /// not an archive, and a cabinet should not accumulate them forever.
+    fn prune(dir: &std::path::Path) {
+        const KEEP: usize = 10;
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        let mut files: Vec<_> = entries
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.extension().is_some_and(|x| x == "log"))
+            .collect();
+        if files.len() < KEEP {
+            return;
+        }
+        // Names start with a timestamp, so lexical order is chronological.
+        files.sort();
+        for old in files.iter().take(files.len() + 1 - KEEP) {
+            let _ = std::fs::remove_file(old);
+        }
+    }
+
+    /// Append and flush at once: whatever kills VPX must not take the last
+    /// lines with it, which is exactly what makes `vpinball.log` unhelpful
+    /// after a crash.
+    fn write(&mut self, text: &str) {
+        use std::io::Write as _;
+        let Some(f) = self.file.as_mut() else {
+            return;
+        };
+        if f.write_all(text.as_bytes()).is_err() || f.flush().is_err() {
+            self.file = None;
+        }
+    }
+
+    fn line(&mut self, tag: &str, line: &str) {
+        self.write(&format!("[{tag}] {line}\n"));
+    }
+}
+
 /// One line read from the child, and which stream it came out of.
 ///
 /// Both streams feed a single watcher. Splitting them was a real bug: the
@@ -905,6 +1001,9 @@ impl App {
             // session and must not be replayed as if it were happening now.
             let mut log_tail =
                 LogTail::new(crate::config::default_ini_path().with_file_name("vpinball.log"));
+            // Opened BEFORE the spawn, so the exact command line survives even
+            // a failure to start.
+            let mut run_log = RunLog::create(&path, &call_header());
             let child = cmd.spawn();
             match child {
                 Ok(mut child) => {
@@ -940,6 +1039,7 @@ impl App {
                     // contains the call header and every loading-phase
                     // line; if startup_done was reached, also a visible
                     // separator and the in-game tail.
+                    let run_log_path = run_log.path.clone();
                     let build_error_log = |reason: &str,
                                            loading: &[String],
                                            ingame: &std::collections::VecDeque<String>|
@@ -962,6 +1062,14 @@ impl App {
                                 out.push_str(l);
                                 out.push('\n');
                             }
+                        }
+                        if !run_log_path.as_os_str().is_empty() {
+                            // Name the transcript: when the popup itself
+                            // misbehaves, this is how the report still
+                            // reaches us.
+                            out.push_str("\nFull transcript of this launch:\n  ");
+                            out.push_str(&run_log_path.display().to_string());
+                            out.push('\n');
                         }
                         if loading.is_empty() && ingame.is_empty() {
                             // Nothing to show is itself the diagnosis: this
@@ -1060,15 +1168,18 @@ impl App {
                                     let (line, from_log) = match item {
                                         VpxLine::Out(l) => {
                                             log::info!("[VPX] {}", l);
+                                            run_log.line("out", &l);
                                             (l, false)
                                         }
                                         VpxLine::Err(l) => {
                                             log::warn!("[VPX stderr] {}", l);
+                                            run_log.line("err", &l);
                                             stderr_lines.push(l.clone());
                                             (l, false)
                                         }
                                         VpxLine::Log(l) => {
                                             log::info!("[VPX log] {}", l);
+                                            run_log.line("log", &l);
                                             (l, true)
                                         }
                                     };
@@ -2024,5 +2135,51 @@ mod tests {
         use std::io::Write as _;
         let mut f = std::fs::OpenOptions::new().append(true).open(path).unwrap();
         f.write_all(text.as_bytes()).unwrap();
+    }
+
+    /// The transcript must carry the launch command *before* VPX has said
+    /// anything: a crash on start still leaves the exact command line on disk.
+    #[test]
+    fn run_log_records_the_command_before_any_output() {
+        let table = std::path::Path::new("/tmp/Fish Tales (Williams 1992).vpx");
+        let header = "$ 'VPinballX' -Play 'Fish Tales'\n  system: test\n\n";
+        let mut rl = RunLog::create(table, header);
+        assert!(rl.path.exists(), "the file is created up front");
+        rl.line("out", "loading fshtl_5.rom");
+        rl.line("err", "something on stderr");
+        let body = std::fs::read_to_string(&rl.path).unwrap();
+        assert!(body.contains("-Play 'Fish Tales'"), "{body}");
+        assert!(body.contains("[out] loading fshtl_5.rom"), "{body}");
+        assert!(body.contains("[err] something on stderr"), "{body}");
+        // Named after the table, so a folder of them reads at a glance.
+        let name = rl.path.file_name().unwrap().to_string_lossy().into_owned();
+        assert!(name.contains("Fish-Tales"), "{name}");
+        let _ = std::fs::remove_file(&rl.path);
+    }
+
+    /// A cabinet launches tables all evening; the folder must not grow without
+    /// bound, and it must be the OLDEST that go.
+    #[test]
+    fn run_log_prunes_to_the_most_recent() {
+        let dir = std::env::temp_dir().join("pinready-runlog-prune");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        for i in 0..15 {
+            std::fs::write(dir.join(format!("vpx-{i:04}-t.log")), "x").unwrap();
+        }
+        RunLog::prune(&dir);
+        let mut left: Vec<String> = std::fs::read_dir(&dir)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        left.sort();
+        // 9 kept, so the run about to be created makes 10.
+        assert_eq!(left.len(), 9, "{left:?}");
+        assert_eq!(
+            left[0], "vpx-0006-t.log",
+            "the oldest must be the ones dropped"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
