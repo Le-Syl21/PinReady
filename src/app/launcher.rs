@@ -1003,6 +1003,7 @@ impl App {
                 LogTail::new(crate::config::default_ini_path().with_file_name("vpinball.log"));
             // Opened BEFORE the spawn, so the exact command line survives even
             // a failure to start.
+            let vpx_log_path = log_tail.path.clone();
             let mut run_log = RunLog::create(&path, &call_header());
             let child = cmd.spawn();
             match child {
@@ -1042,7 +1043,8 @@ impl App {
                     let run_log_path = run_log.path.clone();
                     let build_error_log = |reason: &str,
                                            loading: &[String],
-                                           ingame: &std::collections::VecDeque<String>|
+                                           ingame: &std::collections::VecDeque<String>,
+                                           heard_vpx: bool|
                      -> String {
                         let mut out = call_header();
                         if !reason.is_empty() {
@@ -1070,6 +1072,27 @@ impl App {
                             out.push_str("\nFull transcript of this launch:\n  ");
                             out.push_str(&run_log_path.display().to_string());
                             out.push('\n');
+                        }
+                        if !heard_vpx {
+                            // Not one line from VPX itself — whatever we did
+                            // capture came from PinMAME or dmdutil. That also
+                            // means the stopped-responding detector never
+                            // armed, so say so: a launch left silently
+                            // unprotected is the failure we keep having to
+                            // hunt. Naming the file makes a wrong path (a
+                            // custom -PrefPath, a different VPX layout)
+                            // obvious to whoever reads the report.
+                            out.push_str(
+                                "\n----- PinReady never heard from VPX -----\n\
+                                 No line from VPX's own log reached us, so the \
+                                 stopped-responding detector stayed disarmed for this \
+                                 launch.\nThe file being watched was:\n  ",
+                            );
+                            out.push_str(&vpx_log_path.display().to_string());
+                            out.push_str(
+                                "\nIf that path is wrong, or logging is off in VPX's editor \
+                                 options, PinReady is blind to what VPX is doing.\n",
+                            );
                         }
                         if loading.is_empty() && ingame.is_empty() {
                             // Nothing to show is itself the diagnosis: this
@@ -1304,6 +1327,7 @@ impl App {
                                         "Timeout: Visual Pinball stopped responding during loading (no output for 30s).",
                                         &loading_log,
                                         &ingame_log,
+                                        saw_vpx_log,
                                     );
                                 let _ = tx.send(VpxStatus::ExitError(err));
                                 tail_stop.store(true, Ordering::Relaxed);
@@ -1337,8 +1361,12 @@ impl App {
                                     reason.push_str("\n\n");
                                     reason.push_str(&desc);
                                 }
-                                let mut combined =
-                                    build_error_log(&reason, &loading_log, &ingame_log);
+                                let mut combined = build_error_log(
+                                    &reason,
+                                    &loading_log,
+                                    &ingame_log,
+                                    saw_vpx_log,
+                                );
                                 if !stderr_lines.is_empty() {
                                     combined.push_str("\n----- stderr -----\n");
                                     combined.push_str(&stderr_lines.join("\n"));
@@ -1353,6 +1381,7 @@ impl App {
                                 &format!("Process error: {e}"),
                                 &loading_log,
                                 &ingame_log,
+                                saw_vpx_log,
                             );
                             let _ = tx.send(VpxStatus::ExitError(combined));
                         }
