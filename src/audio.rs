@@ -314,6 +314,10 @@ pub fn asset_duration(name: &str) -> Option<std::time::Duration> {
 }
 
 // Embedded audio assets
+/// Master output gain. The embedded assets are mastered hot; at unity they
+/// drown out everything else on the machine.
+const MASTER_GAIN: f32 = 0.5;
+
 const KNOCKER_OGG: &[u8] = include_bytes!("../assets/audio/knocker.ogg");
 const BALL_ROLL_OGG: &[u8] = include_bytes!("../assets/audio/ball_roll.ogg");
 const MUSIC_OGG: &[u8] = include_bytes!("../assets/audio/music.ogg");
@@ -608,8 +612,20 @@ pub fn spawn_audio_thread() -> (Sender<AudioCommand>, thread::JoinHandle<()>) {
                 );
                 return;
             }
+            // One master gain for everything PinReady plays: the assets are
+            // mastered hot and came out far louder than the rest of the
+            // desktop, on a cabinet as much as at a desk. Applied on the
+            // stream rather than to each buffer, so previews, the ball
+            // sequence, the speaker tests and the closing knocker all sit at
+            // the same level and no call site can forget it.
+            if !SDL_SetAudioStreamGain(stream, MASTER_GAIN) {
+                log::warn!(
+                    "Audio: SetAudioStreamGain({MASTER_GAIN}) failed: {:?}",
+                    CStr::from_ptr(SDL_GetError())
+                );
+            }
             SDL_ResumeAudioStreamDevice(stream);
-            log::info!("Audio thread: 7.1 stream opened and resumed");
+            log::info!("Audio thread: 7.1 stream opened and resumed at gain {MASTER_GAIN}");
 
             // Music-loop state: the stereo PCM is decoded once at StartMusic
             // then fed to the SDL audio stream in short chunks. The pan is
