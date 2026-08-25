@@ -937,6 +937,12 @@ impl App {
         // The driver was chosen (and the config reconciled to it) once at
         // launcher startup; carry it into the launch thread for SDL_VIDEODRIVER.
         let vpx_driver = self.vpx_driver.clone();
+        // VPX writes `vpinball.log` beside the settings file it loaded, so the
+        // ini PinReady is actually using is what says where to listen. Deriving
+        // it from the default location instead would silently watch the wrong
+        // file whenever that ini is somewhere else — and a wrong file reads
+        // exactly like a VPX with nothing to say.
+        let vpx_log_path = self.config.path().with_file_name("vpinball.log");
 
         let (tx, rx) = crossbeam_channel::unbounded();
         self.vpx_status_rx = Some(rx);
@@ -999,8 +1005,7 @@ impl App {
             // Snapshot where VPX's own log currently ends, BEFORE starting it:
             // plog appends, so anything already there belongs to a previous
             // session and must not be replayed as if it were happening now.
-            let mut log_tail =
-                LogTail::new(crate::config::default_ini_path().with_file_name("vpinball.log"));
+            let mut log_tail = LogTail::new(vpx_log_path);
             // Opened BEFORE the spawn, so the exact command line survives even
             // a failure to start.
             let vpx_log_path = log_tail.path.clone();
@@ -1093,25 +1098,6 @@ impl App {
                                 "\nIf that path is wrong, or logging is off in VPX's editor \
                                  options, PinReady is blind to what VPX is doing.\n",
                             );
-                        }
-                        if loading.is_empty() && ingame.is_empty() {
-                            // Nothing to show is itself the diagnosis: this
-                            // build writes no console log (the native Windows
-                            // one does not), so the only record of what went
-                            // wrong is VPX's own file. Name it rather than
-                            // hand the user an empty report.
-                            out.push_str(
-                                "\n----- no VPX console output -----\n\
-                                 This Visual Pinball build does not log to the console, so \
-                                 PinReady captured nothing.\nIts own log should be here:\n  ",
-                            );
-                            out.push_str(
-                                &crate::config::default_ini_path()
-                                    .with_file_name("vpinball.log")
-                                    .display()
-                                    .to_string(),
-                            );
-                            out.push('\n');
                         }
                         out
                     };
