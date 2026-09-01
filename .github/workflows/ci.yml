@@ -71,7 +71,7 @@ jobs:
           fi
           echo "Tag $GITHUB_REF_NAME <-> Cargo.toml $crate : OK"
 
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16  # v2
         with:
           key: ${{ matrix.os }}-${{ matrix.target }}
 
@@ -369,7 +369,7 @@ jobs:
         # 76 des 77 tags de version d'`aquasecurity/trivy-action` ont été
         # force-pushés vers du code malveillant. Un tag est mutable, un SHA non.
         # Le commentaire garde la version lisible pour les mises à jour.
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228  # v3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64  # v3
         with:
           generate_release_notes: true
           files: artifacts/**/*
