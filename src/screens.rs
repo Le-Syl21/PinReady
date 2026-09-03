@@ -47,8 +47,19 @@ pub struct DisplayInfo {
     pub is_primary: bool,
     pub total_pixels: u64,
     pub size_inches: Option<u32>,
+    /// Physical size in use: what detection found, unless a human corrected
+    /// it — see [`crate::display_reconcile::apply_saved_sizes`].
     pub width_mm: i32,
     pub height_mm: i32,
+    /// What detection actually reported, kept beside the value in use so an
+    /// override can be told from an agreement.
+    ///
+    /// Only the difference is worth remembering. Persisting every size would
+    /// freeze today's detection for everyone, including the people it gets
+    /// right, and would mask any later improvement to it behind a value
+    /// nobody chose.
+    pub detected_width_mm: i32,
+    pub detected_height_mm: i32,
     pub role: DisplayRole,
 }
 
@@ -153,6 +164,8 @@ pub fn enumerate_displays() -> Vec<DisplayInfo> {
                 size_inches,
                 width_mm,
                 height_mm,
+                detected_width_mm: width_mm,
+                detected_height_mm: height_mm,
                 role: DisplayRole::Unused,
             });
         }
@@ -231,6 +244,8 @@ mod tests {
             size_inches: None,
             width_mm: 0,
             height_mm: 0,
+            detected_width_mm: 0,
+            detected_height_mm: 0,
             role: DisplayRole::Unused,
         }
     }

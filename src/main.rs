@@ -778,7 +778,14 @@ fn run_merge_cli(args: &[String], mode: merge::MergeMode) -> Result<()> {
 fn run_eframe_for_mode(mode: app::AppMode) -> Result<()> {
     let db = db::Database::open(None)?;
     let vpx_config = config::VpxConfig::load(None)?;
-    let displays = screens::enumerate_displays();
+    let mut displays = screens::enumerate_displays();
+    // Physical size a human corrected wins over what detection reported. On
+    // Windows that detection is `GetDeviceCaps(HORZSIZE/VERTSIZE)`, which
+    // returns whatever the display driver feels like declaring — a 42-inch
+    // panel came back as 1600x900 mm, i.e. 72 inches. The owner fixed it, and
+    // fixed it again on every launch, because the corrected value went out to
+    // VPX and was never read back.
+    display_reconcile::apply_saved_sizes(&db, &mut displays);
 
     let (viewport, want_kiosk_cursor, rotation) = build_viewport(&displays, mode, &vpx_config, &db);
     let start_in_wizard = matches!(mode, app::AppMode::Wizard);

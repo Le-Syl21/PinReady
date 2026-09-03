@@ -68,6 +68,78 @@ fn load_anchor(db: &Database, role: DisplayRole) -> Option<DisplayAnchor> {
 /// display enumeration (PinReady's own driver). The EDID fingerprint is filled
 /// in by correlating against the kernel DRM monitors; roles whose monitor has
 /// no usable EDID keep `fingerprint: None` and rely on position alone.
+/// Where a corrected physical size is kept, keyed by display name.
+fn size_db_key(name: &str) -> String {
+    format!("display_size_mm:{name}")
+}
+
+/// Remember a physical size a human corrected, and only that.
+///
+/// The detected size is not stored: freezing it would pin today's detection
+/// for everyone it already gets right, and would hide any later improvement
+/// behind a number nobody chose. An override is written when the value in use
+/// differs from what detection reported, and cleared when they agree again —
+/// so correcting a size and then undoing the correction leaves nothing behind.
+///
+/// This exists because the size does reach VPX (`Player/ScreenWidth`) and never
+/// came back: every launch re-enumerated and overwrote the correction, so an
+/// owner whose 42-inch panel is reported as 72 had to fix it again every
+/// single time.
+pub fn persist_sizes(db: &Database, displays: &[DisplayInfo]) {
+    for d in displays {
+        let key = size_db_key(&d.name);
+        let overridden = d.width_mm != d.detected_width_mm || d.height_mm != d.detected_height_mm;
+        let value = if overridden && d.width_mm > 0 && d.height_mm > 0 {
+            format!("{}x{}", d.width_mm, d.height_mm)
+        } else {
+            String::new()
+        };
+        if let Err(e) = db.set_config(&key, &value) {
+            log::warn!("could not persist physical size for {}: {e}", d.name);
+        }
+    }
+}
+
+/// Put corrected sizes back on freshly enumerated displays.
+///
+/// Call right after [`crate::screens::enumerate_displays`]. A display with no
+/// stored correction is left exactly as detection found it.
+pub fn apply_saved_sizes(db: &Database, displays: &mut [DisplayInfo]) {
+    for d in displays.iter_mut() {
+        let Some(raw) = db.get_config(&size_db_key(&d.name)) else {
+            continue;
+        };
+        let Some((w, h)) = parse_size_mm(&raw) else {
+            continue;
+        };
+        log::info!(
+            "display {}: using corrected size {w}x{h} mm (detection said {}x{})",
+            d.name,
+            d.detected_width_mm,
+            d.detected_height_mm
+        );
+        d.width_mm = w;
+        d.height_mm = h;
+        d.size_inches = diagonal_inches(w, h);
+    }
+}
+
+/// `"932x540"` -> `(932, 540)`. Anything else is ignored rather than guessed
+/// at: a malformed row should fall back to detection, not to zero.
+fn parse_size_mm(raw: &str) -> Option<(i32, i32)> {
+    let (w, h) = raw.trim().split_once('x')?;
+    let (w, h) = (w.trim().parse().ok()?, h.trim().parse().ok()?);
+    (w > 0 && h > 0).then_some((w, h))
+}
+
+/// Diagonal in inches from a size in millimetres.
+fn diagonal_inches(w: i32, h: i32) -> Option<u32> {
+    (w > 0 && h > 0).then(|| {
+        let diag = ((f64::from(w)).powi(2) + (f64::from(h)).powi(2)).sqrt();
+        (diag / 25.4).round() as u32
+    })
+}
+
 pub fn persist_anchors(db: &Database, displays: &[DisplayInfo]) {
     let sdl: Vec<SdlDisplay> = displays.iter().map(to_sdl).collect();
     let correlation = display_id::correlate(&sdl, &display_id::read_drm_monitors());
@@ -319,6 +391,32 @@ pub fn choose_driver_and_reconcile(config: &mut VpxConfig, db: &Database) -> Opt
 
 #[cfg(test)]
 mod tests {
+
+    /// A size that matches detection is not an override, and storing it would
+    /// pin today's detection for someone it already gets right.
+    #[test]
+    fn only_a_corrected_size_is_remembered() {
+        assert_eq!(super::parse_size_mm("932x540"), Some((932, 540)));
+        assert_eq!(super::parse_size_mm(" 932 x 540 "), Some((932, 540)));
+        // An empty row is how "no override" is written; it must not parse to
+        // a zero size that would then be shown as the real one.
+        assert_eq!(super::parse_size_mm(""), None);
+        assert_eq!(super::parse_size_mm("0x0"), None);
+        assert_eq!(super::parse_size_mm("932"), None);
+        assert_eq!(super::parse_size_mm("nonsense"), None);
+    }
+
+    /// The inches beside the name are derived, so a corrected size has to
+    /// correct them too — otherwise the panel stays labelled 72 inches while
+    /// carrying the millimetres of a 42.
+    #[test]
+    fn correcting_the_millimetres_corrects_the_inches() {
+        // What the Windows API reported for a 42-inch panel.
+        assert_eq!(super::diagonal_inches(1600, 900), Some(72));
+        // What it actually measures.
+        assert_eq!(super::diagonal_inches(932, 540), Some(42));
+        assert_eq!(super::diagonal_inches(0, 0), None);
+    }
     use super::*;
 
     #[test]

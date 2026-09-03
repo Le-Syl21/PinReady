@@ -180,6 +180,9 @@ impl App {
         // fingerprint) per assigned role, so the launcher can re-resolve the
         // `*Display=` names under whatever SDL driver VPX ends up using.
         crate::display_reconcile::persist_anchors(&self.db, &self.displays);
+        // Remember a corrected physical size so the next launch does not
+        // overwrite it with what detection reports.
+        crate::display_reconcile::persist_sizes(&self.db, &self.displays);
     }
 
     pub(super) fn save_rendering(&mut self) {
