@@ -1177,6 +1177,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "display-types"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d6919200dd82c0da4ca8d6fad6ea7f2421fdcc6a17a7b510582d6f25ecce1a9"
+dependencies = [
+ "bitflags 2.13.1",
+]
+
+[[package]]
 name = "dlib"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3361,6 +3370,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "piaf"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5cf35fc343663d980bbdf3979ef65dd74e7e6c9ae16b4bd91af4893e00991e42"
+dependencies = [
+ "bitflags 2.13.1",
+ "display-types",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "pin-project"
 version = "1.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3396,6 +3416,7 @@ dependencies = [
  "directb2s",
  "dirs",
  "display-info",
+ "display-types",
  "eframe",
  "egui",
  "egui-keyfunnel",
@@ -3409,6 +3430,7 @@ dependencies = [
  "log",
  "noto-fonts-dl",
  "percent-encoding",
+ "piaf",
  "regex",
  "rfd",
  "rusqlite",

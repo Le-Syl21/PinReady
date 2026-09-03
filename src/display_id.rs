@@ -71,75 +71,124 @@ impl MonitorId {
 const EDID_HEADER: [u8; 8] = [0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00];
 const BASE_BLOCK: usize = 128;
 
-/// Parse an EDID blob into a [`MonitorId`]. Returns `None` when the base block
-/// is too short or the fixed header is absent (not a valid EDID).
+/// The 128-byte base block on its own, with its extension count zeroed and
+/// checksum repaired.
+///
+/// Everything this module reads — manufacturer, product, serial, date, model
+/// name, physical size, preferred timing — lives in the base block. Handing
+/// the parser anything more buys nothing and costs correctness twice over.
+///
+/// Once, because a DTD index is scoped to *its containing block*: the DMD
+/// panel on this cabinet has 1280x800 as its base block's first detailed
+/// timing and 1280x720 as its CTA extension's, both tagged `DtdIndex(0)`, and
+/// picking whichever came first in the list picked the wrong one.
+///
+/// Twice, because EDIDs get captured short. The Iiyama PL4380UH here declares
+/// two extension blocks and ships one, and a strict parser refuses the whole
+/// thing with `InvalidLength` over an extension nobody needed — dropping a
+/// real monitor from a real cabinet over a byte that says how much *else*
+/// there should have been.
+///
+/// The result is only ever handed to the parser. The fingerprint is taken from
+/// the untouched bytes beforehand, because zeroing byte 126 would otherwise
+/// change the hash every stored anchor is filed under.
+fn base_block_only(bytes: &[u8]) -> [u8; BASE_BLOCK] {
+    let mut out = [0u8; BASE_BLOCK];
+    out.copy_from_slice(&bytes[..BASE_BLOCK]);
+    out[126] = 0;
+    // Byte 127 makes the block sum to zero mod 256.
+    let sum = out[..BASE_BLOCK - 1]
+        .iter()
+        .fold(0u8, |a, &b| a.wrapping_add(b));
+    out[127] = 0u8.wrapping_sub(sum);
+    out
+}
+
+/// Parse an EDID blob into a [`MonitorId`]. Returns `None` when the bytes are
+/// not a valid EDID.
+///
+/// Decoding is [`piaf`]'s. What used to be here was a hand-rolled reader of
+/// fixed offsets that got the physical size from bytes 21/22 — centimetres,
+/// multiplied by ten and called millimetres. The detailed timing descriptor
+/// carries the real millimetres, and on a display measured here that is
+/// 1193×336 rather than the 1190×340 the centimetre bytes round to.
+///
+/// The fingerprint stays a SHA-256 of the raw 128-byte base block, computed
+/// here and not by the parser: it is the key every stored anchor is filed
+/// under, so it has to hash the same bytes it always did.
 pub fn parse_edid(bytes: &[u8]) -> Option<MonitorId> {
     if bytes.len() < BASE_BLOCK || bytes[..8] != EDID_HEADER {
         return None;
     }
     let base = &bytes[..BASE_BLOCK];
-
     let fingerprint = {
         let mut h = Sha256::new();
         h.update(base);
-        let digest = h.finalize();
-        digest.iter().map(|b| format!("{b:02x}")).collect()
+        h.finalize().iter().map(|b| format!("{b:02x}")).collect()
     };
 
-    // Manufacturer: bytes 8-9, big-endian; three 5-bit letters, A=1.
-    let m = ((base[8] as u16) << 8) | base[9] as u16;
-    let letter = |shift: u16| -> char { (b'A' - 1 + ((m >> shift) & 0x1f) as u8) as char };
-    let manufacturer: String = [letter(10), letter(5), letter(0)].iter().collect();
+    // Hash BEFORE any normalisation: the fingerprint has to hash the bytes it
+    // always hashed, or every stored anchor stops resolving.
+    let base_only = base_block_only(bytes);
+    let library = piaf::ExtensionLibrary::with_standard_handlers();
+    let parsed = piaf::parse_edid(&base_only, &library).ok()?;
+    let caps = piaf::capabilities_from_edid(&parsed, &library);
 
-    let product = u16::from_le_bytes([base[10], base[11]]);
-    let serial = u32::from_le_bytes([base[12], base[13], base[14], base[15]]);
-    let week = base[16];
-    let year = 1990 + base[17] as u16;
-
-    // Basic display params: max image size in cm (0 = undefined / projector).
-    let phys_mm = match (base[21], base[22]) {
-        (0, _) | (_, 0) => None,
-        (w, h) => Some((w as u32 * 10, h as u32 * 10)),
+    let manufacturer = caps.manufacturer.map_or_else(
+        || "???".to_owned(),
+        |m| String::from_utf8_lossy(&m.0).into_owned(),
+    );
+    // EDID encodes either a manufacture date or a model year; the old reader
+    // could not tell them apart and reported both as a year of manufacture.
+    let (year, week) = match caps.manufacture_date {
+        Some(piaf::ManufactureDate::Manufactured { week, year }) => (year, week.unwrap_or(0)),
+        Some(piaf::ManufactureDate::ModelYear(year)) => (year, 0),
+        // The enum is `#[non_exhaustive]`: a future variant must not be a
+        // compile error, and an unknown encoding is better reported as "no
+        // date" than guessed at.
+        _ => (0, 0),
     };
 
-    // First detailed timing descriptor (bytes 54..): active pixels are 12-bit,
-    // low byte + high nibble. A 0 pixel clock (bytes 54-55) means it's really a
-    // monitor descriptor, not a timing → no preferred mode.
-    let preferred_mode = if base[54] == 0 && base[55] == 0 {
-        None
-    } else {
-        let hactive = base[56] as u32 | (((base[58] as u32) & 0xF0) << 4);
-        let vactive = base[59] as u32 | (((base[61] as u32) & 0xF0) << 4);
-        (hactive > 0 && vactive > 0).then_some((hactive, vactive))
-    };
-
-    // Four 18-byte descriptors at 54/72/90/108. A block whose first three bytes
-    // are 0 and whose type tag (byte 3) is 0xFC = monitor name, 0xFF = serial.
-    let mut model_name = None;
-    let mut serial_string = None;
-    for offset in [54usize, 72, 90, 108] {
-        let d = &base[offset..offset + 18];
-        if d[0] == 0 && d[1] == 0 && d[2] == 0 {
-            let text = descriptor_text(&d[5..18]);
-            match d[3] {
-                0xFC => model_name = text,
-                0xFF => serial_string = text,
-                _ => {}
-            }
-        }
-    }
+    // Millimetres from the detailed timing descriptor when the panel gives
+    // them, else the base block's centimetres. `screen_size` can also carry an
+    // aspect ratio instead of a size, which is not a size and is dropped.
+    let phys_mm = caps
+        .preferred_image_size_mm
+        .map(|(w, h)| (u32::from(w), u32::from(h)))
+        .or_else(|| match caps.screen_size {
+            Some(piaf::ScreenSize::Physical {
+                width_cm,
+                height_cm,
+            }) => Some((u32::from(width_cm) * 10, u32::from(height_cm) * 10)),
+            _ => None,
+        })
+        .filter(|(w, h)| *w > 0 && *h > 0);
 
     Some(MonitorId {
         fingerprint,
         manufacturer,
-        product,
-        serial,
+        product: caps.product_code.unwrap_or(0),
+        serial: caps.serial_number.unwrap_or(0),
         year,
         week,
-        model_name,
-        serial_string,
+        model_name: caps.display_name.map(|s| s.to_string()),
+        serial_string: caps.serial_number_string.map(|s| s.to_string()),
         phys_mm,
-        preferred_mode,
+        // The preferred timing is the base block's first detailed descriptor,
+        // which is the first mode piaf collects. Deliberately not
+        // `native_pixels`: that field comes from a DisplayID Display Device
+        // Data Block, which most monitors do not carry at all.
+        // The preferred timing is the base block's *first detailed* descriptor,
+        // which piaf tags `DtdIndex(0)`. Not `supported_modes.first()`: the
+        // established timings come first in that list, so the first entry here
+        // is 720x400 — the VGA text mode every monitor still claims. And not
+        // `native_pixels` either: that comes from a DisplayID Display Device
+        // Data Block, which most monitors do not carry at all.
+        preferred_mode: caps
+            .supported_modes
+            .iter()
+            .find(|m| m.source == Some(display_types::ModeSource::DtdIndex(0)))
+            .map(|m| (u32::from(m.width), u32::from(m.height))),
     })
 }
 
@@ -175,37 +224,23 @@ pub struct DrmMonitor {
 /// Connectors with no readable EDID (disconnected, or not exposed by the
 /// driver) are skipped. Note `stat()` reports size 0 for these sysfs binary
 /// attributes, so we read them unconditionally rather than trusting the size.
-#[cfg(target_os = "linux")]
+/// Every monitor this machine can hand us an EDID for.
+///
+/// The reading is [`crate::edid`]'s job — one source per platform — and the
+/// decoding is [`parse_edid`]'s. A connector with no readable EDID is skipped
+/// rather than reported as a nameless monitor.
 pub fn read_drm_monitors() -> Vec<DrmMonitor> {
-    let mut out = Vec::new();
-    let Ok(entries) = std::fs::read_dir("/sys/class/drm") else {
-        return out;
-    };
-    for entry in entries.flatten() {
-        let dir = entry.path();
-        let edid_path = dir.join("edid");
-        let Ok(bytes) = std::fs::read(&edid_path) else {
-            continue;
-        };
-        let Some(id) = parse_edid(&bytes) else {
-            continue;
-        };
-        // Dir name is "cardN-<connector>"; strip the card prefix.
-        let name = entry.file_name().to_string_lossy().into_owned();
-        let connector = name
-            .split_once('-')
-            .map(|(_, c)| c)
-            .unwrap_or(&name)
-            .to_string();
-        out.push(DrmMonitor { connector, id });
-    }
-    out.sort_by(|a, b| a.connector.cmp(&b.connector));
-    out
-}
-
-#[cfg(not(target_os = "linux"))]
-pub fn read_drm_monitors() -> Vec<DrmMonitor> {
-    Vec::new()
+    crate::edid::read_all()
+        .into_iter()
+        .filter_map(|e| {
+            let connector = match &e.key {
+                crate::edid::MatchKey::Connector(c) => c.clone(),
+                crate::edid::MatchKey::Monitor(h) => format!("HMONITOR:{h:x}"),
+                crate::edid::MatchKey::CoreGraphics(id) => format!("CGDisplay:{id}"),
+            };
+            parse_edid(&e.bytes).map(|id| DrmMonitor { connector, id })
+        })
+        .collect()
 }
 
 /// A display as SDL reports it under some video driver — the identity that VPX
@@ -331,6 +366,48 @@ pub fn resolve_display_name(
 
 #[cfg(test)]
 mod tests {
+
+    /// Parsed against a real EDID captured from a Samsung LC49G95T, so the
+    /// expectations are measurements rather than a blob someone hand-built to
+    /// match the parser.
+    ///
+    /// The millimetres are the point: the base block's centimetre bytes say
+    /// 119×34, which the old reader turned into 1190×340. The detailed timing
+    /// descriptor says 1193×336, and that is the panel.
+    #[test]
+    fn a_real_edid_parses_to_its_own_measurements() {
+        let bytes = include_bytes!("../tests/fixtures/ultrawide.edid.bin");
+        let id = super::parse_edid(bytes).expect("valid EDID");
+
+        assert_eq!(id.manufacturer, "SAM", "Samsung's PNP id");
+        assert_eq!(id.model_name.as_deref(), Some("LC49G95T"));
+        assert_eq!(
+            id.phys_mm,
+            Some((1193, 336)),
+            "millimetres come from the DTD, not from the rounded centimetres"
+        );
+        // The base block's first detailed timing, which is *not* the mode the
+        // desktop runs at: this panel's 5120x1440 lives in an extension block,
+        // and its base DTD advertises the 3840x1080 fallback. Worth knowing —
+        // the old correlation scored a monitor by matching this against SDL's
+        // current resolution, which on this display could never match.
+        assert_eq!(id.preferred_mode, Some((3840, 1080)));
+        // 64 hex characters, and stable: it is the key every stored anchor is
+        // filed under.
+        assert_eq!(id.fingerprint.len(), 64);
+        assert!(id.fingerprint.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    /// Anything that is not an EDID has to be refused rather than decoded into
+    /// a monitor that does not exist.
+    #[test]
+    fn rubbish_is_not_a_monitor() {
+        assert!(super::parse_edid(&[]).is_none());
+        assert!(super::parse_edid(&[0u8; 128]).is_none(), "no EDID header");
+        let mut truncated = include_bytes!("../tests/fixtures/ultrawide.edid.bin").to_vec();
+        truncated.truncate(64);
+        assert!(super::parse_edid(&truncated).is_none(), "half a base block");
+    }
     use super::*;
 
     /// Real EDIDs pulled from the pincab (`/sys/class/drm/card1-*/edid`).
@@ -406,13 +483,21 @@ mod tests {
     #[test]
     fn extracts_physical_size_and_native_mode() {
         let pf = parse_edid(&hex(DP_1)).unwrap();
-        assert_eq!(pf.phys_mm, Some((940, 530)));
+        // 941x529, not the 940x530 this used to assert. The old reader took
+        // bytes 21/22 — centimetres — and multiplied by ten; the detailed
+        // timing descriptor carries the real millimetres. One millimetre each
+        // way on a 42-inch panel is nothing, but it is the same millimetre
+        // precision that separates a 932x540 correction from a wrong guess.
+        assert_eq!(pf.phys_mm, Some((941, 529)));
         assert_eq!(pf.preferred_mode, Some((3840, 2160)));
-        // The no-name DMD panel is a cautionary tale: no physical size, and its
-        // EDID-native mode (1280x800) is unrelated to how it's actually driven
-        // (1920x1080) — hence it can only be tracked by layout position.
+        // The no-name DMD panel used to have no physical size at all: its base
+        // block declares 0x0 cm, so the old reader gave up. Both of its
+        // detailed timings carry 575x323 mm — a consistent 26 inches — so the
+        // panel is now measurable, and no longer identifiable by layout
+        // position alone. Its native mode (1280x800) is still unrelated to how
+        // it is actually driven (1920x1080).
         let dmd = parse_edid(&hex(DVI_D_1)).unwrap();
-        assert_eq!(dmd.phys_mm, None);
+        assert_eq!(dmd.phys_mm, Some((575, 323)));
         assert_eq!(dmd.preferred_mode, Some((1280, 800)));
     }
 
