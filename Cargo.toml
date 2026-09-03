@@ -22,7 +22,6 @@ egui_extras = { version = "0.36", features = ["image", "file"] }
 
 # Display / Input
 sdl3-sys = { version = "0.6", features = ["build-from-source-static"] }
-display-info = "0.5"
 
 # Config
 serde = { version = "1", features = ["derive"] }

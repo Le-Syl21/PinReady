@@ -59,6 +59,17 @@ impl MonitorId {
         self.manufacturer == other.manufacturer && self.product == other.product
     }
 
+    /// Diagonal in whole inches, from the panel's own millimetres.
+    ///
+    /// Rounded the same way SDL rounds it when it appends ` <n>"` to a
+    /// display name, so the two can be compared directly.
+    #[must_use]
+    pub fn diagonal_inches(&self) -> Option<u32> {
+        let (w, h) = self.phys_mm?;
+        let diag = (f64::from(w).powi(2) + f64::from(h).powi(2)).sqrt();
+        (diag > 0.0).then(|| (diag / 25.4).round() as u32)
+    }
+
     /// A short human label, e.g. `"IVM PL4380UH"` or `"XXX #0012"`.
     pub fn label(&self) -> String {
         match &self.model_name {
@@ -307,18 +318,50 @@ pub fn resolve_anchor(
 /// cabinets where monitors differ in model or size. Truly identical twin
 /// panels (same resolution *and* size *and* EDID) are indistinguishable here
 /// and would need connector/position data to separate.
+/// The `49` in `DP-2 49"` — the diagonal SDL appends to every display name it
+/// builds from an EDID.
+fn inches_in_name(name: &str) -> Option<u32> {
+    name.trim()
+        .trim_end_matches('"')
+        .rsplit(' ')
+        .next()?
+        .parse()
+        .ok()
+}
+
 pub fn correlate(sdl: &[SdlDisplay], drm: &[DrmMonitor]) -> Vec<(String, MonitorId)> {
-    fn score(s: &SdlDisplay, id: &MonitorId) -> i32 {
+    fn score(s: &SdlDisplay, connector: &str, id: &MonitorId) -> i32 {
         let mut pts = 0;
-        if let Some((w, h)) = id.preferred_mode {
-            if w as i32 == s.width && h as i32 == s.height {
+        // SDL builds its display name out of the EDID, differently per
+        // driver — `SetXRandRDisplayName` in SDL_x11modes.c composes
+        // "<product name> <diagonal>\"", and falls back to the connector when
+        // the EDID carries no product name. On this dev machine the same
+        // Samsung reports as `DP-2 49"` under X11 and
+        // `Samsung Electric Company 49"` under Wayland. So the name is not
+        // stable, but everything in it comes from the EDID, and that is what
+        // makes it matchable.
+        if !connector.is_empty() && s.name.starts_with(connector) {
+            pts += 100;
+        }
+        if let Some(model) = &id.model_name {
+            if !model.is_empty() && s.name.contains(model.as_str()) {
                 pts += 100;
             }
         }
-        if let (Some((w, h)), true) = (id.phys_mm, s.width_mm > 0 && s.height_mm > 0) {
-            // ±5 mm tolerance: EDID stores cm, SDL/EDID rounding differs.
-            if (w as i32 - s.width_mm).abs() <= 5 && (h as i32 - s.height_mm).abs() <= 5 {
-                pts += 10;
+        // The diagonal SDL prints is computed from the EDID's own millimetres,
+        // so it agrees with ours to the rounding. On a cabinet the three
+        // panels differ in size, which makes this nearly decisive on its own.
+        if let (Some(inches), Some(theirs)) = (id.diagonal_inches(), inches_in_name(&s.name)) {
+            if inches == theirs {
+                pts += 50;
+            }
+        }
+        if let Some((w, h)) = id.preferred_mode {
+            // Weak on purpose: a panel whose best mode lives in an extension
+            // block advertises a lesser one here. The ultrawide on this dev
+            // machine runs 5120x1440 and its base block says 3840x1080.
+            if w as i32 == s.width && h as i32 == s.height {
+                pts += 20;
             }
         }
         pts
@@ -328,7 +371,7 @@ pub fn correlate(sdl: &[SdlDisplay], drm: &[DrmMonitor]) -> Vec<(String, Monitor
     let mut pairs: Vec<(i32, usize, usize)> = Vec::new();
     for (si, s) in sdl.iter().enumerate() {
         for (di, d) in drm.iter().enumerate() {
-            let pts = score(s, &d.id);
+            let pts = score(s, &d.connector, &d.id);
             if pts > 0 {
                 pairs.push((pts, si, di));
             }

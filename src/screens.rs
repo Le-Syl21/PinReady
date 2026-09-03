@@ -69,25 +69,41 @@ fn parse_inches_from_name(name: &str) -> Option<u32> {
     trimmed.rsplit(' ').next()?.parse().ok()
 }
 
-/// Get physical size using display-info crate, matched by resolution + position.
-/// Returns (width_mm, height_mm, diagonal_inches)
-fn get_display_physical(x: i32, y: i32, width: i32, height: i32) -> (i32, i32, Option<u32>) {
-    if let Ok(displays) = display_info::DisplayInfo::all() {
-        for d in &displays {
-            if d.x == x
-                && d.y == y
-                && d.width as i32 == width
-                && d.height as i32 == height
-                && d.width_mm > 0
-                && d.height_mm > 0
-            {
-                let diag_mm = ((d.width_mm as f64).powi(2) + (d.height_mm as f64).powi(2)).sqrt();
-                let inches = (diag_mm / 25.4).round() as u32;
-                return (d.width_mm, d.height_mm, Some(inches));
-            }
-        }
-    }
-    (0, 0, None)
+/// Physical size for each SDL display, from the panel's own EDID.
+///
+/// `display-info` used to answer this. On Windows it called
+/// `GetDeviceCaps(HORZSIZE/VERTSIZE)`, which returns whatever the display
+/// driver invents — a 42-inch panel came back as 1600x900 mm, i.e. 72 inches,
+/// and its owner corrected it by hand on every launch. The EDID is the panel's
+/// own account of itself and is the same everywhere.
+///
+/// The mapping is [`crate::display_id::correlate`]'s, which scores an SDL display
+/// against an EDID on the fields SDL itself built that name from.
+fn physical_sizes(displays: &[DisplayInfo]) -> Vec<(String, (i32, i32), Option<u32>)> {
+    let sdl: Vec<crate::display_id::SdlDisplay> = displays
+        .iter()
+        .map(|d| crate::display_id::SdlDisplay {
+            name: d.name.clone(),
+            x: d.x,
+            y: d.y,
+            width: d.width,
+            height: d.height,
+            width_mm: 0,
+            height_mm: 0,
+        })
+        .collect();
+    crate::display_id::correlate(&sdl, &crate::display_id::read_drm_monitors())
+        .into_iter()
+        .filter_map(|(name, id)| {
+            let (w, h) = id.phys_mm?;
+            let inches = id.diagonal_inches();
+            Some((
+                name,
+                (i32::try_from(w).unwrap_or(0), i32::try_from(h).unwrap_or(0)),
+                inches,
+            ))
+        })
+        .collect()
 }
 
 /// Enumerate all connected displays using SDL3. Initializes
@@ -147,10 +163,11 @@ pub fn enumerate_displays() -> Vec<DisplayInfo> {
 
             let total_pixels = bounds.w as u64 * bounds.h as u64;
 
-            // Get physical size: display-info crate, fallback to parsing SDL3 name
-            let (width_mm, height_mm, inches) =
-                get_display_physical(bounds.x, bounds.y, bounds.w, bounds.h);
-            let size_inches = inches.or_else(|| parse_inches_from_name(&name));
+            // Physical size is filled in below, once every display is known:
+            // the EDID has to be matched against the whole set, not one at a
+            // time. The inches in the SDL name are the fallback — SDL derives
+            // them from the EDID too, just less precisely.
+            let size_inches = parse_inches_from_name(&name);
 
             displays.push(DisplayInfo {
                 name,
@@ -162,10 +179,10 @@ pub fn enumerate_displays() -> Vec<DisplayInfo> {
                 is_primary: id == primary_id,
                 total_pixels,
                 size_inches,
-                width_mm,
-                height_mm,
-                detected_width_mm: width_mm,
-                detected_height_mm: height_mm,
+                width_mm: 0,
+                height_mm: 0,
+                detected_width_mm: 0,
+                detected_height_mm: 0,
                 role: DisplayRole::Unused,
             });
         }
@@ -174,6 +191,21 @@ pub fn enumerate_displays() -> Vec<DisplayInfo> {
         // No SDL_QuitSubSystem here — the VIDEO subsystem stays init
         // until the next SDL_Quit() (fired by `shutdown_sdl_threads`
         // before each VPX spawn).
+    }
+
+    // Physical size from each panel's own EDID, matched against the full set.
+    // A display with no readable EDID keeps 0x0 and the inches parsed out of
+    // its SDL name, which is what the wizard lets a human correct.
+    for (name, (w, h), inches) in physical_sizes(&displays) {
+        if let Some(d) = displays.iter_mut().find(|d| d.name == name) {
+            d.width_mm = w;
+            d.height_mm = h;
+            d.detected_width_mm = w;
+            d.detected_height_mm = h;
+            if let Some(i) = inches {
+                d.size_inches = Some(i);
+            }
+        }
     }
 
     // Auto-assign roles by pixel count WITHOUT reordering the list: the index
