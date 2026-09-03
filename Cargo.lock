@@ -4711,6 +4711,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "tinyvec"
+version = "1.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb4ebadaa0af04fab11ae01eb5f9fdb5f9c5b875506e210e71c07873528baa7f"
+dependencies = [
+ "tinyvec_macros",
+]
+
+[[package]]
+name = "tinyvec_macros"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
+
+[[package]]
 name = "toml"
 version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4884,6 +4899,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
 
 [[package]]
+name = "unicode-normalization"
+version = "0.1.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fd4f6878c9cb28d874b009da9e8d183b5abc80117c40bbd187a1fde336be6e8"
+dependencies = [
+ "tinyvec",
+]
+
+[[package]]
 name = "unicode-segmentation"
 version = "1.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5005,9 +5029,9 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vpin"
-version = "0.27.0"
+version = "0.28.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9650074969d287d3957a985c98979d17bcf961afdaa0de08e0b029a2f64fea4"
+checksum = "2bb54aec4da9750faeb34e4a373654f4e8fa11a800cb3e81bca130e793a70df9"
 dependencies = [
  "byteorder",
  "bytes",
@@ -5016,7 +5040,6 @@ dependencies = [
  "flate2",
  "hex",
  "image",
- "itoa",
  "log",
  "md2",
  "nom",
@@ -5026,6 +5049,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tracing",
+ "unicode-normalization",
  "wavefront-obj-io",
  "weezl 0.2.1",
 ]
@@ -5112,12 +5136,9 @@ dependencies = [
 
 [[package]]
 name = "wavefront-obj-io"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ac7f033c82919052c8caa9af2e36708768dc32f692e96c9d5dfd317c58a643a"
-dependencies = [
- "itoa",
-]
+checksum = "c8303f48c4cd4d0e4cc8b376b83dee11ce93c95d7d28f829fd213a76fcb3b538"
 
 [[package]]
 name = "wayland-backend"

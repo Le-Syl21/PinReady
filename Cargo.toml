@@ -50,7 +50,7 @@ base64 = "0.23"
 
 # .vpx file parsing — used to extract the embedded backglass preview
 # (`TableInfo.screenshot`) when a table doesn't ship a separate .directb2s.
-vpin = "0.27"
+vpin = "0.28"
 
 # Audio decoding (OGG Vorbis + MP3 → PCM for SDL3). MP3 is needed
 # for table preview audio (medias/audio.mp3 from vpinmediadb).
