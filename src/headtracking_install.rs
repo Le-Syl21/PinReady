@@ -11,7 +11,7 @@
 //! camera drivers (Windows WinUSB / Linux udev banner) and see themselves
 //! tracked before ever starting VPX.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use crossbeam_channel::{Receiver, Sender};
 use std::path::{Path, PathBuf};
 

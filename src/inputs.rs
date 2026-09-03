@@ -1,7 +1,7 @@
 use sdl3_sys::everything::*;
 use std::ffi::CStr;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
 /// An input action that can be mapped to a key *and* a joystick button.
@@ -109,29 +109,31 @@ pub enum JoystickEvent {
 /// Mirrors VPX's `GetJoySettingId` (vpinball commit 64094acd7); serial is
 /// no longer used because some manufacturers ship duplicate/empty serials.
 unsafe fn vpx_device_id(joy: *mut sdl3_sys::everything::SDL_Joystick) -> String {
-    let guid = SDL_GetJoystickGUID(joy);
-    let mut buf = [0u8; 64];
-    SDL_GUIDToString(guid, buf.as_mut_ptr() as *mut _, buf.len() as i32);
-    let guid_str = CStr::from_ptr(buf.as_ptr() as *const _).to_string_lossy();
+    unsafe {
+        let guid = SDL_GetJoystickGUID(joy);
+        let mut buf = [0u8; 64];
+        SDL_GUIDToString(guid, buf.as_mut_ptr() as *mut _, buf.len() as i32);
+        let guid_str = CStr::from_ptr(buf.as_ptr() as *const _).to_string_lossy();
 
-    let mut id_index: u32 = 1;
-    let mut count: i32 = 0;
-    let ids = SDL_GetJoysticks(&mut count);
-    if !ids.is_null() && count > 0 {
-        for i in 0..count as usize {
-            let jid = *ids.add(i);
-            if SDL_GetJoystickFromID(jid) == joy {
-                break;
+        let mut id_index: u32 = 1;
+        let mut count: i32 = 0;
+        let ids = SDL_GetJoysticks(&mut count);
+        if !ids.is_null() && count > 0 {
+            for i in 0..count as usize {
+                let jid = *ids.add(i);
+                if SDL_GetJoystickFromID(jid) == joy {
+                    break;
+                }
+                let other = SDL_GetJoystickGUIDForID(jid);
+                if other == guid {
+                    id_index += 1;
+                }
             }
-            let other = SDL_GetJoystickGUIDForID(jid);
-            if other == guid {
-                id_index += 1;
-            }
+            SDL_free(ids as *mut _);
         }
-        SDL_free(ids as *mut _);
-    }
 
-    format!("SDLJoy_{guid_str}_{id_index}")
+        format!("SDLJoy_{guid_str}_{id_index}")
+    }
 }
 
 /// Get a human-readable label for an SDL scancode, localised both to

@@ -107,16 +107,21 @@ mod platform {
 #[cfg(target_os = "windows")]
 mod platform {
     use super::{DisplayEdid, MatchKey};
-    use windows::core::PCWSTR;
     use windows::Win32::Foundation::{ERROR_SUCCESS, HWND, LPARAM, RECT};
     use windows::Win32::Graphics::Gdi::{
-        EnumDisplayDevicesW, EnumDisplayMonitors, GetMonitorInfoW, DISPLAY_DEVICEW,
-        EDD_GET_DEVICE_INTERFACE_NAME, HDC, HMONITOR, MONITORINFOEXW,
+        DISPLAY_DEVICEW, EnumDisplayDevicesW, EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR,
+        MONITORINFOEXW,
     };
+
+    /// `EnumDisplayDevices` returns the device *interface* name in `DeviceID`
+    /// rather than a description. Declared here because the `windows` crate
+    /// does not surface this constant in the Gdi module.
+    const EDD_GET_DEVICE_INTERFACE_NAME: u32 = 0x0000_0001;
     use windows::Win32::System::Registry::{
-        RegCloseKey, RegGetValueW, RegOpenKeyExW, HKEY, HKEY_LOCAL_MACHINE, KEY_READ,
-        RRF_RT_REG_BINARY,
+        HKEY, HKEY_LOCAL_MACHINE, KEY_READ, RRF_RT_REG_BINARY, RegCloseKey, RegGetValueW,
+        RegOpenKeyExW,
     };
+    use windows::core::PCWSTR;
 
     /// Windows keeps no API for a panel's physical size — `GetDeviceCaps`
     /// returns whatever the display driver invents. It does keep the EDID
@@ -190,7 +195,7 @@ mod platform {
         if !ok.as_bool() {
             return None;
         }
-        read_edid_value(&registry_path(&wide_to_string(&device.DeviceID))?)
+        read_edid_value(&super::registry_path(&wide_to_string(&device.DeviceID))?)
     }
 
     fn read_edid_value(path: &str) -> Option<Vec<u8>> {
@@ -271,11 +276,11 @@ mod platform {
     use super::{DisplayEdid, MatchKey};
     use objc2_core_foundation::{CFData, CFDictionary, CFNumber, CFRetained, CFString, CFType};
     use objc2_core_graphics::{
-        CGDisplayModelNumber, CGDisplayVendorNumber, CGGetActiveDisplayList,
+        CGDisplayModelNumber, CGDisplayVendorNumber, CGError, CGGetActiveDisplayList,
     };
     use objc2_io_kit::{
-        kIOMainPortDefault, kIORegistryIterateRecursively, IOIteratorNext, IOObjectRelease,
-        IORegistryEntryCreateCFProperty, IORegistryEntryCreateIterator,
+        IOIteratorNext, IOObjectRelease, IORegistryEntryCreateCFProperty,
+        IORegistryEntryCreateIterator, kIOMainPortDefault, kIORegistryIterateRecursively,
     };
 
     /// Walk the IORegistry for entries carrying an `IODisplayEDID` blob — the
@@ -313,12 +318,14 @@ mod platform {
     fn active_displays() -> Vec<u32> {
         let mut count: u32 = 0;
         // SAFETY: the null buffer form is the documented "how many?" call.
-        if unsafe { CGGetActiveDisplayList(0, std::ptr::null_mut(), &mut count) } != 0 {
+        let sized = unsafe { CGGetActiveDisplayList(0, std::ptr::null_mut(), &mut count) };
+        if sized != CGError::Success {
             return Vec::new();
         }
         let mut ids = vec![0u32; count as usize];
         // SAFETY: `ids` holds exactly the count the call above reported.
-        if unsafe { CGGetActiveDisplayList(count, ids.as_mut_ptr(), &mut count) } != 0 {
+        let filled = unsafe { CGGetActiveDisplayList(count, ids.as_mut_ptr(), &mut count) };
+        if filled != CGError::Success {
             return Vec::new();
         }
         ids.truncate(count as usize);

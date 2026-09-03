@@ -2,7 +2,7 @@
 // Queries a GitHub fork for releases and downloads the correct artifact
 // for the current platform.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use crossbeam_channel::Sender;
 use regex::Regex;
 use std::io::Read;
@@ -301,18 +301,18 @@ pub fn default_install_dir() -> PathBuf {
 /// `Contents/MacOS/` for the actual binary.
 pub fn resolve_vpx_exe(path: &Path) -> PathBuf {
     let p = PathBuf::from(path);
-    if cfg!(target_os = "macos") {
-        if let Some(ext) = p.extension() {
-            if ext == "app" && p.is_dir() {
-                let macos_dir = p.join("Contents/MacOS");
-                if let Ok(entries) = std::fs::read_dir(&macos_dir) {
-                    for entry in entries.flatten() {
-                        let name = entry.file_name();
-                        let name_str = name.to_string_lossy();
-                        if name_str.starts_with("VPinballX") {
-                            return entry.path();
-                        }
-                    }
+    if cfg!(target_os = "macos")
+        && let Some(ext) = p.extension()
+        && ext == "app"
+        && p.is_dir()
+    {
+        let macos_dir = p.join("Contents/MacOS");
+        if let Ok(entries) = std::fs::read_dir(&macos_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str.starts_with("VPinballX") {
+                    return entry.path();
                 }
             }
         }

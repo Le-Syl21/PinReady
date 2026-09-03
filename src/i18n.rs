@@ -48,10 +48,11 @@ fn detect_system_language_string() -> String {
     if let Ok(lang) = std::env::var("LANG")
         .or_else(|_| std::env::var("LC_ALL"))
         .or_else(|_| std::env::var("LC_MESSAGES"))
+        && !lang.is_empty()
+        && lang != "C"
+        && lang != "POSIX"
     {
-        if !lang.is_empty() && lang != "C" && lang != "POSIX" {
-            return lang.to_lowercase();
-        }
+        return lang.to_lowercase();
     }
 
     // macOS: defaults read -g AppleLocale (returns e.g. "fr_FR")

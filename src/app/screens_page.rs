@@ -183,14 +183,12 @@ impl App {
                         .button(t!("vpx_browse"))
                         .on_hover_text(t!("screens_vpx_browse_dir_hint"))
                         .clicked()
-                    {
-                        if let Some(path) = rfd::FileDialog::new()
+                        && let Some(path) = rfd::FileDialog::new()
                             .set_title(t!("vpx_install_dir_picker"))
                             .set_directory(&self.vpx_install_dir)
                             .pick_folder()
-                        {
-                            self.vpx_install_dir = path.display().to_string();
-                        }
+                    {
+                        self.vpx_install_dir = path.display().to_string();
                     }
                 });
             });
@@ -645,20 +643,20 @@ impl App {
         painter.circle_filled(h_waist, handle_radius, col_handle);
         painter.circle_filled(h_screen, handle_radius, col_handle);
 
-        if response.dragged() {
-            if let Some(pos) = response.interact_pointer_pos() {
-                let dist = |p: egui::Pos2| ((pos.x - p.x).powi(2) + (pos.y - p.y).powi(2)).sqrt();
-                if dist(h_lockbar) < 30.0 {
-                    self.lockbar_height = ((ground_y - pos.y) / scale).clamp(0.0, 250.0);
-                } else if dist(h_head) < 30.0 {
-                    self.player_height = ((ground_y - pos.y) / scale).clamp(75.0, 250.0);
-                } else if dist(h_waist) < 30.0 {
-                    self.player_y = (-(cab_x - pos.x) / scale).clamp(-70.0, 30.0);
-                } else if dist(h_screen) < 30.0 {
-                    let dx = pos.x - cab_x;
-                    let dy = lockbar_y - pos.y;
-                    self.screen_inclination = dy.atan2(dx).to_degrees().clamp(-30.0, 30.0);
-                }
+        if response.dragged()
+            && let Some(pos) = response.interact_pointer_pos()
+        {
+            let dist = |p: egui::Pos2| ((pos.x - p.x).powi(2) + (pos.y - p.y).powi(2)).sqrt();
+            if dist(h_lockbar) < 30.0 {
+                self.lockbar_height = ((ground_y - pos.y) / scale).clamp(0.0, 250.0);
+            } else if dist(h_head) < 30.0 {
+                self.player_height = ((ground_y - pos.y) / scale).clamp(75.0, 250.0);
+            } else if dist(h_waist) < 30.0 {
+                self.player_y = (-(cab_x - pos.x) / scale).clamp(-70.0, 30.0);
+            } else if dist(h_screen) < 30.0 {
+                let dx = pos.x - cab_x;
+                let dy = lockbar_y - pos.y;
+                self.screen_inclination = dy.atan2(dx).to_degrees().clamp(-30.0, 30.0);
             }
         }
 

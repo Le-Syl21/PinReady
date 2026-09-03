@@ -21,9 +21,9 @@
 #[cfg(target_os = "linux")]
 pub fn supports_fifo_v1() -> bool {
     use wayland_client::{
-        globals::{registry_queue_init, GlobalListContents},
-        protocol::wl_registry,
         Connection, Dispatch, QueueHandle,
+        globals::{GlobalListContents, registry_queue_init},
+        protocol::wl_registry,
     };
 
     // The registry events are fully handled by `GlobalListContents`; our state

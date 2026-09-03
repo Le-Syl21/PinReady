@@ -315,26 +315,24 @@ impl App {
                 .add_sized([btn_w, btn_h], egui::Button::new(left_label))
                 .on_hover_text(t!("audio_speaker_test_hint"))
                 .clicked()
+                && let Some(tx) = &self.audio_cmd_tx
             {
-                if let Some(tx) = &self.audio_cmd_tx {
-                    let _ = tx.send(AudioCommand::PlayOnSpeaker {
-                        path: "ball_roll.ogg".to_string(),
-                        target: audio::SpeakerTarget::TopLeft,
-                    });
-                }
+                let _ = tx.send(AudioCommand::PlayOnSpeaker {
+                    path: "ball_roll.ogg".to_string(),
+                    target: audio::SpeakerTarget::TopLeft,
+                });
             }
             ui.add_space(gap * 2.0);
             if ui
                 .add_sized([btn_w, btn_h], egui::Button::new(right_label))
                 .on_hover_text(t!("audio_speaker_test_hint"))
                 .clicked()
+                && let Some(tx) = &self.audio_cmd_tx
             {
-                if let Some(tx) = &self.audio_cmd_tx {
-                    let _ = tx.send(AudioCommand::PlayOnSpeaker {
-                        path: "ball_roll.ogg".to_string(),
-                        target: audio::SpeakerTarget::TopRight,
-                    });
-                }
+                let _ = tx.send(AudioCommand::PlayOnSpeaker {
+                    path: "ball_roll.ogg".to_string(),
+                    target: audio::SpeakerTarget::TopRight,
+                });
             }
         });
 
@@ -351,17 +349,16 @@ impl App {
                     )
                     .on_hover_text(t!("audio_ball_top_bottom_hint"))
                     .clicked()
+                    && let Some(tx) = &self.audio_cmd_tx
                 {
-                    if let Some(tx) = &self.audio_cmd_tx {
-                        let _ = tx.send(AudioCommand::PlayBallSequence {
-                            path: "ball_roll.ogg".to_string(),
-                            from: audio::SpeakerTarget::TopBoth,
-                            to: audio::SpeakerTarget::BottomBoth,
-                            hold_start_ms: 1500,
-                            fade_ms: 3000,
-                            hold_end_ms: 1500,
-                        });
-                    }
+                    let _ = tx.send(AudioCommand::PlayBallSequence {
+                        path: "ball_roll.ogg".to_string(),
+                        from: audio::SpeakerTarget::TopBoth,
+                        to: audio::SpeakerTarget::BottomBoth,
+                        hold_start_ms: 1500,
+                        fade_ms: 3000,
+                        hold_end_ms: 1500,
+                    });
                 }
             });
         }
@@ -374,17 +371,16 @@ impl App {
                 )
                 .on_hover_text(t!("audio_ball_left_right_hint"))
                 .clicked()
+                && let Some(tx) = &self.audio_cmd_tx
             {
-                if let Some(tx) = &self.audio_cmd_tx {
-                    let _ = tx.send(AudioCommand::PlayBallSequence {
-                        path: "ball_roll.ogg".to_string(),
-                        from: audio::SpeakerTarget::LeftBoth,
-                        to: audio::SpeakerTarget::RightBoth,
-                        hold_start_ms: 1500,
-                        fade_ms: 3000,
-                        hold_end_ms: 1500,
-                    });
-                }
+                let _ = tx.send(AudioCommand::PlayBallSequence {
+                    path: "ball_roll.ogg".to_string(),
+                    from: audio::SpeakerTarget::LeftBoth,
+                    to: audio::SpeakerTarget::RightBoth,
+                    hold_start_ms: 1500,
+                    fade_ms: 3000,
+                    hold_end_ms: 1500,
+                });
             }
         });
         ui.add_space(4.0);
@@ -400,13 +396,12 @@ impl App {
                     )
                     .on_hover_text(t!("audio_speaker_test_hint"))
                     .clicked()
+                    && let Some(tx) = &self.audio_cmd_tx
                 {
-                    if let Some(tx) = &self.audio_cmd_tx {
-                        let _ = tx.send(AudioCommand::PlayOnSpeaker {
-                            path: "ball_roll.ogg".to_string(),
-                            target: audio::SpeakerTarget::BottomLeft,
-                        });
-                    }
+                    let _ = tx.send(AudioCommand::PlayOnSpeaker {
+                        path: "ball_roll.ogg".to_string(),
+                        target: audio::SpeakerTarget::BottomLeft,
+                    });
                 }
                 ui.add_space(gap * 2.0);
                 if ui
@@ -416,13 +411,12 @@ impl App {
                     )
                     .on_hover_text(t!("audio_speaker_test_hint"))
                     .clicked()
+                    && let Some(tx) = &self.audio_cmd_tx
                 {
-                    if let Some(tx) = &self.audio_cmd_tx {
-                        let _ = tx.send(AudioCommand::PlayOnSpeaker {
-                            path: "ball_roll.ogg".to_string(),
-                            target: audio::SpeakerTarget::BottomRight,
-                        });
-                    }
+                    let _ = tx.send(AudioCommand::PlayOnSpeaker {
+                        path: "ball_roll.ogg".to_string(),
+                        target: audio::SpeakerTarget::BottomRight,
+                    });
                 }
             });
         }

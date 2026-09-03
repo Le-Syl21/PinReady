@@ -334,11 +334,7 @@ pub fn unresolvable_assigned_displays(
 /// The playfield (primary output) maps fine at borderless fullscreen
 /// everywhere and is left untouched — this only governs the secondary windows.
 fn secondary_fullscreen(session: Option<&str>) -> i32 {
-    if session == Some("x11") {
-        0
-    } else {
-        1
-    }
+    if session == Some("x11") { 0 } else { 1 }
 }
 
 /// Reconcile the `{prefix}FullScreen` mode of the assigned secondary displays

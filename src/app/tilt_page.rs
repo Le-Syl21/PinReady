@@ -52,14 +52,14 @@ impl App {
         // (Pinscape config variable 4) and the user generally does not, so the
         // detected value is adopted and the choice stays available for boards
         // that will not answer.
-        if let Some(rx) = &self.pinscape_cfg_rx {
-            if let Ok(cfg) = rx.try_recv() {
-                self.pinscape_cfg_rx = None;
-                if let Some(range) = cfg.and_then(|c| c.accel_range_g) {
-                    self.tilt.nudge_range_g = range;
-                }
-                self.pinscape_cfg = cfg;
+        if let Some(rx) = &self.pinscape_cfg_rx
+            && let Ok(cfg) = rx.try_recv()
+        {
+            self.pinscape_cfg_rx = None;
+            if let Some(range) = cfg.and_then(|c| c.accel_range_g) {
+                self.tilt.nudge_range_g = range;
             }
+            self.pinscape_cfg = cfg;
         }
         let detected_range = self.pinscape_cfg.and_then(|c| c.accel_range_g);
         self.refresh_tilt_rings();
@@ -338,21 +338,19 @@ impl App {
                     ui.label(t!("tilt_unreachable_range", range = format!("{range:.0}")));
                 }
                 ui.horizontal(|ui| {
-                    if let Some(range) = wider {
-                        if ui
+                    if let Some(range) = wider
+                        && ui
                             .button(t!("tilt_range_adopt", range = format!("{range:.0}")))
                             .clicked()
-                        {
-                            self.tilt.nudge_range_g = range;
-                        }
+                    {
+                        self.tilt.nudge_range_g = range;
                     }
-                    if let Some(pct) = self.tilt_rings.strength_to_reach_pct {
-                        if ui
+                    if let Some(pct) = self.tilt_rings.strength_to_reach_pct
+                        && ui
                             .button(t!("tilt_unreachable_strength", pct = format!("{pct:.0}")))
                             .clicked()
-                        {
-                            self.tilt.nudge_scale_pct = pct;
-                        }
+                    {
+                        self.tilt.nudge_scale_pct = pct;
                     }
                 });
             });
@@ -423,11 +421,7 @@ impl App {
                         let current = (range - self.tilt.nudge_range_g).abs() < 0.01;
                         let cell = |text: String| {
                             let rich = egui::RichText::new(text);
-                            if current {
-                                rich.strong()
-                            } else {
-                                rich
-                            }
+                            if current { rich.strong() } else { rich }
                         };
                         ui.label(cell(format!("{range:.0} G")));
                         ui.label(cell(format!("{:.1} m/s²", range * crate::tilt::GRAVITY)));

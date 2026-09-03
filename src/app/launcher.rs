@@ -23,12 +23,11 @@ fn max_source_mtime(table_dir: &std::path::Path, vpx_path: &std::path::Path) -> 
     ];
     let mut max_mtime = 0i64;
     for candidate in &candidates {
-        if let Ok(meta) = std::fs::metadata(candidate) {
-            if let Ok(m) = meta.modified() {
-                if let Ok(d) = m.duration_since(std::time::UNIX_EPOCH) {
-                    max_mtime = max_mtime.max(d.as_secs() as i64);
-                }
-            }
+        if let Ok(meta) = std::fs::metadata(candidate)
+            && let Ok(m) = meta.modified()
+            && let Ok(d) = m.duration_since(std::time::UNIX_EPOCH)
+        {
+            max_mtime = max_mtime.max(d.as_secs() as i64);
         }
     }
     max_mtime
@@ -43,12 +42,11 @@ fn max_vbs_mtime(vpx_path: &std::path::Path) -> i64 {
     let candidates = [vpx_path.to_path_buf(), sidecar];
     let mut max_mtime = 0i64;
     for candidate in &candidates {
-        if let Ok(meta) = std::fs::metadata(candidate) {
-            if let Ok(m) = meta.modified() {
-                if let Ok(d) = m.duration_since(std::time::UNIX_EPOCH) {
-                    max_mtime = max_mtime.max(d.as_secs() as i64);
-                }
-            }
+        if let Ok(meta) = std::fs::metadata(candidate)
+            && let Ok(m) = meta.modified()
+            && let Ok(d) = m.duration_since(std::time::UNIX_EPOCH)
+        {
+            max_mtime = max_mtime.max(d.as_secs() as i64);
         }
     }
     max_mtime
@@ -627,14 +625,14 @@ impl App {
         }
 
         let tables_root = dir_path.to_path_buf();
-        let gen = self.scan_generation;
+        let generation = self.scan_generation;
         let enrichment_on = self.db.catalog_enrichment_enabled();
 
         // Sync VPSDB + MediaDb on a small bootstrap thread so we don't
         // block the UI; once both indices are loaded we hand them
         // (Arc-shared) to the worker pool.
         std::thread::Builder::new()
-            .name(format!("pinready-scan-bootstrap-{gen}"))
+            .name(format!("pinready-scan-bootstrap-{generation}"))
             .spawn(move || {
                 use crate::vpsdb;
                 use std::sync::Arc;
@@ -698,7 +696,7 @@ impl App {
                     tx,
                     cancel,
                     tables_root,
-                    gen,
+                    generation,
                     force_full_rematch,
                 );
 
@@ -1297,10 +1295,10 @@ impl App {
                                     // it from, and killing someone's game on a guess is
                                     // the worse failure.
                                     log::warn!(
-                                            "no VPX log line in 30s (only third-party output, if any): \
+                                        "no VPX log line in 30s (only third-party output, if any): \
                                              this build has no console logger. Assuming it started; \
                                              VPX's own diagnostics are in vpinball.log."
-                                        );
+                                    );
                                     startup_done = true;
                                     let _ = tx.send(VpxStatus::Started);
                                     continue;
@@ -1310,11 +1308,11 @@ impl App {
                                 );
                                 let _ = child.kill();
                                 let err = build_error_log(
-                                        "Timeout: Visual Pinball stopped responding during loading (no output for 30s).",
-                                        &loading_log,
-                                        &ingame_log,
-                                        saw_vpx_log,
-                                    );
+                                    "Timeout: Visual Pinball stopped responding during loading (no output for 30s).",
+                                    &loading_log,
+                                    &ingame_log,
+                                    saw_vpx_log,
+                                );
                                 let _ = tx.send(VpxStatus::ExitError(err));
                                 tail_stop.store(true, Ordering::Relaxed);
                                 running.store(false, Ordering::Relaxed);
@@ -1423,24 +1421,23 @@ impl App {
         if let Some(due) = self.preview_due_at {
             if std::time::Instant::now() >= due {
                 self.preview_due_at = None;
-                if let Some(table) = self.tables.get(cur) {
-                    if let Some(table_dir) = table.path.parent() {
-                        let audio_path = table_dir.join("medias").join("audio.mp3");
-                        if audio_path.is_file() {
-                            if let Some(tx) = &self.audio_cmd_tx {
-                                // Preview clips are halved so they sit
-                                // below the in-game soundtrack baseline —
-                                // hovering over a card shouldn't be louder
-                                // than the table the user is browsing for.
-                                let volume =
-                                    (self.audio.music_volume as f32 / 100.0 * 0.5).clamp(0.0, 1.0);
-                                let _ = tx.send(AudioCommand::PreviewStart {
-                                    path: audio_path,
-                                    volume,
-                                });
-                                self.preview_playing = true;
-                            }
-                        }
+                if let Some(table) = self.tables.get(cur)
+                    && let Some(table_dir) = table.path.parent()
+                {
+                    let audio_path = table_dir.join("medias").join("audio.mp3");
+                    if audio_path.is_file()
+                        && let Some(tx) = &self.audio_cmd_tx
+                    {
+                        // Preview clips are halved so they sit
+                        // below the in-game soundtrack baseline —
+                        // hovering over a card shouldn't be louder
+                        // than the table the user is browsing for.
+                        let volume = (self.audio.music_volume as f32 / 100.0 * 0.5).clamp(0.0, 1.0);
+                        let _ = tx.send(AudioCommand::PreviewStart {
+                            path: audio_path,
+                            volume,
+                        });
+                        self.preview_playing = true;
                     }
                 }
             } else {
@@ -1578,10 +1575,9 @@ impl App {
                 continue;
             }
             if let Some(inputs::CapturedInput::JoystickButton { button: b, .. }) = &action.joystick
+                && *b == button
             {
-                if *b == button {
-                    return Some(action.setting_id.to_string());
-                }
+                return Some(action.setting_id.to_string());
             }
         }
         None
@@ -1789,10 +1785,10 @@ impl App {
                     }
                 }
                 JoystickEvent::ButtonUp { button, .. } => {
-                    if let Some((held_btn, _, _, _)) = &self.nav_held {
-                        if held_btn == button {
-                            self.nav_held = None;
-                        }
+                    if let Some((held_btn, _, _, _)) = &self.nav_held
+                        && held_btn == button
+                    {
+                        self.nav_held = None;
                     }
                 }
                 JoystickEvent::AccelUpdate { .. } => {}
@@ -1876,35 +1872,35 @@ impl App {
 
     pub(super) fn process_update_check(&mut self) {
         // Receive update check result
-        if let Some(rx) = &self.update_check_rx {
-            if let Ok(result) = rx.try_recv() {
-                match result {
-                    Ok(release) => {
-                        log::info!(
-                            "Latest release: {} (installed: {})",
-                            release.tag,
-                            self.vpx_installed_tag
-                        );
+        if let Some(rx) = &self.update_check_rx
+            && let Ok(result) = rx.try_recv()
+        {
+            match result {
+                Ok(release) => {
+                    log::info!(
+                        "Latest release: {} (installed: {})",
+                        release.tag,
+                        self.vpx_installed_tag
+                    );
 
-                        // Never offer auto-updates for manually installed VPX.
-                        // Users managing manual installs are responsible for updates.
-                        if self.vpx_install_mode == VpxInstallMode::Manual {
-                            log::info!(
-                                "Skipping update prompt: VPX was manually installed (not auto-downloaded)"
-                            );
-                            self.vpx_latest_release = None;
-                        } else if release.tag != self.vpx_installed_tag {
-                            self.vpx_latest_release = Some(release);
-                        } else {
-                            self.vpx_latest_release = None;
-                        }
-                    }
-                    Err(e) => {
-                        log::warn!("Update check failed: {e}");
+                    // Never offer auto-updates for manually installed VPX.
+                    // Users managing manual installs are responsible for updates.
+                    if self.vpx_install_mode == VpxInstallMode::Manual {
+                        log::info!(
+                            "Skipping update prompt: VPX was manually installed (not auto-downloaded)"
+                        );
+                        self.vpx_latest_release = None;
+                    } else if release.tag != self.vpx_installed_tag {
+                        self.vpx_latest_release = Some(release);
+                    } else {
+                        self.vpx_latest_release = None;
                     }
                 }
-                self.update_check_rx = None;
+                Err(e) => {
+                    log::warn!("Update check failed: {e}");
+                }
             }
+            self.update_check_rx = None;
         }
         // Receive download progress
         if let Some(rx) = &self.update_progress_rx {
@@ -1963,26 +1959,26 @@ impl App {
     /// running process exits immediately — the freshly-spawned child from
     /// `download_pinready_and_replace` takes over as the user-facing instance.
     pub(super) fn process_pinready_update_check(&mut self, ctx: &egui::Context) {
-        if let Some(rx) = &self.pinready_update_check_rx {
-            if let Ok(result) = rx.try_recv() {
-                match result {
-                    Ok(release) => {
-                        if updater::is_pinready_update_available(&release) {
-                            log::info!(
-                                "PinReady update available: {} (running: {})",
-                                release.tag,
-                                updater::CURRENT_PINREADY_VERSION
-                            );
-                            self.pinready_latest_release = Some(release);
-                        } else {
-                            log::info!("PinReady is up to date ({})", release.tag);
-                            self.pinready_latest_release = None;
-                        }
+        if let Some(rx) = &self.pinready_update_check_rx
+            && let Ok(result) = rx.try_recv()
+        {
+            match result {
+                Ok(release) => {
+                    if updater::is_pinready_update_available(&release) {
+                        log::info!(
+                            "PinReady update available: {} (running: {})",
+                            release.tag,
+                            updater::CURRENT_PINREADY_VERSION
+                        );
+                        self.pinready_latest_release = Some(release);
+                    } else {
+                        log::info!("PinReady is up to date ({})", release.tag);
+                        self.pinready_latest_release = None;
                     }
-                    Err(e) => log::warn!("PinReady update check failed: {e}"),
                 }
-                self.pinready_update_check_rx = None;
+                Err(e) => log::warn!("PinReady update check failed: {e}"),
             }
+            self.pinready_update_check_rx = None;
         }
 
         if let Some(rx) = &self.pinready_update_progress_rx {

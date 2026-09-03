@@ -343,18 +343,19 @@ pub fn correlate(sdl: &[SdlDisplay], drm: &[DrmMonitor]) -> Vec<(String, Monitor
         if !connector.is_empty() && s.name.starts_with(connector) {
             pts += 100;
         }
-        if let Some(model) = &id.model_name {
-            if !model.is_empty() && s.name.contains(model.as_str()) {
-                pts += 100;
-            }
+        if let Some(model) = &id.model_name
+            && !model.is_empty()
+            && s.name.contains(model.as_str())
+        {
+            pts += 100;
         }
         // The diagonal SDL prints is computed from the EDID's own millimetres,
         // so it agrees with ours to the rounding. On a cabinet the three
         // panels differ in size, which makes this nearly decisive on its own.
-        if let (Some(inches), Some(theirs)) = (id.diagonal_inches(), inches_in_name(&s.name)) {
-            if inches == theirs {
-                pts += 50;
-            }
+        if let (Some(inches), Some(theirs)) = (id.diagonal_inches(), inches_in_name(&s.name))
+            && inches == theirs
+        {
+            pts += 50;
         }
         if let Some((w, h)) = id.preferred_mode {
             // Weak on purpose: a panel whose best mode lives in an extension

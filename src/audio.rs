@@ -994,7 +994,7 @@ mod tests {
         let mono = vec![1000i16, 2000];
         let out = mono_to_71(&mono, SpeakerTarget::FrontBoth);
         assert_eq!(out.len(), 16); // 2 samples × 8 channels
-                                   // Frame 0: FL=1000, FR=1000, rest=0
+        // Frame 0: FL=1000, FR=1000, rest=0
         assert_eq!(out[0], 1000);
         assert_eq!(out[1], 1000);
         assert_eq!(out[2], 0);

@@ -21,7 +21,7 @@
 //! extraction + classification logic lives in a later commit.
 
 use anyhow::{Context, Result};
-use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
+use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::io::Read;

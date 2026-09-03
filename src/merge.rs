@@ -30,8 +30,8 @@ use anyhow::Result;
 use crossbeam_channel::Sender;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(Debug, Clone)]
 pub struct MergeConfig {
@@ -253,11 +253,11 @@ pub fn build_index(
             .unwrap_or_default();
         let parent = path.parent().map(Path::to_path_buf);
 
-        if lower_name == "playlists.pup" {
-            if let Some(dir) = &parent {
-                index.pup_packs.push(dir.clone());
-                index.add_dir_name(dir);
-            }
+        if lower_name == "playlists.pup"
+            && let Some(dir) = &parent
+        {
+            index.pup_packs.push(dir.clone());
+            index.add_dir_name(dir);
         }
         match ext.as_str() {
             "vni" | "pal" => {
@@ -727,18 +727,18 @@ fn run(config: &MergeConfig, tx: &Sender<MergeEvent>, cancel: &Arc<AtomicBool>) 
             .parent()
             .is_some_and(|p| canonical(p) == canonical(&table_dir));
 
-        if let Some(kept) = winners.get(&destinations[i]) {
-            if kept != vpx_src {
-                sink.report.tables_skipped += 1;
-                let _ = tx.send(MergeEvent::TableSkipped {
-                    name: stem,
-                    index: i + 1,
-                    total,
-                    src: vpx_src.clone(),
-                    kept: kept.clone(),
-                });
-                continue;
-            }
+        if let Some(kept) = winners.get(&destinations[i])
+            && kept != vpx_src
+        {
+            sink.report.tables_skipped += 1;
+            let _ = tx.send(MergeEvent::TableSkipped {
+                name: stem,
+                index: i + 1,
+                total,
+                src: vpx_src.clone(),
+                kept: kept.clone(),
+            });
+            continue;
         }
 
         let _ = tx.send(MergeEvent::TableStarted {
@@ -1283,13 +1283,12 @@ fn extract_pgame_names(vbs: &str) -> Vec<String> {
         let lower = trimmed.to_ascii_lowercase();
         if let Some(idx) = lower.find("pgamename") {
             let after = &trimmed[idx + "pgamename".len()..];
-            if let Some(eq) = after.find('=') {
-                if let Some(rest) = after[eq + 1..].split('"').nth(1) {
-                    let val = rest.trim();
-                    if !val.is_empty() && !out.iter().any(|s: &String| s.eq_ignore_ascii_case(val))
-                    {
-                        out.push(val.to_string());
-                    }
+            if let Some(eq) = after.find('=')
+                && let Some(rest) = after[eq + 1..].split('"').nth(1)
+            {
+                let val = rest.trim();
+                if !val.is_empty() && !out.iter().any(|s: &String| s.eq_ignore_ascii_case(val)) {
+                    out.push(val.to_string());
                 }
             }
         }
@@ -1306,12 +1305,12 @@ fn extract_cpup_pack(vbs: &str) -> Option<String> {
         let lower = trimmed.to_ascii_lowercase();
         if let Some(idx) = lower.find("cpuppack") {
             let after = &trimmed[idx + "cpuppack".len()..];
-            if let Some(eq) = after.find('=') {
-                if let Some(rest) = after[eq + 1..].split('"').nth(1) {
-                    let val = rest.trim();
-                    if !val.is_empty() {
-                        return Some(val.to_string());
-                    }
+            if let Some(eq) = after.find('=')
+                && let Some(rest) = after[eq + 1..].split('"').nth(1)
+            {
+                let val = rest.trim();
+                if !val.is_empty() {
+                    return Some(val.to_string());
                 }
             }
         }
@@ -1504,10 +1503,10 @@ pub mod fuzzy {
                 }
             }
         }
-        if best_ratio >= 0.86 {
-            if let Some(n) = best_name {
-                return Some(n);
-            }
+        if best_ratio >= 0.86
+            && let Some(n) = best_name
+        {
+            return Some(n);
         }
         // 5. keyword overlap ≥ 0.5 on raw names
         let mut best_score = 0.0_f32;
@@ -1744,9 +1743,10 @@ mod run_tests {
             b"stub",
             "an in-place table must not be rewritten"
         );
-        assert!(root
-            .join(format!("{table}/pinmame/roms/mm_109c.zip"))
-            .is_file());
+        assert!(
+            root.join(format!("{table}/pinmame/roms/mm_109c.zip"))
+                .is_file()
+        );
         assert!(
             !loose_rom.exists(),
             "tidying moves the file, it does not leave a copy behind"
@@ -1808,9 +1808,11 @@ mod run_tests {
         let (report, events) = run_and_collect(config(&source, &out, MergeMode::Commit));
         assert_eq!(report.tables_processed, 1);
         assert_eq!(report.tables_skipped, 1);
-        assert!(events
-            .iter()
-            .any(|e| matches!(e, MergeEvent::TableSkipped { .. })));
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, MergeEvent::TableSkipped { .. }))
+        );
         let _ = std::fs::remove_dir_all(&source);
         let _ = std::fs::remove_dir_all(&out);
     }

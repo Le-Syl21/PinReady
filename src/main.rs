@@ -405,7 +405,9 @@ fn main() -> Result<()> {
                     }
                 }
                 Err(e) => {
-                    log::error!("Failed to read VPinballX.ini for display sanity check: {e} — re-running wizard");
+                    log::error!(
+                        "Failed to read VPinballX.ini for display sanity check: {e} — re-running wizard"
+                    );
                     app::AppMode::Wizard
                 }
             }

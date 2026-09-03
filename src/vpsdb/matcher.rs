@@ -80,14 +80,14 @@ pub fn match_table<'a>(
     if let Some(rom) = rom_name {
         if let Some(g) = find_by_rom_exact(games, rom) {
             // Cross-check: TableName disagrees with ROM → trust TableName.
-            if let Some(tn_g) = tablename_exact {
-                if tn_g.id != g.id {
-                    return Some(MatchResult {
-                        game: tn_g,
-                        confidence: MatchConfidence::High,
-                        strategy: "tablename_overrides_rom",
-                    });
-                }
+            if let Some(tn_g) = tablename_exact
+                && tn_g.id != g.id
+            {
+                return Some(MatchResult {
+                    game: tn_g,
+                    confidence: MatchConfidence::High,
+                    strategy: "tablename_overrides_rom",
+                });
             }
             return Some(MatchResult {
                 game: g,
@@ -97,14 +97,14 @@ pub fn match_table<'a>(
         }
         // Strategy 2: rom name minus revision suffix
         if let Some(g) = find_by_rom_fuzzy(games, rom) {
-            if let Some(tn_g) = tablename_exact {
-                if tn_g.id != g.id {
-                    return Some(MatchResult {
-                        game: tn_g,
-                        confidence: MatchConfidence::High,
-                        strategy: "tablename_overrides_rom",
-                    });
-                }
+            if let Some(tn_g) = tablename_exact
+                && tn_g.id != g.id
+            {
+                return Some(MatchResult {
+                    game: tn_g,
+                    confidence: MatchConfidence::High,
+                    strategy: "tablename_overrides_rom",
+                });
             }
             return Some(MatchResult {
                 game: g,
@@ -117,23 +117,23 @@ pub fn match_table<'a>(
     // Strategy 3: B2S declared GameName. Same cross-check as ROM —
     // .directb2s files are cargo-culted between author MODs as often
     // as cGameName.
-    if let Some(b2s) = b2s_game_name {
-        if let Some(g) = find_by_rom_exact(games, b2s) {
-            if let Some(tn_g) = tablename_exact {
-                if tn_g.id != g.id {
-                    return Some(MatchResult {
-                        game: tn_g,
-                        confidence: MatchConfidence::High,
-                        strategy: "tablename_overrides_b2s",
-                    });
-                }
-            }
+    if let Some(b2s) = b2s_game_name
+        && let Some(g) = find_by_rom_exact(games, b2s)
+    {
+        if let Some(tn_g) = tablename_exact
+            && tn_g.id != g.id
+        {
             return Some(MatchResult {
-                game: g,
-                confidence: MatchConfidence::Medium,
-                strategy: "b2s_rom_exact",
+                game: tn_g,
+                confidence: MatchConfidence::High,
+                strategy: "tablename_overrides_b2s",
             });
         }
+        return Some(MatchResult {
+            game: g,
+            confidence: MatchConfidence::Medium,
+            strategy: "b2s_rom_exact",
+        });
     }
 
     // Strategy 4: embedded TableName, exact normalised match. Trust
@@ -246,11 +246,7 @@ fn read_b2s_game_name(b2s_path: &Path) -> Option<String> {
     let r = std::io::BufReader::new(f);
     let data = directb2s::read(r).ok()?;
     let g = data.game_name.value;
-    if g.trim().is_empty() {
-        None
-    } else {
-        Some(g)
-    }
+    if g.trim().is_empty() { None } else { Some(g) }
 }
 
 /// Scan every `Game.romFiles[*].version` for an exact match.

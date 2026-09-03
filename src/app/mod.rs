@@ -6,7 +6,7 @@ use crate::audio::{self, AudioCommand, AudioConfig, Sound3DMode};
 use crate::config::VpxConfig;
 use crate::db::Database;
 use crate::i18n::{self, LANGUAGE_OPTIONS};
-use crate::inputs::{self, pinscape_button_defaults, CapturedInput, InputAction, JoystickEvent};
+use crate::inputs::{self, CapturedInput, InputAction, JoystickEvent, pinscape_button_defaults};
 use crate::outputs_hid::DiscoveryState;
 use crate::screens::{DisplayInfo, DisplayRole};
 use crate::tilt::TiltConfig;
@@ -1112,26 +1112,26 @@ impl App {
                 for part in mapping_str.split('|') {
                     let part = part.split('&').next().unwrap_or("").trim();
                     if let Some(sc_str) = part.strip_prefix("Key;") {
-                        if action.keyboard.is_none() {
-                            if let Ok(sc_val) = sc_str.parse::<i32>() {
-                                let scancode = sdl3_sys::everything::SDL_Scancode(sc_val);
-                                action.keyboard = Some(CapturedInput::Keyboard {
-                                    scancode,
-                                    name: inputs::scancode_name(scancode),
-                                });
-                            }
+                        if action.keyboard.is_none()
+                            && let Ok(sc_val) = sc_str.parse::<i32>()
+                        {
+                            let scancode = sdl3_sys::everything::SDL_Scancode(sc_val);
+                            action.keyboard = Some(CapturedInput::Keyboard {
+                                scancode,
+                                name: inputs::scancode_name(scancode),
+                            });
                         }
-                    } else if let Some(pos) = part.find(';') {
-                        if action.joystick.is_none() {
-                            let device_id = part[..pos].to_string();
-                            let rest = &part[pos + 1..];
-                            if let Ok(button) = rest.split(';').next().unwrap_or("").parse::<u8>() {
-                                action.joystick = Some(CapturedInput::JoystickButton {
-                                    device_id: device_id.clone(),
-                                    button,
-                                    name: format!("{} Button {}", device_id, button),
-                                });
-                            }
+                    } else if let Some(pos) = part.find(';')
+                        && action.joystick.is_none()
+                    {
+                        let device_id = part[..pos].to_string();
+                        let rest = &part[pos + 1..];
+                        if let Ok(button) = rest.split(';').next().unwrap_or("").parse::<u8>() {
+                            action.joystick = Some(CapturedInput::JoystickButton {
+                                device_id: device_id.clone(),
+                                button,
+                                name: format!("{} Button {}", device_id, button),
+                            });
                         }
                     }
                 }
@@ -1139,10 +1139,10 @@ impl App {
                 // fallback older PinReady versions appended automatically —
                 // treat it as "no custom key" so the UI keeps showing
                 // "(default)" instead of a phantom customization.
-                if let Some(CapturedInput::Keyboard { scancode, .. }) = &action.keyboard {
-                    if *scancode == action.default_scancode {
-                        action.keyboard = None;
-                    }
+                if let Some(CapturedInput::Keyboard { scancode, .. }) = &action.keyboard
+                    && *scancode == action.default_scancode
+                {
+                    action.keyboard = None;
                 }
             }
         }
@@ -1242,8 +1242,8 @@ impl App {
 
     /// Spawn a background thread that queries the PinReady repo for the
     /// latest release and returns it via crossbeam channel.
-    fn spawn_pinready_update_check(
-    ) -> Option<crossbeam_channel::Receiver<anyhow::Result<ReleaseInfo>>> {
+    fn spawn_pinready_update_check()
+    -> Option<crossbeam_channel::Receiver<anyhow::Result<ReleaseInfo>>> {
         log::info!(
             "Checking for PinReady updates from {}...",
             updater::PINREADY_REPO
@@ -1426,10 +1426,10 @@ impl App {
             // Controller detection may already have run — re-apply its button
             // defaults, or the joystick column would come up empty until the
             // user toggles the profile combo.
-            if self.pinscape_profile != inputs::PINSCAPE_PROFILE_NONE {
-                if let Some(vpx_id) = self.pinscape_id.clone() {
-                    self.apply_pinscape_defaults(&vpx_id);
-                }
+            if self.pinscape_profile != inputs::PINSCAPE_PROFILE_NONE
+                && let Some(vpx_id) = self.pinscape_id.clone()
+            {
+                self.apply_pinscape_defaults(&vpx_id);
             }
         }
 
@@ -1444,10 +1444,10 @@ impl App {
 
     fn prev_page(&mut self) {
         self.leave_page_hooks();
-        if self.page.index() > 0 {
-            if let Some(page) = WizardPage::from_index(self.page.index() - 1) {
-                self.page = page;
-            }
+        if self.page.index() > 0
+            && let Some(page) = WizardPage::from_index(self.page.index() - 1)
+        {
+            self.page = page;
         }
     }
 
@@ -1692,14 +1692,14 @@ impl App {
         self.pinscape_id = Some(vpx_id.to_string());
         let defaults = pinscape_button_defaults(self.pinscape_profile);
         for (action_id, button) in defaults {
-            if let Some(action) = self.actions.iter_mut().find(|a| a.setting_id == *action_id) {
-                if action.joystick.is_none() {
-                    action.joystick = Some(CapturedInput::JoystickButton {
-                        device_id: vpx_id.to_string(),
-                        button: *button,
-                        name: format!("{} Button {}", vpx_id, button),
-                    });
-                }
+            if let Some(action) = self.actions.iter_mut().find(|a| a.setting_id == *action_id)
+                && action.joystick.is_none()
+            {
+                action.joystick = Some(CapturedInput::JoystickButton {
+                    device_id: vpx_id.to_string(),
+                    button: *button,
+                    name: format!("{} Button {}", vpx_id, button),
+                });
             }
         }
     }
@@ -2177,9 +2177,9 @@ impl eframe::App for App {
                     .show(ui, |ui| {
                         ui.add_space(0.0); // ensure full width
                         let _ = ui.available_width(); // force layout to use full width
-                                                      // Process VPX download progress on every page so the
-                                                      // download completes even when the user navigates away
-                                                      // from the Screens page.
+                        // Process VPX download progress on every page so the
+                        // download completes even when the user navigates away
+                        // from the Screens page.
                         self.process_update_check();
                         self.process_pinready_update_check(ui.ctx());
 

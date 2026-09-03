@@ -315,11 +315,11 @@ impl App {
                     .set("Input", &format!("Device.{gp_id}.NoAutoLayout"), "1");
             }
             // Add gamepad to Devices list if not already there
-            if let Some(devices) = self.config.get("Input", "Devices") {
-                if !devices.contains(&gp_id) {
-                    self.config
-                        .set("Input", "Devices", &format!("{devices};{gp_id}"));
-                }
+            if let Some(devices) = self.config.get("Input", "Devices")
+                && !devices.contains(&gp_id)
+            {
+                self.config
+                    .set("Input", "Devices", &format!("{devices};{gp_id}"));
             }
         }
 

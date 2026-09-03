@@ -18,8 +18,8 @@
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Filename of the lock. Same directory as `PinReady.log` / the DB.
 const LOCK_FILENAME: &str = "PinReady.pid";

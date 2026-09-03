@@ -60,13 +60,13 @@ impl App {
                             ui.selectable_value(&mut self.pinscape_profile, i, profile_label(i));
                         }
                     });
-                if self.pinscape_profile != prev_profile {
-                    if let Some(vpx_id) = self.pinscape_id.clone() {
-                        for action in &mut self.actions {
-                            action.joystick = None;
-                        }
-                        self.apply_pinscape_defaults(&vpx_id);
+                if self.pinscape_profile != prev_profile
+                    && let Some(vpx_id) = self.pinscape_id.clone()
+                {
+                    for action in &mut self.actions {
+                        action.joystick = None;
                     }
+                    self.apply_pinscape_defaults(&vpx_id);
                 }
             });
         }
@@ -172,16 +172,15 @@ impl App {
             if !captured_or_skipped
                 && (modifiers.shift || modifiers.ctrl || modifiers.alt)
                 && key_events.is_empty()
+                && let Some(sc) = inputs::egui_modifiers_to_scancode(&modifiers)
             {
-                if let Some(sc) = inputs::egui_modifiers_to_scancode(&modifiers) {
-                    if idx < self.actions.len() {
-                        self.actions[idx].keyboard = Some(CapturedInput::Keyboard {
-                            scancode: sc,
-                            name: inputs::scancode_name(sc),
-                        });
-                    }
-                    captured_or_skipped = true;
+                if idx < self.actions.len() {
+                    self.actions[idx].keyboard = Some(CapturedInput::Keyboard {
+                        scancode: sc,
+                        name: inputs::scancode_name(sc),
+                    });
                 }
+                captured_or_skipped = true;
             }
 
             if captured_or_skipped {
@@ -205,15 +204,15 @@ impl App {
     /// Move to the next action in auto-map mode, or fall back to Idle.
     /// Called after a successful capture or an Escape skip.
     pub(super) fn advance_capture_or_finish(&mut self) {
-        if self.auto_map_active {
-            if let CaptureState::Capturing(idx) = self.capture_state {
-                let next = idx + 1;
-                if next < self.actions.len() {
-                    self.capture_state = CaptureState::Capturing(next);
-                    return;
-                }
-                self.auto_map_active = false;
+        if self.auto_map_active
+            && let CaptureState::Capturing(idx) = self.capture_state
+        {
+            let next = idx + 1;
+            if next < self.actions.len() {
+                self.capture_state = CaptureState::Capturing(next);
+                return;
             }
+            self.auto_map_active = false;
         }
         self.capture_state = CaptureState::Idle;
     }

@@ -160,10 +160,9 @@ impl App {
                 if ui
                     .checkbox(&mut self.jsm174_patching, t!("tables_vbs_patch_toggle"))
                     .changed()
+                    && let Err(e) = self.db.set_jsm174_patching_enabled(self.jsm174_patching)
                 {
-                    if let Err(e) = self.db.set_jsm174_patching_enabled(self.jsm174_patching) {
-                        log::error!("Failed to persist jsm174_patching_enabled: {e}");
-                    }
+                    log::error!("Failed to persist jsm174_patching_enabled: {e}");
                 }
                 help_marker(ui, &t!("tables_vbs_patch_desc"));
             });
@@ -173,13 +172,11 @@ impl App {
                 if ui
                     .checkbox(&mut self.catalog_enrichment, t!("tables_catalog_toggle"))
                     .changed()
-                {
-                    if let Err(e) = self
+                    && let Err(e) = self
                         .db
                         .set_catalog_enrichment_enabled(self.catalog_enrichment)
-                    {
-                        log::error!("Failed to persist catalog_enrichment_enabled: {e}");
-                    }
+                {
+                    log::error!("Failed to persist catalog_enrichment_enabled: {e}");
                 }
                 help_marker(ui, &t!("tables_catalog_desc"));
             });
@@ -402,10 +399,10 @@ impl App {
                     let cancel_btn = ui
                         .button(t!("merge_cancel"))
                         .on_hover_text(t!("tables_dir_merge_cancel_hint"));
-                    if cancel_btn.clicked() {
-                        if let Some(c) = &self.merge_cancel {
-                            c.store(true, std::sync::atomic::Ordering::SeqCst);
-                        }
+                    if cancel_btn.clicked()
+                        && let Some(c) = &self.merge_cancel
+                    {
+                        c.store(true, std::sync::atomic::Ordering::SeqCst);
                     }
                 }
             });

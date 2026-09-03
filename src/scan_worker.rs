@@ -33,8 +33,8 @@ use crate::vpsdb;
 use anyhow::Result;
 use crossbeam_channel::Sender;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Bump whenever the matcher chain changes (new strategy, cross-check,
 /// confidence shift). Forces a one-shot re-match of every existing
@@ -154,7 +154,7 @@ fn process_table(
     db: &Database,
     bg_tx: &Sender<BgExtraction>,
     tables_root: &Path,
-    gen: u64,
+    generation: u64,
     force_full_rematch: bool,
 ) -> Result<()> {
     // 1. VPSDB match — decide whether to re-evaluate or reuse the
@@ -225,26 +225,25 @@ fn process_table(
     // 1b. Update-available flag — compare the latest published
     // tableFile updated_at against the local .vpx mtime. This drives
     // the "↑" badge in the launcher.
-    if let Some(vps_id) = &matched_vps_id {
-        if let Some(game) = games.iter().find(|g| &g.id == vps_id) {
-            let latest_tf_ts: i64 = game
-                .table_files
-                .iter()
-                .filter_map(|tf| tf.updated_at)
-                .max()
-                .unwrap_or(0);
-            let local_mtime_ms: i64 = std::fs::metadata(&job.vpx_path)
-                .ok()
-                .and_then(|m| m.modified().ok())
-                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                .map(|d| d.as_millis() as i64)
-                .unwrap_or(0);
-            let tolerance_ms = 24 * 3600 * 1000;
-            let outdated = latest_tf_ts > 0
-                && local_mtime_ms > 0
-                && latest_tf_ts > local_mtime_ms + tolerance_ms;
-            db.set_update_available(&job.rel_path, outdated)?;
-        }
+    if let Some(vps_id) = &matched_vps_id
+        && let Some(game) = games.iter().find(|g| &g.id == vps_id)
+    {
+        let latest_tf_ts: i64 = game
+            .table_files
+            .iter()
+            .filter_map(|tf| tf.updated_at)
+            .max()
+            .unwrap_or(0);
+        let local_mtime_ms: i64 = std::fs::metadata(&job.vpx_path)
+            .ok()
+            .and_then(|m| m.modified().ok())
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(0);
+        let tolerance_ms = 24 * 3600 * 1000;
+        let outdated =
+            latest_tf_ts > 0 && local_mtime_ms > 0 && latest_tf_ts > local_mtime_ms + tolerance_ms;
+        db.set_update_available(&job.rel_path, outdated)?;
     }
 
     // 2. Media install — fetch bg.png and audio.mp3 from VPinMediaDB
@@ -281,7 +280,7 @@ fn process_table(
             .strip_prefix(tables_root)
             .map(|p| p.to_string_lossy().into_owned())
             .unwrap_or_else(|_| job.vpx_path.to_string_lossy().into_owned());
-        let _ = bg_tx.send((gen, job.idx, rel_path, bytes, job.source_mtime));
+        let _ = bg_tx.send((generation, job.idx, rel_path, bytes, job.source_mtime));
     }
     Ok(())
 }
@@ -298,7 +297,11 @@ fn install_if_missing(table_dir: &Path, filename: &str, url: &str, expected_md5:
     }
     match mediadb::fetch_asset(url, expected_md5) {
         Ok(bytes) => {
-            if let Err(e) = mediadb::install_asset(table_dir, filename, &bytes) {
+            // Bound before the branch: under the 2024 tail-expression rules
+            // an `if let` scrutinee is dropped before the block, and this one
+            // carries an `anyhow::Error` whose Drop is not a no-op.
+            let installed = mediadb::install_asset(table_dir, filename, &bytes);
+            if let Err(e) = installed {
                 log::warn!(
                     "MediaDb install {filename} for {} failed: {e}",
                     table_dir.display()

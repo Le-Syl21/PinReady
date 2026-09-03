@@ -458,11 +458,7 @@ pub fn sensor_accel_for_tilt(
     }
     for _ in 0..14 {
         let mid = 0.5 * (lo + hi);
-        if reaches(mid) {
-            hi = mid
-        } else {
-            lo = mid
-        }
+        if reaches(mid) { hi = mid } else { lo = mid }
     }
     0.5 * (lo + hi)
 }

@@ -1317,11 +1317,11 @@ impl DiscoveryState {
     /// and clear the pending receiver. No-op outside Linux.
     #[cfg(target_os = "linux")]
     pub fn poll_udev_apply(&mut self) {
-        if let Some(rx) = self.udev_apply_rx.as_ref() {
-            if let Ok(result) = rx.try_recv() {
-                self.udev_apply_status = Some(result);
-                self.udev_apply_rx = None;
-            }
+        if let Some(rx) = self.udev_apply_rx.as_ref()
+            && let Ok(result) = rx.try_recv()
+        {
+            self.udev_apply_status = Some(result);
+            self.udev_apply_rx = None;
         }
     }
 

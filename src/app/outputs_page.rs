@@ -1,5 +1,5 @@
 use super::*;
-use crate::outputs_hid::{self, OutputBoard, MAX_LOOP_PULSES};
+use crate::outputs_hid::{self, MAX_LOOP_PULSES, OutputBoard};
 use std::path::PathBuf;
 
 const DOF_GENERATOR_URL: &str = "https://configtool.vpuniverse.com/app/home";
@@ -147,10 +147,8 @@ impl App {
                 .on_hover_text(t!("outputs_open_folder_hint"))
                 .clicked()
             {
-                if !exists {
-                    if let Err(e) = std::fs::create_dir_all(&dof_dir) {
-                        log::error!("Failed to create DOF config dir: {e}");
-                    }
+                if !exists && let Err(e) = std::fs::create_dir_all(&dof_dir) {
+                    log::error!("Failed to create DOF config dir: {e}");
                 }
                 open_in_file_manager(&dof_dir);
             }
@@ -189,9 +187,9 @@ impl App {
                     ht::HtEvent::Done { tag } => {
                         self.ht_done_tag = Some(tag);
                         self.ht_installed_version = None; // re-read from disk
-                                                          // The installer enables the plugin in the ini; keep
-                                                          // the checkbox in step rather than letting it show a
-                                                          // stale "off" read from before the install.
+                        // The installer enables the plugin in the ini; keep
+                        // the checkbox in step rather than letting it show a
+                        // stale "off" read from before the install.
                         self.ht_enabled = Some(true);
                         done = true;
                     }
@@ -279,10 +277,9 @@ impl App {
                 && ui
                     .add_enabled(!running, egui::Button::new(t!("ht_launch_demo")))
                     .clicked()
+                && let Err(e) = ht::launch_demo(&install_dir)
             {
-                if let Err(e) = ht::launch_demo(&install_dir) {
-                    self.ht_error = Some(format!("{e:#}"));
-                }
+                self.ht_error = Some(format!("{e:#}"));
             }
         });
 

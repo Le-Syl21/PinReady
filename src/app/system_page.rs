@@ -33,11 +33,10 @@ impl App {
             if ui
                 .checkbox(&mut self.desktop_shortcut, t!("desktop_shortcut_label"))
                 .changed()
+                && let Err(e) = desktop_integration::set_desktop_shortcut(self.desktop_shortcut)
             {
-                if let Err(e) = desktop_integration::set_desktop_shortcut(self.desktop_shortcut) {
-                    log::error!("Desktop shortcut: {e:#}");
-                    self.desktop_shortcut = !self.desktop_shortcut;
-                }
+                log::error!("Desktop shortcut: {e:#}");
+                self.desktop_shortcut = !self.desktop_shortcut;
             }
             help_marker(ui, &t!("desktop_shortcut_hint"));
         });
@@ -50,11 +49,10 @@ impl App {
                 if ui
                     .checkbox(&mut self.dock_pinned, t!("dock_pin_label"))
                     .changed()
+                    && let Err(e) = desktop_integration::set_pinned_to_dock(self.dock_pinned)
                 {
-                    if let Err(e) = desktop_integration::set_pinned_to_dock(self.dock_pinned) {
-                        log::error!("Dock pinning: {e:#}");
-                        self.dock_pinned = !self.dock_pinned;
-                    }
+                    log::error!("Dock pinning: {e:#}");
+                    self.dock_pinned = !self.dock_pinned;
                 }
                 help_marker(ui, &t!("dock_pin_hint"));
             });
@@ -79,10 +77,10 @@ impl App {
                     .hint_text("https://pinready.syl21.org")
                     .desired_width(420.0),
             );
-            if resp.changed() {
-                if let Err(e) = self.db.set_mirror_base_url(&self.mirror_base_url) {
-                    log::error!("Failed to persist mirror_base_url: {e}");
-                }
+            if resp.changed()
+                && let Err(e) = self.db.set_mirror_base_url(&self.mirror_base_url)
+            {
+                log::error!("Failed to persist mirror_base_url: {e}");
             }
             if ui
                 .button(t!("system_mirror_clear"))

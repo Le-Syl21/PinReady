@@ -160,15 +160,14 @@ impl App {
                         .get(self.selected_table)
                         .map(|t| t.name.to_lowercase().contains(f))
                         .unwrap_or(false);
-                    if !current_matches {
-                        if let Some(idx) = self
+                    if !current_matches
+                        && let Some(idx) = self
                             .tables
                             .iter()
                             .position(|t| t.name.to_lowercase().contains(f))
-                        {
-                            self.selected_table = idx;
-                            self.scroll_to_selected = true;
-                        }
+                    {
+                        self.selected_table = idx;
+                        self.scroll_to_selected = true;
                     }
                 }
 
@@ -526,7 +525,6 @@ impl App {
         }
 
         scroll_area.show(ui, |ui| {
-
             for row_start in (0..filtered.len()).step_by(cols) {
                 // Center the row
                 let row_count = (filtered.len() - row_start).min(cols);
@@ -699,16 +697,16 @@ impl App {
                             // tooltip uses the response's hover state
                             // and renders a small floating panel near
                             // the cursor.
-                            let badge_resp = badge_resp
-                                .on_hover_text(t!("launcher_update_badge_tooltip"));
-                            if badge_resp.clicked() {
-                                if let Some(ref vid) = table.vps_id {
-                                    let url = format!(
-                                        "https://virtualpinballspreadsheet.github.io/games?game={vid}"
-                                    );
-                                    log::info!("Opening VPS page: {url}");
-                                    ui.ctx().open_url(egui::OpenUrl::new_tab(url));
-                                }
+                            let badge_resp =
+                                badge_resp.on_hover_text(t!("launcher_update_badge_tooltip"));
+                            if badge_resp.clicked()
+                                && let Some(ref vid) = table.vps_id
+                            {
+                                let url = format!(
+                                    "https://virtualpinballspreadsheet.github.io/games?game={vid}"
+                                );
+                                log::info!("Opening VPS page: {url}");
+                                ui.ctx().open_url(egui::OpenUrl::new_tab(url));
                             }
                         }
                     }
@@ -768,54 +766,53 @@ impl App {
             .displays
             .iter()
             .position(|d| d.role == DisplayRole::Backglass)
+            && !self.tables.is_empty()
         {
-            if !self.tables.is_empty() {
-                let selected = self.selected_table.min(self.tables.len() - 1);
-                let table_name = self.tables[selected].name.clone();
-                let bg_bytes = self.tables[selected].bg_bytes.clone();
+            let selected = self.selected_table.min(self.tables.len() - 1);
+            let table_name = self.tables[selected].name.clone();
+            let bg_bytes = self.tables[selected].bg_bytes.clone();
 
-                let bg_viewport_id = egui::ViewportId::from_hash_of(BG_VIEWPORT);
-                ui.ctx().request_repaint_of(bg_viewport_id);
-                ui.ctx().show_viewport_deferred(
-                    bg_viewport_id,
-                    egui::ViewportBuilder::default()
-                        .with_title("PinReady — Backglass")
-                        .with_decorations(false)
-                        .with_monitor(bg_idx)
-                        .with_active(false)
-                        // A cover is a picture, never a target. Left
-                        // clickable, Mutter hands it the pointer focus when
-                        // the cursor grazes the backglass screen, which drops
-                        // the playfield's pointer constraint: the arrow
-                        // escapes onto the backglass and freezes there,
-                        // because the moves it needs are now being delivered
-                        // to this window.
-                        .with_mouse_passthrough(true),
-                    move |ui, _class| {
-                        let ctx = ui.ctx().clone();
-                        Self::diag_cover_focus(&ctx, "backglass");
-                        egui_extras::install_image_loaders(&ctx);
-                        egui::CentralPanel::default()
-                            .frame(egui::Frame::NONE.fill(egui::Color32::BLACK))
-                            .show(ui, |ui| {
-                                if let Some(ref bytes) = bg_bytes {
-                                    let uri = format!("bytes://viewport_bg/{selected}");
-                                    ctx.include_bytes(uri.clone(), bytes.clone());
-                                    ui.centered_and_justified(|ui| {
-                                        ui.add(egui::Image::new(uri).shrink_to_fit());
-                                    });
-                                } else {
-                                    ui.centered_and_justified(|ui| {
-                                        ui.colored_label(
-                                            egui::Color32::WHITE,
-                                            egui::RichText::new(&table_name).size(32.0),
-                                        );
-                                    });
-                                }
-                            });
-                    },
-                );
-            }
+            let bg_viewport_id = egui::ViewportId::from_hash_of(BG_VIEWPORT);
+            ui.ctx().request_repaint_of(bg_viewport_id);
+            ui.ctx().show_viewport_deferred(
+                bg_viewport_id,
+                egui::ViewportBuilder::default()
+                    .with_title("PinReady — Backglass")
+                    .with_decorations(false)
+                    .with_monitor(bg_idx)
+                    .with_active(false)
+                    // A cover is a picture, never a target. Left
+                    // clickable, Mutter hands it the pointer focus when
+                    // the cursor grazes the backglass screen, which drops
+                    // the playfield's pointer constraint: the arrow
+                    // escapes onto the backglass and freezes there,
+                    // because the moves it needs are now being delivered
+                    // to this window.
+                    .with_mouse_passthrough(true),
+                move |ui, _class| {
+                    let ctx = ui.ctx().clone();
+                    Self::diag_cover_focus(&ctx, "backglass");
+                    egui_extras::install_image_loaders(&ctx);
+                    egui::CentralPanel::default()
+                        .frame(egui::Frame::NONE.fill(egui::Color32::BLACK))
+                        .show(ui, |ui| {
+                            if let Some(ref bytes) = bg_bytes {
+                                let uri = format!("bytes://viewport_bg/{selected}");
+                                ctx.include_bytes(uri.clone(), bytes.clone());
+                                ui.centered_and_justified(|ui| {
+                                    ui.add(egui::Image::new(uri).shrink_to_fit());
+                                });
+                            } else {
+                                ui.centered_and_justified(|ui| {
+                                    ui.colored_label(
+                                        egui::Color32::WHITE,
+                                        egui::RichText::new(&table_name).size(32.0),
+                                    );
+                                });
+                            }
+                        });
+                },
+            );
         }
 
         // DMD cover
@@ -1065,11 +1062,11 @@ impl App {
         if self.ht_latest_rx.is_none() && self.ht_latest_version.is_none() {
             self.ht_latest_rx = Some(ht::spawn_latest_version());
         }
-        if let Some(rx) = &self.ht_latest_rx {
-            if let Ok(version) = rx.try_recv() {
-                self.ht_latest_version = Some(version);
-                self.ht_latest_rx = None;
-            }
+        if let Some(rx) = &self.ht_latest_rx
+            && let Ok(version) = rx.try_recv()
+        {
+            self.ht_latest_version = Some(version);
+            self.ht_latest_rx = None;
         }
 
         let update_available = match (&installed, &self.ht_latest_version) {
@@ -1101,29 +1098,29 @@ impl App {
         } else {
             let installed = self.ht_installed_version.clone().flatten();
             let latest = self.ht_latest_version.clone().flatten();
-            if let (Some(from), Some(to)) = (installed, latest) {
-                if from != to {
-                    let label = t!(
-                        "ht_update_button_to",
-                        from = from.as_str(),
-                        to = to.as_str()
-                    )
-                    .to_string();
-                    let btn = ui.add_sized(
-                        [full_w, bar_h],
-                        egui::Button::new(
-                            egui::RichText::new(label)
-                                .size(text_size)
-                                .strong()
-                                .color(egui::Color32::from_rgb(220, 180, 100)),
-                        ),
-                    );
-                    if btn.clicked() {
-                        self.ht_error = None;
-                        self.ht_done_tag = None;
-                        let dir = std::path::PathBuf::from(&self.vpx_install_dir);
-                        self.ht_install_rx = Some(ht::spawn_install(dir));
-                    }
+            if let (Some(from), Some(to)) = (installed, latest)
+                && from != to
+            {
+                let label = t!(
+                    "ht_update_button_to",
+                    from = from.as_str(),
+                    to = to.as_str()
+                )
+                .to_string();
+                let btn = ui.add_sized(
+                    [full_w, bar_h],
+                    egui::Button::new(
+                        egui::RichText::new(label)
+                            .size(text_size)
+                            .strong()
+                            .color(egui::Color32::from_rgb(220, 180, 100)),
+                    ),
+                );
+                if btn.clicked() {
+                    self.ht_error = None;
+                    self.ht_done_tag = None;
+                    let dir = std::path::PathBuf::from(&self.vpx_install_dir);
+                    self.ht_install_rx = Some(ht::spawn_install(dir));
                 }
             }
         }
