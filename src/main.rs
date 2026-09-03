@@ -121,7 +121,9 @@ fn init_logging() {
 /// `println!` is visible. Must be called before the first write to stdout.
 #[cfg(all(target_os = "windows", not(debug_assertions)))]
 fn attach_windows_console() {
-    extern "system" {
+    // Rust 2024: an extern block is unsafe to declare, because nothing checks
+    // that these signatures match the ones kernel32 actually exports.
+    unsafe extern "system" {
         fn AttachConsole(dwProcessId: u32) -> i32;
         fn AllocConsole() -> i32;
     }

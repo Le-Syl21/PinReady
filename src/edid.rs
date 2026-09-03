@@ -343,13 +343,18 @@ mod platform {
     fn registry_panels() -> Vec<Panel> {
         let mut out = Vec::new();
         let mut iter = 0;
-        let root = CFString::from_static_str("IOService");
+        // `io_name_t` is a fixed 128-byte buffer, not a pointer to a string:
+        // the plane name is copied into it, so it has to be ours and mutable.
+        let mut plane = [0 as std::os::raw::c_char; 128];
+        for (slot, byte) in plane.iter_mut().zip(b"IOService") {
+            *slot = *byte as std::os::raw::c_char;
+        }
         // SAFETY: recursive iteration from the service plane root; the
         // iterator is released below on every path.
         let ok = unsafe {
             IORegistryEntryCreateIterator(
                 objc2_io_kit::IORegistryGetRootEntry(kIOMainPortDefault),
-                root.to_string().as_ptr().cast(),
+                &mut plane,
                 kIORegistryIterateRecursively,
                 &mut iter,
             )
