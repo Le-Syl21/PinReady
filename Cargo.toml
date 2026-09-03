@@ -131,6 +131,21 @@ winres = { version = "0.1", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["winver", "winnt"] }
+# Reading a monitor's EDID out of the registry: the only place Windows keeps
+# the panel's own account of itself. Already in the tree via accesskit.
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_System_Registry",
+] }
+
+# Reading a panel's EDID out of the IORegistry (`ioreg -l | grep IODisplayEDID`)
+# and matching it to a CoreGraphics display. macOS keeps no other route to the
+# physical size that is not the driver's own invention.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-io-kit = "0.3"
+objc2-core-foundation = { version = "0.3", features = ["CFDictionary", "CFData", "CFNumber", "CFString"] }
+objc2-core-graphics = { version = "0.3", features = ["CGDirectDisplay"] }
 
 # Enumerate the compositor's Wayland globals to detect wp_fifo_v1 support
 # (drives the native-Wayland vs XWayland decision for VPX). Already in the
