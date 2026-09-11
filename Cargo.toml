@@ -168,32 +168,31 @@ lto = false
 codegen-units = 16
 strip = true
 
-# Le-Syl21/egui fork, `pinready-0.36-slim` branch = egui 0.36.1 + two patches
-# not upstream-released yet:
+# Le-Syl21/egui fork, `pinready-0.36-slim` branch = egui 0.36.2 + three patches,
+# each pending upstream — drop a patch once its PR is merged *and* released:
+#
 #   - ViewportCommand::RequestActivationToken + Event::ActivationTokenReceived
-#     (Wayland xdg-activation / X11 startup-id token) — used to hand focus to the
-#     freshly-launched VPX window. Pending upstream as PR
-#     https://github.com/emilk/egui/pull/8282 — drop the patch when merged + released.
-#   - eframe glow: apply `ViewportBuilder::with_monitor` (borderless fullscreen on
-#     the target output). Upstream only does this in the wgpu path; the glow
-#     backend PinReady uses built windows straight from
-#     `create_winit_window_attributes`, so `with_monitor` was a no-op and every
-#     viewport opened on the default monitor un-fullscreen. Upstreamable.
+#     (Wayland xdg-activation / X11 startup-id token), used to hand focus to the
+#     freshly-launched VPX window. https://github.com/emilk/egui/pull/8282 —
+#     reworked upstream into `Frame::request_activation_token()` /
+#     `Frame::take_activation_token()`, so when it lands, `begin_table_launch`
+#     and the token wait in `App::ui` have to move to the `Frame` API.
+#   - eframe consumes the activation token from XDG_ACTIVATION_TOKEN /
+#     DESKTOP_STARTUP_ID at window creation, so a desktop entry with
+#     StartupNotify=true can hand the window its focus in the first place.
+#     https://github.com/emilk/egui/pull/8406 (approved).
+#   - the mouse half of the old kiosk routing, restored after it was dropped on
+#     the assumption that "the mouse follows the focused window". On a cabinet
+#     it follows nobody: Mutter hands the focus to a cover viewport as it maps
+#     and refuses to give it back, so the playfield sees no motion at all.
+#     `DeviceEvent::MouseMotion` is a device-level event with no surface
+#     attached, so it is routed to ROOT unconditionally — which is what makes
+#     the software cursor work without focus. Keyboard is covered by the
+#     `egui-keyfunnel` plugin (above); gamepad/joystick is read via SDL,
+#     independent of window focus. https://github.com/emilk/egui/pull/8405
 #
-# The branch also carries the mouse half of the old kiosk routing, restored
-# after it was dropped on the assumption that "the mouse follows the focused
-# window". On a cabinet it follows nobody: Mutter hands the focus to a cover
-# viewport as it maps and refuses to give it back, so the playfield sees no
-# motion at all. `DeviceEvent::MouseMotion` is a device-level event with no
-# surface attached, so it is routed to ROOT unconditionally — which is what
-# makes the software cursor work without focus. Keyboard is covered by the
-# `egui-keyfunnel` plugin (above); gamepad/joystick is read via SDL,
-# independent of window focus.
-#
-# Fourth patch: eframe consumes the activation token from
-# XDG_ACTIVATION_TOKEN / DESKTOP_STARTUP_ID at window creation, so a desktop
-# entry with StartupNotify=true can hand the window its focus in the first
-# place. Upstreamable.
+# `ViewportBuilder::with_monitor` on the glow backend used to be a fourth patch;
+# it shipped in egui 0.36.2 (https://github.com/emilk/egui/pull/8302).
 #
 # Rotation lives in `egui-rotate`, keyboard funneling in `egui-keyfunnel`.
 [patch.crates-io]
