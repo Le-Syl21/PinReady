@@ -1038,7 +1038,10 @@ too.</p>
 <div class="table"><table><thead><tr><th>Action</th><th>Keyboard</th><th>Cabinet buttons</th><th>Mouse</th></tr></thead><tbody>
 <tr><td>Previous / next table</td><td>Left / Right arrow, Left / Right Shift</td><td>Left / Right flipper</td><td>Hover</td></tr>
 <tr><td>Row above / below</td><td>Up / Down arrow, Left / Right Ctrl</td><td>Left / Right MagnaSave</td><td>Wheel (cabinet mode)</td></tr>
+<tr><td>Jump one screen of tables</td><td>Page Up / Page Down</td><td>–</td><td>Wheel flick</td></tr>
+<tr><td>First / last table</td><td>Home / End</td><td>–</td><td>–</td></tr>
 <tr><td>Start the table</td><td>Enter</td><td>Start or Launch Ball</td><td>Click</td></tr>
+<tr><td>Open the setup wizard</td><td>–</td><td>–</td><td>Configuration button</td></tr>
 <tr><td>Clear the search, then quit</td><td>Escape</td><td>Exit Game</td><td>–</td></tr>
 </tbody></table></div>
 
@@ -1107,7 +1110,10 @@ aussi dans le lanceur.</p>
 <div class="table"><table><thead><tr><th>Action</th><th>Clavier</th><th>Boutons du flipper</th><th>Souris</th></tr></thead><tbody>
 <tr><td>Table précédente / suivante</td><td>Flèche gauche / droite, Maj gauche / droite</td><td>Batteur gauche / droit</td><td>Survol</td></tr>
 <tr><td>Ligne au-dessus / en dessous</td><td>Flèche haut / bas, Ctrl gauche / droit</td><td>MagnaSave gauche / droit</td><td>Molette (mode Cabinet)</td></tr>
+<tr><td>Sauter d'un écran de tables</td><td>Page préc. / Page suiv.</td><td>–</td><td>Coup de molette</td></tr>
+<tr><td>Première / dernière table</td><td>Début / Fin</td><td>–</td><td>–</td></tr>
 <tr><td>Lancer la table</td><td>Entrée</td><td>Start ou Launch Ball</td><td>Clic</td></tr>
+<tr><td>Ouvrir l'assistant de configuration</td><td>–</td><td>–</td><td>Bouton Config</td></tr>
 <tr><td>Effacer la recherche, puis quitter</td><td>Échap</td><td>Exit Game</td><td>–</td></tr>
 </tbody></table></div>
 

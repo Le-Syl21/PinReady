@@ -29,7 +29,7 @@ Questions, bug reports, beta testing, or just want to chat? Join the Discord:
 - 📥 **Visual Pinball auto-install** -- Automatically download and install the correct Visual Pinball build for your platform (Linux/macOS/Windows, x64/aarch64/SBC)
 - 🖥️ **Screen assignment** -- Detect displays via SDL3, auto-assign roles (Playfield, Backglass, DMD, Topper) by size, configure multi-screen positioning and cabinet physical dimensions
 - 🎨 **Rendering** -- Anti-aliasing, FXAA, sharpening, reflections, texture limits, sync mode, max framerate
-- 🎮 **Input mapping** -- Capture keyboard and joystick bindings for all VPX actions, auto-detect pinball controllers (Pinscape KL25Z, Pinscape Pico, DudesCab), conflict warnings
+- 🎮 **Input mapping** -- Capture keyboard and joystick bindings for all VPX actions, auto-detect pinball controllers (Pinscape KL25Z, Pinscape Pico, DudesCab, CSD PinOne), conflict warnings
 - 📐 **Tilt & nudge** -- Configure accelerometer sensitivity with simplified or advanced controls
 - 🔊 **Audio routing** -- Assign playfield and backglass audio devices, configure SSF surround modes (6 modes), test speaker wiring with built-in audio sequences (music, ball sounds, knocker)
 - 📁 **Tables directory** -- Select the root folder containing your tables (folder-per-table layout)
@@ -38,7 +38,7 @@ Questions, bug reports, beta testing, or just want to chat? Join the Discord:
 **🚀 Table launcher (subsequent runs)**
 
 - 🗂️ **Table browser** -- Scan folder-per-table directories, display backglass thumbnails extracted from `.directb2s` files
-- 📺 **Multi-screen layout** -- Table selector on DMD, backglass preview on BG display
+- 📺 **Multi-screen layout** -- Table grid on the playfield, backglass preview on the BG display, VPX logo on the DMD and topper
 - ⚡ **VPX integration** -- Launch tables with loading progress overlay, parse VPX stdout for real-time status
 - 🔄 **Auto-update** -- Checks for new Visual Pinball releases on startup, one-click update from the launcher
 - 🕹️ **Input navigation** -- Browse and launch tables with joystick (flippers, start) or keyboard
@@ -61,8 +61,8 @@ Questions, bug reports, beta testing, or just want to chat? Join the Discord:
 
 - `pinready --print-paths` -- Resolved DB / log / ini / tables / VPX-binary paths.
 - `pinready --list-tables` -- One line per detected table folder (scriptable).
-- `pinready --merge-dry-run TABLES VPINMAME PUPVIDEOS MUSIC [--strategy copy|move|symlink]` -- Headless preview of what the legacy-folder import would do.
-- `pinready --merge ... [--yes]` -- Same but commit-mode.
+- `pinready --merge-dry-run SCAN_ROOT [OUTPUT] [--strategy copy|move|symlink]` -- Headless preview of what the legacy-folder import would do. `SCAN_ROOT` is indexed recursively (a whole disk is fine); omit `OUTPUT` when the collection is already folder-per-table.
+- `pinready --merge SCAN_ROOT [OUTPUT] [--strategy copy|move|symlink] [--yes]` -- Same but commit-mode. `--yes` skips the confirmation.
 - `pinready --reset-wizard` -- Re-arm the configuration wizard for the next launch.
 - `pinready --config` -- Force-launch the wizard.
 
@@ -133,14 +133,14 @@ RUST_LOG=info cargo run
 
 | Action | 🖱️ Mouse | ⌨️ Keyboard | 🕹️ Joystick |
 |---|---|---|---|
-| Previous/next table | Hover | Arrow Left/Right | Left/Right Flipper |
-| Previous/next row | -- | Arrow Up/Down | Left/Right MagnaSave |
+| Previous/next table | Hover | Arrow Left/Right, Left/Right Shift | Left/Right Flipper |
+| Previous/next row | -- | Arrow Up/Down, Left/Right Ctrl | Left/Right MagnaSave |
 | Jump by one viewport | Wheel flick | PageUp/PageDown | -- |
 | First/last table | -- | Home/End | -- |
 | Scroll view (no selection change) | Mouse wheel | -- | -- |
-| Launch table | Click | Enter | Start |
-| Open config | -- | -- | Launch Ball |
-| Quit launcher | -- | Escape | ExitGame |
+| Launch table | Click | Enter | Start / Launch Ball |
+| Open config | Configuration button | -- | -- |
+| Quit launcher | Quit button | Escape | ExitGame |
 
 **📺 Multi-screen launcher layout:**
 
@@ -148,8 +148,8 @@ RUST_LOG=info cargo run
 |---|---|---|---|---|
 | **1** | Table grid | -- | -- | -- |
 | **2** | Table grid (fullscreen) | Backglass preview of hovered table | -- | -- |
-| **3** | VPX logo cover | Backglass preview of hovered table | Table grid (fullscreen) | -- |
-| **4** | VPX logo cover | Backglass preview of hovered table | Table grid (fullscreen) | VPX logo cover |
+| **3** | Table grid (fullscreen) | Backglass preview of hovered table | VPX logo cover | -- |
+| **4** | Table grid (fullscreen) | Backglass preview of hovered table | VPX logo cover | VPX logo cover |
 
 When a table is launched, all cover viewports are hidden to let VPX take over the screens.
 
@@ -174,7 +174,7 @@ PinReady auto-detects pinball controllers and applies default button mappings. T
 | 9 | L MAGNA | LeftMagna |
 | 10 | R MAGNA | RightMagna |
 | 11 | FIRE | Lockbar |
-| 12 | TILT | Tilt |
+| 12 | TILT | *(not mapped by default)* |
 | 13 | DOOR | CoinDoor |
 | 14 | SERVICE EXIT | Service1 |
 | 15 | SERVICE - | Service2 |
@@ -203,7 +203,7 @@ PinReady auto-detects pinball controllers and applies default button mappings. T
 | 12 | Upper Right Flipper | RightStagedFlipper |
 | 13 | MagnaSave Left | LeftMagna |
 | 14 | MagnaSave Right | RightMagna |
-| 15 | Tilt Bob | Tilt |
+| 15 | Tilt Bob | *(not mapped by default)* |
 | 16 | Slam Tilt | SlamTilt |
 | 17 | Coin Door | CoinDoor |
 | 18–21 | Service 1–4 | Service1–4 |
@@ -231,7 +231,7 @@ PinReady auto-detects pinball controllers and applies default button mappings. T
 | 8 | Flipper Right | RightFlipper + RightStagedFlipper |
 | 9 | Magna Left | LeftMagna |
 | 10 | Magna Right | RightMagna |
-| 11 | Tilt | Tilt |
+| 11 | Tilt | *(not mapped by default)* |
 | 12 | Fire | Lockbar |
 | 13 | Door | CoinDoor |
 | 14–17 | ROM Exit/−/+/Enter | Service1–4 |
@@ -241,6 +241,33 @@ PinReady auto-detects pinball controllers and applies default button mappings. T
 | 24 | NightMode | *(DO NOT REMAP)* |
 | 25–30 | Spare 1–6 | *(User-defined)* |
 | 31 | Calib | *(DO NOT REMAP)* |
+
+</details>
+
+<details>
+<summary>CSD PinOne</summary>
+
+| Btn | VPX calibration label | VPX Action |
+|---|---|---|
+| 0 | Button 1 | RightFlipper |
+| 1 | Button 2 | RightMagna |
+| 2 | Button 3 | LeftFlipper |
+| 3 | Button 4 | LeftMagna |
+| 4 | Button 5 (EB BuyIn) | ExtraBall |
+| 5 | Button 6 | Start |
+| 6 | Button 7 | Credit1 |
+| 7 | Button 8 | ExitGame |
+| 8 | Button 9 (Menu / Fire) | Lockbar |
+| 15 | Button 16 | VolumeUp |
+| 16 | Button 17 | VolumeDown |
+| 17 | Button 18 | CoinDoor |
+| 18 | Button 19 (Cancel) | Service1 |
+| 19 | Button 20 (Down) | Service2 |
+| 20 | Button 21 (Up) | Service3 |
+| 21 | Button 22 (Enter) | Service4 |
+| 23 | Button 24 (Plunger digital) | LaunchBall |
+
+Axes: X = nudge left/right, Y = nudge forward/back (accelerometer), Z = plunger (position).
 
 </details>
 
@@ -324,7 +351,7 @@ Des questions, un bug à signaler, envie de tester les bêtas ou juste de discut
 - 📥 **Installation automatique de Visual Pinball** -- Télécharge et installe automatiquement le bon build Visual Pinball pour votre plateforme (Linux/macOS/Windows, x64/aarch64/SBC)
 - 🖥️ **Affectation des écrans** -- Détection des écrans via SDL3, affectation automatique des rôles (Playfield, Backglass, DMD, Topper) par taille, configuration du positionnement multi-écran et des dimensions physiques du cabinet
 - 🎨 **Rendu** -- Anti-aliasing, FXAA, netteté, reflets, limites de texture, mode sync, framerate max
-- 🎮 **Mapping des contrôles** -- Capture des touches clavier et boutons joystick pour toutes les actions VPX, détection automatique des contrôleurs pinball (Pinscape KL25Z, Pinscape Pico, DudesCab), avertissements de conflits
+- 🎮 **Mapping des contrôles** -- Capture des touches clavier et boutons joystick pour toutes les actions VPX, détection automatique des contrôleurs pinball (Pinscape KL25Z, Pinscape Pico, DudesCab, CSD PinOne), avertissements de conflits
 - 📐 **Tilt & nudge** -- Configuration de la sensibilité de l'accéléromètre en mode simplifié ou avancé
 - 🔊 **Routage audio** -- Affectation des périphériques audio playfield et backglass, configuration des modes surround SSF (6 modes), test du câblage des enceintes avec séquences audio intégrées (musique, bruits de bille, knocker)
 - 📁 **Répertoire des tables** -- Sélection du dossier racine contenant vos tables (format dossier-par-table)
@@ -333,7 +360,7 @@ Des questions, un bug à signaler, envie de tester les bêtas ou juste de discut
 **🚀 Lanceur de tables (lancements suivants)**
 
 - 🗂️ **Navigateur de tables** -- Scan des répertoires dossier-par-table, affichage des miniatures backglass extraites des fichiers `.directb2s`
-- 📺 **Affichage multi-écran** -- Sélecteur de table sur le DMD, aperçu du backglass sur l'écran BG
+- 📺 **Affichage multi-écran** -- Grille des tables sur le playfield, aperçu du backglass sur l'écran BG, logo VPX sur le DMD et le topper
 - ⚡ **Intégration VPX** -- Lancement des tables avec overlay de progression, lecture du stdout VPX pour le statut en temps réel
 - 🔄 **Mise à jour automatique** -- Vérifie les nouvelles releases Visual Pinball au démarrage, mise à jour en un clic depuis le lanceur
 - 🕹️ **Navigation aux contrôles** -- Parcourir et lancer les tables au joystick (flippers, start) ou au clavier
@@ -356,8 +383,8 @@ Des questions, un bug à signaler, envie de tester les bêtas ou juste de discut
 
 - `pinready --print-paths` -- Chemins résolus DB / log / ini / tables / binaire VPX.
 - `pinready --list-tables` -- Une ligne par dossier de table détecté (scriptable).
-- `pinready --merge-dry-run TABLES VPINMAME PUPVIDEOS MUSIC [--strategy copy|move|symlink]` -- Aperçu headless de l'import legacy.
-- `pinready --merge ... [--yes]` -- Même chose en mode commit.
+- `pinready --merge-dry-run SCAN_ROOT [OUTPUT] [--strategy copy|move|symlink]` -- Aperçu headless de l'import legacy. `SCAN_ROOT` est indexé récursivement (un disque entier convient) ; omettez `OUTPUT` si la collection est déjà en dossier-par-table.
+- `pinready --merge SCAN_ROOT [OUTPUT] [--strategy copy|move|symlink] [--yes]` -- Même chose en mode commit. `--yes` saute la confirmation.
 - `pinready --reset-wizard` -- Réamorce le wizard pour le prochain lancement.
 - `pinready --config` -- Force le lancement du wizard.
 
@@ -428,14 +455,14 @@ RUST_LOG=info cargo run
 
 | Action | 🖱️ Souris | ⌨️ Clavier | 🕹️ Joystick |
 |---|---|---|---|
-| Table précédente/suivante | Survol | Flèche Gauche/Droite | Flipper Gauche/Droit |
-| Ligne précédente/suivante | -- | Flèche Haut/Bas | MagnaSave Gauche/Droit |
+| Table précédente/suivante | Survol | Flèche Gauche/Droite, Maj Gauche/Droite | Flipper Gauche/Droit |
+| Ligne précédente/suivante | -- | Flèche Haut/Bas, Ctrl Gauche/Droit | MagnaSave Gauche/Droit |
 | Saut d'un viewport | Flick molette | PageUp/PageDown | -- |
 | Première/dernière table | -- | Home/End | -- |
 | Scroll visuel (sans changer la sélection) | Molette | -- | -- |
-| Lancer une table | Clic | Entrée | Start |
-| Ouvrir la config | -- | -- | Launch Ball |
-| Quitter le lanceur | -- | Échap | ExitGame |
+| Lancer une table | Clic | Entrée | Start / Launch Ball |
+| Ouvrir la config | Bouton Config | -- | -- |
+| Quitter le lanceur | Bouton Quitter | Échap | ExitGame |
 
 **📺 Disposition multi-écran du lanceur :**
 
@@ -443,8 +470,8 @@ RUST_LOG=info cargo run
 |---|---|---|---|---|
 | **1** | Grille tables | -- | -- | -- |
 | **2** | Grille tables (plein écran) | Aperçu backglass de la table survolée | -- | -- |
-| **3** | Logo VPX (cover) | Aperçu backglass de la table survolée | Grille tables (plein écran) | -- |
-| **4** | Logo VPX (cover) | Aperçu backglass de la table survolée | Grille tables (plein écran) | Logo VPX (cover) |
+| **3** | Grille tables (plein écran) | Aperçu backglass de la table survolée | Logo VPX (cover) | -- |
+| **4** | Grille tables (plein écran) | Aperçu backglass de la table survolée | Logo VPX (cover) | Logo VPX (cover) |
 
 Au lancement d'une table, tous les viewports de couverture sont masqués pour laisser VPX prendre le contrôle des écrans.
 
@@ -469,7 +496,7 @@ PinReady détecte automatiquement les contrôleurs pinball et applique le mappin
 | 9 | L MAGNA | LeftMagna |
 | 10 | R MAGNA | RightMagna |
 | 11 | FIRE | Lockbar |
-| 12 | TILT | Tilt |
+| 12 | TILT | *(non mappé par défaut)* |
 | 13 | DOOR | CoinDoor |
 | 14 | SERVICE EXIT | Service1 |
 | 15 | SERVICE - | Service2 |
@@ -498,7 +525,7 @@ PinReady détecte automatiquement les contrôleurs pinball et applique le mappin
 | 12 | Upper Flipper Droit | RightStagedFlipper |
 | 13 | MagnaSave Gauche | LeftMagna |
 | 14 | MagnaSave Droit | RightMagna |
-| 15 | Tilt Bob | Tilt |
+| 15 | Tilt Bob | *(non mappé par défaut)* |
 | 16 | Slam Tilt | SlamTilt |
 | 17 | Porte monnayeur | CoinDoor |
 | 18–21 | Service 1–4 | Service1–4 |
@@ -526,7 +553,7 @@ PinReady détecte automatiquement les contrôleurs pinball et applique le mappin
 | 8 | Flipper Right | RightFlipper + RightStagedFlipper |
 | 9 | Magna Left | LeftMagna |
 | 10 | Magna Right | RightMagna |
-| 11 | Tilt | Tilt |
+| 11 | Tilt | *(non mappé par défaut)* |
 | 12 | Fire | Lockbar |
 | 13 | Door | CoinDoor |
 | 14–17 | ROM Exit/−/+/Enter | Service1–4 |
@@ -536,6 +563,33 @@ PinReady détecte automatiquement les contrôleurs pinball et applique le mappin
 | 24 | NightMode | *(NE PAS REMAPPER)* |
 | 25–30 | Spare 1–6 | *(Libre)* |
 | 31 | Calib | *(NE PAS REMAPPER)* |
+
+</details>
+
+<details>
+<summary>CSD PinOne</summary>
+
+| Btn | Libellé calibration VPX | Action VPX |
+|---|---|---|
+| 0 | Bouton 1 | RightFlipper |
+| 1 | Bouton 2 | RightMagna |
+| 2 | Bouton 3 | LeftFlipper |
+| 3 | Bouton 4 | LeftMagna |
+| 4 | Bouton 5 (EB BuyIn) | ExtraBall |
+| 5 | Bouton 6 | Start |
+| 6 | Bouton 7 | Credit1 |
+| 7 | Bouton 8 | ExitGame |
+| 8 | Bouton 9 (Menu / Fire) | Lockbar |
+| 15 | Bouton 16 | VolumeUp |
+| 16 | Bouton 17 | VolumeDown |
+| 17 | Bouton 18 | CoinDoor |
+| 18 | Bouton 19 (Annuler) | Service1 |
+| 19 | Bouton 20 (Bas) | Service2 |
+| 20 | Bouton 21 (Haut) | Service3 |
+| 21 | Bouton 22 (Entrée) | Service4 |
+| 23 | Bouton 24 (plunger numérique) | LaunchBall |
+
+Axes : X = nudge gauche/droite, Y = nudge avant/arrière (accéléromètre), Z = plunger (position).
 
 </details>
 
