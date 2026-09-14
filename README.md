@@ -10,6 +10,8 @@ Cross-platform configurator and launcher for [Visual Pinball](https://github.com
 
 PinReady replaces the non-existent native configuration tools for VPX standalone builds (SDL3/bgfx). It guides you through setting up a virtual pinball cabinet from scratch: screens, inputs, tilt, audio, then lets you browse and launch tables from a single interface. 🕹️
 
+🌐 **Website:** [le-syl21.github.io/PinReady](https://le-syl21.github.io/PinReady/) -- download, setup guide and FAQ
+
 > ⚠️ **Scope — please read before installing**
 >
 > PinReady is designed to **support the development and adoption of VPX 10.8.1**, not to replace a stable production VPX setup. The target audience is testers and early adopters of the new 10.8.1 architecture (integrated plugins, folder-per-table layout, SDL3/bgfx backend). If you run a stable VPX 10.7.x production cabinet, PinReady is probably not for you yet.
@@ -302,6 +304,8 @@ Useful when you have dozens of tables eating disk space.
 Configurateur et lanceur multiplateforme pour [Visual Pinball](https://github.com/vpinball/vpinball) standalone (10.8.1).
 
 PinReady remplace les outils de configuration natifs inexistants pour les builds VPX standalone (SDL3/bgfx). Il vous guide dans la mise en place d'un flipper virtuel depuis zéro : écrans, contrôles, tilt, audio, puis permet de parcourir et lancer vos tables depuis une interface unique. 🕹️
+
+🌐 **Site web :** [le-syl21.github.io/PinReady](https://le-syl21.github.io/PinReady/fr/) -- téléchargement, guide de configuration et FAQ
 
 > ⚠️ **Périmètre — à lire avant d'installer**
 >

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PinReady – configurer et lancer Visual Pinball X 10.8.1 standalone sous Linux, macOS, Windows</title>
+<meta name="description" content="Assistant de configuration et lanceur de tables libre et gratuit pour Visual Pinball X 10.8.1 standalone : écrans du flipper virtuel, commandes, tilt et secousses, son, tables. Linux, macOS, Windows.">
+<link rel="canonical" href="https://le-syl21.github.io/PinReady/fr/">
+<link rel="alternate" hreflang="en" href="https://le-syl21.github.io/PinReady/">
+<link rel="alternate" hreflang="fr" href="https://le-syl21.github.io/PinReady/fr/">
+<link rel="alternate" hreflang="x-default" href="https://le-syl21.github.io/PinReady/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="PinReady">
+<meta property="og:title" content="PinReady – configurer et lancer Visual Pinball X 10.8.1 standalone sous Linux, macOS, Windows">
+<meta property="og:description" content="Assistant de configuration et lanceur de tables libre et gratuit pour Visual Pinball X 10.8.1 standalone : écrans du flipper virtuel, commandes, tilt et secousses, son, tables. Linux, macOS, Windows.">
+<meta property="og:url" content="https://le-syl21.github.io/PinReady/fr/">
+<meta property="og:image" content="https://le-syl21.github.io/PinReady/img/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:locale:alternate" content="en_GB">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="PinReady – configurer et lancer Visual Pinball X 10.8.1 standalone sous Linux, macOS, Windows">
+<meta name="twitter:description" content="Assistant de configuration et lanceur de tables libre et gratuit pour Visual Pinball X 10.8.1 standalone : écrans du flipper virtuel, commandes, tilt et secousses, son, tables. Linux, macOS, Windows.">
+<meta name="twitter:image" content="https://le-syl21.github.io/PinReady/img/og.jpg">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" type="image/svg+xml" href="../img/favicon.svg">
+<link rel="stylesheet" href="../style.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "SoftwareApplication", "@id": "https://le-syl21.github.io/PinReady/#app", "name": "PinReady", "description": "Configurateur et lanceur multiplateforme pour Visual Pinball X 10.8.1 standalone.", "applicationCategory": "GameApplication", "operatingSystem": "Linux, macOS, Windows", "url": "https://le-syl21.github.io/PinReady/", "downloadUrl": "https://github.com/Le-Syl21/PinReady/releases/latest", "license": "https://www.gnu.org/licenses/gpl-3.0.html", "codeRepository": "https://github.com/Le-Syl21/PinReady", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"}, "softwareVersion": "0.21.0"}, {"@type": "WebPage", "name": "PinReady – configurer et lancer Visual Pinball X 10.8.1 standalone sous Linux, macOS, Windows", "description": "Assistant de configuration et lanceur de tables libre et gratuit pour Visual Pinball X 10.8.1 standalone : écrans du flipper virtuel, commandes, tilt et secousses, son, tables. Linux, macOS, Windows.", "url": "https://le-syl21.github.io/PinReady/fr/", "inLanguage": "fr", "about": {"@id": "https://le-syl21.github.io/PinReady/#app"}}]}</script>
+</head>
+<body>
+<header class="site"><div class="wrap">
+<a class="brand" href="./"><img src="../img/favicon.svg" alt="" width="24" height="24"><span>Pin<b>Ready</b></span></a>
+<nav class="main"><a href="./" aria-current="page">Accueil</a><a href="download.html">Télécharger</a><a href="wizard.html">Assistant</a><a href="launcher.html">Lanceur</a><a href="faq.html">FAQ</a></nav>
+<a class="lang" href="../" hreflang="en" lang="en"><img src="../img/gb.svg" alt="" width="21" height="14">English version</a>
+</div></header>
+<main><div class="wrap">
+<section class="hero">
+<p class="eyebrow">Visual Pinball X 10.8.1 standalone</p>
+<h1>Configurez votre flipper virtuel, puis jouez</h1>
+<p class="lead">PinReady est un assistant de configuration et un lanceur de tables libre et gratuit pour Visual
+Pinball X (VPX) 10.8.1 standalone. Il règle les écrans, les commandes, le tilt et les secousses, et le son avec des
+mots simples, puis vous permet de parcourir et de lancer vos tables depuis un seul menu. D'un ordinateur à un seul
+écran jusqu'au pincab complet (un meuble de flipper à plusieurs écrans), sous Linux, macOS et Windows.</p>
+<p class="actions"><a class="btn big" href="download.html">Télécharger PinReady</a>
+<a class="btn big ghost" href="https://www.youtube.com/playlist?list=PLZ838nY4NE902Am7NIOGYbEJaak5pEP71">Voir la démo vidéo</a></p>
+</section>
+
+<div class="note"><strong>Périmètre, à lire avant d'installer.</strong> PinReady est conçu pour accompagner le
+développement et l'adoption de VPX 10.8.1, pas pour remplacer une installation stable en production. Il s'adresse aux
+testeurs et aux premiers utilisateurs de la nouvelle architecture 10.8.1 : plugins intégrés, un dossier par table,
+moteur SDL3/bgfx. Si votre flipper tourne sur une installation VPX 10.7.x stable, PinReady n'est probablement pas
+encore pour vous.</div>
+
+<h2>Pourquoi PinReady</h2>
+<p>Les versions standalone de Visual Pinball X n'ont pas d'outil de configuration : écrans, boutons et enceintes
+sont des lignes dans un fichier texte, <code>VPinballX.ini</code>. PinReady pose les questions à votre place, détecte
+votre matériel et écrit ce fichier pour vous, en conservant les commentaires qu'il contient. Une fois l'assistant
+terminé, PinReady s'ouvre directement sur votre collection de tables.</p>
+
+<div class="cards">
+<div class="card"><h3>Assistant de configuration</h3><p>Huit pages : écrans, rendu, commandes, accessoires, tilt et
+secousses, son, tables, système. Chaque option est accompagnée d'une courte explication.</p><a class="more" href="wizard.html">L'assistant →</a></div>
+<div class="card"><h3>Lanceur de tables</h3><p>Une grille de vos tables avec leur fronton, la recherche, la navigation
+au joystick et le lancement en un clic avec barre de progression.</p><a class="more" href="launcher.html">Le lanceur →</a></div>
+<div class="card"><h3>Téléchargement</h3><p>Un seul fichier programme pour Linux, macOS ou Windows. Rien à installer,
+aucune dépendance.</p><a class="more" href="download.html">Télécharger et démarrer →</a></div>
+<div class="card"><h3>Questions</h3><p>Anciennes tables, réglages par table, DOF, tilt, enceintes, Wayland et
+X11.</p><a class="more" href="faq.html">FAQ →</a></div>
+</div>
+
+<h2>Ce dont PinReady s'occupe</h2>
+<ul class="features">
+<li><strong>Visual Pinball lui-même</strong> : télécharge et installe une version de VPX adaptée à votre système, ou
+utilise celle que vous avez déjà, et propose les mises à jour quand une nouvelle version sort.</li>
+<li><strong>Écrans</strong> : détecte chaque écran, propose lequel sert de plateau de jeu (playfield), de fronton
+(backglass, l'écran vertical du fond), d'afficheur de score (DMD) et de topper, et place les fenêtres du jeu.</li>
+<li><strong>Commandes</strong> : clavier et joystick pour chaque action de VPX, avec des dispositions toutes prêtes
+pour les cartes Pinscape KL25Z, Pinscape Pico, DudesCab et PinOne, et un avertissement quand deux actions partagent
+une touche.</li>
+<li><strong>Tilt et secousses</strong> : sensibilité de l'accéléromètre, avec une vue en direct pendant que vous
+secouez le meuble.</li>
+<li><strong>Son</strong> : une carte son pour la musique et les voix, une pour les bruits mécaniques du plateau, six
+dispositions d'enceintes dont le SSF (retour sonore surround), et des sons de test pour vérifier le câblage.</li>
+<li><strong>Tables</strong> : votre dossier de tables, un import facultatif qui donne à chaque table son propre
+dossier, des patches de script facultatifs pour les anciennes tables, et des images de fronton téléchargées pour le
+lanceur.</li>
+<li><strong>Accessoires</strong> : un guide pas à pas pour DOF (Direct Output Framework : jouets, lumières,
+solénoïdes) et l'installation du head tracking en un clic.</li>
+<li><strong>Système</strong> : lancement au démarrage, raccourcis dans le menu, et ouverture des fichiers
+<code>.vpx</code> avec Visual Pinball.</li>
+</ul>
+
+<h2>Fonctionne sous</h2>
+<ul>
+<li><strong>Linux</strong> (x86_64 et ARM 64 bits), <strong>macOS</strong> (Apple silicon et Intel, macOS 11 ou
+plus récent) et <strong>Windows</strong> (64 bits).</li>
+<li>Aucune dépendance système : SDL3 et SQLite sont intégrés au programme.</li>
+<li>Interface disponible en 26 langues, dont le français et l'anglais.</li>
+</ul>
+
+<h2>Un logiciel libre, développé ouvertement</h2>
+<p>PinReady est écrit en Rust avec egui et SDL3, et publié sous licence GNU GPL v3 ou ultérieure. Le code source, les
+versions publiées et les tickets sont sur <a href="https://github.com/Le-Syl21/PinReady">GitHub</a>. Questions, bugs, tests des bêtas ou simple
+discussion : rejoignez le <a href="https://discord.gg/T37DYHmt2j">Discord</a>.</p>
+</div></main>
+<footer class="site"><div class="wrap">
+<a href="https://github.com/Le-Syl21/PinReady">Code source et tickets sur GitHub</a>
+<a href="https://discord.gg/T37DYHmt2j">Discord</a>
+<a href="https://www.youtube.com/playlist?list=PLZ838nY4NE902Am7NIOGYbEJaak5pEP71">Démo vidéo</a>
+<span>PinReady est un logiciel libre sous licence GNU GPL v3 ou ultérieure. Visual Pinball est un projet distinct, développé par ses propres auteurs.</span>
+</div></footer>
+</body>
+</html>
