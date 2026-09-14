@@ -14,6 +14,8 @@ from pathlib import Path
 DOCS = Path(__file__).resolve().parent
 ROOT = DOCS.parent
 SITE = "https://le-syl21.github.io/PinReady/"
+# Google Search Console ownership check (the token belongs to the owner's Google account).
+GOOGLE_VERIFICATION = "TqbXre6qrm9jaoj6tFwRRiI2vuQilAZLm6kUJA-etmo"
 REPO = "https://github.com/Le-Syl21/PinReady"
 RELEASES = REPO + "/releases/latest"
 DL = REPO + "/releases/latest/download/"
@@ -1213,6 +1215,8 @@ def render(page, lang):
         f'<a href="{href(n, lang, lang)}"{" aria-current=\"page\"" if n == page else ""}>{u["nav"][n]}</a>'
         for n in PAGES)
     ld = json.dumps(structured_data(page, lang, title, description), ensure_ascii=False).replace("</", "<\\/")
+    verification = ('<meta name="google-site-verification" content="' + GOOGLE_VERIFICATION + '">\n'
+                    if page == "index" else "")
     return f"""<!doctype html>
 <html lang="{lang}">
 <head>
@@ -1220,7 +1224,7 @@ def render(page, lang):
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(title)}</title>
 <meta name="description" content="{html.escape(description)}">
-<link rel="canonical" href="{url(page, lang)}">
+{verification}<link rel="canonical" href="{url(page, lang)}">
 <link rel="alternate" hreflang="en" href="{url(page, 'en')}">
 <link rel="alternate" hreflang="fr" href="{url(page, 'fr')}">
 <link rel="alternate" hreflang="x-default" href="{url(page, 'en')}">
