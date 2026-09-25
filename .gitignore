@@ -42,4 +42,6 @@ PinReady.log.*
 .DS_Store
 
 pinready-cab-x86_64
-target-bookworm/
+# Build directories of the release containers (bookworm, cab, u2404…): any
+# target-*/ is build output and must never be committed.
+target-*/
