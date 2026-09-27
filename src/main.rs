@@ -39,6 +39,8 @@ mod updater;
 mod vbs_patches;
 mod vpsdb;
 mod wayland_caps;
+#[cfg(target_os = "linux")]
+mod x11_display;
 
 use anyhow::Result;
 use std::io::Write;
@@ -155,6 +157,23 @@ fn main() -> Result<()> {
         // point in main().
         unsafe {
             std::env::set_var("SDL_VIDEODRIVER", "wayland");
+        }
+    }
+
+    // No DPI set, no zoom. A desktop session publishes `Xft.dpi`; a bare X
+    // server started from a script does not, and winit then works the scale
+    // out from the millimetres the panel claims — a cabinet TV gets a launcher
+    // zoomed past its screen while VPX (SDL: no Xft.dpi means 1.0) looks
+    // right. Do what SDL does. An explicit user value is left alone.
+    #[cfg(target_os = "linux")]
+    let forced_x11_scale = x11_display::is_plain_x11()
+        && std::env::var_os("WINIT_X11_SCALE_FACTOR").is_none()
+        && x11_display::has_xft_dpi() == Some(false);
+    #[cfg(target_os = "linux")]
+    if forced_x11_scale {
+        // SAFETY: still single-threaded, as for SDL_VIDEODRIVER above.
+        unsafe {
+            std::env::set_var("WINIT_X11_SCALE_FACTOR", "1");
         }
     }
 
@@ -290,6 +309,10 @@ fn main() -> Result<()> {
     // so rotating the log is safe and desired.
     init_logging();
     log::info!("PinReady v{VERSION} starting...");
+    #[cfg(target_os = "linux")]
+    if forced_x11_scale {
+        log::info!("No Xft.dpi on this X server: UI scale set to 100% (WINIT_X11_SCALE_FACTOR=1)");
+    }
     // Whether our launcher handed us an activation token decides whether the
     // window can take focus at all under a compositor with focus-stealing
     // prevention — and an unfocused window gets no pointer constraint, so the
@@ -961,7 +984,7 @@ fn build_viewport(
             .find(|d| d.is_primary)
             .or_else(|| displays.first())
             .map(|d| {
-                let side = 0.80 * (d.width.min(d.height)) as f32;
+                let side = 0.80 * (d.width.min(d.height)) as f32 / d.content_scale;
                 [side, side]
             })
             .unwrap_or([864.0, 864.0])
@@ -971,9 +994,15 @@ fn build_viewport(
         } else {
             primary_idx
         };
+        // egui sizes windows in logical points, SDL reports pixels.
         displays
             .get(target_idx)
-            .map(|d| [d.width as f32, d.height as f32])
+            .map(|d| {
+                [
+                    d.width as f32 / d.content_scale,
+                    d.height as f32 / d.content_scale,
+                ]
+            })
             .unwrap_or([1920.0, 1080.0])
     };
 
@@ -1002,8 +1031,11 @@ fn build_viewport(
         if cabinet_mode {
             rotation = stored_rotation.unwrap_or(egui_rotate::Rotation::CW90);
             if let Some(idx) = playfield_idx {
-                log::info!("Cabinet mode: rotating launcher {rotation:?} on monitor index {idx}");
-                viewport = viewport.with_monitor(idx);
+                let monitor = displays[idx].monitor_index;
+                log::info!(
+                    "Cabinet mode: rotating launcher {rotation:?} on monitor index {monitor}"
+                );
+                viewport = viewport.with_monitor(monitor);
                 want_kiosk_cursor = true;
             } else {
                 log::warn!(
@@ -1011,10 +1043,11 @@ fn build_viewport(
                 );
             }
         } else {
-            log::info!(
-                "Launcher desktop mode: borderless fullscreen on monitor index {primary_idx}"
-            );
-            viewport = viewport.with_monitor(primary_idx);
+            let monitor = displays
+                .get(primary_idx)
+                .map_or(primary_idx, |d| d.monitor_index);
+            log::info!("Launcher desktop mode: borderless fullscreen on monitor index {monitor}");
+            viewport = viewport.with_monitor(monitor);
         }
     }
     (viewport, want_kiosk_cursor, rotation)

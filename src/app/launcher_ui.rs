@@ -765,7 +765,8 @@ impl App {
         if let Some(bg_idx) = self
             .displays
             .iter()
-            .position(|d| d.role == DisplayRole::Backglass)
+            .find(|d| d.role == DisplayRole::Backglass)
+            .map(|d| d.monitor_index)
             && !self.tables.is_empty()
         {
             let selected = self.selected_table.min(self.tables.len() - 1);
@@ -819,7 +820,8 @@ impl App {
         if let Some(dmd_idx) = self
             .displays
             .iter()
-            .position(|d| d.role == DisplayRole::Dmd)
+            .find(|d| d.role == DisplayRole::Dmd)
+            .map(|d| d.monitor_index)
         {
             Self::show_logo_viewport(ui, DMD_VIEWPORT, "PinReady — DMD", dmd_idx);
         }
@@ -828,7 +830,8 @@ impl App {
         if let Some(tp_idx) = self
             .displays
             .iter()
-            .position(|d| d.role == DisplayRole::Topper)
+            .find(|d| d.role == DisplayRole::Topper)
+            .map(|d| d.monitor_index)
         {
             Self::show_logo_viewport(ui, TOPPER_VIEWPORT, "PinReady — Topper", tp_idx);
         }

@@ -3316,7 +3316,7 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
 name = "pinready"
-version = "0.21.0"
+version = "0.21.1"
 dependencies = [
  "anyhow",
  "base64 0.23.1",
@@ -3362,6 +3362,7 @@ dependencies = [
  "winapi",
  "windows",
  "winres",
+ "x11rb",
  "zip",
 ]
 

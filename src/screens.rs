@@ -61,6 +61,13 @@ pub struct DisplayInfo {
     pub detected_width_mm: i32,
     pub detected_height_mm: i32,
     pub role: DisplayRole,
+    /// This screen's index in winit's `available_monitors()`, which is what
+    /// `ViewportBuilder::with_monitor` takes. Equal to its index here unless
+    /// the two libraries list screens in a different order (plain X11).
+    pub monitor_index: usize,
+    /// SDL's content scale for this screen: what a size in pixels has to be
+    /// divided by to become the logical points egui sizes windows in.
+    pub content_scale: f32,
 }
 
 /// Parse inches from SDL3 display name (e.g. "PL4380UH 42\"" -> 42)
@@ -162,6 +169,10 @@ pub fn enumerate_displays() -> Vec<DisplayInfo> {
             };
 
             let total_pixels = bounds.w as u64 * bounds.h as u64;
+            let content_scale = match SDL_GetDisplayContentScale(id) {
+                s if s > 0.0 => s,
+                _ => 1.0,
+            };
 
             // Physical size is filled in below, once every display is known:
             // the EDID has to be matched against the whole set, not one at a
@@ -184,10 +195,21 @@ pub fn enumerate_displays() -> Vec<DisplayInfo> {
                 detected_width_mm: 0,
                 detected_height_mm: 0,
                 role: DisplayRole::Unused,
+                monitor_index: displays.len(),
+                content_scale,
             });
         }
 
         SDL_free(display_ids as *mut _);
+
+        #[cfg(target_os = "linux")]
+        {
+            let driver_ptr = SDL_GetCurrentVideoDriver();
+            let is_x11 = !driver_ptr.is_null() && CStr::from_ptr(driver_ptr).to_bytes() == b"x11";
+            if is_x11 && crate::x11_display::is_plain_x11() {
+                match_winit_order(&mut displays);
+            }
+        }
         // No SDL_QuitSubSystem here — the VIDEO subsystem stays init
         // until the next SDL_Quit() (fired by `shutdown_sdl_threads`
         // before each VPX spawn).
@@ -225,13 +247,15 @@ pub fn enumerate_displays() -> Vec<DisplayInfo> {
 
     for d in &displays {
         log::info!(
-            "Display: {} | {}x{} @ ({},{}) | {:?}",
+            "Display: {} | {}x{} @ ({},{}) | {:?} | winit #{} | scale {}",
             d.name,
             d.width,
             d.height,
             d.x,
             d.y,
-            d.role
+            d.role,
+            d.monitor_index,
+            d.content_scale
         );
     }
 
@@ -259,6 +283,32 @@ pub(crate) fn auto_assign_roles(displays: &mut [DisplayInfo]) {
     }
 }
 
+/// Give each display the index winit will know it by. SDL lists the primary
+/// output first, winit lists RandR CRTCs in order: on a bare X server the two
+/// disagree, and `with_monitor` then opens the launcher on the wrong screen.
+#[cfg(target_os = "linux")]
+fn match_winit_order(displays: &mut [DisplayInfo]) {
+    let Some(winit) = crate::x11_display::winit_monitor_rects() else {
+        log::warn!("RandR unavailable: assuming winit lists screens in SDL's order");
+        return;
+    };
+    let rects: Vec<_> = displays
+        .iter()
+        .map(|d| (d.x, d.y, d.width, d.height))
+        .collect();
+    let indices = crate::x11_display::monitor_indices(&rects, &winit);
+    for (d, idx) in displays.iter_mut().zip(indices) {
+        if d.monitor_index != idx {
+            log::info!(
+                "Display {} is winit monitor {idx} (SDL lists it at {})",
+                d.name,
+                d.monitor_index
+            );
+        }
+        d.monitor_index = idx;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -279,6 +329,8 @@ mod tests {
             detected_width_mm: 0,
             detected_height_mm: 0,
             role: DisplayRole::Unused,
+            monitor_index: 0,
+            content_scale: 1.0,
         }
     }
 

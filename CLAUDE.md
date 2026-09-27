@@ -23,6 +23,7 @@ It replaces the non-existent native configuration tools for VPX standalone (SDL3
 | UI | `eframe 0.35` + `egui 0.35` (Le-Syl21 fork) | Immediate mode GUI |
 | Rotation | `egui-rotate 2.0` (feature: `software-cursor`) | Cabinet viewport rotation + software cursor (as an egui Plugin) |
 | Wayland caps | `wayland-client 0.31` (Linux) | Detect `wp_fifo_v1` to pick VPX's SDL driver |
+| X11 view | `x11rb 0.13` (Linux, already in tree via winit) | On a plain X server: `Xft.dpi` presence + winit's monitor order (`x11_display.rs`) |
 | Images | `egui_extras 0.35` (feature: `image`) | Thumbnail display |
 | Display/Input | `sdl3-sys 0.6` (feature: `build-from-source-static`) | Screen enumeration + input capture |
 | Config | `serde 1` + `ini-preserve` | Read/write VPinballX.ini (preserves comments) |
@@ -612,10 +613,22 @@ desktop), so secondary displays are set to windowed (`FullScreen = 0`); under
 Wayland/XWayland they stay borderless fullscreen (`1`). The playfield (primary)
 maps fine at borderless fullscreen everywhere.
 
-`with_monitor(idx)` (used for PinReady's *own* PF window + cover viewports) still
-relies on `self.displays` matching winit's `available_monitors()` order — fine
-on the Wayland session PinReady's UI runs under. VPX window placement no longer
-depends on that index; it goes through the name bridge above.
+`with_monitor(idx)` (used for PinReady's *own* PF window + cover viewports) takes
+winit's `available_monitors()` index, so every call passes
+`DisplayInfo::monitor_index`, never the position in `self.displays`. The two
+agree on Wayland. On a **plain X server** (no Wayland socket) they do not: SDL
+lists the primary output first, winit lists RandR CRTCs in order and ignores the
+primary — a bare `X :3` + window manager put the launcher on the backglass.
+`screens::match_winit_order` asks RandR for the CRTC list the way winit does
+(`x11_display.rs`) and matches screens by position and size. VPX window
+placement does not depend on that index; it goes through the name bridge above.
+
+**UI scale on a plain X server.** Without `Xft.dpi` in the resource database,
+winit computes the scale from the millimetres each panel claims (often a large
+factor on a TV), while SDL — and so VPX — stays at 1.0. `main()` sets
+`WINIT_X11_SCALE_FACTOR=1` in that case, before any thread starts, unless the
+user already set it. Window sizes built from SDL pixels are divided by
+`DisplayInfo::content_scale` so egui gets logical points.
 
 ### VPX launch lifecycle
 
@@ -665,7 +678,7 @@ Use `crossbeam_channel::unbounded()` for communication.
 
 ## Key conventions
 
-- **Cross-platform only** — no Win32, no xrandr, no platform-specific APIs. SDL3 for everything.
+- **Cross-platform only** — no Win32, no xrandr, no platform-specific APIs. SDL3 for everything. Exceptions are narrow and documented: EDID reads (`/sys/class/drm`, HMONITOR, IOKit), the Wayland registry probe, and `x11_display.rs` (RandR + resource manager through x11rb, never an external tool).
 - **No system dependencies at runtime** — use bundled features for SDL3 and SQLite. Zero external tools in PATH (ever).
 - **Subprocess for VPX only** — use `std::process::Command` to launch tables, no FFI linking
 - **Unsafe SDL3 calls** — wrap in safe Rust functions in `screens.rs` and `inputs.rs`, never expose raw pointers to other modules
@@ -673,7 +686,7 @@ Use `crossbeam_channel::unbounded()` for communication.
 - **Config writes preserve comments** — via `ini-preserve` crate, read full ini → modify → write back
 - **SQLite catalog** — initialize schema on first run, upsert on rescan
 - **First run detection** — `wizard_completed` flag in SQLite DB (not ini existence, not filesystem heuristics). `--config` CLI flag forces wizard re-entry
-- **Display enumeration order must match winit** — `screens.rs` does not reorder `self.displays` after enumeration; roles are assigned via parallel index sort. `ViewportBuilder::with_monitor(idx)` depends on this invariant
+- **`with_monitor` takes `DisplayInfo::monitor_index`** — never an index into `self.displays`. SDL and winit order screens differently on plain X11; `screens::match_winit_order` fills the field. `screens.rs` still does not reorder `self.displays` (roles are assigned via parallel index sort)
 - **Translation keys** — most `t!()` calls use string literals (static grep catches those). `input_*` action labels are looked up dynamically via `t!(action.label)` where `label` is a string field in `inputs.rs`. When auditing "dead" keys, a grep-only audit will miss these — verify via runtime usage before deleting
 - **Before every `git push`** — run `cargo fmt` and `cargo clippy --all-targets -- -D warnings`. Both must be clean. The CI enforces `cargo fmt --check` on Linux x86_64 and fails the whole release pipeline otherwise. Pushing unformatted or clippy-dirty code breaks the release build
 

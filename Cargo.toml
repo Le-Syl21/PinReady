@@ -1,6 +1,6 @@
 [package]
 name = "pinready"
-version = "0.21.0"
+version = "0.21.1"
 edition = "2024"
 description = "Cross-platform configurator and launcher supporting the adoption of Visual Pinball 10.8.1 — for testers and early adopters, not a replacement for a stable production setup"
 license = "GPL-3.0-or-later"
@@ -151,6 +151,9 @@ objc2-core-graphics = { version = "0.3", features = ["CGDirectDisplay"] }
 # tree via winit/eframe, so a direct dep is nearly free.
 [target.'cfg(target_os = "linux")'.dependencies]
 wayland-client = "0.31"
+# Ask RandR and the X resource database what winit will see, before it starts
+# (x11_display.rs). Already in the tree via winit.
+x11rb = { version = "0.13", features = ["randr", "resource_manager"] }
 
 [dev-dependencies]
 tempfile = "3"
