@@ -153,7 +153,7 @@ objc2-core-graphics = { version = "0.3", features = ["CGDirectDisplay"] }
 wayland-client = "0.31"
 # Ask RandR and the X resource database what winit will see, before it starts
 # (x11_display.rs). Already in the tree via winit.
-x11rb = { version = "0.13", features = ["randr", "resource_manager"] }
+x11rb = { version = "0.14", features = ["randr", "resource_manager"] }
 
 [dev-dependencies]
 tempfile = "3"
