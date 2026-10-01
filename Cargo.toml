@@ -152,8 +152,9 @@ objc2-core-graphics = { version = "0.3", features = ["CGDirectDisplay"] }
 [target.'cfg(target_os = "linux")'.dependencies]
 wayland-client = "0.31"
 # Ask RandR and the X resource database what winit will see, before it starts
-# (x11_display.rs). Already in the tree via winit.
-x11rb = { version = "0.13", features = ["randr", "resource_manager"] }
+# (x11_display.rs). winit 0.30 still pulls its own x11rb 0.13; the RandR and
+# resource-manager requests are the same in both.
+x11rb = { version = "0.14", features = ["randr", "resource_manager"] }
 
 [dev-dependencies]
 tempfile = "3"
