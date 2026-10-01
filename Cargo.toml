@@ -78,7 +78,7 @@ rust-i18n = "4"
 noto-fonts-dl = { version = "0.1.4", features = ["ar", "hi", "bn", "zh", "zh_tw", "ja", "ko", "th", "ur", "vi"] }
 
 # Platform directories (data, config, home)
-dirs = "6"
+dirs = "7"
 
 # Self-update: cross-platform running-binary replacement (handles the
 # Windows rename-trick + atomic swap on unix).
