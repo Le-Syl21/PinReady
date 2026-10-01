@@ -698,12 +698,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "byteorder"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
-
-[[package]]
 name = "byteorder-lite"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -789,9 +783,9 @@ dependencies = [
 
 [[package]]
 name = "cfb"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a347dcabdae9c31b0825fd6a8bed285ec9c2acb89c47827126d52fa4f59cece3"
+checksum = "0f13298d9178622b7916ec5d01d470425c04273c8ed07e87b1c38b34c4f4612b"
 dependencies = [
  "fnv",
  "uuid",
@@ -4963,11 +4957,10 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vpin"
-version = "0.28.2"
+version = "0.37.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bb54aec4da9750faeb34e4a373654f4e8fa11a800cb3e81bca130e793a70df9"
+checksum = "a443008b4dacdd0b72a0137ea2f603493e3604de5597fdbf5bc1b85123e0465c"
 dependencies = [
- "byteorder",
  "bytes",
  "cfb",
  "encoding_rs",
@@ -4976,9 +4969,7 @@ dependencies = [
  "image",
  "log",
  "md2",
- "nom",
  "rayon",
- "regex",
  "sanitize-filename",
  "serde",
  "serde_json",
@@ -4986,6 +4977,7 @@ dependencies = [
  "unicode-normalization",
  "wavefront-obj-io",
  "weezl 0.2.1",
+ "zmij",
 ]
 
 [[package]]
@@ -5070,9 +5062,12 @@ dependencies = [
 
 [[package]]
 name = "wavefront-obj-io"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8303f48c4cd4d0e4cc8b376b83dee11ce93c95d7d28f829fd213a76fcb3b538"
+checksum = "01cf40b6eb09a24cc90e3d9ab03eca80b96b2d248a0c09a6fdc4e72558ce6cc1"
+dependencies = [
+ "zmij",
+]
 
 [[package]]
 name = "wayland-backend"
