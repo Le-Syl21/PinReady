@@ -1,6 +1,6 @@
 [package]
 name = "pinready"
-version = "0.21.2"
+version = "0.21.3"
 edition = "2024"
 description = "Cross-platform configurator and launcher supporting the adoption of Visual Pinball 10.8.1 — for testers and early adopters, not a replacement for a stable production setup"
 license = "GPL-3.0-or-later"
@@ -75,7 +75,7 @@ time = { version = "0.3", features = ["local-offset", "formatting", "macros"] }
 rust-i18n = "4"
 
 # Fonts for non-Latin scripts (Arabic, CJK, Devanagari, Thai, etc.)
-noto-fonts-dl = { version = "0.1.4", features = ["ar", "hi", "bn", "zh", "zh_tw", "ja", "ko", "th", "ur", "vi"] }
+noto-fonts-dl = { version = "0.1.8", features = ["ar", "hi", "bn", "zh", "zh_tw", "ja", "ko", "th", "ur", "vi"] }
 
 # Platform directories (data, config, home)
 dirs = "7"

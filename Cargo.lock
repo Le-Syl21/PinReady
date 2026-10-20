@@ -2655,9 +2655,9 @@ dependencies = [
 
 [[package]]
 name = "noto-fonts-dl"
-version = "0.1.6"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5ddb527d852b3278ca60129fb7581a26bb9f3c90bc0f6dd5536999bdaa5d45d"
+checksum = "5f5e7466d237c30b30eb42a4ceb8ee6fc7969e59a7e050de5088ed9f6212e7c8"
 dependencies = [
  "serde_json",
  "ureq",
@@ -3311,7 +3311,7 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
 name = "pinready"
-version = "0.21.2"
+version = "0.21.3"
 dependencies = [
  "anyhow",
  "base64",
