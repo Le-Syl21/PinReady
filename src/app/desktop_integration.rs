@@ -239,6 +239,20 @@ fn run_quiet<S: AsRef<std::ffi::OsStr>>(cmd: &str, args: &[S]) {
 
 #[cfg(target_os = "macos")]
 fn install(_vpx_exe_path: &str) -> anyhow::Result<()> {
+    let app = write_app_bundle()?;
+
+    // .vpx association on macOS is owned by the shipped VPinballX.app
+    // (its Info.plist declares CFBundleDocumentTypes for `.vpx`). We don't
+    // duplicate that here — duti would be needed to override the user's
+    // default handler and isn't preinstalled.
+
+    log::info!("Desktop integration installed at {}", app.display());
+    Ok(())
+}
+
+/// Write (or refresh) `~/Applications/PinReady.app` and return its path.
+#[cfg(target_os = "macos")]
+fn write_app_bundle() -> anyhow::Result<PathBuf> {
     let h = home().ok_or_else(|| anyhow::anyhow!("HOME not set"))?;
     let exe = std::env::current_exe()?;
 
@@ -287,14 +301,7 @@ fn install(_vpx_exe_path: &str) -> anyhow::Result<()> {
         "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister",
         &["-f", app.to_string_lossy().as_ref()],
     );
-
-    // .vpx association on macOS is owned by the shipped VPinballX.app
-    // (its Info.plist declares CFBundleDocumentTypes for `.vpx`). We don't
-    // duplicate that here — duti would be needed to override the user's
-    // default handler and isn't preinstalled.
-
-    log::info!("Desktop integration installed at {}", app.display());
-    Ok(())
+    Ok(app)
 }
 
 #[cfg(target_os = "macos")]
@@ -320,10 +327,7 @@ fn install(vpx_exe_path: &str) -> anyhow::Result<()> {
     // Stash a real .ico under %APPDATA%\PinReady so .lnk + registry entries
     // can reference it by stable path. The exe itself doesn't embed an icon
     // unless built with windres.
-    let pinready_dir = PathBuf::from(&appdata).join("PinReady");
-    std::fs::create_dir_all(&pinready_dir)?;
-    let icon_path = pinready_dir.join("pinready.ico");
-    std::fs::write(&icon_path, PINREADY_ICON_ICO)?;
+    let icon_path = write_windows_icon()?;
 
     let start_menu = PathBuf::from(&appdata).join(r"Microsoft\Windows\Start Menu\Programs");
     std::fs::create_dir_all(&start_menu)?;
@@ -380,6 +384,17 @@ fn install(vpx_exe_path: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Stash the .ico under `%APPDATA%\PinReady` and return its path.
+#[cfg(target_os = "windows")]
+fn write_windows_icon() -> anyhow::Result<PathBuf> {
+    let appdata = std::env::var("APPDATA").map_err(|_| anyhow::anyhow!("APPDATA not set"))?;
+    let pinready_dir = PathBuf::from(&appdata).join("PinReady");
+    std::fs::create_dir_all(&pinready_dir)?;
+    let icon_path = pinready_dir.join("pinready.ico");
+    std::fs::write(&icon_path, PINREADY_ICON_ICO)?;
+    Ok(icon_path)
+}
+
 #[cfg(target_os = "windows")]
 fn uninstall() -> anyhow::Result<()> {
     let appdata = std::env::var("APPDATA").map_err(|_| anyhow::anyhow!("APPDATA not set"))?;
@@ -392,6 +407,7 @@ fn uninstall() -> anyhow::Result<()> {
     let ps = r#"$ErrorActionPreference='SilentlyContinue';
         Remove-Item -Path 'HKCU:\Software\Classes\.vpx' -Force -Recurse;
         Remove-Item -Path 'HKCU:\Software\Classes\PinReady.VPX' -Force -Recurse;
+        exit 0;
         "#;
     run_powershell(ps);
 
@@ -466,7 +482,8 @@ fn uninstall() -> anyhow::Result<()> {
 // deliberately separate toggles — someone running a cabinet wants the desktop
 // icon, someone using PinReady from a workstation usually wants neither.
 //
-// Linux only. The desktop file is standard freedesktop, but pinning is
+// The desktop shortcut exists on all three systems (a .desktop file, a .lnk,
+// an alias of the .app bundle). The desktop file is standard freedesktop, but pinning is
 // shell-specific: GNOME keeps its list in a GSettings key, KDE and XFCE have
 // their own panel configuration with no shared interface. Rather than pretend
 // otherwise, `dock_pinning_available` reports whether we can do it here, and
@@ -474,21 +491,22 @@ fn uninstall() -> anyhow::Result<()> {
 // ---------------------------------------------------------------------------
 
 /// Path of the desktop launcher, if the platform has a desktop folder.
-#[cfg(target_os = "linux")]
 fn desktop_shortcut_path() -> Option<PathBuf> {
-    dirs::desktop_dir().map(|d| d.join("pinready.desktop"))
+    let name = if cfg!(target_os = "windows") {
+        "PinReady.lnk"
+    } else if cfg!(target_os = "macos") {
+        "PinReady.app"
+    } else {
+        "pinready.desktop"
+    };
+    dirs::desktop_dir().map(|d| d.join(name))
 }
 
 /// Whether a launcher currently sits on the desktop.
 pub(super) fn is_desktop_shortcut_installed() -> bool {
-    #[cfg(target_os = "linux")]
-    {
-        desktop_shortcut_path().is_some_and(|p| p.exists())
-    }
-    #[cfg(not(target_os = "linux"))]
-    {
-        false
-    }
+    // symlink_metadata: on macOS the shortcut is a symlink, and a dangling one
+    // still has to be found so it can be replaced or removed.
+    desktop_shortcut_path().is_some_and(|p| std::fs::symlink_metadata(p).is_ok())
 }
 
 /// Put a launcher on the desktop, or take it away.
@@ -578,10 +596,47 @@ pub(super) fn set_desktop_shortcut(enabled: bool) -> anyhow::Result<()> {
 
         Ok(())
     }
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "windows")]
+    {
+        let target = desktop_shortcut_path().ok_or_else(|| anyhow::anyhow!("no desktop folder"))?;
+        if !enabled {
+            if target.exists() {
+                std::fs::remove_file(&target)?;
+            }
+            return Ok(());
+        }
+        let exe = std::env::current_exe()?;
+        create_lnk(
+            &target,
+            &exe,
+            exe.parent().unwrap_or(&exe),
+            &write_windows_icon()?,
+            "Visual Pinball configurator and table launcher",
+        )?;
+        // create_lnk only logs a PowerShell failure; the box must not stay
+        // ticked over a shortcut that was never written.
+        anyhow::ensure!(target.exists(), "could not create {}", target.display());
+        Ok(())
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let target = desktop_shortcut_path().ok_or_else(|| anyhow::anyhow!("no desktop folder"))?;
+        if std::fs::symlink_metadata(&target).is_ok() {
+            std::fs::remove_file(&target)?;
+        }
+        if !enabled {
+            return Ok(());
+        }
+        // A symlink to the bundle is what Finder shows as an alias: it opens
+        // the same app the menu integration installs, icon included.
+        let app = write_app_bundle()?;
+        std::os::unix::fs::symlink(&app, &target)?;
+        Ok(())
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
     {
         let _ = enabled;
-        anyhow::bail!("desktop shortcuts are only implemented on Linux")
+        anyhow::bail!("desktop shortcuts are not supported on this platform")
     }
 }
 
