@@ -124,6 +124,44 @@ pub fn apply_saved_sizes(db: &Database, displays: &mut [DisplayInfo]) {
     }
 }
 
+/// Put the roles the wizard saved back on freshly enumerated displays.
+///
+/// [`crate::screens::enumerate_displays`] only guesses roles from pixel count,
+/// which cannot tell two 1920x1080 screens apart: the launcher covers and a
+/// reopened wizard then put the backglass on the screen chosen as DMD. Each
+/// assigned role is found by its `*Display=` name, else by its stored anchor.
+/// All or nothing, like [`reconcile_all`]: if one assigned role is missing the
+/// guessed roles are kept and the startup check sends the user to the wizard.
+pub fn apply_saved_roles(config: &VpxConfig, db: &Database, displays: &mut [DisplayInfo]) {
+    let mut found = Vec::new();
+    for (role, section, key) in assigned_roles(config) {
+        let name = config.get(section, key).unwrap_or_default();
+        let idx = displays
+            .iter()
+            .position(|d| d.name == name)
+            .or_else(|| anchored_display_index(db, role, displays));
+        let Some(idx) = idx else {
+            log::info!("saved {role:?} display {name:?} not found, keeping guessed roles");
+            return;
+        };
+        found.push((role, idx));
+    }
+    restore_roles(displays, &found);
+}
+
+fn restore_roles(displays: &mut [DisplayInfo], found: &[(DisplayRole, usize)]) {
+    if found.is_empty() {
+        return;
+    }
+    for d in displays.iter_mut() {
+        d.role = DisplayRole::Unused;
+    }
+    for &(role, idx) in found {
+        displays[idx].role = role;
+        log::info!("display {}: saved role {role:?}", displays[idx].name);
+    }
+}
+
 /// `"932x540"` -> `(932, 540)`. Anything else is ignored rather than guessed
 /// at: a malformed row should fall back to detection, not to zero.
 fn parse_size_mm(raw: &str) -> Option<(i32, i32)> {
@@ -414,6 +452,62 @@ mod tests {
         assert_eq!(super::diagonal_inches(0, 0), None);
     }
     use super::*;
+
+    fn display(name: &str, x: i32, w: i32, h: i32) -> DisplayInfo {
+        DisplayInfo {
+            name: name.to_string(),
+            x,
+            y: 0,
+            width: w,
+            height: h,
+            refresh_rate: 60.0,
+            is_primary: false,
+            total_pixels: w as u64 * h as u64,
+            size_inches: None,
+            width_mm: 0,
+            height_mm: 0,
+            detected_width_mm: 0,
+            detected_height_mm: 0,
+            role: DisplayRole::Unused,
+            monitor_index: 0,
+            content_scale: 1.0,
+        }
+    }
+
+    /// Two 1920x1080 secondaries: the pixel-count guess gives the backglass to
+    /// the first one listed, the saved roles must win over it.
+    #[test]
+    fn saved_roles_beat_the_pixel_count_guess() {
+        let mut d = vec![
+            display("LG TV SSCR2", 0, 3840, 2160),
+            display("Monitor", 5760, 1920, 1080),
+            display("DELL S2721QS", 3840, 1920, 1080),
+        ];
+        d[0].role = DisplayRole::Playfield;
+        d[1].role = DisplayRole::Backglass;
+        d[2].role = DisplayRole::Dmd;
+        restore_roles(
+            &mut d,
+            &[
+                (DisplayRole::Playfield, 0),
+                (DisplayRole::Backglass, 2),
+                (DisplayRole::Dmd, 1),
+            ],
+        );
+        assert_eq!(d[0].role, DisplayRole::Playfield);
+        assert_eq!(d[1].role, DisplayRole::Dmd);
+        assert_eq!(d[2].role, DisplayRole::Backglass);
+    }
+
+    /// A screen the wizard left unused must not keep a guessed role.
+    #[test]
+    fn unsaved_screens_become_unused() {
+        let mut d = vec![display("A", 0, 3840, 2160), display("B", 3840, 1920, 1080)];
+        d[1].role = DisplayRole::Backglass;
+        restore_roles(&mut d, &[(DisplayRole::Playfield, 0)]);
+        assert_eq!(d[0].role, DisplayRole::Playfield);
+        assert_eq!(d[1].role, DisplayRole::Unused);
+    }
 
     #[test]
     fn anchor_roundtrip_with_fingerprint() {

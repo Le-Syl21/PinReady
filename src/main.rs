@@ -814,6 +814,7 @@ fn run_eframe_for_mode(mode: app::AppMode) -> Result<()> {
     // fixed it again on every launch, because the corrected value went out to
     // VPX and was never read back.
     display_reconcile::apply_saved_sizes(&db, &mut displays);
+    display_reconcile::apply_saved_roles(&vpx_config, &db, &mut displays);
 
     let (viewport, want_kiosk_cursor, rotation) = build_viewport(&displays, mode, &vpx_config, &db);
     let start_in_wizard = matches!(mode, app::AppMode::Wizard);
