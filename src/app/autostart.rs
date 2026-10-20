@@ -114,13 +114,25 @@ pub(super) fn set_autostart(enabled: bool) -> anyhow::Result<()> {
              $s.TargetPath = '{}'; \
              $s.WorkingDirectory = '{}'; \
              $s.Save()",
-            path.display(),
-            exe_str,
-            exe.parent().unwrap_or(&exe).display(),
+            path.display().to_string().replace('\'', "''"),
+            exe_str.replace('\'', "''"),
+            exe.parent()
+                .unwrap_or(&exe)
+                .display()
+                .to_string()
+                .replace('\'', "''"),
         );
-        std::process::Command::new("powershell")
-            .args(["-NoProfile", "-Command", &ps_cmd])
+        let out = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &ps_cmd])
             .output()?;
+        // PowerShell reports its failures on stderr with a non-zero status,
+        // not as a spawn error: check the shortcut is really there.
+        anyhow::ensure!(
+            path.exists(),
+            "could not create {}: {}",
+            path.display(),
+            String::from_utf8_lossy(&out.stderr).trim()
+        );
     }
 
     log::info!("Autostart enabled: {}", path.display());
