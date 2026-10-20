@@ -392,6 +392,26 @@ impl App {
                 }
             });
 
+        // TVs and bare panels report sizes nothing here can correct: point
+        // their owners at a database of real panel sizes.
+        let suspects: Vec<&str> = self
+            .displays
+            .iter()
+            .filter(|d| crate::screens::size_looks_wrong(d))
+            .map(|d| d.name.as_str())
+            .collect();
+        if !suspects.is_empty() {
+            ui.add_space(8.0);
+            ui.colored_label(
+                ui.visuals().warn_fg_color,
+                t!("screens_size_suspect", names = suspects.join(", ")),
+            );
+            ui.hyperlink_to(
+                t!("screens_size_lookup"),
+                "https://www.displayspecifications.com/en",
+            );
+        }
+
         if self.view_mode == 1 {
             self.render_cabinet_diagram(ui);
         }

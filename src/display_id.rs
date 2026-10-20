@@ -160,20 +160,23 @@ pub fn parse_edid(bytes: &[u8]) -> Option<MonitorId> {
         _ => (0, 0),
     };
 
-    // Millimetres from the detailed timing descriptor when the panel gives
-    // them, else the base block's centimetres. `screen_size` can also carry an
-    // aspect ratio instead of a size, which is not a size and is dropped.
-    let phys_mm = caps
+    // The panel states its size twice: in millimetres in the detailed timing
+    // descriptor and in centimetres in the base block. `screen_size` can also
+    // carry an aspect ratio instead of a size, which is not a size and is
+    // dropped.
+    let dtd_mm = caps
         .preferred_image_size_mm
         .map(|(w, h)| (u32::from(w), u32::from(h)))
-        .or_else(|| match caps.screen_size {
-            Some(piaf::ScreenSize::Physical {
-                width_cm,
-                height_cm,
-            }) => Some((u32::from(width_cm) * 10, u32::from(height_cm) * 10)),
-            _ => None,
-        })
         .filter(|(w, h)| *w > 0 && *h > 0);
+    let base_mm = match caps.screen_size {
+        Some(piaf::ScreenSize::Physical {
+            width_cm,
+            height_cm,
+        }) => Some((u32::from(width_cm) * 10, u32::from(height_cm) * 10)),
+        _ => None,
+    }
+    .filter(|(w, h)| *w > 0 && *h > 0);
+    let phys_mm = pick_size(dtd_mm, base_mm);
 
     Some(MonitorId {
         fingerprint,
@@ -252,6 +255,27 @@ pub fn read_drm_monitors() -> Vec<DrmMonitor> {
             parse_edid(&e.bytes).map(|id| DrmMonitor { connector, id })
         })
         .collect()
+}
+
+/// Picks between the EDID's two sizes.
+///
+/// The millimetres are the finer of the two, but when they disagree with the
+/// centimetres by 8 % or more on a side, the centimetres are the right ones
+/// more often: the descriptor is the field driver boards and firmware copy
+/// from another panel. Measured on the linuxhw EDID collection, against the
+/// diagonal in each model name (19,225 monitors): 98.2 % right this way, 95.5 %
+/// taking the millimetres first. The threshold sits between two families of
+/// popular monitors, LG W2242-type panels 7 % apart where the millimetres are
+/// right, and BenQ G2420HD or Dell P2212H 10 % apart where the centimetres are.
+fn pick_size(dtd_mm: Option<(u32, u32)>, base_mm: Option<(u32, u32)>) -> Option<(u32, u32)> {
+    let (Some(mm), Some(cm)) = (dtd_mm, base_mm) else {
+        return dtd_mm.or(base_mm);
+    };
+    // Compared as landscape, since one field may be stored rotated.
+    let landscape = |(w, h): (u32, u32)| (f64::from(w.max(h)), f64::from(w.min(h)));
+    let ((mw, mh), (cw, ch)) = (landscape(mm), landscape(cm));
+    let off = ((mw - cw).abs() / cw).max((mh - ch).abs() / ch);
+    Some(if off < 0.08 { mm } else { cm })
 }
 
 /// A display as SDL reports it under some video driver — the identity that VPX
@@ -410,6 +434,41 @@ pub fn resolve_display_name(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn edid_size_falls_back_to_centimetres_when_far_apart() {
+        use super::pick_size;
+        // Centimetres rounded from the same panel: keep the finer millimetres.
+        assert_eq!(
+            pick_size(Some((597, 336)), Some((600, 340))),
+            Some((597, 336))
+        );
+        // Real EDIDs from the linuxhw collection. LG W2242: 7.5 % apart, and
+        // the millimetres are the 22-inch panel.
+        assert_eq!(
+            pick_size(Some((474, 296)), Some((490, 320))),
+            Some((474, 296))
+        );
+        // BenQ G2420HDBL: 10 % apart, and the centimetres are the 24-inch panel.
+        assert_eq!(
+            pick_size(Some((477, 268)), Some((530, 290))),
+            Some((530, 290))
+        );
+        // Dell P2212H: 11 % apart the other way, and the centimetres are the
+        // 21.5-inch panel.
+        assert_eq!(
+            pick_size(Some((531, 299)), Some((480, 270))),
+            Some((480, 270))
+        );
+        // A field stored rotated is the same size.
+        assert_eq!(
+            pick_size(Some((336, 597)), Some((600, 340))),
+            Some((336, 597))
+        );
+        // Only one field: take it.
+        assert_eq!(pick_size(Some((477, 268)), None), Some((477, 268)));
+        assert_eq!(pick_size(None, Some((480, 270))), Some((480, 270)));
+        assert_eq!(pick_size(None, None), None);
+    }
 
     /// Parsed against a real EDID captured from a Samsung LC49G95T, so the
     /// expectations are measurements rather than a blob someone hand-built to

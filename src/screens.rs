@@ -113,6 +113,34 @@ fn physical_sizes(displays: &[DisplayInfo]) -> Vec<(String, (i32, i32), Option<u
         .collect()
 }
 
+/// Whether the size detection gave for this screen is likely made up.
+///
+/// TVs put a placeholder in their EDID (1600x900 mm, a 72-inch screen whatever
+/// the real one is), and bare panels on generic driver boards carry the
+/// board's EDID, named "Monitor" and sized for some other panel. Neither can be
+/// fixed from here, but the owner can look the model up and type the size in.
+/// A size someone already corrected is trusted.
+pub fn size_looks_wrong(d: &DisplayInfo) -> bool {
+    if d.width_mm != d.detected_width_mm || d.height_mm != d.detected_height_mm {
+        return false;
+    }
+    let (w, h) = (d.detected_width_mm, d.detected_height_mm);
+    // 900 mm on the short side is a 72-inch 16:9 screen: wider than any
+    // cabinet, and exactly the 1600x900 placeholder TVs report.
+    if w <= 0 || h <= 0 || w.min(h) >= 900 {
+        return true;
+    }
+    let generic = matches!(
+        d.name.trim().to_ascii_lowercase().as_str(),
+        "" | "monitor" | "generic monitor" | "default monitor" | "unknown"
+    );
+    // Pixels and millimetres must agree on the shape, whatever the rotation.
+    let ratio = |a: f64, b: f64| a.max(b) / a.min(b);
+    let px = ratio(d.width as f64, d.height as f64);
+    let mm = ratio(w as f64, h as f64);
+    generic || (px - mm).abs() / px > 0.1
+}
+
 /// Enumerate all connected displays using SDL3. Initializes
 /// `SDL_INIT_VIDEO` on first call (no-op refcount bump on subsequent
 /// calls); never quits the subsystem manually. `App::shutdown_sdl_threads`
@@ -443,5 +471,44 @@ mod tests {
         let mut displays: Vec<DisplayInfo> = vec![];
         auto_assign_roles(&mut displays);
         assert!(displays.is_empty());
+    }
+
+    #[test]
+    fn tv_placeholder_size_looks_wrong() {
+        let mut d = make_display("LG TV SSCR2", 3840, 2160);
+        (d.width_mm, d.height_mm) = (1600, 900);
+        (d.detected_width_mm, d.detected_height_mm) = (1600, 900);
+        assert!(size_looks_wrong(&d));
+        // Any screen that tall is out of place in a cabinet, rotated or not.
+        (d.width_mm, d.height_mm) = (920, 1640);
+        (d.detected_width_mm, d.detected_height_mm) = (920, 1640);
+        assert!(size_looks_wrong(&d));
+        (d.detected_width_mm, d.detected_height_mm) = (1600, 900);
+        // Once the owner typed the real size, it is trusted.
+        (d.width_mm, d.height_mm) = (924, 520);
+        assert!(!size_looks_wrong(&d));
+    }
+
+    #[test]
+    fn generic_board_and_bad_shape_look_wrong() {
+        let mut d = make_display("Monitor", 1920, 1080);
+        (d.width_mm, d.height_mm) = (477, 268);
+        (d.detected_width_mm, d.detected_height_mm) = (477, 268);
+        assert!(size_looks_wrong(&d));
+        d.name = "DELL S2721QS".into();
+        assert!(!size_looks_wrong(&d));
+        // A 4:3 size on a 16:9 mode, rotated or not.
+        (d.width_mm, d.height_mm) = (400, 300);
+        (d.detected_width_mm, d.detected_height_mm) = (400, 300);
+        assert!(size_looks_wrong(&d));
+        let mut r = make_display("DELL S2721QS", 1080, 1920);
+        (r.width_mm, r.height_mm) = (597, 336);
+        (r.detected_width_mm, r.detected_height_mm) = (597, 336);
+        assert!(!size_looks_wrong(&r));
+    }
+
+    #[test]
+    fn missing_size_looks_wrong() {
+        assert!(size_looks_wrong(&make_display("DELL S2721QS", 1920, 1080)));
     }
 }
