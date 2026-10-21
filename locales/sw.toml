@@ -264,6 +264,10 @@ outputs_discover_configtool_file = "libdof itapakia:"
 outputs_discover_start_hardware = "▶ Anza na bodi hii (matokeo %{n})"
 outputs_discover_driver_soon = "Kijaribu matokeo — kiendeshi kinakuja hivi karibuni"
 outputs_discover_driver_soon_tooltip = "PinReady hugundua bodi hii na inaweza kukuambia cha kuchagua kwenye ConfigTool, lakini kiendeshi cha kuandika cha HID cha kutuma pulsi kwa matokeo bado hakijatekelezwa. Kwa sasa, tumia taarifa za utambuzi zilizo hapo juu na ramani matokeo kwa njia nyingine (chombo cha majaribio cha DOF, multimita, n.k.)."
+outputs_discover_pinone_busy = "PinOne imepatikana kwenye %{port}, lakini programu nyingine inatumia mlango huo. Funga Visual Pinball, DOF na zana ya usanidi ya PinOne, kisha tafuta tena."
+outputs_discover_pinone_permission = "PinOne imepatikana, lakini PinReady haina ruhusa ya kuifungua. Kwenye Linux, sakinisha sheria za ufikiaji zilizo hapa chini, kisha tafuta tena."
+outputs_discover_pinone_no_answer = "Kuna kitu kinachofanana na PinOne kwenye %{port}, lakini hakikujibu. Kichomoe, kichomeke tena, kisha tafuta tena."
+outputs_discover_pinone_ultra_dof = "DOF iliyojengwa ndani ya Visual Pinball huwasiliana na PinOne Ultra kupitia mlango wake wa serial wa USB: katika zana ya usanidi ya PinOne, acha chaguo la DOF ya serial (legacy serial DOF) likiwa limewashwa."
 
 # Uanzishaji wa programu-jalizi ya DOF — VPX huzima programu-jalizi zote
 # kwa chaguo-msingi, hivyo inabidi iwashwe waziwazi mara tu mtumiaji

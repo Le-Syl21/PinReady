@@ -264,6 +264,10 @@ outputs_discover_configtool_file = "libdof şunu yükleyecek:"
 outputs_discover_start_hardware = "▶ Bu kartla başla (%{n} çıkış)"
 outputs_discover_driver_soon = "Çıkış test aracı — sürücü yakında"
 outputs_discover_driver_soon_tooltip = "PinReady bu kartı algılar ve ConfigTool'da ne seçeceğinizi söyleyebilir, ancak çıkışlara darbe göndermek için HID yazma sürücüsü henüz uygulanmadı. Şimdilik yukarıdaki algılama bilgilerini kullanın ve çıkışları başka bir yöntemle (DOF test aracı, multimetre vb.) eşleyin."
+outputs_discover_pinone_busy = "%{port} üzerinde bir PinOne bulundu, ancak bu portu başka bir program kullanıyor. Visual Pinball, DOF ve PinOne yapılandırma aracını kapatıp yeniden arayın."
+outputs_discover_pinone_permission = "Bir PinOne bulundu, ancak PinReady'nin onu açma izni yok. Linux'ta aşağıdaki erişim kurallarını kurup yeniden arayın."
+outputs_discover_pinone_no_answer = "%{port} üzerinde PinOne'a benzeyen bir şey var ama yanıt vermedi. Çıkarıp yeniden takın, sonra tekrar arayın."
+outputs_discover_pinone_ultra_dof = "Visual Pinball'un yerleşik DOF'u PinOne Ultra ile USB seri portu üzerinden konuşur: PinOne yapılandırma aracında seri DOF seçeneğini (legacy serial DOF) açık bırakın."
 
 # DOF eklentisinin etkinleştirilmesi — VPX tüm eklentileri varsayılan
 # olarak devre dışı bırakır, bu yüzden kullanıcı DOF yapılandırmasını

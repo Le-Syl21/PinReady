@@ -264,6 +264,10 @@ outputs_discover_configtool_file = "libdof が読み込むファイル："
 outputs_discover_start_hardware = "▶ このボードで開始（出力 %{n} 個）"
 outputs_discover_driver_soon = "出力テスター — ドライバは近日公開"
 outputs_discover_driver_soon_tooltip = "PinReady はこのボードを検出し、ConfigTool で何を選ぶべきか示すことができますが、出力をパルスするための HID 書き込みドライバはまだ実装されていません。現時点では上記の検出情報を使い、他の方法（DOF テストツール、テスターなど）で出力をマッピングしてください。"
+outputs_discover_pinone_busy = "%{port} で PinOne が見つかりましたが、別のプログラムがそのポートを使用しています。Visual Pinball、DOF、PinOne 設定ツールを閉じてから、もう一度スキャンしてください。"
+outputs_discover_pinone_permission = "PinOne が見つかりましたが、PinReady にはそれを開く権限がありません。Linux では下のアクセスルールをインストールしてから、もう一度スキャンしてください。"
+outputs_discover_pinone_no_answer = "%{port} に PinOne らしきものがありますが、応答がありませんでした。抜き差ししてから、もう一度スキャンしてください。"
+outputs_discover_pinone_ultra_dof = "Visual Pinball 内蔵の DOF は USB シリアルポート経由で PinOne Ultra と通信します。PinOne 設定ツールでシリアル DOF オプション（legacy serial DOF）をオンのままにしてください。"
 
 # DOF プラグインの有効化 — VPX はデフォルトですべてのプラグインを
 # 無効にしているため、ユーザーが DOF 設定を生成して展開し終えたら

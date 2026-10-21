@@ -9,7 +9,8 @@ const DOF_GENERATOR_URL: &str = "https://configtool.vpuniverse.com/app/home";
 const SIMULATOR_DEFAULT_OUTPUTS: u16 = 22;
 
 /// Copy-pasteable udev rules users can drop into /etc/udev/rules.d/ so
-/// hidraw access to the Pinscape board works without root. Uses MODE=0666
+/// hidraw access to the Pinscape board (and serial/hidraw access to a CSD
+/// PinOne) works without root. Uses MODE=0666
 /// (world-readable+writable) to match the DOF / pinball community convention
 /// — simpler and more reliable across distros than `TAG+="uaccess"`, which
 /// depends on systemd-logind's ACL support for hidraw (flaky in practice).
@@ -26,6 +27,11 @@ SUBSYSTEM==\"hidraw\", ATTRS{idVendor}==\"fafa\", MODE=\"0666\"
 # Private pid.codes (Pinscape Pico and KL25Z in private mode)
 SUBSYSTEM==\"usb\", ATTRS{idVendor}==\"1209\", ATTRS{idProduct}==\"eaea\", MODE=\"0666\"
 SUBSYSTEM==\"hidraw\", ATTRS{idVendor}==\"1209\", ATTRS{idProduct}==\"eaea\", MODE=\"0666\"
+
+# CSD PinOne: outputs on its USB serial port (original board)
+SUBSYSTEM==\"tty\", ATTRS{idVendor}==\"0e8f\", ATTRS{idProduct}==\"9207\", MODE=\"0666\"
+# CSD PinOne Ultra: outputs on its HID vendor channel
+SUBSYSTEM==\"hidraw\", ATTRS{idVendor}==\"39f5\", MODE=\"0666\"
 ";
 
 /// Folder libdof (integrated in VPX 10.8.1 standalone) reads its DOF config from.
@@ -502,10 +508,41 @@ impl App {
             });
             ui.add_space(4.0);
 
+            // VPX's built-in DOF (libdof) only knows the PinOne's serial
+            // port; the Ultra keeps that path behind a config-tool option.
+            if board_info.kind == outputs_hid::BoardKind::PinOneUltra {
+                ui.label(t!("outputs_discover_pinone_ultra_dof"));
+                ui.add_space(4.0);
+            }
+
+            if let Some(problem) = &board_info.problem {
+                let port = board_info.path_str();
+                let msg = match problem {
+                    outputs_hid::BoardProblem::Busy => {
+                        t!("outputs_discover_pinone_busy", port = port)
+                    }
+                    outputs_hid::BoardProblem::PermissionDenied => {
+                        t!("outputs_discover_pinone_permission", port = port)
+                    }
+                    outputs_hid::BoardProblem::NoAnswer => {
+                        t!("outputs_discover_pinone_no_answer", port = port)
+                    }
+                    outputs_hid::BoardProblem::Other(e) => {
+                        t!("outputs_discover_error", msg = format!("{port}: {e}"))
+                    }
+                };
+                ui.colored_label(egui::Color32::from_rgb(255, 180, 50), msg);
+                if *problem == outputs_hid::BoardProblem::PermissionDenied {
+                    ui.add_space(4.0);
+                    self.render_udev_apply_controls(ui);
+                }
+                ui.add_space(4.0);
+            }
+
             if board_info.kind.has_driver() {
                 if ui
                     .add_enabled(
-                        can_start,
+                        can_start && board_info.problem.is_none(),
                         egui::Button::new(t!(
                             "outputs_discover_start_hardware",
                             n = board_info.num_outputs
@@ -516,7 +553,7 @@ impl App {
                 {
                     match outputs_hid::open_board(
                         board_info.kind,
-                        &board_info.path,
+                        &board_info.location,
                         board_info.num_outputs,
                     ) {
                         Ok(board) => self.output_discovery.start(board),

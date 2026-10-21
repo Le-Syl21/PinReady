@@ -264,6 +264,10 @@ outputs_discover_configtool_file = "libdof লোড করবে:"
 outputs_discover_start_hardware = "▶ এই বোর্ড দিয়ে শুরু করুন (%{n}টি আউটপুট)"
 outputs_discover_driver_soon = "আউটপুট টেস্টার — ড্রাইভার শীঘ্রই আসছে"
 outputs_discover_driver_soon_tooltip = "PinReady এই বোর্ডটি শনাক্ত করে এবং আপনাকে বলতে পারে ConfigTool-এ কী বাছাই করতে হবে, কিন্তু আউটপুটে পালস করার জন্য HID লেখার ড্রাইভার এখনও প্রয়োগ করা হয়নি। আপাতত উপরের শনাক্তকরণের তথ্য ব্যবহার করুন এবং অন্য পদ্ধতিতে (DOF পরীক্ষা সরঞ্জাম, মাল্টিমিটার ইত্যাদি) আউটপুট ম্যাপ করুন।"
+outputs_discover_pinone_busy = "%{port}-এ একটি PinOne পাওয়া গেছে, কিন্তু অন্য একটি প্রোগ্রাম পোর্টটি ব্যবহার করছে। Visual Pinball, DOF এবং PinOne কনফিগ টুল বন্ধ করে আবার খুঁজুন।"
+outputs_discover_pinone_permission = "একটি PinOne পাওয়া গেছে, কিন্তু PinReady-এর এটি খোলার অনুমতি নেই। Linux-এ নিচের অ্যাক্সেস নিয়মগুলো ইনস্টল করে আবার খুঁজুন।"
+outputs_discover_pinone_no_answer = "%{port}-এ PinOne-এর মতো কিছু আছে, কিন্তু সেটি সাড়া দেয়নি। খুলে আবার লাগান, তারপর আবার খুঁজুন।"
+outputs_discover_pinone_ultra_dof = "Visual Pinball-এর বিল্ট-ইন DOF PinOne Ultra-র সাথে তার USB সিরিয়াল পোর্টের মাধ্যমে কথা বলে: PinOne কনফিগ টুলে সিরিয়াল DOF অপশনটি (legacy serial DOF) চালু রাখুন।"
 
 # DOF প্লাগইন সক্রিয়করণ — VPX ডিফল্টভাবে সমস্ত প্লাগইন নিষ্ক্রিয়
 # করে, তাই ব্যবহারকারী তাদের DOF কনফিগারেশন তৈরি এবং নিষ্কাশন

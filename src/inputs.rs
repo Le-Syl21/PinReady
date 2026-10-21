@@ -765,7 +765,8 @@ pub fn pinscape_button_defaults(profile: usize) -> &'static [(&'static str, u8)]
                                        // 31 = Calib (DO NOT REMAP)
         ],
         // CSD PinOne — from VPX calibration screenshot (VPX buttons are 1-indexed, SDL 0-indexed)
-        // Device identifies as "Clev Soft PinOne" (VID 0x0E8F, PID 0x0792)
+        // Device identifies as "Clev Soft PinOne" (VID 0x0E8F, PID 0x9207 — SDL's
+        // joystick GUID shows it as "0792" because it stores the PID little-endian)
         // Axes: X=nudge L/R (Accel), Y=nudge U/D (Accel), Z=plunger (Position)
         3 => &[
             ("RightFlipper", 0), // VPX Button 1

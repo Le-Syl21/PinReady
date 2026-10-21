@@ -27,6 +27,7 @@ mod merge;
 mod motion_kalman;
 mod nudge_sim;
 mod outputs_hid;
+mod outputs_pinone;
 mod pidlock;
 mod pinscape_config;
 mod plumb;

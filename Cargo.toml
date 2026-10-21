@@ -99,10 +99,15 @@ sha2 = "0.11"
 # Already pulled transitively; declared explicitly.
 percent-encoding = "2"
 
-# USB HID for output board discovery (Pinscape KL25Z / Pico, DudesCab, PinOne).
+# USB HID for output board discovery (Pinscape KL25Z / Pico, DudesCab, PinOne Ultra).
 # linux-static-hidraw statically compiles the hidraw backend → zero runtime
 # deps on Linux; native backends on macOS (IOKit) and Windows (Win32 HID API).
 hidapi = { version = "2.6", default-features = false, features = ["linux-static-hidraw"] }
+
+# Serial port for the original CSD PinOne, whose outputs are driven over its
+# USB CDC port (MPL-2.0). No libudev: on Linux the crate then reads the USB
+# VID/PID from sysfs, so PinReady keeps zero runtime dependencies.
+serialport = { version = "4.10", default-features = false }
 
 # Localized SDL key labels in the wizard's input-binding page.
 # Static lookup table — feeds rust_i18n::locale() and an SDL_Scancode and

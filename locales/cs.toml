@@ -264,6 +264,10 @@ outputs_discover_configtool_file = "libdof načte:"
 outputs_discover_start_hardware = "▶ Spustit s touto deskou (%{n} výstupů)"
 outputs_discover_driver_soon = "Tester výstupů — ovladač už brzy"
 outputs_discover_driver_soon_tooltip = "PinReady tuto desku rozpoznává a umí vám říct, co vybrat v ConfigToolu, ale zápisový HID ovladač pro pulsování výstupů zatím není implementován. Zatím použijte informace o detekci výše a namapujte výstupy jiným způsobem (DOF test, multimetr atd.)."
+outputs_discover_pinone_busy = "Na %{port} byl nalezen PinOne, ale tento port používá jiný program. Zavřete Visual Pinball, DOF a konfigurační nástroj PinOne a vyhledejte znovu."
+outputs_discover_pinone_permission = "PinOne byl nalezen, ale PinReady ho nesmí otevřít. V Linuxu nainstalujte níže uvedená pravidla přístupu a vyhledejte znovu."
+outputs_discover_pinone_no_answer = "Na %{port} je něco, co vypadá jako PinOne, ale neodpovědělo to. Odpojte to, znovu připojte a vyhledejte znovu."
+outputs_discover_pinone_ultra_dof = "Vestavěný DOF ve Visual Pinballu komunikuje s PinOne Ultra přes jeho sériový port USB: v konfiguračním nástroji PinOne nechte zapnutou volbu sériového DOF (legacy serial DOF)."
 
 # Aktivace pluginu DOF — VPX zakazuje všechny pluginy ve výchozím stavu,
 # takže je třeba ho výslovně zapnout, jakmile uživatel vygeneruje a

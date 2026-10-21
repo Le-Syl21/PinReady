@@ -264,6 +264,10 @@ outputs_discover_configtool_file = "libdof 将加载："
 outputs_discover_start_hardware = "▶ 使用此板卡开始（%{n} 个输出）"
 outputs_discover_driver_soon = "输出测试器——驱动即将推出"
 outputs_discover_driver_soon_tooltip = "PinReady 可以检测到此板卡并告诉您在 ConfigTool 中应选择什么，但用于输出脉冲的 HID 写入驱动尚未实现。目前请使用上方的检测信息，并通过其他方法（DOF 测试工具、万用表等）映射输出。"
+outputs_discover_pinone_busy = "在 %{port} 上找到了 PinOne，但另一个程序正在使用该端口。请关闭 Visual Pinball、DOF 和 PinOne 配置工具，然后重新扫描。"
+outputs_discover_pinone_permission = "找到了 PinOne，但 PinReady 无权打开它。在 Linux 上，请安装下方的访问规则，然后重新扫描。"
+outputs_discover_pinone_no_answer = "%{port} 上有一个看起来像 PinOne 的设备，但它没有应答。请拔下后重新插上，然后重新扫描。"
+outputs_discover_pinone_ultra_dof = "Visual Pinball 内置的 DOF 通过 USB 串口与 PinOne Ultra 通信：请在 PinOne 配置工具中保持串口 DOF 选项（legacy serial DOF）开启。"
 
 # DOF 插件激活——VPX 默认禁用所有插件，所以一旦用户完成生成和
 # 解压 DOF 配置后，需要显式启用它。

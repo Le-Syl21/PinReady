@@ -264,6 +264,10 @@ outputs_discover_configtool_file = "libdof lataa:"
 outputs_discover_start_hardware = "▶ Aloita tällä kortilla (%{n} ulostuloa)"
 outputs_discover_driver_soon = "Ulostulotesteri — ajuri tulossa pian"
 outputs_discover_driver_soon_tooltip = "PinReady tunnistaa tämän kortin ja voi kertoa mitä valita ConfigToolissa, mutta HID-kirjoitusajuria ulostulojen pulssittamiseen ei ole vielä toteutettu. Käytä toistaiseksi yllä olevia tunnistustietoja ja mappaa ulostulot jollain muulla menetelmällä (DOF-testityökalu, yleismittari jne.)."
+outputs_discover_pinone_busy = "PinOne löytyi portista %{port}, mutta toinen ohjelma käyttää porttia. Sulje Visual Pinball, DOF ja PinOnen asetustyökalu ja hae uudelleen."
+outputs_discover_pinone_permission = "PinOne löytyi, mutta PinReadylla ei ole lupaa avata sitä. Asenna Linuxissa alla olevat käyttöoikeussäännöt ja hae uudelleen."
+outputs_discover_pinone_no_answer = "Portissa %{port} on jotain PinOnen näköistä, mutta se ei vastannut. Irrota se, kytke takaisin ja hae uudelleen."
+outputs_discover_pinone_ultra_dof = "Visual Pinballin sisäänrakennettu DOF puhuu PinOne Ultran kanssa sen USB-sarjaportin kautta: pidä PinOnen asetustyökalussa sarja-DOF-asetus (legacy serial DOF) päällä."
 
 # DOF-lisäosan aktivointi — VPX poistaa kaikki lisäosat käytöstä
 # oletuksena, joten tämä on kytkettävä päälle nimenomaan kun käyttäjä on

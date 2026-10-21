@@ -264,6 +264,10 @@ outputs_discover_configtool_file = "سيقوم libdof بتحميل:"
 outputs_discover_start_hardware = "▶ ابدأ بهذه اللوحة (%{n} مخارج)"
 outputs_discover_driver_soon = "مختبر المخارج — برنامج التشغيل قريباً"
 outputs_discover_driver_soon_tooltip = "يكتشف PinReady هذه اللوحة ويمكنه إخبارك بما تختاره في ConfigTool، لكن برنامج تشغيل الكتابة عبر HID لإرسال النبضات إلى المخارج لم يُنفذ بعد. استخدم معلومات الاكتشاف أعلاه حالياً وربط المخارج بطريقة أخرى (أداة اختبار DOF، متعدد القياسات، إلخ)."
+outputs_discover_pinone_busy = "تم العثور على PinOne على %{port}، لكن برنامجًا آخر يستخدم هذا المنفذ. أغلق Visual Pinball و DOF وأداة إعداد PinOne ثم أعد البحث."
+outputs_discover_pinone_permission = "تم العثور على PinOne، لكن PinReady لا يملك إذنًا لفتحه. على Linux، ثبّت قواعد الوصول أدناه ثم أعد البحث."
+outputs_discover_pinone_no_answer = "يوجد على %{port} جهاز يشبه PinOne لكنه لم يستجب. افصله ثم أعد توصيله وأعد البحث."
+outputs_discover_pinone_ultra_dof = "يتواصل DOF المدمج في Visual Pinball مع PinOne Ultra عبر منفذه التسلسلي USB: في أداة إعداد PinOne اترك خيار DOF التسلسلي (legacy serial DOF) مفعّلًا."
 
 # تفعيل إضافة DOF — يعطل VPX جميع الإضافات افتراضياً، لذا يجب
 # تفعيلها صراحة بمجرد الانتهاء من توليد إعدادات DOF واستخراجها.

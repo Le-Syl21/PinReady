@@ -7,10 +7,11 @@
 //! `all_off` is sent on Stop, Shutdown, channel drop, and any mid-cycle
 //! hardware error.
 //!
-//! Board backends: only [`Simulator`] drives anything today; the 4 real
-//! boards (KL25Z / Pico / DudesCab / PinOne) are stubbed pending verified
-//! USB HID protocol work — see module-level notes below.
+//! Board backends: [`Simulator`] plus real drivers for Pinscape KL25Z / Pico,
+//! LedWiz, DudesCab, the Ultimarc family and CSD PinOne (serial for the
+//! original board, HID for the Ultra — see `outputs_pinone.rs`).
 
+use crate::outputs_pinone::{self as pinone, PortProblem};
 use crossbeam_channel::{Receiver, Sender};
 use hidapi::{HidApi, HidDevice};
 use std::ffi::{CStr, CString};
@@ -80,6 +81,17 @@ const PACDRIVE_DEFAULT_OUTPUTS: u16 = 16;
 const PACLED_DEFAULT_OUTPUTS: u16 = 64;
 const ULTIMATEIO_DEFAULT_OUTPUTS: u16 = 96;
 
+/// Where a detected board is reached: a HID device path, or a serial port
+/// (original PinOne, e.g. `COM5` or `/dev/ttyACM0`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BoardLocation {
+    Hid(CString),
+    Serial(String),
+}
+
+/// Why a detected board cannot be tested right now.
+pub type BoardProblem = PortProblem;
+
 /// Information about a detected output board that the UI can present before
 /// the user commits to opening it.
 #[derive(Debug, Clone)]
@@ -87,14 +99,21 @@ pub struct DetectedBoard {
     pub kind: BoardKind,
     pub vid: u16,
     pub pid: u16,
-    pub path: CString,
+    pub location: BoardLocation,
     pub product: String,
     pub num_outputs: u16,
+    /// Firmware version the board reported, when it can be asked (PinOne).
+    pub firmware: Option<String>,
+    /// Set when the board is there but cannot be driven (port in use…).
+    pub problem: Option<BoardProblem>,
 }
 
 impl DetectedBoard {
     pub fn path_str(&self) -> String {
-        self.path.to_string_lossy().into_owned()
+        match &self.location {
+            BoardLocation::Hid(p) => p.to_string_lossy().into_owned(),
+            BoardLocation::Serial(port) => port.clone(),
+        }
     }
 
     /// The controller entry the user should pick in VPUniverse ConfigTool.
@@ -119,22 +138,23 @@ impl DetectedBoard {
             BoardKind::PacDrive => "PacDrive",
             BoardKind::PacLed => "PacLed",
             BoardKind::UltimateIO => "Ultimate/IO",
+            BoardKind::PinOne | BoardKind::PinOneUltra => "PinOne",
             BoardKind::Simulator => "Simulator",
         }
     }
 
-    /// Human-readable firmware mode description (Pinscape only — others
-    /// have a single firmware).
-    pub fn firmware_mode(&self) -> &'static str {
+    /// Human-readable firmware description: the Pinscape mode, or the
+    /// version a PinOne reported. Empty when there is nothing to say.
+    pub fn firmware_mode(&self) -> String {
         match self.kind {
             BoardKind::PinscapeKL25Z => {
                 if self.vid == LEDWIZ_VID {
-                    "Pinscape v1 (LedWiz emul mode)"
+                    "Pinscape v1 (LedWiz emul mode)".to_string()
                 } else {
-                    "Pinscape v2+ (native protocol)"
+                    "Pinscape v2+ (native protocol)".to_string()
                 }
             }
-            _ => "",
+            _ => self.firmware.clone().unwrap_or_default(),
         }
     }
 
@@ -148,6 +168,7 @@ impl DetectedBoard {
     ///   - PacDrive            : fixed 19
     ///   - PacLed              : fixed 20
     ///   - Ultimate/IO         : fixed 27
+    ///   - PinOne              : +10   (unit 1 → file 11, single unit only)
     ///
     /// For Pinscape v1 legacy and LedWiz, the unit number is embedded in
     /// the USB PID (`PID = 0x00EF + unit`). For all others we assume unit=1
@@ -169,6 +190,7 @@ impl DetectedBoard {
             BoardKind::PacDrive => 19,
             BoardKind::PacLed => 20,
             BoardKind::UltimateIO => 27,
+            BoardKind::PinOne | BoardKind::PinOneUltra => 11,
             BoardKind::Simulator => return None,
         };
         Some(format!("directoutputconfig{suffix}.ini"))
@@ -194,6 +216,15 @@ pub fn detect_boards() -> Result<Vec<DetectedBoard>, String> {
         let usage_page = info.usage_page();
         let usage = info.usage();
         let product = info.product_string().unwrap_or("").to_string();
+
+        // Every PinOne interface goes to the log, kept or not, so a tester's
+        // log shows exactly which collections the OS exposed.
+        if vid == pinone::ULTRA_VID || (vid == pinone::LEGACY_VID && pid == pinone::LEGACY_PID) {
+            log::info!(
+                "  PinOne HID candidate: VID {vid:04X} PID {pid:04X} usage={usage_page:#06X}/{usage:#04X} path={:?} product={product:?}",
+                info.path()
+            );
+        }
 
         let Some(kind) = classify_hid(vid, pid, usage_page, usage, &product) else {
             continue;
@@ -222,15 +253,55 @@ pub fn detect_boards() -> Result<Vec<DetectedBoard>, String> {
             kind,
             vid,
             pid,
-            path: info.path().to_owned(),
+            location: BoardLocation::Hid(info.path().to_owned()),
             product,
             num_outputs: default_outputs(kind),
+            firmware: None,
+            problem: None,
         });
     }
 
     // Deduplicate by (kind, path) — some boards enumerate via multiple
     // backends (hidraw + usbhid on Linux). Keep the first occurrence.
-    out.dedup_by(|a, b| a.kind == b.kind && a.path == b.path);
+    out.dedup_by(|a, b| a.kind == b.kind && a.location == b.location);
+
+    // PinOne Ultra: ask for the firmware version (cheap, and proves the
+    // vendor channel answers). A refused open is worth reporting now.
+    for board in out.iter_mut().filter(|b| b.kind == BoardKind::PinOneUltra) {
+        let BoardLocation::Hid(path) = &board.location else {
+            continue;
+        };
+        match pinone::ultra_query_version(&api, path) {
+            Ok(v) => board.firmware = v,
+            Err(e) => {
+                let low = e.to_lowercase();
+                if low.contains("permission") || low.contains("access") {
+                    board.problem = Some(PortProblem::PermissionDenied);
+                }
+                log::warn!("PinOne Ultra: version query failed: {e}");
+            }
+        }
+        log::info!(
+            "PinOne Ultra candidate {:?}: firmware={:?} problem={:?}",
+            path,
+            board.firmware,
+            board.problem
+        );
+    }
+
+    // Original PinOne: outputs live on its serial port, not on HID.
+    for f in pinone::detect_serial() {
+        out.push(DetectedBoard {
+            kind: BoardKind::PinOne,
+            vid: f.vid,
+            pid: f.pid,
+            location: BoardLocation::Serial(f.port),
+            product: f.product,
+            num_outputs: pinone::PINONE_OUTPUTS,
+            firmware: f.firmware,
+            problem: f.problem,
+        });
+    }
     log::info!("Scan complete: {} supported board(s) found", out.len());
     Ok(out)
 }
@@ -271,6 +342,13 @@ fn classify_hid(
     // interface we don't drive). "DudesCab Outputs" (Windows) or plain
     // "DudesCab" (Linux, interface_number filtered at the libdof level) are
     // the output interfaces.
+    // PinOne Ultra — the vendor collection is picked in is_correct_interface.
+    // (The original PinOne's HID interfaces are its joystick only: its
+    // outputs are found on the serial port, see outputs_pinone.)
+    if pinone::is_ultra(vid, pid, product) {
+        return Some(BoardKind::PinOneUltra);
+    }
+
     if vid == DUDESCAB_VID && pid == DUDESCAB_PID {
         let is_mx = product.contains("MX");
         if !is_mx {
@@ -303,6 +381,9 @@ fn is_correct_interface(kind: BoardKind, usage_page: u16, usage: u16) -> bool {
             usage_page == HID_USAGE_PAGE_GENERIC && usage == HID_USAGE_JOYSTICK
         }
         BoardKind::PinscapePico => usage_page == PSPICO_USAGE_PAGE && usage == PSPICO_USAGE,
+        BoardKind::PinOneUltra => {
+            usage_page == pinone::ULTRA_USAGE_PAGE && usage == pinone::ULTRA_USAGE
+        }
         _ => true,
     }
 }
@@ -316,6 +397,7 @@ fn default_outputs(kind: BoardKind) -> u16 {
         BoardKind::PacDrive => PACDRIVE_DEFAULT_OUTPUTS,
         BoardKind::PacLed => PACLED_DEFAULT_OUTPUTS,
         BoardKind::UltimateIO => ULTIMATEIO_DEFAULT_OUTPUTS,
+        BoardKind::PinOne | BoardKind::PinOneUltra => pinone::PINONE_OUTPUTS,
     }
 }
 
@@ -400,10 +482,29 @@ pub fn spawn_udev_apply(rules: String) -> Receiver<Result<(), String>> {
 /// `OutputBoard` trait object the discovery thread can drive.
 pub fn open_board(
     kind: BoardKind,
-    path: &CStr,
+    location: &BoardLocation,
     num_outputs: u16,
 ) -> Result<Box<dyn OutputBoard>, String> {
+    let path = match (kind, location) {
+        (BoardKind::PinOne, BoardLocation::Serial(port)) => {
+            return open_pinone(PinOneLink::Serial(pinone::PinOneSerial::open(
+                port,
+                num_outputs,
+            )?));
+        }
+        (_, BoardLocation::Serial(port)) => {
+            return Err(format!(
+                "{} is not reached over a serial port ({port})",
+                kind.label()
+            ));
+        }
+        (_, BoardLocation::Hid(path)) => path.as_c_str(),
+    };
     match kind {
+        BoardKind::PinOneUltra => open_pinone(PinOneLink::Hid(pinone::PinOneUltraHid::open(
+            path,
+            num_outputs,
+        )?)),
         BoardKind::PinscapeKL25Z => open_pinscape_kl25z(path, num_outputs),
         BoardKind::LedWiz => open_ledwiz(path, num_outputs),
         BoardKind::PinscapePico => open_pinscape_pico(path, num_outputs),
@@ -575,6 +676,10 @@ pub enum BoardKind {
     PacLed,
     /// Ultimarc Ultimate I/O.
     UltimateIO,
+    /// CSD PinOne (original, ATmega32U4) — outputs over its USB serial port.
+    PinOne,
+    /// CSD PinOne Ultra (ESP32-S3) — outputs over a HID vendor channel.
+    PinOneUltra,
 }
 
 impl BoardKind {
@@ -588,6 +693,8 @@ impl BoardKind {
             Self::PacDrive => "PacDrive",
             Self::PacLed => "PacLed",
             Self::UltimateIO => "Ultimate I/O",
+            Self::PinOne => "PinOne",
+            Self::PinOneUltra => "PinOne Ultra",
         }
     }
 
@@ -605,6 +712,8 @@ impl BoardKind {
                 | Self::PacDrive
                 | Self::PacLed
                 | Self::UltimateIO
+                | Self::PinOne
+                | Self::PinOneUltra
         )
     }
 }
@@ -1121,6 +1230,66 @@ impl OutputBoard for PacIndexedReal {
                 .map_err(|e| format!("HID write (PacLed/UltimateIO all_off {i}): {e}"))?;
         }
         Ok(())
+    }
+}
+
+// === CSD PinOne ===
+//
+// Packets and transports live in `outputs_pinone.rs`. The tester uses the
+// single-output command (252) to pulse one output, and the admin all-off
+// (250/255) for every safety stop.
+
+enum PinOneLink {
+    Serial(pinone::PinOneSerial),
+    Hid(pinone::PinOneUltraHid),
+}
+
+struct PinOneReal {
+    link: PinOneLink,
+}
+
+impl PinOneReal {
+    fn send(&mut self, packet: &[u8; pinone::PACKET_LEN]) -> Result<(), String> {
+        match &mut self.link {
+            PinOneLink::Serial(s) => s.send(packet),
+            PinOneLink::Hid(h) => h.send(packet),
+        }
+    }
+}
+
+fn open_pinone(link: PinOneLink) -> Result<Box<dyn OutputBoard>, String> {
+    let mut board = PinOneReal { link };
+    // Start from a known state; this also stops the board's idle light show
+    // from driving outputs while the user is identifying them.
+    board.all_off()?;
+    log::info!("{} opened successfully", board.kind().label());
+    Ok(Box::new(board))
+}
+
+impl OutputBoard for PinOneReal {
+    fn kind(&self) -> BoardKind {
+        match self.link {
+            PinOneLink::Serial(_) => BoardKind::PinOne,
+            PinOneLink::Hid(_) => BoardKind::PinOneUltra,
+        }
+    }
+    fn num_outputs(&self) -> u16 {
+        match &self.link {
+            PinOneLink::Serial(s) => s.num_outputs(),
+            PinOneLink::Hid(h) => h.num_outputs(),
+        }
+    }
+
+    fn set_output(&mut self, n: u16, intensity: u8) -> Result<(), String> {
+        let num = self.num_outputs();
+        let packet = pinone::set_output_packet(n, intensity)
+            .filter(|_| n <= num)
+            .ok_or_else(|| format!("output {n} out of range (1..={num})"))?;
+        self.send(&packet)
+    }
+
+    fn all_off(&mut self) -> Result<(), String> {
+        self.send(&pinone::all_off_packet())
     }
 }
 
@@ -1668,6 +1837,53 @@ mod tests {
         let intensity: u8 = 200;
         let buf = [0x00u8, (n - 1) as u8, intensity];
         assert_eq!(buf, [0x00, 0x04, 200]);
+    }
+
+    #[test]
+    fn pinone_ultra_vendor_collection_only() {
+        // VID/PID → Ultra; the product string covers a bumped PID.
+        let k = classify_hid(0x39F5, 0x9208, 0xFF00, 0x01, "PinOne Ultra");
+        assert_eq!(k, Some(BoardKind::PinOneUltra));
+        assert_eq!(
+            classify_hid(0x39F5, 0x9300, 0x01, 0x04, "PinOne Ultra"),
+            Some(BoardKind::PinOneUltra)
+        );
+        // Only the vendor collection carries outputs, not the gamepad,
+        // keyboard or consumer-control collections of the same device.
+        assert!(is_correct_interface(BoardKind::PinOneUltra, 0xFF00, 0x01));
+        assert!(!is_correct_interface(BoardKind::PinOneUltra, 0x01, 0x04));
+        assert!(!is_correct_interface(BoardKind::PinOneUltra, 0x01, 0x06));
+        assert!(!is_correct_interface(BoardKind::PinOneUltra, 0x0C, 0x01));
+    }
+
+    #[test]
+    fn pinone_original_is_not_a_hid_output_board() {
+        // Its HID interface is the joystick; outputs are on the serial port.
+        assert_eq!(classify_hid(0x0E8F, 0x9207, 0x01, 0x04, "PinOne"), None);
+    }
+
+    #[test]
+    fn pinone_configtool_guidance() {
+        let board = DetectedBoard {
+            kind: BoardKind::PinOne,
+            vid: 0x0E8F,
+            pid: 0x9207,
+            location: BoardLocation::Serial("COM5".into()),
+            product: String::new(),
+            num_outputs: 63,
+            firmware: Some("2.2.1".into()),
+            problem: None,
+        };
+        assert_eq!(board.configtool_controller(), "PinOne");
+        // libdof PinOneAutoConfigurator: LedWizEquivalent = unit 1 + bias 10.
+        assert_eq!(
+            board.expected_config_filename().as_deref(),
+            Some("directoutputconfig11.ini")
+        );
+        assert_eq!(board.firmware_mode(), "2.2.1");
+        assert_eq!(board.path_str(), "COM5");
+        assert_eq!(default_outputs(BoardKind::PinOneUltra), 63);
+        assert!(BoardKind::PinOne.has_driver() && BoardKind::PinOneUltra.has_driver());
     }
 
     #[test]

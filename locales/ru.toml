@@ -264,6 +264,10 @@ outputs_discover_configtool_file = "libdof загрузит:"
 outputs_discover_start_hardware = "▶ Начать с этой платой (%{n} выходов)"
 outputs_discover_driver_soon = "Тестер выходов — драйвер скоро"
 outputs_discover_driver_soon_tooltip = "PinReady распознаёт эту плату и может подсказать, что выбрать в ConfigTool, но HID-драйвер записи для генерации импульсов на выходах ещё не реализован. Пока воспользуйтесь информацией о распознавании выше и задайте соответствия выходов другим способом (тестер DOF, мультиметр и т. д.)."
+outputs_discover_pinone_busy = "PinOne найден на %{port}, но этот порт занят другой программой. Закройте Visual Pinball, DOF и программу настройки PinOne, затем повторите поиск."
+outputs_discover_pinone_permission = "PinOne найден, но у PinReady нет прав, чтобы его открыть. В Linux установите правила доступа ниже, затем повторите поиск."
+outputs_discover_pinone_no_answer = "На %{port} есть устройство, похожее на PinOne, но оно не ответило. Отключите его, подключите снова и повторите поиск."
+outputs_discover_pinone_ultra_dof = "Встроенный в Visual Pinball DOF общается с PinOne Ultra через его последовательный USB-порт: в программе настройки PinOne оставьте включённой опцию последовательного DOF (legacy serial DOF)."
 
 # Включение плагина DOF — VPX отключает все плагины по умолчанию,
 # поэтому его нужно явно включить, как только пользователь сгенерирует

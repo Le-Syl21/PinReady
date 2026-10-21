@@ -264,6 +264,10 @@ outputs_discover_configtool_file = "libdof sẽ nạp:"
 outputs_discover_start_hardware = "▶ Bắt đầu với bo mạch này (%{n} đầu ra)"
 outputs_discover_driver_soon = "Trình kiểm tra đầu ra — driver sắp ra mắt"
 outputs_discover_driver_soon_tooltip = "PinReady phát hiện bo mạch này và có thể chỉ cho bạn nên chọn gì trong ConfigTool, nhưng driver HID ghi để tạo xung đầu ra chưa được triển khai. Tạm thời hãy dùng thông tin phát hiện ở trên và ánh xạ các đầu ra bằng phương pháp khác (công cụ test DOF, đồng hồ đo v.v.)."
+outputs_discover_pinone_busy = "Đã tìm thấy PinOne trên %{port}, nhưng một chương trình khác đang dùng cổng đó. Hãy đóng Visual Pinball, DOF và công cụ cấu hình PinOne rồi quét lại."
+outputs_discover_pinone_permission = "Đã tìm thấy PinOne, nhưng PinReady không được phép mở nó. Trên Linux, hãy cài đặt các quy tắc truy cập bên dưới rồi quét lại."
+outputs_discover_pinone_no_answer = "Có một thiết bị giống PinOne trên %{port}, nhưng nó không trả lời. Hãy rút ra, cắm lại rồi quét lại."
+outputs_discover_pinone_ultra_dof = "DOF tích hợp trong Visual Pinball giao tiếp với PinOne Ultra qua cổng nối tiếp USB của nó: trong công cụ cấu hình PinOne, hãy giữ tùy chọn DOF nối tiếp (legacy serial DOF) ở trạng thái bật."
 
 # Kích hoạt plugin DOF — VPX tắt tất cả plugin theo mặc định, nên phải
 # bật rõ ràng sau khi người dùng đã tạo và giải nén cấu hình DOF.

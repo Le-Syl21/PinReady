@@ -282,6 +282,10 @@ outputs_discover_configtool_file = "libdof will load:"
 outputs_discover_start_hardware = "▶ Start with this board (%{n} outputs)"
 outputs_discover_driver_soon = "Output tester — driver coming soon"
 outputs_discover_driver_soon_tooltip = "PinReady detects this board and can tell you what to pick in ConfigTool, but the HID write driver for output pulsing is not yet implemented. Use the detection info above and map outputs by another method (DOF test tool, multimeter, etc.) for now."
+outputs_discover_pinone_busy = "A PinOne was found on %{port}, but another program is using that port. Close Visual Pinball, DOF and the PinOne config tool, then scan again."
+outputs_discover_pinone_permission = "A PinOne was found, but PinReady is not allowed to open it. On Linux, install the access rules below, then scan again."
+outputs_discover_pinone_no_answer = "Something that looks like a PinOne is on %{port}, but it did not answer. Unplug it, plug it back in, then scan again."
+outputs_discover_pinone_ultra_dof = "Visual Pinball's built-in DOF talks to the PinOne Ultra through its USB serial port: in the PinOne config tool, keep the legacy serial DOF option turned on."
 
 # DOF plugin activation — VPX disables all plugins by default, so this has to
 # be flipped on explicitly once the user has finished generating + extracting

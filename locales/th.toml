@@ -264,6 +264,10 @@ outputs_discover_configtool_file = "libdof จะโหลด:"
 outputs_discover_start_hardware = "▶ เริ่มต้นด้วยบอร์ดนี้ (%{n} เอาต์พุต)"
 outputs_discover_driver_soon = "ตัวทดสอบเอาต์พุต — ไดรเวอร์เร็ว ๆ นี้"
 outputs_discover_driver_soon_tooltip = "PinReady ตรวจพบบอร์ดนี้และสามารถบอกคุณได้ว่าควรเลือกอะไรใน ConfigTool แต่ไดรเวอร์การเขียน HID สำหรับการส่งพัลส์ไปยังเอาต์พุตยังไม่ได้ถูกพัฒนา ใช้ข้อมูลการตรวจจับด้านบนและแมปเอาต์พุตด้วยวิธีอื่น (เครื่องมือทดสอบ DOF, มัลติมิเตอร์ เป็นต้น) ไปก่อน"
+outputs_discover_pinone_busy = "พบ PinOne ที่ %{port} แต่มีโปรแกรมอื่นกำลังใช้พอร์ตนั้นอยู่ ปิด Visual Pinball, DOF และเครื่องมือตั้งค่า PinOne แล้วสแกนอีกครั้ง"
+outputs_discover_pinone_permission = "พบ PinOne แต่ PinReady ไม่ได้รับอนุญาตให้เปิด บน Linux ให้ติดตั้งกฎการเข้าถึงด้านล่าง แล้วสแกนอีกครั้ง"
+outputs_discover_pinone_no_answer = "มีอุปกรณ์ที่ดูเหมือน PinOne อยู่ที่ %{port} แต่ไม่ตอบสนอง ถอดออก เสียบใหม่ แล้วสแกนอีกครั้ง"
+outputs_discover_pinone_ultra_dof = "DOF ที่มาพร้อมกับ Visual Pinball สื่อสารกับ PinOne Ultra ผ่านพอร์ตอนุกรม USB: ในเครื่องมือตั้งค่า PinOne ให้เปิดตัวเลือก DOF แบบอนุกรม (legacy serial DOF) ไว้"
 
 # การเปิดใช้งานปลั๊กอิน DOF — VPX ปิดปลั๊กอินทั้งหมดโดยค่าเริ่มต้น
 # ดังนั้นต้องเปิดอย่างชัดเจนเมื่อผู้ใช้สร้างและแตกไฟล์การกำหนดค่า

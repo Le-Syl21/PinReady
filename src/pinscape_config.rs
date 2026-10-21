@@ -25,7 +25,11 @@ const PINSCAPE_VID: u16 = 0x1209;
 const PINSCAPE_PID: u16 = 0xEAEA;
 
 /// Boards we can recognise on the bus but not question.
-const OPAQUE_BOARDS: &[(u16, u16, &str)] = &[(0x2E8A, 0x106F, "DudesCab")];
+const OPAQUE_BOARDS: &[(u16, u16, &str)] = &[
+    (0x2E8A, 0x106F, "DudesCab"),
+    (0x0E8F, 0x9207, "PinOne"),
+    (0x39F5, 0x9208, "PinOne Ultra"),
+];
 
 const CMD_EXTENDED: u8 = 65;
 const CMD_QUERY_CONFIG_VAR: u8 = 9;
@@ -62,9 +66,9 @@ pub enum Board {
     /// interface, plus a small HID "feedback controller" that answers a
     /// status query.
     Pico,
-    /// A board we recognise but cannot interrogate: DudesCab and PinOne have
-    /// closed firmware with no documented query protocol (libdof drives their
-    /// *outputs* only, and PinOne talks over a serial port at that). Worth
+    /// A board we recognise but do not interrogate: DudesCab has closed
+    /// firmware with no documented query protocol, and PinOne's own config
+    /// dump (its config-tool protocol) is not parsed here. Worth
     /// naming anyway — "your DudesCab does not publish this" is honest, where
     /// "no board detected" would be a lie.
     Opaque(&'static str),
