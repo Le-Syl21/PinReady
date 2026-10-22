@@ -1,5 +1,19 @@
 use super::*;
 
+/// Whether the cover windows (backglass, DMD, topper) let the pointer through.
+///
+/// Needed under Mutter, which otherwise hands a cover the pointer focus and
+/// strands the arrow on the backglass (see `render_cover_viewports`). Never
+/// on Windows: winit implements pass-through there by making the window
+/// layered (`WS_EX_LAYERED | WS_EX_TRANSPARENT`) without ever calling
+/// `SetLayeredWindowAttributes`, and an OpenGL window in that state is not
+/// guaranteed to show what it renders — the likely reason a cabinet reported
+/// the backglass blank on the first launch and then frozen on one picture
+/// while browsing (`log_backglass_cover` tells the two apart). Windows has
+/// no use for it anyway: the kiosk cursor is confined to the playfield
+/// window with `ClipCursor`, so the pointer never reaches a cover.
+const COVER_MOUSE_PASSTHROUGH: bool = !cfg!(target_os = "windows");
+
 impl App {
     pub(super) fn render_launcher(&mut self, ui: &mut egui::Ui) {
         // Install image loaders once
@@ -751,6 +765,28 @@ impl App {
         }
     }
 
+    /// Log, once per change, what the backglass cover is painting. Written
+    /// from inside the cover's own pass: when the screen stays blank or stuck
+    /// while these lines follow the selection, the cover is being drawn and
+    /// the picture is lost on its way to the screen; when they stop, the
+    /// cover itself is no longer being run.
+    fn log_backglass_cover(ctx: &egui::Context, uri: &str, table: &str, has_image: bool) {
+        let id = egui::Id::new("backglass_cover_painted");
+        let current = (uri.to_owned(), has_image);
+        let previous = ctx.data(|d| d.get_temp::<(String, bool)>(id));
+        if previous.as_ref() != Some(&current) {
+            log::info!(
+                "Backglass cover: painting {table} ({})",
+                if has_image {
+                    uri
+                } else {
+                    "no image yet, showing its name"
+                }
+            );
+            ctx.data_mut(|d| d.insert_temp(id, current));
+        }
+    }
+
     fn render_cover_viewports(&self, ui: &mut egui::Ui) {
         // Diagnostic escape hatch: the playfield never gets focus in cabinet
         // mode, and the covers are the prime suspect — they map after it, and
@@ -772,6 +808,12 @@ impl App {
             let selected = self.selected_table.min(self.tables.len() - 1);
             let table_name = self.tables[selected].name.clone();
             let bg_bytes = self.tables[selected].bg_bytes.clone();
+            // The playfield list's own URI for this row: generation-tagged, so
+            // a rescan that reorders rows never serves the previous scan's
+            // picture (egui keeps the first bytes and texture registered
+            // under a URI), and the decoded texture is shared with the list
+            // instead of uploaded a second time.
+            let uri = format!("bytes://bg/{}/{selected}", self.scan_generation);
 
             let bg_viewport_id = egui::ViewportId::from_hash_of(BG_VIEWPORT);
             ui.ctx().request_repaint_of(bg_viewport_id);
@@ -789,19 +831,21 @@ impl App {
                     // escapes onto the backglass and freezes there,
                     // because the moves it needs are now being delivered
                     // to this window.
-                    .with_mouse_passthrough(true),
+                    .with_mouse_passthrough(COVER_MOUSE_PASSTHROUGH),
                 move |ui, _class| {
                     let ctx = ui.ctx().clone();
                     Self::diag_cover_focus(&ctx, "backglass");
+                    Self::log_backglass_cover(&ctx, &uri, &table_name, bg_bytes.is_some());
                     egui_extras::install_image_loaders(&ctx);
                     egui::CentralPanel::default()
                         .frame(egui::Frame::NONE.fill(egui::Color32::BLACK))
                         .show(ui, |ui| {
                             if let Some(ref bytes) = bg_bytes {
-                                let uri = format!("bytes://viewport_bg/{selected}");
+                                // Normally already registered by the list; a
+                                // no-op then (egui keeps the first bytes).
                                 ctx.include_bytes(uri.clone(), bytes.clone());
                                 ui.centered_and_justified(|ui| {
-                                    ui.add(egui::Image::new(uri).shrink_to_fit());
+                                    ui.add(egui::Image::new(uri.clone()).shrink_to_fit());
                                 });
                             } else {
                                 ui.centered_and_justified(|ui| {
@@ -849,7 +893,7 @@ impl App {
                 .with_monitor(monitor_idx)
                 .with_active(false)
                 // See the backglass cover: covers must not attract the pointer.
-                .with_mouse_passthrough(true),
+                .with_mouse_passthrough(COVER_MOUSE_PASSTHROUGH),
             move |ui, _class| {
                 let ctx = ui.ctx().clone();
                 Self::diag_cover_focus(&ctx, id);
