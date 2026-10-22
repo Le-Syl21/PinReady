@@ -673,7 +673,15 @@ Main thread: eframe/egui event loop
 SDL3 thread: SDL_Init → event poll loop → send events via crossbeam-channel → recv in egui update()
 ```
 
-Do NOT call SDL3 functions from the egui update() thread.
+Do NOT call SDL3 functions from the egui update() thread. Two deliberate
+exceptions, both on the UI thread outside update(): `SDL_Quit()` before each VPX
+spawn (`shutdown_sdl_threads`), and, **on Windows only**, the first
+`SDL_InitSubSystem(JOYSTICK)` in `spawn_joystick_thread`. SDL's DirectInput
+backend opens pads against a helper window created by the initialising thread;
+created on the joystick thread it died with it, `SDL_Quit()` on the UI thread
+could not destroy it, SDL kept the stale handle, and every pad failed to open
+after the first VPX run. (Not on macOS: IOKit needs init and polling on the same
+thread.)
 Do NOT call egui functions from the SDL3 thread.
 Use `crossbeam_channel::unbounded()` for communication.
 

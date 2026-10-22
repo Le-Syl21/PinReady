@@ -854,6 +854,7 @@ pub(crate) fn effective_scancode(action: &InputAction) -> SDL_Scancode {
 
 /// Info about an opened joystick for direct polling.
 struct OpenedJoystick {
+    id: SDL_JoystickID,
     handle: *mut sdl3_sys::everything::SDL_Joystick,
     vpx_id: String,
     num_buttons: i32,
@@ -883,6 +884,141 @@ fn normalize_axis(raw: i16) -> f32 {
     }
 }
 
+/// How often the polling thread looks for joysticks it has not opened yet.
+/// SDL keeps its device list current by itself (`SDL_UpdateJoysticks` runs
+/// the hotplug detection), so this only decides how soon a pad that appears
+/// later — plugged in, or released late by another process — starts working.
+const JOYSTICK_RESCAN_INTERVAL: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// Open one SDL joystick and announce the controllers PinReady recognises.
+/// Returns `None` — and says why in the log — when the device cannot be used.
+unsafe fn open_joystick(
+    jid: SDL_JoystickID,
+    evt_tx: &crossbeam_channel::Sender<JoystickEvent>,
+) -> Option<OpenedJoystick> {
+    unsafe {
+        let joy = SDL_OpenJoystick(jid);
+        if joy.is_null() {
+            // Never silent: a pad SDL lists but cannot open looks, from the
+            // launcher, exactly like a dead pad.
+            log::warn!(
+                "Could not open joystick {} ({}): {}",
+                jid.0,
+                name_or_placeholder(SDL_GetJoystickNameForID(jid), jid),
+                CStr::from_ptr(SDL_GetError()).to_string_lossy()
+            );
+            return None;
+        }
+        let name = name_or_placeholder(SDL_GetJoystickName(joy), jid);
+        let dev_id = vpx_device_id(joy);
+        let num_buttons = SDL_GetNumJoystickButtons(joy);
+        let num_axes = SDL_GetNumJoystickAxes(joy);
+        log::info!(
+            "Opened joystick: {} (vpx_id={}, buttons={}, axes={})",
+            name,
+            dev_id,
+            num_buttons,
+            num_axes
+        );
+        // SDL3 returns -1 on failure. Casting a negative i32 to
+        // usize yields a value near 2^64 which then blows up
+        // `vec![false; n]` a few lines down — reserve gigabytes
+        // of address space, kill the process. Skip the device.
+        if num_buttons < 0 || num_axes < 0 {
+            log::warn!(
+                "Skipping joystick {}: SDL returned buttons={} axes={} (probable driver failure): {}",
+                dev_id,
+                num_buttons,
+                num_axes,
+                CStr::from_ptr(SDL_GetError()).to_string_lossy()
+            );
+            SDL_CloseJoystick(joy);
+            return None;
+        }
+        // Detect pinball controllers (device ID is now GUID-based, so we
+        // can no longer fingerprint by serial substring — match on name).
+        if name.contains("Pinscape") {
+            log::info!("Pinscape controller detected: {}", dev_id);
+            let _ = evt_tx.send(JoystickEvent::PinscapeDetected {
+                vpx_id: dev_id.clone(),
+            });
+        } else if name.contains("DudesCab") {
+            log::info!("DudesCab controller detected: {}", dev_id);
+            let _ = evt_tx.send(JoystickEvent::DudesCabDetected {
+                vpx_id: dev_id.clone(),
+            });
+        } else if name.contains("PinOne") {
+            log::info!("CSD PinOne controller detected: {}", dev_id);
+            let _ = evt_tx.send(JoystickEvent::PinOneDetected {
+                vpx_id: dev_id.clone(),
+            });
+        } else if SDL_IsGamepad(jid) {
+            // Generic gamepad (Xbox, PS, etc.)
+            log::info!("Gamepad detected: {} ({})", name, dev_id);
+            let _ = evt_tx.send(JoystickEvent::GamepadDetected {
+                vpx_id: dev_id.clone(),
+                name: name.clone(),
+            });
+        }
+        // Pre-build names to avoid format!() in the hot polling loop
+        let button_names: Vec<String> = (0..num_buttons)
+            .map(|b| format!("{} Button {}", dev_id, b))
+            .collect();
+        let axis_names: Vec<String> = (0..num_axes)
+            .map(|a| format!("{} Axis {}", dev_id, a))
+            .collect();
+        Some(OpenedJoystick {
+            id: jid,
+            handle: joy,
+            vpx_id: dev_id,
+            num_buttons,
+            num_axes,
+            prev_buttons: vec![false; num_buttons as usize],
+            button_names,
+            axis_names,
+        })
+    }
+}
+
+unsafe fn name_or_placeholder(ptr: *const core::ffi::c_char, jid: SDL_JoystickID) -> String {
+    if ptr.is_null() {
+        format!("Joystick {}", jid.0)
+    } else {
+        unsafe { CStr::from_ptr(ptr) }
+            .to_string_lossy()
+            .into_owned()
+    }
+}
+
+/// The joysticks SDL currently lists, as instance ids.
+unsafe fn listed_joysticks() -> Vec<SDL_JoystickID> {
+    unsafe {
+        let mut count: i32 = 0;
+        let ids = SDL_GetJoysticks(&mut count);
+        if ids.is_null() {
+            return Vec::new();
+        }
+        // Guard: SDL_GetJoysticks writes 0 (or leaves the initial value) on
+        // failure; a negative or absurdly large value must never reach the
+        // `as usize` cast below — otherwise the Vec balloons and OOMs the
+        // process. Seen in the wild on a broken VPX build that stubbed out
+        // the joystick subsystem.
+        let count = count.max(0) as usize;
+        let listed = (0..count).map(|i| *ids.add(i)).collect();
+        SDL_free(ids as *mut _);
+        listed
+    }
+}
+
+/// The listed joysticks that are neither open nor already given up on.
+fn joysticks_to_open<Id: Copy + PartialEq>(listed: &[Id], opened: &[Id], failed: &[Id]) -> Vec<Id> {
+    listed
+        .iter()
+        .copied()
+        .filter(|id| !opened.contains(id) && !failed.contains(id))
+        .collect()
+}
+
 /// Spawn the SDL3 joystick polling thread (keyboard is handled via egui).
 /// Uses direct state polling (SDL_GetJoystickButton/Axis) instead of SDL_PollEvent
 /// to avoid the SDL3 main-thread assertion on event pumping.
@@ -890,6 +1026,10 @@ fn normalize_axis(raw: i16) -> f32 {
 /// thread), and the JoinHandle. The thread does no SDL3 teardown of its
 /// own — `App::shutdown_sdl_threads` runs `SDL_Quit()` once both worker
 /// threads have joined.
+///
+/// Must be called from the thread that later calls `SDL_Quit()` (the UI
+/// thread): on Windows the joystick subsystem is initialised right here, see
+/// below.
 pub fn spawn_joystick_thread() -> (
     crossbeam_channel::Receiver<JoystickEvent>,
     Arc<AtomicBool>,
@@ -898,6 +1038,40 @@ pub fn spawn_joystick_thread() -> (
     let (evt_tx, evt_rx) = crossbeam_channel::unbounded::<JoystickEvent>();
     let running = Arc::new(AtomicBool::new(true));
     let running_thread = running.clone();
+
+    unsafe {
+        // PinReady never opens an SDL window, so SDL has no focus to gate
+        // joystick input on today. Say it explicitly anyway: the launcher must
+        // keep reading the cabinet buttons while its window is not in front,
+        // which is exactly the state it is in right after VPX exits.
+        SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, c"1".as_ptr());
+    }
+
+    // Windows: SDL's DirectInput backend opens every pad against a hidden
+    // helper window that `SDL_InitSubSystem(JOYSTICK)` creates on the calling
+    // thread. Created on the polling thread, that window dies with it when
+    // the thread is joined before a VPX launch; `SDL_Quit()` on the UI thread
+    // then fails to destroy it (`DestroyWindow` is thread-bound), so SDL keeps
+    // the stale handle and the next init reuses it. Every
+    // `SetCooperativeLevel` on it fails, every pad fails to open, and the
+    // launcher came back from VPX with "0 joystick(s) found" and dead cabinet
+    // buttons. Initialising here puts the window on the UI thread, which is
+    // the one calling `SDL_Quit()`: it is destroyed and recreated cleanly
+    // around every VPX run. The polling thread's own init below then only
+    // takes a reference.
+    //
+    // Windows only: on macOS the IOKit backend schedules its HID manager on
+    // the run loop of the initialising thread and pumps the run loop of the
+    // updating one, so init and polling must stay on the same thread there.
+    #[cfg(target_os = "windows")]
+    unsafe {
+        if !SDL_InitSubSystem(SDL_INIT_JOYSTICK) {
+            log::error!(
+                "SDL_InitSubSystem(JOYSTICK) failed on the UI thread: {:?}",
+                CStr::from_ptr(SDL_GetError())
+            );
+        }
+    }
 
     let handle = thread::spawn(move || {
         unsafe {
@@ -910,107 +1084,46 @@ pub fn spawn_joystick_thread() -> (
                 return;
             }
 
-            // Open all connected joysticks
-            let mut joy_count: i32 = 0;
-            let joy_ids = SDL_GetJoysticks(&mut joy_count);
-            // Guard: SDL_GetJoysticks writes 0 (or leaves the initial value) on
-            // failure; a negative or absurdly large value must never reach the
-            // `as usize` cast below — otherwise Vec::with_capacity balloons and
-            // OOMs the process. Seen in the wild on a broken VPX build that
-            // stubbed out the joystick subsystem.
-            let joy_count = joy_count.max(0) as usize;
-            let mut joysticks: Vec<OpenedJoystick> = Vec::with_capacity(joy_count);
-            if !joy_ids.is_null() {
-                for i in 0..joy_count {
-                    let jid = *joy_ids.add(i);
-                    let joy = SDL_OpenJoystick(jid);
-                    if !joy.is_null() {
-                        let name_ptr = SDL_GetJoystickName(joy);
-                        let name = if !name_ptr.is_null() {
-                            CStr::from_ptr(name_ptr).to_string_lossy().into_owned()
-                        } else {
-                            format!("Joystick {}", jid.0)
-                        };
-                        let dev_id = vpx_device_id(joy);
-                        let num_buttons_raw = SDL_GetNumJoystickButtons(joy);
-                        let num_axes_raw = SDL_GetNumJoystickAxes(joy);
-                        log::info!(
-                            "Opened joystick: {} (vpx_id={}, buttons={}, axes={})",
-                            name,
-                            dev_id,
-                            num_buttons_raw,
-                            num_axes_raw
-                        );
-                        // SDL3 returns -1 on failure. Casting a negative i32 to
-                        // usize yields a value near 2^64 which then blows up
-                        // `vec![false; n]` a few lines down — reserve gigabytes
-                        // of address space, kill the process. Skip the device.
-                        if num_buttons_raw < 0 || num_axes_raw < 0 {
-                            log::warn!(
-                                "Skipping joystick {}: SDL returned buttons={} axes={} (probable driver failure): {}",
-                                dev_id,
-                                num_buttons_raw,
-                                num_axes_raw,
-                                CStr::from_ptr(SDL_GetError()).to_string_lossy()
-                            );
-                            SDL_CloseJoystick(joy);
-                            continue;
-                        }
-                        let num_buttons = num_buttons_raw;
-                        let num_axes = num_axes_raw;
-                        // Detect pinball controllers (device ID is now GUID-based, so we
-                        // can no longer fingerprint by serial substring — match on name).
-                        if name.contains("Pinscape") {
-                            log::info!("Pinscape controller detected: {}", dev_id);
-                            let _ = evt_tx.send(JoystickEvent::PinscapeDetected {
-                                vpx_id: dev_id.clone(),
-                            });
-                        } else if name.contains("DudesCab") {
-                            log::info!("DudesCab controller detected: {}", dev_id);
-                            let _ = evt_tx.send(JoystickEvent::DudesCabDetected {
-                                vpx_id: dev_id.clone(),
-                            });
-                        } else if name.contains("PinOne") {
-                            log::info!("CSD PinOne controller detected: {}", dev_id);
-                            let _ = evt_tx.send(JoystickEvent::PinOneDetected {
-                                vpx_id: dev_id.clone(),
-                            });
-                        } else if SDL_IsGamepad(jid) {
-                            // Generic gamepad (Xbox, PS, etc.)
-                            log::info!("Gamepad detected: {} ({})", name, dev_id);
-                            let _ = evt_tx.send(JoystickEvent::GamepadDetected {
-                                vpx_id: dev_id.clone(),
-                                name: name.clone(),
-                            });
-                        }
-                        // Pre-build names to avoid format!() in the hot polling loop
-                        let button_names: Vec<String> = (0..num_buttons)
-                            .map(|b| format!("{} Button {}", dev_id, b))
-                            .collect();
-                        let axis_names: Vec<String> = (0..num_axes)
-                            .map(|a| format!("{} Axis {}", dev_id, a))
-                            .collect();
-                        joysticks.push(OpenedJoystick {
-                            handle: joy,
-                            vpx_id: dev_id,
-                            num_buttons,
-                            num_axes,
-                            prev_buttons: vec![false; num_buttons as usize],
-                            button_names,
-                            axis_names,
-                        });
-                    }
+            let listed = listed_joysticks();
+            let mut joysticks: Vec<OpenedJoystick> = Vec::with_capacity(listed.len());
+            // Pads SDL lists but refused to open: tried once per session, so
+            // a broken device does not flood the log every rescan.
+            let mut failed: Vec<SDL_JoystickID> = Vec::new();
+            for jid in &listed {
+                match open_joystick(*jid, &evt_tx) {
+                    Some(js) => joysticks.push(js),
+                    None => failed.push(*jid),
                 }
-                SDL_free(joy_ids as *mut _);
             }
             log::info!(
-                "Joystick thread started, {} joystick(s) found",
-                joysticks.len()
+                "Joystick thread started, {} joystick(s) found ({} listed by SDL)",
+                joysticks.len(),
+                listed.len()
             );
+            let mut next_rescan = std::time::Instant::now() + JOYSTICK_RESCAN_INTERVAL;
 
             while running_thread.load(Ordering::Relaxed) {
                 // Update joystick state (required before reading)
                 SDL_UpdateJoysticks();
+
+                if std::time::Instant::now() >= next_rescan {
+                    next_rescan = std::time::Instant::now() + JOYSTICK_RESCAN_INTERVAL;
+                    joysticks.retain(|js| {
+                        let connected = SDL_JoystickConnected(js.handle);
+                        if !connected {
+                            log::info!("Joystick disconnected: {}", js.vpx_id);
+                            SDL_CloseJoystick(js.handle);
+                        }
+                        connected
+                    });
+                    let opened: Vec<SDL_JoystickID> = joysticks.iter().map(|js| js.id).collect();
+                    for jid in joysticks_to_open(&listed_joysticks(), &opened, &failed) {
+                        match open_joystick(jid, &evt_tx) {
+                            Some(js) => joysticks.push(js),
+                            None => failed.push(jid),
+                        }
+                    }
+                }
 
                 for js in &mut joysticks {
                     // Poll buttons — detect newly pressed (only allocate on actual press)
@@ -1072,6 +1185,22 @@ pub fn spawn_joystick_thread() -> (
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // --- joysticks_to_open ---
+
+    #[test]
+    fn joysticks_to_open_skips_open_and_failed_pads() {
+        // 1 is open, 3 refused to open earlier, 2 and 4 are new.
+        assert_eq!(joysticks_to_open(&[1u32, 2, 3, 4], &[1], &[3]), vec![2, 4]);
+    }
+
+    #[test]
+    fn joysticks_to_open_reopens_a_pad_listed_again_after_vpx() {
+        // After the SDL re-init that follows a VPX run nothing is open yet:
+        // every listed pad must be tried, the PinOne included.
+        assert_eq!(joysticks_to_open(&[7u32], &[], &[]), vec![7]);
+        assert!(joysticks_to_open::<u32>(&[], &[], &[]).is_empty());
+    }
 
     // --- CapturedInput::to_mapping_string ---
 
