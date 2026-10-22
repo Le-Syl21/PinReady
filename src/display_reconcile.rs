@@ -471,6 +471,7 @@ mod tests {
             role: DisplayRole::Unused,
             monitor_index: 0,
             content_scale: 1.0,
+            native_handle: None,
         }
     }
 

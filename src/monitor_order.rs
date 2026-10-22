@@ -92,6 +92,57 @@ pub fn winit_monitor_rects() -> Option<Vec<(i32, i32, u32, u32)>> {
     )
 }
 
+/// The `HMONITOR`s in winit's order (the same single `EnumDisplayMonitors`
+/// pass as [`winit_monitor_rects`]), so SDL's displays can be joined on the
+/// handle SDL reports for each of them instead of on their rectangles.
+#[cfg(target_os = "windows")]
+pub fn winit_monitor_handles() -> Option<Vec<usize>> {
+    use windows::Win32::Foundation::{LPARAM, RECT};
+    use windows::Win32::Graphics::Gdi::{EnumDisplayMonitors, HDC, HMONITOR};
+
+    unsafe extern "system" fn collect(
+        monitor: HMONITOR,
+        _hdc: HDC,
+        _clip: *mut RECT,
+        data: LPARAM,
+    ) -> windows::core::BOOL {
+        // SAFETY: `data` is the &mut Vec passed below, alive for the whole
+        // enumeration.
+        let out = unsafe { &mut *(data.0 as *mut Vec<usize>) };
+        out.push(monitor.0 as usize);
+        true.into()
+    }
+
+    let mut out: Vec<usize> = Vec::new();
+    // SAFETY: standard Win32 enumeration; `out` outlives the callback.
+    let ok = unsafe {
+        EnumDisplayMonitors(
+            None,
+            None,
+            Some(collect),
+            LPARAM(std::ptr::from_mut(&mut out) as isize),
+        )
+    };
+    (ok.as_bool() && !out.is_empty()).then_some(out)
+}
+
+/// No shared handle between SDL and winit here: callers fall back to
+/// rectangles.
+#[cfg(not(target_os = "windows"))]
+pub fn winit_monitor_handles() -> Option<Vec<usize>> {
+    None
+}
+
+/// Each SDL display's index in winit's list, found by handle. A display
+/// whose handle winit does not list keeps its own index.
+#[must_use]
+pub fn handle_indices(sdl: &[usize], winit: &[usize]) -> Vec<usize> {
+    sdl.iter()
+        .enumerate()
+        .map(|(i, h)| winit.iter().position(|w| w == h).unwrap_or(i))
+        .collect()
+}
+
 /// Same walk as winit's `available_monitors()` on macOS:
 /// `CGGetActiveDisplayList`, each display's `CGDisplayBounds` (points, as
 /// SDL's bounds are).
@@ -169,7 +220,7 @@ pub fn monitor_indices(
 
 #[cfg(test)]
 mod tests {
-    use super::monitor_indices;
+    use super::{handle_indices, monitor_indices};
 
     #[test]
     fn follows_winit_order_not_sdl_order() {
@@ -264,6 +315,18 @@ mod tests {
     }
 
     /// Unequal leftovers are not guessed at.
+    #[test]
+    fn handles_join_exactly_whatever_the_rects() {
+        // gonzonia's cabinet: SDL lists LG, Monitor, DELL; Windows (and so
+        // winit) enumerates Monitor, DELL, LG.
+        let (lg, monitor, dell) = (0x10, 0x20, 0x30);
+        assert_eq!(
+            handle_indices(&[lg, monitor, dell], &[monitor, dell, lg]),
+            vec![2, 0, 1]
+        );
+        assert_eq!(handle_indices(&[lg, 0x99], &[lg]), vec![0, 1]);
+    }
+
     #[test]
     fn leftover_count_mismatch_keeps_indices() {
         let sdl = [(0, 0, 2560, 1440), (2560, 0, 1280, 720)];

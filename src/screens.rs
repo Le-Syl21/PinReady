@@ -69,6 +69,33 @@ pub struct DisplayInfo {
     /// SDL's content scale for this screen: what a size in pixels has to be
     /// divided by to become the logical points egui sizes windows in.
     pub content_scale: f32,
+    /// The OS handle SDL gives for this screen, where it gives one: the
+    /// `HMONITOR` on Windows, which winit reports for the same screen. Lets
+    /// the two orders be joined exactly instead of by rectangle.
+    pub native_handle: Option<usize>,
+}
+
+/// The `HMONITOR` SDL reports for a display, as an address.
+#[cfg(target_os = "windows")]
+unsafe fn native_handle(id: SDL_DisplayID) -> Option<usize> {
+    // SAFETY: plain property lookups on a display id SDL just listed.
+    let props = unsafe { SDL_GetDisplayProperties(id) };
+    if props == 0 {
+        return None;
+    }
+    let h = unsafe {
+        SDL_GetPointerProperty(
+            props,
+            SDL_PROP_DISPLAY_WINDOWS_HMONITOR_POINTER,
+            std::ptr::null_mut(),
+        )
+    };
+    (!h.is_null()).then_some(h as usize)
+}
+
+#[cfg(not(target_os = "windows"))]
+unsafe fn native_handle(_id: SDL_DisplayID) -> Option<usize> {
+    None
 }
 
 /// Parse inches from SDL3 display name (e.g. "PL4380UH 42\"" -> 42)
@@ -226,6 +253,7 @@ pub fn enumerate_displays() -> Vec<DisplayInfo> {
                 role: DisplayRole::Unused,
                 monitor_index: displays.len(),
                 content_scale,
+                native_handle: native_handle(id),
             });
         }
 
@@ -409,7 +437,16 @@ fn match_winit_order(displays: &mut [DisplayInfo]) {
     // Both orders, so a log from a cabinet shows what each library saw.
     log::info!("SDL monitor order: {rects:?}");
     log::info!("winit monitor order: {winit:?}");
-    let indices = crate::monitor_order::monitor_indices(&rects, &winit);
+    // Where the OS gives both libraries the same handle (Windows), join on
+    // it: exact whatever the scaling. Otherwise, by rectangle.
+    let handles: Option<Vec<usize>> = displays.iter().map(|d| d.native_handle).collect();
+    let indices = match (handles, crate::monitor_order::winit_monitor_handles()) {
+        (Some(sdl), Some(winit_handles)) => {
+            log::info!("joining SDL and winit monitors on their HMONITOR");
+            crate::monitor_order::handle_indices(&sdl, &winit_handles)
+        }
+        _ => crate::monitor_order::monitor_indices(&rects, &winit),
+    };
     for (d, idx) in displays.iter_mut().zip(indices) {
         if d.monitor_index != idx {
             log::info!(
@@ -444,6 +481,7 @@ mod tests {
             role: DisplayRole::Unused,
             monitor_index: 0,
             content_scale: 1.0,
+            native_handle: None,
         }
     }
 
