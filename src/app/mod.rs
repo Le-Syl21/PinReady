@@ -1349,64 +1349,19 @@ impl App {
         ));
     }
 
-    /// Run `VPX -h` once: the help path loads the settings (merging any
-    /// existing ini), saves the complete file, and exits by itself in ~0.1 s
-    /// without opening a window (a bare launch would pop the player window on
-    /// Windows). Reports `true` when the ini exists afterwards. The
-    /// stable-size watch + kill remain as a belt in case a build lingers.
+    /// Run `VPX -h` once in the background (see [`crate::vpx_ini_rewrite`]):
+    /// VPX loads the settings (merging any existing ini) and saves the
+    /// complete file before it runs any command. Skipped when the ini was
+    /// already saved by this very VPX build; on Windows VPX runs on a desktop
+    /// nobody sees, because its help ends in a modal box. Reports `true` when
+    /// the ini was rewritten and exists afterwards.
     fn spawn_vpx_ini_rewrite(
         exe: std::path::PathBuf,
         ini: std::path::PathBuf,
     ) -> crossbeam_channel::Receiver<bool> {
         let (tx, rx) = crossbeam_channel::bounded(1);
         std::thread::spawn(move || {
-            log::info!(
-                "Running `{} -h` to (re)write {} with VPX's current schema",
-                exe.display(),
-                ini.display()
-            );
-            let before = std::fs::metadata(&ini).ok().and_then(|m| m.modified().ok());
-            let mut child = match std::process::Command::new(&exe)
-                .arg("-h")
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .spawn()
-            {
-                Ok(c) => c,
-                Err(e) => {
-                    log::warn!("Could not launch VPX for ini rewrite: {e}");
-                    let _ = tx.send(false);
-                    return;
-                }
-            };
-
-            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
-            loop {
-                if let Ok(Some(status)) = child.try_wait() {
-                    log::info!("VPX ini rewrite: process exited ({status})");
-                    break;
-                }
-                if std::time::Instant::now() > deadline {
-                    log::warn!("VPX ini rewrite timed out after 20s — killing");
-                    break;
-                }
-                // Rewritten (mtime moved or file appeared): wait for the exit,
-                // which follows within milliseconds on the help path.
-                let modified = std::fs::metadata(&ini).ok().and_then(|m| m.modified().ok());
-                if modified.is_some() && modified != before {
-                    let _ = child.wait();
-                    break;
-                }
-                std::thread::sleep(std::time::Duration::from_millis(200));
-            }
-            let _ = child.kill();
-            let _ = child.wait();
-            let ok = ini.exists();
-            log::info!(
-                "VPX ini rewrite {}",
-                if ok { "succeeded" } else { "failed" }
-            );
-            let _ = tx.send(ok);
+            let _ = tx.send(crate::vpx_ini_rewrite::run(&exe, &ini));
         });
         rx
     }
@@ -2095,9 +2050,9 @@ impl eframe::App for App {
         // available (present at startup, picked manually, or just downloaded —
         // this per-frame guard covers all three). `VPX -h` loads the existing
         // ini (or nothing), then saves the complete, documented, migrated file
-        // in ~0.1 s without opening a window: the authoritative binary owns
-        // the schema, PinReady only layers its values on top. When it lands,
-        // the wizard state is re-derived from the normalized file.
+        // without showing anything: the authoritative binary owns the schema,
+        // PinReady only layers its values on top. When it lands, the wizard
+        // state is re-derived from the normalized file.
         self.maybe_normalize_ini();
         if let Some(rx) = &self.ini_norm_rx {
             match rx.try_recv() {

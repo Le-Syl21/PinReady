@@ -568,7 +568,7 @@ Only write back keys that already exist in the file, or that are explicitly docu
 - `BallAntiStretch` — "Round ball", pre-checked (`1` — VPX defaults it off): compensates the render stretch that makes the ball look egg-shaped in fast motion. Cosmetic only.
 - AA / MSAA / FXAA / Sharpen / PFReflection / MaxTexDimension.
 
-**First run**: if `VPinballX.ini` is absent, the wizard runs `VPX -h` once (writes the full documented default ini in ~0.1 s without opening a window) and adopts it before layering the user's choices — so the ini stays the canonical annotated file rather than a sparse PinReady-only one.
+**First run**: the wizard runs `VPX -h` once per session (`vpx_ini_rewrite.rs`): VPX loads and saves its ini in `InitInstance`, before any command, so it writes the full documented file (or migrates the existing one) and PinReady adopts it before layering the user's choices — so the ini stays the canonical annotated file rather than a sparse PinReady-only one. Skipped when `[Version] VPinball` already holds this binary's build (`10815430` for `v10.8.1-5430`): the file already has its schema. On Windows `-h` ends in a modal `MessageBox` and only exits after a click, so VPX runs there on a hidden desktop (`CreateDesktopW`) and is stopped once the rewritten file has settled.
 
 ---
 
@@ -689,7 +689,7 @@ Use `crossbeam_channel::unbounded()` for communication.
 
 ## Key conventions
 
-- **Cross-platform only** — no Win32, no xrandr, no platform-specific APIs. SDL3 for everything. Exceptions are narrow and documented: EDID reads (`/sys/class/drm`, HMONITOR, IOKit), the Wayland registry probe, `x11_display.rs` (RandR + resource manager through x11rb, never an external tool), and `monitor_order.rs` (winit's monitor order: `EnumDisplayMonitors` on Windows, `CGGetActiveDisplayList` on macOS).
+- **Cross-platform only** — no Win32, no xrandr, no platform-specific APIs. SDL3 for everything. Exceptions are narrow and documented: EDID reads (`/sys/class/drm`, HMONITOR, IOKit), the Wayland registry probe, `x11_display.rs` (RandR + resource manager through x11rb, never an external tool), `monitor_order.rs` (winit's monitor order: `EnumDisplayMonitors` on Windows, `CGGetActiveDisplayList` on macOS), and `vpx_ini_rewrite.rs` (Windows: `VPX -h` on a hidden desktop so its help box is never shown).
 - **No system dependencies at runtime** — use bundled features for SDL3 and SQLite. Zero external tools in PATH (ever).
 - **Subprocess for VPX only** — use `std::process::Command` to launch tables, no FFI linking
 - **Unsafe SDL3 calls** — wrap in safe Rust functions in `screens.rs` and `inputs.rs`, never expose raw pointers to other modules

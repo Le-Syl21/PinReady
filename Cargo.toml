@@ -137,11 +137,15 @@ winres = { version = "0.1", optional = true }
 winapi = { version = "0.3", features = ["winver", "winnt"] }
 # Reading a monitor's EDID out of the registry: the only place Windows keeps
 # the panel's own account of itself, and listing monitors in winit's order
-# (monitor_order.rs). Already in the tree via accesskit.
+# (monitor_order.rs). Already in the tree via accesskit. Also runs `VPX -h` on
+# a desktop of its own, so its help MessageBox is never seen (vpx_ini_rewrite.rs).
 windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_Graphics_Gdi",
+    "Win32_Security",
     "Win32_System_Registry",
+    "Win32_System_StationsAndDesktops",
+    "Win32_System_Threading",
 ] }
 
 # Reading a panel's EDID out of the IORegistry (`ioreg -l | grep IODisplayEDID`)
