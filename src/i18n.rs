@@ -83,14 +83,13 @@ fn detect_system_language_string() -> String {
                 "(Get-Culture).TwoLetterISOLanguageName",
             ])
             .output()
+            && output.status.success()
         {
-            if output.status.success() {
-                let lang = String::from_utf8_lossy(&output.stdout)
-                    .trim()
-                    .to_lowercase();
-                if !lang.is_empty() {
-                    return lang;
-                }
+            let lang = String::from_utf8_lossy(&output.stdout)
+                .trim()
+                .to_lowercase();
+            if !lang.is_empty() {
+                return lang;
             }
         }
     }

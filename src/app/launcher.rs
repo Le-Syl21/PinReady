@@ -196,10 +196,8 @@ fn is_abnormal_exit(status: &std::process::ExitStatus) -> bool {
     }
     #[cfg(target_os = "windows")]
     {
-        match status.code() {
-            Some(c) => return (c as u32) >= 0xC000_0000,
-            None => return true, // no code = abnormal termination
-        }
+        // No code = abnormal termination.
+        status.code().is_none_or(|c| (c as u32) >= 0xC000_0000)
     }
     #[cfg(not(target_os = "windows"))]
     {

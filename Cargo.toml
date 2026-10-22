@@ -26,7 +26,7 @@ sdl3-sys = { version = "0.7", features = ["build-from-source-static"] }
 # Config
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-ini-preserve = "0.1.1"
+ini-preserve = "0.1.4"
 
 # Database
 rusqlite = { version = "0.40", features = ["bundled"] }
@@ -49,7 +49,7 @@ base64 = "0.23"
 
 # .vpx file parsing — used to extract the embedded backglass preview
 # (`TableInfo.screenshot`) when a table doesn't ship a separate .directb2s.
-vpin = "0.37"
+vpin = "0.39"
 
 # Audio decoding (OGG Vorbis + MP3 → PCM for SDL3). MP3 is needed
 # for table preview audio (medias/audio.mp3 from vpinmediadb).
@@ -59,7 +59,7 @@ symphonia = { version = "0.6", default-features = false, features = ["ogg", "vor
 ureq = "3"
 
 # Archive extraction (release downloads)
-zip = "8"
+zip = "9"
 flate2 = "1"
 tar = "0.4"
 
@@ -127,8 +127,8 @@ egui-rotate = { version = "3.1.1", features = ["software-cursor"] }
 # Registered as an egui Plugin from `main.rs`. Replaces the old eframe kiosk
 # routing that used to live in the egui fork.
 egui-keyfunnel = "0.2"
-piaf = "0.4.1"
-display-types = "0.4.0"
+piaf = "0.4.2"
+display-types = "0.4.2"
 
 [target.'cfg(windows)'.build-dependencies]
 winres = { version = "0.1", optional = true }

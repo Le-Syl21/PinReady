@@ -437,7 +437,7 @@ pub(crate) fn extract_zip(archive_path: &Path, dest: &Path) -> Result<()> {
 
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i)?;
-        let name = entry.name().to_string();
+        let name = entry.name()?.into_owned();
         let out_path = dest.join(&name);
 
         if entry.is_dir() {
@@ -708,7 +708,7 @@ fn extract_pinready_binary(archive: &Path, dest: &Path, binary_name: &str) -> Re
             let mut entry = zip.by_index(i)?;
             // Match by the trailing component so we tolerate archives with a
             // top-level directory.
-            let name = entry.name().to_string();
+            let name = entry.name()?.into_owned();
             if name == binary_name || name.ends_with(&format!("/{binary_name}")) {
                 let mut out = std::fs::File::create(dest)?;
                 std::io::copy(&mut entry, &mut out)?;
