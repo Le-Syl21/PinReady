@@ -937,7 +937,7 @@ fn run_eframe_for_mode(mode: app::AppMode) -> Result<()> {
 }
 
 /// Build the initial `ViewportBuilder` for `mode`:
-///   - Wizard: windowed square at 80% of the primary monitor's smaller axis.
+///   - Wizard: maximised window, restoring down to a size that fits any screen.
 ///   - Launcher desktop: borderless fullscreen on the primary monitor.
 ///   - Launcher cabinet: borderless fullscreen + CW90 on the Playfield monitor.
 ///
@@ -978,18 +978,11 @@ fn build_viewport(
     };
 
     // Initial size:
-    //  - Wizard: square window, 80% of primary's smaller axis
+    //  - Wizard: fits the smallest screen it could land on (no with_monitor,
+    //    the OS places it) — see `screens::wizard_window_size`
     //  - Launcher: full target monitor (with_monitor promotes to borderless FS)
     let initial_size: [f32; 2] = if matches!(mode, app::AppMode::Wizard) {
-        displays
-            .iter()
-            .find(|d| d.is_primary)
-            .or_else(|| displays.first())
-            .map(|d| {
-                let side = 0.80 * (d.width.min(d.height)) as f32 / d.content_scale;
-                [side, side]
-            })
-            .unwrap_or([864.0, 864.0])
+        screens::wizard_window_size(displays)
     } else {
         let target_idx = if cabinet_mode {
             playfield_idx.unwrap_or(primary_idx)

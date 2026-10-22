@@ -507,6 +507,7 @@ page_system = "Sistema"
 # System wizard page (autostart + desktop integration)
 system_heading = "Integración con el sistema"
 system_desc = "Opciones de comodidad opcionales. Actívelas en un pincab dedicado; déjelas desactivadas si comparte el equipo con un uso de escritorio normal."
+system_applying = "Aplicando los ajustes del sistema…"
 
 # Asset bundling / merge (Tables wizard page — Import section)
 merge_section_title = "Organizar su colección en el formato nuevo"

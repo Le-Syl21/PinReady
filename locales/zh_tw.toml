@@ -504,6 +504,7 @@ page_system = "系統"
 # System wizard page (autostart + desktop integration)
 system_heading = "系統整合"
 system_desc = "選用的便利功能。在專用彈珠台機櫃上啟用；若與一般桌面共用同一部機器，請保持關閉。"
+system_applying = "正在套用系統設定…"
 
 # Asset bundling / merge (Tables wizard page — Import section)
 merge_section_title = "把您的收藏整理成新結構"

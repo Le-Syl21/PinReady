@@ -27,17 +27,12 @@ impl App {
 
         // Two conveniences the menu entry doesn't cover. Separate toggles:
         // a cabinet wants the desktop icon, a workstation usually wants
-        // neither.
+        // neither. Like every box on this page they only record the choice:
+        // Finish applies it (`system_apply`), off the UI thread — creating a
+        // Windows shortcut from the click handler froze the window.
         ui.add_space(6.0);
         ui.horizontal(|ui| {
-            if ui
-                .checkbox(&mut self.desktop_shortcut, t!("desktop_shortcut_label"))
-                .changed()
-                && let Err(e) = desktop_integration::set_desktop_shortcut(self.desktop_shortcut)
-            {
-                log::error!("Desktop shortcut: {e:#}");
-                self.desktop_shortcut = !self.desktop_shortcut;
-            }
+            ui.checkbox(&mut self.desktop_shortcut, t!("desktop_shortcut_label"));
             help_marker(ui, &t!("desktop_shortcut_hint"));
         });
 
@@ -46,14 +41,7 @@ impl App {
         if self.dock_pinning_available {
             ui.add_space(6.0);
             ui.horizontal(|ui| {
-                if ui
-                    .checkbox(&mut self.dock_pinned, t!("dock_pin_label"))
-                    .changed()
-                    && let Err(e) = desktop_integration::set_pinned_to_dock(self.dock_pinned)
-                {
-                    log::error!("Dock pinning: {e:#}");
-                    self.dock_pinned = !self.dock_pinned;
-                }
+                ui.checkbox(&mut self.dock_pinned, t!("dock_pin_label"));
                 help_marker(ui, &t!("dock_pin_hint"));
             });
         }

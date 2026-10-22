@@ -488,7 +488,8 @@ pub struct App {
     // Autostart on boot
     autostart: bool,
     /// A launcher on the desktop, and the app pinned to the dock. Read once
-    /// at startup: both are filesystem/GSettings state, not ours to own.
+    /// at startup: both are filesystem/GSettings state, not ours to own. The
+    /// checkboxes only record the choice; Finish applies it (`system_apply`).
     desktop_shortcut: bool,
     dock_pinned: bool,
     dock_pinning_available: bool,
@@ -574,6 +575,13 @@ pub struct App {
     // Absolute wall-clock instant = knocker playback end + small buffer.
     // Compared with `Instant::now()` every frame; no ms hardcoding.
     close_at: Option<std::time::Instant>,
+    /// The System page's choices being applied on a worker thread since
+    /// Finish, with the moment it started. The window stays open (and the
+    /// footer says so) until it reports back or `APPLY_TIMEOUT` runs out.
+    system_apply: Option<(crossbeam_channel::Receiver<Vec<String>>, std::time::Instant)>,
+    /// The wizard's one-shot check that its window fits the monitor it
+    /// opened on (see `fit_wizard_window`).
+    wizard_size_checked: bool,
 
     // Grace deadline after VPX exits, before the launcher accepts input
     // again. The exit button (ExitGame / Escape) that closed VPX is often
@@ -845,6 +853,8 @@ impl App {
             catalog_enrichment,
             catalog_cancel_token: None,
             close_at: None,
+            system_apply: None,
+            wizard_size_checked: false,
             input_resume_at: None,
             focus_reset_at: None,
             selected_language,
@@ -1254,6 +1264,61 @@ impl App {
             let _ = tx.send(result);
         });
         Some(rx)
+    }
+
+    /// Second line of defence for the wizard window's size, after
+    /// `screens::wizard_window_size`: once the window exists, egui knows the
+    /// monitor it actually landed on, whatever SDL and winit think the screen
+    /// order is. If the restored window is larger than that monitor, shrink
+    /// it. A maximised or fullscreen window is the OS's business and is left
+    /// alone. Runs once — after that the size is the user's.
+    fn fit_wizard_window(&mut self, ctx: &egui::Context) {
+        // Let the first frames settle: the zoom factor is set from the app
+        // creator, and the maximise request lands after window creation.
+        const SETTLE_FRAMES: u64 = 3;
+        // Some backends only report the monitor once the surface is mapped;
+        // past this, give up rather than resize under the user's hands.
+        const GIVE_UP_FRAMES: u64 = 120;
+        let frame = ctx.cumulative_frame_nr();
+        // An idle wizard does not repaint by itself: keep frames coming until
+        // the check is done, or it would wait for the first mouse move.
+        ctx.request_repaint();
+        if frame < SETTLE_FRAMES {
+            return;
+        }
+        let (maximized, fullscreen, inner, monitor) = ctx.input(|i| {
+            let v = i.viewport();
+            (
+                v.maximized.unwrap_or(false),
+                v.fullscreen.unwrap_or(false),
+                v.inner_rect.map(|r| r.size()),
+                v.monitor_size,
+            )
+        });
+        if maximized || fullscreen {
+            self.wizard_size_checked = true;
+            return;
+        }
+        let (Some(inner), Some(monitor)) = (inner, monitor) else {
+            if frame >= GIVE_UP_FRAMES {
+                log::debug!("Wizard window: no monitor size reported, size left as is");
+                self.wizard_size_checked = true;
+            }
+            return;
+        };
+        self.wizard_size_checked = true;
+        if let Some([w, h]) =
+            crate::screens::fit_within_monitor([inner.x, inner.y], [monitor.x, monitor.y])
+        {
+            log::info!(
+                "Wizard window {:.0}x{:.0} pt larger than its monitor ({:.0}x{:.0} pt): resizing to {w:.0}x{h:.0}",
+                inner.x,
+                inner.y,
+                monitor.x,
+                monitor.y
+            );
+            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(w, h)));
+        }
     }
 
     fn next_page(&mut self) {
@@ -1717,6 +1782,7 @@ mod outputs_page;
 mod rendering_page;
 mod save;
 mod screens_page;
+mod system_apply;
 mod system_page;
 mod tables_dir_page;
 mod tilt_page;
@@ -1756,6 +1822,10 @@ impl eframe::App for App {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        if self.mode == AppMode::Wizard && !self.wizard_size_checked {
+            self.fit_wizard_window(ui.ctx());
+        }
+
         // Two-step VPX launch: when the launcher clicks a table it stashes
         // the path in `pending_vpx_launch` and asks the compositor for a
         // fresh xdg-activation-v1 token via `RequestActivationToken`. The
@@ -1970,7 +2040,7 @@ impl eframe::App for App {
         // on the audio thread — deadline set by `finalize_wizard` from the
         // decoded PCM length, not a hardcoded timeout).
         if let Some(deadline) = self.close_at {
-            if std::time::Instant::now() >= deadline {
+            if std::time::Instant::now() >= deadline && self.system_apply_done() {
                 ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                 return;
             }
@@ -2111,7 +2181,10 @@ impl eframe::App for App {
                     let tables_dir_missing = on_tables_page
                         && (self.tables_dir.is_empty()
                             || !std::path::Path::new(&self.tables_dir).is_dir());
-                    let blocked = downloading || vpx_missing || tables_dir_missing;
+                    // Finish was pressed: the window is closing, and the
+                    // System page is being applied in the background.
+                    let finishing = self.close_at.is_some();
+                    let blocked = downloading || vpx_missing || tables_dir_missing || finishing;
 
                     if self.page.index() < WizardPage::count() - 1 {
                         let btn = egui::Button::new(t!("wizard_next"));
@@ -2123,6 +2196,11 @@ impl eframe::App for App {
                         if ui.add_enabled(!blocked, btn).clicked() {
                             self.finalize_wizard(ui.ctx());
                         }
+                    }
+                    if self.system_apply.is_some() {
+                        ui.label(t!("system_applying"));
+                        ui.spinner();
+                        ui.ctx().request_repaint();
                     }
                     if vpx_missing && !downloading {
                         ui.colored_label(egui::Color32::from_rgb(255, 180, 50), t!("vpx_required"));

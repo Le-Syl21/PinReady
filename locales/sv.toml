@@ -506,6 +506,7 @@ page_system = "System"
 # System wizard page (autostart + desktop integration)
 system_heading = "Systemintegration"
 system_desc = "Valfria bekvämlighetsfunktioner. Aktivera på en dedikerad pincab; lämna avstängda om datorn även används som vanlig skrivbordsdator."
+system_applying = "Tillämpar systeminställningar…"
 
 # Asset bundling / merge (Tables wizard page — Import section)
 merge_section_title = "Samla din samling i den nya strukturen"

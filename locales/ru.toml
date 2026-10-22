@@ -507,6 +507,7 @@ page_system = "Система"
 # System wizard page (autostart + desktop integration)
 system_heading = "Интеграция с системой"
 system_desc = "Необязательные функции для удобства. Включайте на выделенном пинкабе; оставьте выключенными, если компьютер используется и как обычный десктоп."
+system_applying = "Применение системных настроек…"
 
 # Asset bundling / merge (Tables wizard page — Import section)
 merge_section_title = "Собрать коллекцию в новую структуру"

@@ -506,6 +506,7 @@ page_system = "시스템"
 # System wizard page (autostart + desktop integration)
 system_heading = "시스템 통합"
 system_desc = "선택적인 편의 기능입니다. 전용 핀볼 캐비닛에서는 활성화하고, 일반 데스크톱과 함께 사용한다면 비활성화하세요."
+system_applying = "시스템 설정을 적용하는 중…"
 
 # Asset bundling / merge (Tables wizard page — Import section)
 merge_section_title = "컬렉션을 새 구조로 정리하기"

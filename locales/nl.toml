@@ -506,6 +506,7 @@ page_system = "Systeem"
 # System wizard page (autostart + desktop integration)
 system_heading = "Systeemintegratie"
 system_desc = "Optionele gemaksfuncties. Schakel deze in op een speciale pincab; laat ze uit als de machine ook als gewoon bureaublad wordt gebruikt."
+system_applying = "Systeeminstellingen worden toegepast…"
 
 # Asset bundling / merge (Tables wizard page — Import section)
 merge_section_title = "Uw verzameling in de nieuwe indeling zetten"

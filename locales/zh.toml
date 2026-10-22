@@ -504,6 +504,7 @@ page_system = "系统"
 # System wizard page (autostart + desktop integration)
 system_heading = "系统集成"
 system_desc = "可选的便捷功能。在专用弹球机柜上启用；如果与常规桌面共用同一台机器，请保持关闭。"
+system_applying = "正在应用系统设置…"
 
 # Asset bundling / merge (Tables wizard page — Import section)
 merge_section_title = "把您的收藏整理成新结构"

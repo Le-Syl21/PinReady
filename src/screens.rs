@@ -290,6 +290,80 @@ pub fn enumerate_displays() -> Vec<DisplayInfo> {
     displays
 }
 
+/// Share of a screen the wizard's restored-down window may cover, per axis.
+/// Monitor sizes are whole screens, not work areas: the height margin leaves
+/// room for a taskbar or panel plus the title bar, which is not part of the
+/// inner size.
+const WIZARD_FIT_WIDTH: f32 = 0.90;
+const WIZARD_FIT_HEIGHT: f32 = 0.85;
+
+/// Restored-down size of the wizard window, in logical points.
+///
+/// The wizard is an ordinary window opened without `with_monitor`, so the OS
+/// decides which screen it lands on — on Windows the primary, whatever SDL
+/// thinks that is, and SDL's and winit's notion of "which screen" can
+/// disagree. Sizing it from one particular display therefore cannot work: the
+/// old square at 80 % of the primary's short side came out as a tall window
+/// on a 1080p backglass whenever the "primary" was a 4K playfield in portrait,
+/// and eframe only clamps an initial size to the *largest* monitor.
+///
+/// So the window is sized for whichever screen it could end up on: per axis,
+/// the smallest logical extent among all displays (pixels divided by that
+/// display's own content scale, which is how winit will lay the logical size
+/// out there), with a margin. It is still opened maximised; this is the size
+/// it restores down to, and the one it gets where maximising is not honoured.
+/// `fit_within_monitor` checks it again against the monitor egui reports once
+/// the window exists.
+pub fn wizard_window_size(displays: &[DisplayInfo]) -> [f32; 2] {
+    let logical = |px: i32, scale: f32| {
+        let scale = if scale.is_finite() && scale > 0.0 {
+            scale
+        } else {
+            1.0
+        };
+        px as f32 / scale
+    };
+    let smallest = displays
+        .iter()
+        .filter(|d| d.width > 0 && d.height > 0)
+        .map(|d| {
+            [
+                logical(d.width, d.content_scale),
+                logical(d.height, d.content_scale),
+            ]
+        })
+        .reduce(|a, b| [a[0].min(b[0]), a[1].min(b[1])]);
+    match smallest {
+        Some([w, h]) => [
+            (w * WIZARD_FIT_WIDTH).round(),
+            (h * WIZARD_FIT_HEIGHT).round(),
+        ],
+        // Nothing enumerated: something that fits a 1280x800 laptop.
+        None => [1152.0, 680.0],
+    }
+}
+
+/// The size a window of `inner` points should shrink to so it fits a monitor
+/// of `monitor` points with the same margins as [`wizard_window_size`], or
+/// `None` when it already fits. Both sizes must be in the same unit — egui's
+/// `ViewportInfo::inner_rect` and `monitor_size` are, and so is the
+/// `ViewportCommand::InnerSize` the result goes to.
+pub fn fit_within_monitor(inner: [f32; 2], monitor: [f32; 2]) -> Option<[f32; 2]> {
+    if !(monitor[0] > 0.0 && monitor[1] > 0.0) {
+        return None;
+    }
+    let max = [
+        (monitor[0] * WIZARD_FIT_WIDTH).floor(),
+        (monitor[1] * WIZARD_FIT_HEIGHT).floor(),
+    ];
+    // Half a point of slack: a window already sized by this function reads
+    // back with rounding noise and must not be resized again.
+    if inner[0] <= max[0] + 0.5 && inner[1] <= max[1] + 0.5 {
+        return None;
+    }
+    Some([inner[0].min(max[0]), inner[1].min(max[1])])
+}
+
 // Display-resolvability at startup now lives in `display_reconcile`
 // (`unresolvable_assigned_displays`): it is anchor-aware, so an X11↔Wayland
 // name divergence no longer forces the wizard — only a genuinely absent
@@ -360,6 +434,67 @@ mod tests {
             monitor_index: 0,
             content_scale: 1.0,
         }
+    }
+
+    // --- Wizard window size ---
+
+    fn scaled(w: i32, h: i32, scale: f32) -> DisplayInfo {
+        DisplayInfo {
+            content_scale: scale,
+            ..make_display("x", w, h)
+        }
+    }
+
+    #[test]
+    fn wizard_fits_the_smallest_screen_of_a_cabinet() {
+        // The tester's cabinet: a 4K TV in portrait at 150 %, a 1080p
+        // backglass and a 1080p DMD. The window opens on the backglass.
+        let displays = [
+            scaled(2160, 3840, 1.5),
+            scaled(1920, 1080, 1.0),
+            scaled(1920, 1080, 1.0),
+        ];
+        let [w, h] = wizard_window_size(&displays);
+        // The portrait TV is the narrowest (1440 pt), the backglass the
+        // shortest (1080 pt): the window fits on either.
+        assert_eq!([w, h], [1296.0, 918.0]);
+        assert!(w <= 1920.0 && h <= 1080.0);
+        assert!(w <= 1440.0 && h <= 2560.0);
+    }
+
+    #[test]
+    fn wizard_size_respects_each_screen_scale() {
+        // A 4K panel at 200 % is a 1920x1080 point screen.
+        let [w, h] = wizard_window_size(&[scaled(3840, 2160, 2.0)]);
+        assert_eq!([w, h], [1728.0, 918.0]);
+        // A bogus scale is treated as 1.0, not as a division by zero.
+        let [w, h] = wizard_window_size(&[scaled(1920, 1080, 0.0)]);
+        assert_eq!([w, h], [1728.0, 918.0]);
+    }
+
+    #[test]
+    fn wizard_size_without_displays_is_laptop_sized() {
+        let [w, h] = wizard_window_size(&[]);
+        assert!(w <= 1280.0 && h <= 800.0);
+    }
+
+    #[test]
+    fn fit_within_monitor_shrinks_only_what_overflows() {
+        // A window as tall as a 4K portrait screen, on a 1080p monitor.
+        assert_eq!(
+            fit_within_monitor([1152.0, 1728.0], [1920.0, 1080.0]),
+            Some([1152.0, 918.0])
+        );
+        // Too wide only.
+        assert_eq!(
+            fit_within_monitor([2000.0, 600.0], [1920.0, 1080.0]),
+            Some([1728.0, 600.0])
+        );
+        // Fits: left alone, including our own output read back.
+        assert_eq!(fit_within_monitor([1000.0, 700.0], [1920.0, 1080.0]), None);
+        assert_eq!(fit_within_monitor([1728.0, 918.0], [1920.0, 1080.0]), None);
+        // No monitor reported yet.
+        assert_eq!(fit_within_monitor([5000.0, 5000.0], [0.0, 0.0]), None);
     }
 
     // --- DisplayRole ---

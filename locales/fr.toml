@@ -507,6 +507,7 @@ dock_pin_hint = "Ajoute PinReady aux favoris du dock. Disponible sous GNOME uniq
 # Page wizard Système (autostart + intégration au bureau)
 system_heading = "Intégration au système"
 system_desc = "Options de confort optionnelles. À activer sur un pincab dédié ; à laisser désactivées si vous partagez la machine avec un usage bureautique."
+system_applying = "Application des réglages système…"
 system_credits_title = "Remerciements"
 system_credits_intro = "PinReady s'appuie sur le travail de ces contributeurs de l'écosystème Visual Pinball au sens large :"
 system_mirror_label = "Miroir auto-hébergé (optionnel)"

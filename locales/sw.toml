@@ -507,6 +507,7 @@ page_system = "Mfumo"
 # System wizard page (autostart + desktop integration)
 system_heading = "Ujumuishaji wa mfumo"
 system_desc = "Vipengele vya hiari vya urahisi. Washa kwenye pincab maalum; viache vimezimwa ikiwa unashiriki mashine na matumizi ya kawaida ya eneo-kazi."
+system_applying = "Inatumia mipangilio ya mfumo…"
 
 # Asset bundling / merge (Tables wizard page — Import section)
 merge_section_title = "Panga mkusanyiko wako katika mpangilio mpya"

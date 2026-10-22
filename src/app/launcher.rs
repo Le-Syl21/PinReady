@@ -434,17 +434,22 @@ impl App {
             log::error!("Failed to mark wizard complete: {e}");
         }
 
-        // Apply autostart setting
-        if let Err(e) = set_autostart(self.autostart) {
-            log::error!("Failed to set autostart: {e}");
-        }
-
-        // Apply desktop integration (menu shortcuts + .vpx file association).
-        // Pass the resolved VPX path so the .vpx handler points to the right
-        // binary; if empty, only PinReady's own shortcut is installed.
-        if let Err(e) = set_desktop_integration(self.desktop_integration, &self.vpx_exe_path) {
-            log::error!("Failed to set desktop integration: {e}");
-        }
+        // Apply the System page: autostart, desktop integration (menu
+        // shortcuts + .vpx file association, pointed at the resolved VPX path
+        // — empty installs only PinReady's own entry), desktop shortcut and
+        // dock pin. On a worker thread: on Windows each of these runs
+        // PowerShell, and doing it here froze the window. The close below
+        // waits for it (`system_apply_done`).
+        self.system_apply = Some((
+            system_apply::spawn_apply(system_apply::SystemChoices {
+                autostart: self.autostart,
+                desktop_integration: self.desktop_integration,
+                vpx_exe_path: self.vpx_exe_path.clone(),
+                desktop_shortcut: self.desktop_shortcut,
+                dock_pinned: self.dock_pinning_available.then_some(self.dock_pinned),
+            }),
+            std::time::Instant::now(),
+        ));
 
         // Knocker surprise — compute its exact playback duration from the
         // decoded PCM so the close deadline matches the real end of the
@@ -471,6 +476,32 @@ impl App {
         self.close_at = Some(
             std::time::Instant::now() + knocker_duration + std::time::Duration::from_millis(50),
         );
+    }
+
+    /// Whether the System page's worker (started by `finalize_wizard`) is
+    /// finished, or never ran. Failures were logged by the worker itself.
+    pub(super) fn system_apply_done(&mut self) -> bool {
+        let Some((rx, started)) = &self.system_apply else {
+            return true;
+        };
+        let done = match rx.try_recv() {
+            Ok(_failures) => true,
+            Err(crossbeam_channel::TryRecvError::Disconnected) => true,
+            Err(crossbeam_channel::TryRecvError::Empty) => {
+                let timed_out = started.elapsed() >= system_apply::APPLY_TIMEOUT;
+                if timed_out {
+                    log::warn!(
+                        "System settings still being applied after {:?}; closing the wizard anyway",
+                        system_apply::APPLY_TIMEOUT
+                    );
+                }
+                timed_out
+            }
+        };
+        if done {
+            self.system_apply = None;
+        }
+        done
     }
 
     // Previous versions of this file had `enter_cabinet_mode_if_configured`
