@@ -136,7 +136,8 @@ winres = { version = "0.1", optional = true }
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["winver", "winnt"] }
 # Reading a monitor's EDID out of the registry: the only place Windows keeps
-# the panel's own account of itself. Already in the tree via accesskit.
+# the panel's own account of itself, and listing monitors in winit's order
+# (monitor_order.rs). Already in the tree via accesskit.
 windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_Graphics_Gdi",

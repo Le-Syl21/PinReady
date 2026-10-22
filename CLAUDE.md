@@ -620,7 +620,10 @@ agree on Wayland. On a **plain X server** (no Wayland socket) they do not: SDL
 lists the primary output first, winit lists RandR CRTCs in order and ignores the
 primary — a bare `X :3` + window manager put the launcher on the backglass.
 `screens::match_winit_order` asks RandR for the CRTC list the way winit does
-(`x11_display.rs`) and matches screens by position and size. VPX window
+(`x11_display.rs`) and matches screens by position and size. Windows has the same
+problem: SDL walks `EnumDisplayMonitors` twice, primary first, winit once in raw
+order; `monitor_order.rs` repeats winit's walk there (and on macOS, where SDL
+puts the main display first and skips mirrors), and both orders are logged. VPX window
 placement does not depend on that index; it goes through the name bridge above.
 
 **UI scale on a plain X server.** Without `Xft.dpi` in the resource database,
@@ -678,7 +681,7 @@ Use `crossbeam_channel::unbounded()` for communication.
 
 ## Key conventions
 
-- **Cross-platform only** — no Win32, no xrandr, no platform-specific APIs. SDL3 for everything. Exceptions are narrow and documented: EDID reads (`/sys/class/drm`, HMONITOR, IOKit), the Wayland registry probe, and `x11_display.rs` (RandR + resource manager through x11rb, never an external tool).
+- **Cross-platform only** — no Win32, no xrandr, no platform-specific APIs. SDL3 for everything. Exceptions are narrow and documented: EDID reads (`/sys/class/drm`, HMONITOR, IOKit), the Wayland registry probe, `x11_display.rs` (RandR + resource manager through x11rb, never an external tool), and `monitor_order.rs` (winit's monitor order: `EnumDisplayMonitors` on Windows, `CGGetActiveDisplayList` on macOS).
 - **No system dependencies at runtime** — use bundled features for SDL3 and SQLite. Zero external tools in PATH (ever).
 - **Subprocess for VPX only** — use `std::process::Command` to launch tables, no FFI linking
 - **Unsafe SDL3 calls** — wrap in safe Rust functions in `screens.rs` and `inputs.rs`, never expose raw pointers to other modules
@@ -686,7 +689,7 @@ Use `crossbeam_channel::unbounded()` for communication.
 - **Config writes preserve comments** — via `ini-preserve` crate, read full ini → modify → write back
 - **SQLite catalog** — initialize schema on first run, upsert on rescan
 - **First run detection** — `wizard_completed` flag in SQLite DB (not ini existence, not filesystem heuristics). `--config` CLI flag forces wizard re-entry
-- **`with_monitor` takes `DisplayInfo::monitor_index`** — never an index into `self.displays`. SDL and winit order screens differently on plain X11; `screens::match_winit_order` fills the field. `screens.rs` still does not reorder `self.displays` (roles are assigned via parallel index sort)
+- **`with_monitor` takes `DisplayInfo::monitor_index`** — never an index into `self.displays`. SDL and winit order screens differently on Windows (SDL puts the primary first, winit keeps `EnumDisplayMonitors` order) and on plain X11; `screens::match_winit_order` fills the field (`monitor_order.rs`). `screens.rs` still does not reorder `self.displays` (roles are assigned via parallel index sort)
 - **Translation keys** — most `t!()` calls use string literals (static grep catches those). `input_*` action labels are looked up dynamically via `t!(action.label)` where `label` is a string field in `inputs.rs`. When auditing "dead" keys, a grep-only audit will miss these — verify via runtime usage before deleting
 - **Before every `git push`** — run `cargo fmt` and `cargo clippy --all-targets -- -D warnings`. Both must be clean. The CI enforces `cargo fmt --check` on Linux x86_64 and fails the whole release pipeline otherwise. Pushing unformatted or clippy-dirty code breaks the release build
 

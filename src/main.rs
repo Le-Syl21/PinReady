@@ -24,6 +24,7 @@ mod i18n;
 mod inputs;
 mod mediadb;
 mod merge;
+mod monitor_order;
 mod motion_kalman;
 mod nudge_sim;
 mod outputs_hid;

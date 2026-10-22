@@ -63,7 +63,8 @@ pub struct DisplayInfo {
     pub role: DisplayRole,
     /// This screen's index in winit's `available_monitors()`, which is what
     /// `ViewportBuilder::with_monitor` takes. Equal to its index here unless
-    /// the two libraries list screens in a different order (plain X11).
+    /// the two libraries list screens in a different order (Windows, plain
+    /// X11, sometimes macOS): see [`crate::monitor_order`].
     pub monitor_index: usize,
     /// SDL's content scale for this screen: what a size in pixels has to be
     /// divided by to become the logical points egui sizes windows in.
@@ -238,6 +239,11 @@ pub fn enumerate_displays() -> Vec<DisplayInfo> {
                 match_winit_order(&mut displays);
             }
         }
+        // Asked while SDL's video subsystem is up: it has already set the
+        // process DPI awareness winit will run under, so `rcMonitor` reads
+        // the same pixels for both.
+        #[cfg(any(target_os = "windows", target_os = "macos"))]
+        match_winit_order(&mut displays);
         // No SDL_QuitSubSystem here — the VIDEO subsystem stays init
         // until the next SDL_Quit() (fired by `shutdown_sdl_threads`
         // before each VPX spawn).
@@ -385,20 +391,25 @@ pub(crate) fn auto_assign_roles(displays: &mut [DisplayInfo]) {
     }
 }
 
-/// Give each display the index winit will know it by. SDL lists the primary
-/// output first, winit lists RandR CRTCs in order: on a bare X server the two
-/// disagree, and `with_monitor` then opens the launcher on the wrong screen.
-#[cfg(target_os = "linux")]
+/// Give each display the index winit will know it by. SDL puts the primary
+/// screen first, winit keeps the platform's own order (raw
+/// `EnumDisplayMonitors` on Windows, RandR CRTCs on a bare X server): when
+/// the two disagree, `with_monitor` opens the launcher on the wrong screen.
+/// See [`crate::monitor_order`].
+#[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
 fn match_winit_order(displays: &mut [DisplayInfo]) {
-    let Some(winit) = crate::x11_display::winit_monitor_rects() else {
-        log::warn!("RandR unavailable: assuming winit lists screens in SDL's order");
-        return;
-    };
     let rects: Vec<_> = displays
         .iter()
         .map(|d| (d.x, d.y, d.width, d.height))
         .collect();
-    let indices = crate::x11_display::monitor_indices(&rects, &winit);
+    let Some(winit) = crate::monitor_order::winit_monitor_rects() else {
+        log::warn!("Monitor list unavailable: assuming winit lists screens in SDL's order");
+        return;
+    };
+    // Both orders, so a log from a cabinet shows what each library saw.
+    log::info!("SDL monitor order: {rects:?}");
+    log::info!("winit monitor order: {winit:?}");
+    let indices = crate::monitor_order::monitor_indices(&rects, &winit);
     for (d, idx) in displays.iter_mut().zip(indices) {
         if d.monitor_index != idx {
             log::info!(
