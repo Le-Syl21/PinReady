@@ -14,6 +14,16 @@ use super::*;
 /// window with `ClipCursor`, so the pointer never reaches a cover.
 const COVER_MOUSE_PASSTHROUGH: bool = !cfg!(target_os = "windows");
 
+/// On Windows the backglass cover is drawn as an immediate viewport, inside the
+/// playfield's own pass. As a deferred viewport it got its first pass when its
+/// window was created and none after: a field log showed the cover painted
+/// once, then silent while the selection moved through several tables. It
+/// stayed on the first table's picture, or black when that first pass ran
+/// before the picture was decoded. Immediate costs a second window draw per
+/// playfield frame, which the launcher can afford; the static DMD and topper
+/// covers stay deferred, one pass is all they need.
+const BACKGLASS_COVER_IMMEDIATE: bool = cfg!(target_os = "windows");
+
 impl App {
     pub(super) fn render_launcher(&mut self, ui: &mut egui::Ui) {
         // Install image loaders once
@@ -787,6 +797,39 @@ impl App {
         }
     }
 
+    /// Body of the backglass cover: the selected table's picture, or its name
+    /// while the picture is not there yet.
+    fn paint_backglass_cover(
+        ui: &mut egui::Ui,
+        uri: &str,
+        table_name: &str,
+        bg_bytes: Option<&std::sync::Arc<[u8]>>,
+    ) {
+        let ctx = ui.ctx().clone();
+        Self::diag_cover_focus(&ctx, "backglass");
+        Self::log_backglass_cover(&ctx, uri, table_name, bg_bytes.is_some());
+        egui_extras::install_image_loaders(&ctx);
+        egui::CentralPanel::default()
+            .frame(egui::Frame::NONE.fill(egui::Color32::BLACK))
+            .show(ui, |ui| {
+                if let Some(bytes) = bg_bytes {
+                    // Normally already registered by the list; a
+                    // no-op then (egui keeps the first bytes).
+                    ctx.include_bytes(uri.to_owned(), bytes.clone());
+                    ui.centered_and_justified(|ui| {
+                        ui.add(egui::Image::new(uri.to_owned()).shrink_to_fit());
+                    });
+                } else {
+                    ui.centered_and_justified(|ui| {
+                        ui.colored_label(
+                            egui::Color32::WHITE,
+                            egui::RichText::new(table_name).size(32.0),
+                        );
+                    });
+                }
+            });
+    }
+
     fn render_cover_viewports(&self, ui: &mut egui::Ui) {
         // Diagnostic escape hatch: the playfield never gets focus in cabinet
         // mode, and the covers are the prime suspect — they map after it, and
@@ -816,48 +859,31 @@ impl App {
             let uri = format!("bytes://bg/{}/{selected}", self.scan_generation);
 
             let bg_viewport_id = egui::ViewportId::from_hash_of(BG_VIEWPORT);
-            ui.ctx().request_repaint_of(bg_viewport_id);
-            ui.ctx().show_viewport_deferred(
-                bg_viewport_id,
-                egui::ViewportBuilder::default()
-                    .with_title("PinReady — Backglass")
-                    .with_decorations(false)
-                    .with_monitor(bg_idx)
-                    .with_active(false)
-                    // A cover is a picture, never a target. Left
-                    // clickable, Mutter hands it the pointer focus when
-                    // the cursor grazes the backglass screen, which drops
-                    // the playfield's pointer constraint: the arrow
-                    // escapes onto the backglass and freezes there,
-                    // because the moves it needs are now being delivered
-                    // to this window.
-                    .with_mouse_passthrough(COVER_MOUSE_PASSTHROUGH),
-                move |ui, _class| {
-                    let ctx = ui.ctx().clone();
-                    Self::diag_cover_focus(&ctx, "backglass");
-                    Self::log_backglass_cover(&ctx, &uri, &table_name, bg_bytes.is_some());
-                    egui_extras::install_image_loaders(&ctx);
-                    egui::CentralPanel::default()
-                        .frame(egui::Frame::NONE.fill(egui::Color32::BLACK))
-                        .show(ui, |ui| {
-                            if let Some(ref bytes) = bg_bytes {
-                                // Normally already registered by the list; a
-                                // no-op then (egui keeps the first bytes).
-                                ctx.include_bytes(uri.clone(), bytes.clone());
-                                ui.centered_and_justified(|ui| {
-                                    ui.add(egui::Image::new(uri.clone()).shrink_to_fit());
-                                });
-                            } else {
-                                ui.centered_and_justified(|ui| {
-                                    ui.colored_label(
-                                        egui::Color32::WHITE,
-                                        egui::RichText::new(&table_name).size(32.0),
-                                    );
-                                });
-                            }
-                        });
-                },
-            );
+            let builder = egui::ViewportBuilder::default()
+                .with_title("PinReady — Backglass")
+                .with_decorations(false)
+                .with_monitor(bg_idx)
+                .with_active(false)
+                // A cover is a picture, never a target. Left
+                // clickable, Mutter hands it the pointer focus when
+                // the cursor grazes the backglass screen, which drops
+                // the playfield's pointer constraint: the arrow
+                // escapes onto the backglass and freezes there,
+                // because the moves it needs are now being delivered
+                // to this window.
+                .with_mouse_passthrough(COVER_MOUSE_PASSTHROUGH);
+            if BACKGLASS_COVER_IMMEDIATE {
+                ui.ctx()
+                    .show_viewport_immediate(bg_viewport_id, builder, move |ui, _class| {
+                        Self::paint_backglass_cover(ui, &uri, &table_name, bg_bytes.as_ref());
+                    });
+            } else {
+                ui.ctx().request_repaint_of(bg_viewport_id);
+                ui.ctx()
+                    .show_viewport_deferred(bg_viewport_id, builder, move |ui, _class| {
+                        Self::paint_backglass_cover(ui, &uri, &table_name, bg_bytes.as_ref());
+                    });
+            }
         }
 
         // DMD cover
