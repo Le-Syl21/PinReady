@@ -436,70 +436,23 @@ impl App {
         // shortcuts + .vpx file association, pointed at the resolved VPX path
         // — empty installs only PinReady's own entry), desktop shortcut and
         // dock pin. On a worker thread: on Windows each of these runs
-        // PowerShell, and doing it here froze the window. The close below
-        // waits for it (`system_apply_done`).
-        self.system_apply = Some((
-            system_apply::spawn_apply(system_apply::SystemChoices {
-                autostart: self.autostart,
-                desktop_integration: self.desktop_integration,
-                vpx_exe_path: self.vpx_exe_path.clone(),
-                desktop_shortcut: self.desktop_shortcut,
-                dock_pinned: self.dock_pinning_available.then_some(self.dock_pinned),
-            }),
-            std::time::Instant::now(),
-        ));
+        // PowerShell, which froze the window. The thread outlives the wizard
+        // window and finishes while the launcher comes up.
+        system_apply::spawn_apply(system_apply::SystemChoices {
+            autostart: self.autostart,
+            desktop_integration: self.desktop_integration,
+            vpx_exe_path: self.vpx_exe_path.clone(),
+            desktop_shortcut: self.desktop_shortcut,
+            dock_pinned: self.dock_pinning_available.then_some(self.dock_pinned),
+        });
 
-        // Knocker surprise — compute its exact playback duration from the
-        // decoded PCM so the close deadline matches the real end of the
-        // sound (not an arbitrary 800ms timeout).
-        let knocker_path = "knocker.ogg";
-        let knocker_duration =
-            audio::asset_duration(knocker_path).unwrap_or(std::time::Duration::from_millis(300));
-        if let Some(tx) = &self.audio_cmd_tx {
-            let _ = tx.send(AudioCommand::PlayOnSpeaker {
-                path: knocker_path.to_string(),
-                target: audio::SpeakerTarget::FrontBoth,
-            });
-        }
-
-        log::info!(
-            "Wizard completed! Config saved; closing eframe in {:?} to let the knocker play out.",
-            knocker_duration
-        );
-
-        // Signal main.rs that after this eframe exits, relaunch in Launcher
-        // mode. The actual Close fires from the `close_at` tick in App::ui.
-        // Add a tiny post-roll (50ms) to cover SDL buffering latency.
+        // The knocker greets the launcher that opens next: the wizard window
+        // closes right away. The System page worker keeps running in this
+        // process, which goes on with the launcher.
+        crate::app::request_knocker_on_start();
+        log::info!("Wizard completed! Config saved; switching to the launcher.");
         crate::app::request_mode_switch(AppMode::Launcher);
-        self.close_at = Some(
-            std::time::Instant::now() + knocker_duration + std::time::Duration::from_millis(50),
-        );
-    }
-
-    /// Whether the System page's worker (started by `finalize_wizard`) is
-    /// finished, or never ran. Failures were logged by the worker itself.
-    pub(super) fn system_apply_done(&mut self) -> bool {
-        let Some((rx, started)) = &self.system_apply else {
-            return true;
-        };
-        let done = match rx.try_recv() {
-            Ok(_failures) => true,
-            Err(crossbeam_channel::TryRecvError::Disconnected) => true,
-            Err(crossbeam_channel::TryRecvError::Empty) => {
-                let timed_out = started.elapsed() >= system_apply::APPLY_TIMEOUT;
-                if timed_out {
-                    log::warn!(
-                        "System settings still being applied after {:?}; closing the wizard anyway",
-                        system_apply::APPLY_TIMEOUT
-                    );
-                }
-                timed_out
-            }
-        };
-        if done {
-            self.system_apply = None;
-        }
-        done
+        self.close_at = Some(std::time::Instant::now());
     }
 
     // Previous versions of this file had `enter_cabinet_mode_if_configured`

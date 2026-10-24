@@ -12,7 +12,7 @@ page_tables = "Stoły"
 # Wizard navigation
 wizard_previous = "< Wstecz"
 wizard_next = "Dalej >"
-wizard_finish = "Zakończ"
+wizard_finish = "Zapisz i otwórz launcher"
 wizard_reset = "Resetuj"
 
 # Language selector
@@ -506,7 +506,6 @@ page_system = "System"
 # System wizard page (autostart + desktop integration)
 system_heading = "Integracja z systemem"
 system_desc = "Opcjonalne udogodnienia. Włącz na dedykowanym pincabie; pozostaw wyłączone, jeśli komputer służy też do zwykłej pracy biurowej."
-system_applying = "Stosowanie ustawień systemowych…"
 
 # Asset bundling / merge (Tables wizard page — Import section)
 merge_section_title = "Złożyć kolekcję w nowym układzie"

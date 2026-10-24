@@ -12,7 +12,7 @@ page_tables = "टेबल"
 # Wizard navigation
 wizard_previous = "< पिछला"
 wizard_next = "अगला >"
-wizard_finish = "समाप्त"
+wizard_finish = "सहेजें और लॉन्चर खोलें"
 wizard_reset = "रीसेट"
 
 # Language selector
@@ -506,7 +506,6 @@ page_system = "सिस्टम"
 # System wizard page (autostart + desktop integration)
 system_heading = "सिस्टम एकीकरण"
 system_desc = "वैकल्पिक सुविधा सुविधाएँ। समर्पित पिनकैब पर इन्हें सक्षम करें; यदि मशीन को सामान्य डेस्कटॉप उपयोगकर्ता के साथ साझा करते हैं तो इन्हें बंद रखें।"
-system_applying = "सिस्टम सेटिंग्स लागू की जा रही हैं…"
 
 # Asset bundling / merge (Tables wizard page — Import section)
 merge_section_title = "अपने संग्रह को नए ढाँचे में लगाएँ"

@@ -12,7 +12,7 @@ page_tables = "Pöydät"
 # Wizard navigation
 wizard_previous = "< Edellinen"
 wizard_next = "Seuraava >"
-wizard_finish = "Valmis"
+wizard_finish = "Tallenna ja avaa käynnistin"
 wizard_reset = "Palauta"
 
 # Language selector
@@ -506,7 +506,6 @@ page_system = "Järjestelmä"
 # System wizard page (autostart + desktop integration)
 system_heading = "Järjestelmäintegraatio"
 system_desc = "Valinnaisia mukavuusasetuksia. Ota käyttöön omistetussa pinball-kaapissa; jätä pois käytöstä, jos konetta käytetään myös tavallisena pöytäkoneena."
-system_applying = "Otetaan järjestelmäasetuksia käyttöön…"
 
 # Asset bundling / merge (Tables wizard page — Import section)
 merge_section_title = "Kokoa kokoelmasi uuteen muotoon"

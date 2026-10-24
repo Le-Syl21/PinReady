@@ -12,7 +12,7 @@ page_tables = "Bàn"
 # Wizard navigation
 wizard_previous = "< Trước"
 wizard_next = "Tiếp >"
-wizard_finish = "Hoàn tất"
+wizard_finish = "Lưu và mở trình khởi chạy"
 wizard_reset = "Đặt lại"
 
 # Language selector
@@ -505,7 +505,6 @@ page_system = "Hệ thống"
 # System wizard page (autostart + desktop integration)
 system_heading = "Tích hợp hệ thống"
 system_desc = "Các tính năng tiện lợi tùy chọn. Bật trên một pincab chuyên dụng; tắt nếu máy còn dùng cho công việc desktop thông thường."
-system_applying = "Đang áp dụng cài đặt hệ thống…"
 
 # Asset bundling / merge (Tables wizard page — Import section)
 merge_section_title = "Gom bộ sưu tập theo bố cục mới"

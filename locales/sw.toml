@@ -12,7 +12,7 @@ page_tables = "Meza"
 # Wizard navigation
 wizard_previous = "< Iliyotangulia"
 wizard_next = "Inayofuata >"
-wizard_finish = "Maliza"
+wizard_finish = "Hifadhi na ufungue kizinduzi"
 wizard_reset = "Weka upya"
 
 # Language selector
@@ -507,7 +507,6 @@ page_system = "Mfumo"
 # System wizard page (autostart + desktop integration)
 system_heading = "Ujumuishaji wa mfumo"
 system_desc = "Vipengele vya hiari vya urahisi. Washa kwenye pincab maalum; viache vimezimwa ikiwa unashiriki mashine na matumizi ya kawaida ya eneo-kazi."
-system_applying = "Inatumia mipangilio ya mfumo…"
 
 # Asset bundling / merge (Tables wizard page — Import section)
 merge_section_title = "Panga mkusanyiko wako katika mpangilio mpya"

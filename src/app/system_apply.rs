@@ -101,24 +101,17 @@ pub(super) fn apply_system_choices(
     failures
 }
 
-/// Run [`apply_system_choices`] on a worker thread. The receiver yields the
-/// failure list once everything has been attempted.
-pub(super) fn spawn_apply(choices: SystemChoices) -> crossbeam_channel::Receiver<Vec<String>> {
-    let (tx, rx) = crossbeam_channel::bounded(1);
+/// Run [`apply_system_choices`] on a worker thread, which logs what it did.
+/// Nobody waits for it: the wizard closes at once and the launcher opens
+/// while it finishes.
+pub(super) fn spawn_apply(choices: SystemChoices) {
     std::thread::spawn(move || {
         let failures = apply_system_choices(&mut HostSystem, &choices);
         if failures.is_empty() {
             log::info!("System settings applied");
         }
-        let _ = tx.send(failures);
     });
-    rx
 }
-
-/// Longest the wizard keeps its window open waiting for the worker. A
-/// PowerShell that never returns must not trap the user in a dead wizard;
-/// the thread keeps running in this process after the window closes.
-pub(super) const APPLY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
 #[cfg(test)]
 mod tests {

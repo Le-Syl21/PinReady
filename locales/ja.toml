@@ -12,7 +12,7 @@ page_tables = "テーブル"
 # Wizard navigation
 wizard_previous = "< 前へ"
 wizard_next = "次へ >"
-wizard_finish = "完了"
+wizard_finish = "保存してランチャーを開く"
 wizard_reset = "リセット"
 
 # Language selector
@@ -506,7 +506,6 @@ page_system = "システム"
 # System wizard page (autostart + desktop integration)
 system_heading = "システム統合"
 system_desc = "任意の便利機能です。専用のピンボールキャビネットでは有効に、通常のデスクトップとしても使う場合は無効にしてください。"
-system_applying = "システム設定を適用しています…"
 
 # Asset bundling / merge (Tables wizard page — Import section)
 merge_section_title = "コレクションを新しい構成にまとめる"

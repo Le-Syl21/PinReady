@@ -12,7 +12,7 @@ page_tables = "Stoly"
 # Wizard navigation
 wizard_previous = "< Zpět"
 wizard_next = "Další >"
-wizard_finish = "Dokončit"
+wizard_finish = "Uložit a otevřít spouštěč"
 wizard_reset = "Obnovit"
 
 # Language selector
@@ -506,7 +506,6 @@ page_system = "Systém"
 # System wizard page (autostart + desktop integration)
 system_heading = "Integrace se systémem"
 system_desc = "Volitelné funkce pro pohodlí. Zapněte na vyhrazeném pincabu; ponechte vypnuté, pokud počítač sdílíte s běžným desktopovým použitím."
-system_applying = "Použití systémových nastavení…"
 
 # Asset bundling / merge (Tables wizard page — Import section)
 merge_section_title = "Sestavit sbírku do nové struktury"

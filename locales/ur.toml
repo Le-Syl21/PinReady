@@ -12,7 +12,7 @@ page_tables = "ٹیبلز"
 # Wizard navigation
 wizard_previous = "< پچھلا"
 wizard_next = "اگلا >"
-wizard_finish = "مکمل"
+wizard_finish = "محفوظ کریں اور لانچر کھولیں"
 wizard_reset = "ری سیٹ"
 
 # Language selector
@@ -506,7 +506,6 @@ page_system = "سسٹم"
 # System wizard page (autostart + desktop integration)
 system_heading = "سسٹم انضمام"
 system_desc = "اختیاری سہولت کی خصوصیات۔ مخصوص پن کیب پر آن کریں؛ اگر مشین عام ڈیسک ٹاپ صارف کے ساتھ شیئر ہو رہی ہو تو بند رکھیں۔"
-system_applying = "سسٹم کی ترتیبات لاگو کی جا رہی ہیں…"
 
 # Asset bundling / merge (Tables wizard page — Import section)
 merge_section_title = "اپنے مجموعے کو نئے ڈھانچے میں مرتب کریں"

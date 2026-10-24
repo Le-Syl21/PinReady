@@ -12,7 +12,7 @@ page_tables = "টেবিল"
 # Wizard navigation
 wizard_previous = "< আগের"
 wizard_next = "পরবর্তী >"
-wizard_finish = "সম্পন্ন"
+wizard_finish = "সংরক্ষণ করে লঞ্চার খুলুন"
 wizard_reset = "রিসেট"
 
 # Language selector
@@ -506,7 +506,6 @@ page_system = "সিস্টেম"
 # System wizard page (autostart + desktop integration)
 system_heading = "সিস্টেম ইন্টিগ্রেশন"
 system_desc = "ঐচ্ছিক সুবিধার বৈশিষ্ট্য। ডেডিকেটেড পিনক্যাবে এগুলি চালু করুন; সাধারণ ডেস্কটপ ব্যবহারের সাথে মেশিন শেয়ার করলে বন্ধ রাখুন।"
-system_applying = "সিস্টেম সেটিংস প্রয়োগ করা হচ্ছে…"
 
 # Asset bundling / merge (Tables wizard page — Import section)
 merge_section_title = "আপনার সংগ্রহ নতুন কাঠামোয় সাজান"

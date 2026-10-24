@@ -12,7 +12,7 @@ page_tables = "Mesas"
 # Wizard navigation
 wizard_previous = "< Anterior"
 wizard_next = "Seguinte >"
-wizard_finish = "Concluir"
+wizard_finish = "Salvar e abrir o lançador"
 wizard_reset = "Reiniciar"
 
 # Language selector
@@ -507,7 +507,6 @@ page_system = "Sistema"
 # System wizard page (autostart + desktop integration)
 system_heading = "Integração com o sistema"
 system_desc = "Opções de conveniência opcionais. Active-as num pincab dedicado; deixe-as desactivadas se partilhar a máquina com uma utilização de ambiente de trabalho normal."
-system_applying = "A aplicar as definições do sistema…"
 
 # Asset bundling / merge (Tables wizard page — Import section)
 merge_section_title = "Organizar a sua coleção no formato novo"

@@ -12,7 +12,7 @@ page_tables = "โต๊ะ"
 # Wizard navigation
 wizard_previous = "< ก่อนหน้า"
 wizard_next = "ถัดไป >"
-wizard_finish = "เสร็จสิ้น"
+wizard_finish = "บันทึกและเปิดตัวเปิด"
 wizard_reset = "รีเซ็ต"
 
 # Language selector
@@ -505,7 +505,6 @@ page_system = "ระบบ"
 # System wizard page (autostart + desktop integration)
 system_heading = "การผสานรวมกับระบบ"
 system_desc = "คุณสมบัติเสริมตามต้องการ เปิดใช้บนตู้พินบอลเฉพาะทาง ปิดไว้หากใช้เครื่องร่วมกับการใช้งานเดสก์ท็อปทั่วไป"
-system_applying = "กำลังใช้การตั้งค่าระบบ…"
 
 # Asset bundling / merge (Tables wizard page — Import section)
 merge_section_title = "จัดคลังของคุณให้เป็นรูปแบบใหม่"

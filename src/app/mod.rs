@@ -37,6 +37,15 @@ pub fn request_mode_switch(mode: AppMode) {
     *NEXT_ACTION.lock().unwrap() = Some(mode);
 }
 
+/// Set by the wizard's Finish: the launcher that opens next plays the
+/// knocker once. The wizard window closes at once instead of staying up
+/// until the sound ends (and a second click could restart it).
+static KNOCKER_ON_START: AtomicBool = AtomicBool::new(false);
+
+pub fn request_knocker_on_start() {
+    KNOCKER_ON_START.store(true, Ordering::Relaxed);
+}
+
 /// Consume the pending mode switch request, if any. `main.rs` calls this
 /// after each `run_native` returns; `Some(mode)` means relaunch in `mode`,
 /// `None` means the user is quitting the app.
@@ -572,13 +581,8 @@ pub struct App {
     catalog_cancel_token: Option<Arc<AtomicBool>>,
 
     // Deadline for sending `ViewportCommand::Close` after finalize_wizard.
-    // Absolute wall-clock instant = knocker playback end + small buffer.
-    // Compared with `Instant::now()` every frame; no ms hardcoding.
+    // Set by Finish: the wizard window closes on the next frame.
     close_at: Option<std::time::Instant>,
-    /// The System page's choices being applied on a worker thread since
-    /// Finish, with the moment it started. The window stays open (and the
-    /// footer says so) until it reports back or `APPLY_TIMEOUT` runs out.
-    system_apply: Option<(crossbeam_channel::Receiver<Vec<String>>, std::time::Instant)>,
     /// The wizard's one-shot check that its window fits the monitor it
     /// opened on (see `fit_wizard_window`).
     wizard_size_checked: bool,
@@ -707,6 +711,12 @@ impl App {
             .unwrap_or(0);
         let (joystick_rx, joystick_running, joystick_thread) = inputs::spawn_joystick_thread();
         let (audio_cmd_tx, audio_thread) = audio::spawn_audio_thread();
+        if !start_in_wizard && KNOCKER_ON_START.swap(false, Ordering::Relaxed) {
+            let _ = audio_cmd_tx.send(AudioCommand::PlayOnSpeaker {
+                path: "knocker.ogg".to_string(),
+                target: audio::SpeakerTarget::FrontBoth,
+            });
+        }
         let update_check_rx = if vpx_install_mode == VpxInstallMode::Manual {
             None
         } else {
@@ -853,7 +863,6 @@ impl App {
             catalog_enrichment,
             catalog_cancel_token: None,
             close_at: None,
-            system_apply: None,
             wizard_size_checked: false,
             input_resume_at: None,
             focus_reset_at: None,
@@ -1991,11 +2000,9 @@ impl eframe::App for App {
             }
         }
 
-        // Scheduled close (fires once the knocker sound has finished playing
-        // on the audio thread — deadline set by `finalize_wizard` from the
-        // decoded PCM length, not a hardcoded timeout).
+        // Scheduled close, set by `finalize_wizard`.
         if let Some(deadline) = self.close_at {
-            if std::time::Instant::now() >= deadline && self.system_apply_done() {
+            if std::time::Instant::now() >= deadline {
                 ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                 return;
             }
@@ -2136,8 +2143,7 @@ impl eframe::App for App {
                     let tables_dir_missing = on_tables_page
                         && (self.tables_dir.is_empty()
                             || !std::path::Path::new(&self.tables_dir).is_dir());
-                    // Finish was pressed: the window is closing, and the
-                    // System page is being applied in the background.
+                    // Finish was pressed: the window is closing.
                     let finishing = self.close_at.is_some();
                     let blocked = downloading || vpx_missing || tables_dir_missing || finishing;
 
@@ -2151,11 +2157,6 @@ impl eframe::App for App {
                         if ui.add_enabled(!blocked, btn).clicked() {
                             self.finalize_wizard(ui.ctx());
                         }
-                    }
-                    if self.system_apply.is_some() {
-                        ui.label(t!("system_applying"));
-                        ui.spinner();
-                        ui.ctx().request_repaint();
                     }
                     if vpx_missing && !downloading {
                         ui.colored_label(egui::Color32::from_rgb(255, 180, 50), t!("vpx_required"));

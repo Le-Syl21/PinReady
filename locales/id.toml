@@ -12,7 +12,7 @@ page_tables = "Meja"
 # Wizard navigation
 wizard_previous = "< Sebelumnya"
 wizard_next = "Berikutnya >"
-wizard_finish = "Selesai"
+wizard_finish = "Simpan dan buka peluncur"
 wizard_reset = "Reset"
 
 # Language selector
@@ -506,7 +506,6 @@ page_system = "Sistem"
 # System wizard page (autostart + desktop integration)
 system_heading = "Integrasi sistem"
 system_desc = "Fitur kenyamanan opsional. Aktifkan pada pincab khusus; matikan jika mesin juga digunakan sebagai desktop biasa."
-system_applying = "Menerapkan pengaturan sistem…"
 
 # Asset bundling / merge (Tables wizard page — Import section)
 merge_section_title = "Susun koleksi Anda ke tata letak baru"

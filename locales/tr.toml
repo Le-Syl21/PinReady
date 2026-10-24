@@ -12,7 +12,7 @@ page_tables = "Masalar"
 # Wizard navigation
 wizard_previous = "< Önceki"
 wizard_next = "Sonraki >"
-wizard_finish = "Bitir"
+wizard_finish = "Kaydet ve başlatıcıyı aç"
 wizard_reset = "Sıfırla"
 
 # Language selector
@@ -507,7 +507,6 @@ page_system = "Sistem"
 # System wizard page (autostart + desktop integration)
 system_heading = "Sistem entegrasyonu"
 system_desc = "İsteğe bağlı kolaylık özellikleri. Özel bir pincab'da etkinleştirin; makineyi normal masaüstü kullanımıyla paylaşıyorsanız kapalı bırakın."
-system_applying = "Sistem ayarları uygulanıyor…"
 
 # Asset bundling / merge (Tables wizard page — Import section)
 merge_section_title = "Koleksiyonunuzu yeni düzene toplayın"

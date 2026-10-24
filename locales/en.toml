@@ -13,7 +13,7 @@ page_system = "System"
 # Wizard navigation
 wizard_previous = "< Previous"
 wizard_next = "Next >"
-wizard_finish = "Finish"
+wizard_finish = "Save and open the launcher"
 wizard_reset = "Reset"
 
 # Language selector
@@ -507,7 +507,6 @@ dock_pin_hint = "Adds PinReady to the dock's favourites. GNOME only."
 # System wizard page (autostart + desktop integration)
 system_heading = "System integration"
 system_desc = "Optional convenience features. Toggle these on a dedicated pincab; leave them off when sharing the machine with a regular desktop user."
-system_applying = "Applying system settings…"
 system_credits_title = "Thanks"
 system_credits_intro = "PinReady stands on the work of these contributors to the wider Visual Pinball ecosystem:"
 system_mirror_label = "Self-hosted mirror (optional)"

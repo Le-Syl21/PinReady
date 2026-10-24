@@ -12,7 +12,7 @@ page_tables = "الطاولات"
 # Wizard navigation
 wizard_previous = "< السابق"
 wizard_next = "التالي >"
-wizard_finish = "إنهاء"
+wizard_finish = "حفظ وفتح المشغّل"
 wizard_reset = "إعادة تعيين"
 
 # Language selector
@@ -505,7 +505,6 @@ page_system = "النظام"
 # System wizard page (autostart + desktop integration)
 system_heading = "تكامل النظام"
 system_desc = "ميزات راحة اختيارية. فعّلها على ماكينة pincab مخصّصة؛ اتركها مغلقة إذا كان الجهاز يُستخدم أيضاً كحاسوب مكتبي عادي."
-system_applying = "جارٍ تطبيق إعدادات النظام…"
 
 # Asset bundling / merge (Tables wizard page — Import section)
 merge_section_title = "اجمع مجموعتك في التنسيق الجديد"
