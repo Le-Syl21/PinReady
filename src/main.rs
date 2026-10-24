@@ -42,6 +42,8 @@ mod vbs_patches;
 mod vpsdb;
 mod vpx_ini_rewrite;
 mod wayland_caps;
+#[cfg(target_os = "windows")]
+mod win_process;
 #[cfg(target_os = "linux")]
 mod x11_display;
 

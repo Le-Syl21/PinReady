@@ -73,23 +73,18 @@ fn detect_system_language_string() -> String {
         }
     }
 
-    // Windows: PowerShell to get UI language
+    // Windows: the user's locale ("fr-FR"), what PowerShell's Get-Culture
+    // reports, read without starting PowerShell (its console flashed on
+    // screen and delayed the first window).
     #[cfg(target_os = "windows")]
     {
-        if let Ok(output) = std::process::Command::new("powershell")
-            .args([
-                "-NoProfile",
-                "-Command",
-                "(Get-Culture).TwoLetterISOLanguageName",
-            ])
-            .output()
-            && output.status.success()
-        {
-            let lang = String::from_utf8_lossy(&output.stdout)
-                .trim()
-                .to_lowercase();
-            if !lang.is_empty() {
-                return lang;
+        let mut buf = [0u16; 85]; // LOCALE_NAME_MAX_LENGTH
+        // SAFETY: the buffer is valid for its whole length.
+        let n = unsafe { windows::Win32::Globalization::GetUserDefaultLocaleName(&mut buf) };
+        if n > 1 {
+            let locale = String::from_utf16_lossy(&buf[..n as usize - 1]).to_lowercase();
+            if !locale.is_empty() {
+                return locale;
             }
         }
     }

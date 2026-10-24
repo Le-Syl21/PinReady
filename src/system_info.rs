@@ -228,26 +228,81 @@ fn detect_windows() -> SystemInfo {
     }
 }
 
-/// Pull a friendly version string from the registry via a one-shot
-/// PowerShell invocation. Avoids adding `winreg` as a dependency.
-/// Format: `Windows 11 Pro 23H2 (build 22631.4317)`.
+/// A friendly version string from the registry, read directly (a PowerShell
+/// run used to flash a console on screen). Format:
+/// `Windows 11 Pro 23H2 (build 22631.4317)`.
+///
+/// `ProductName` still says "Windows 10" on Windows 11, which Microsoft never
+/// changed: build 22000 and later is Windows 11.
 #[cfg(target_os = "windows")]
 fn read_windows_version() -> Option<String> {
-    let script = r#"$ErrorActionPreference='Stop';
-        $k = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion';
-        $name = $k.ProductName;
-        $disp = $k.DisplayVersion;
-        if (-not $disp) { $disp = $k.ReleaseId };
-        $build = "$($k.CurrentBuild).$($k.UBR)";
-        Write-Output "$name $disp (build $build)";
-    "#;
-    let out = std::process::Command::new("powershell")
-        .args(["-NoProfile", "-NonInteractive", "-Command", script])
-        .output()
-        .ok()?;
-    if !out.status.success() {
-        return None;
+    use windows::Win32::Foundation::ERROR_SUCCESS;
+    use windows::Win32::System::Registry::{
+        HKEY_LOCAL_MACHINE, RRF_RT_REG_DWORD, RRF_RT_REG_SZ, RegGetValueW,
+    };
+    use windows::core::PCWSTR;
+
+    let wide = |s: &str| {
+        s.encode_utf16()
+            .chain(std::iter::once(0))
+            .collect::<Vec<u16>>()
+    };
+    let key = wide(r"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
+    let string = |name: &str| -> Option<String> {
+        let name = wide(name);
+        let mut buf = [0u16; 256];
+        let mut len = std::mem::size_of_val(&buf) as u32;
+        // SAFETY: the wide strings are NUL-terminated, the buffer holds `len` bytes.
+        let read = unsafe {
+            RegGetValueW(
+                HKEY_LOCAL_MACHINE,
+                PCWSTR(key.as_ptr()),
+                PCWSTR(name.as_ptr()),
+                RRF_RT_REG_SZ,
+                None,
+                Some(buf.as_mut_ptr().cast()),
+                Some(&mut len),
+            )
+        };
+        if read != ERROR_SUCCESS {
+            return None;
+        }
+        let chars = (len as usize / 2).min(buf.len());
+        let s = String::from_utf16_lossy(&buf[..chars]);
+        let s = s.trim_end_matches('\0').trim();
+        (!s.is_empty()).then(|| s.to_string())
+    };
+    let dword = |name: &str| -> Option<u32> {
+        let name = wide(name);
+        let mut value = 0u32;
+        let mut len = 4u32;
+        // SAFETY: as above, with a 4-byte buffer for a REG_DWORD.
+        let read = unsafe {
+            RegGetValueW(
+                HKEY_LOCAL_MACHINE,
+                PCWSTR(key.as_ptr()),
+                PCWSTR(name.as_ptr()),
+                RRF_RT_REG_DWORD,
+                None,
+                Some((&mut value as *mut u32).cast()),
+                Some(&mut len),
+            )
+        };
+        (read == ERROR_SUCCESS).then_some(value)
+    };
+
+    let mut name = string("ProductName")?;
+    let build = string("CurrentBuild").unwrap_or_default();
+    if build.parse::<u32>().is_ok_and(|b| b >= 22000) {
+        name = name.replacen("Windows 10", "Windows 11", 1);
     }
-    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    if s.is_empty() { None } else { Some(s) }
+    let release = string("DisplayVersion").or_else(|| string("ReleaseId"));
+    let build = match dword("UBR") {
+        Some(ubr) => format!("{build}.{ubr}"),
+        None => build,
+    };
+    Some(match release {
+        Some(r) => format!("{name} {r} (build {build})"),
+        None => format!("{name} (build {build})"),
+    })
 }

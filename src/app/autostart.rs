@@ -122,7 +122,7 @@ pub(super) fn set_autostart(enabled: bool) -> anyhow::Result<()> {
                 .to_string()
                 .replace('\'', "''"),
         );
-        let out = std::process::Command::new("powershell")
+        let out = crate::win_process::powershell()
             .args(["-NoProfile", "-NonInteractive", "-Command", &ps_cmd])
             .output()?;
         // PowerShell reports its failures on stderr with a non-zero status,

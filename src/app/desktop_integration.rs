@@ -446,7 +446,7 @@ fn create_lnk(
 
 #[cfg(target_os = "windows")]
 fn run_powershell(script: &str) {
-    match std::process::Command::new("powershell")
+    match crate::win_process::powershell()
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
         .output()
     {
