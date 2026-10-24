@@ -870,6 +870,10 @@ fn run_eframe_for_mode(mode: app::AppMode) -> Result<()> {
             // beside a cabinet, on a playfield lying flat a metre away, often
             // while holding a screwdriver. The launcher is browsed from the
             // same distance but its cards carry their own scale.
+            //
+            // This is only the first frame's zoom: once the DPI scale is
+            // known, `App::sync_zoom` applies the user's stored choice or a
+            // default divided by that scale.
             cc.egui_ctx
                 .set_zoom_factor(if start_in_wizard { 2.4 } else { 1.20 });
             // Register the egui-rotate plugin unconditionally. It owns

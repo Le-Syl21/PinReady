@@ -67,6 +67,21 @@ enum VpxStatus {
     LaunchError(String),
 }
 
+/// Bounds of the UI zoom the user can pick.
+const MIN_ZOOM: f32 = 0.5;
+const MAX_ZOOM: f32 = 4.0;
+
+/// The zoom a mode opens with when the user never picked one: the wizard
+/// at 2.4 (read standing beside a cabinet), the launcher at 1.2, both as
+/// they look at a display scale of 1, so divided by the system's own scale.
+fn default_zoom(mode: AppMode, native_pixels_per_point: f32) -> f32 {
+    let base = match mode {
+        AppMode::Wizard => 2.4,
+        AppMode::Launcher => 1.2,
+    };
+    (base / native_pixels_per_point.max(1.0)).max(1.0)
+}
+
 /// The rotation the user picked with the `↻` button, as stored in the DB.
 /// Kept as degrees so the value reads for itself in a sqlite dump.
 fn rotation_to_db(rotation: egui_rotate::Rotation) -> &'static str {
@@ -379,6 +394,9 @@ pub struct App {
     // User theme preference, cycled from the topbar/wizard toggle. Purely
     // in-memory (starts at System every launch) — no persistence yet.
     theme_pref: egui::ThemePreference,
+    /// The UI zoom last stored for this mode; `None` until the first frame
+    /// knows the screen's DPI scale (see `sync_zoom`).
+    zoom_saved: Option<f32>,
     // About window visibility, driven by the ℹ toolbar icon.
     about_open: bool,
     // Two-step VPX launch state on Wayland: `Some((path, requested_at))`
@@ -797,6 +815,7 @@ impl App {
             launcher_cols: 1,
             images_preloaded: false,
             theme_pref: egui::ThemePreference::System,
+            zoom_saved: None,
             about_open: false,
             pending_vpx_launch: None,
             rotation: egui_rotate::Rotation::None,
@@ -940,21 +959,38 @@ impl App {
             .flatten()
     }
 
-    /// Two frame-less icon buttons for the wizard/launcher headers:
+    /// Frame-less icon buttons for the wizard/launcher headers:
+    /// - Magnifier − / +: the UI zoom (stored per mode by `sync_zoom`).
     /// - Theme cycle: System (🌗) → Light (☀) → Dark (🌙) → System.
     /// - Rotation cycle: None → CW90 → CW180 → CW270 → None. Drives the
     ///   `RotationPlugin` so the root viewport rotates live — makes the
     ///   wizard readable when the operator is standing off-axis from a
     ///   pincab playfield.
     ///
-    /// `icon_size` is the RichText size; the whole widget is roughly
-    /// `2 * icon_size + item_spacing.x` wide.
+    /// `icon_size` is the RichText size.
     pub(super) fn toolbar_toggles(
         &mut self,
         ctx: &egui::Context,
         ui: &mut egui::Ui,
         icon_size: f32,
     ) {
+        // Magnifier: the same steps as Ctrl - / Ctrl + (egui's gui_zoom).
+        let zoom_pct = (ctx.zoom_factor() * 100.0).round();
+        if ui
+            .add(egui::Button::new(egui::RichText::new("🔍−").size(icon_size)).frame(false))
+            .on_hover_text(t!("toolbar_zoom_out", pct = zoom_pct).to_string())
+            .clicked()
+        {
+            egui::gui_zoom::zoom_out(ctx);
+        }
+        if ui
+            .add(egui::Button::new(egui::RichText::new("🔍+").size(icon_size)).frame(false))
+            .on_hover_text(t!("toolbar_zoom_in", pct = zoom_pct).to_string())
+            .clicked()
+        {
+            egui::gui_zoom::zoom_in(ctx);
+        }
+
         let (theme_glyph, theme_hint, next_theme) = match self.theme_pref {
             egui::ThemePreference::System => {
                 ("🌗", t!("toolbar_theme_auto"), egui::ThemePreference::Light)
@@ -1281,6 +1317,45 @@ impl App {
     /// order is. If the restored window is larger than that monitor, shrink
     /// it. A maximised or fullscreen window is the OS's business and is left
     /// alone. Runs once — after that the size is the user's.
+    /// The UI zoom of this mode: the one the user picked last time, else a
+    /// default scaled to the screen. Every later change (Ctrl + wheel,
+    /// Ctrl +/-/0, the toolbar magnifier) is stored for next time.
+    ///
+    /// The default zooms were tuned on Linux, where the scale is 1. Windows
+    /// adds its own display scale on top (150 % on most 4K screens), which
+    /// made the wizard 3.6 times its natural size: the default is divided by
+    /// that scale, so the result looks the same everywhere.
+    fn sync_zoom(&mut self, ctx: &egui::Context) {
+        let key = match self.mode {
+            AppMode::Wizard => "ui_zoom_wizard",
+            AppMode::Launcher => "ui_zoom_launcher",
+        };
+        let Some(saved) = self.zoom_saved else {
+            let Some(native) = ctx.input(|i| i.viewport().native_pixels_per_point) else {
+                return;
+            };
+            let zoom = self
+                .db
+                .get_config(key)
+                .and_then(|v| v.parse::<f32>().ok())
+                .filter(|z| z.is_finite())
+                .unwrap_or_else(|| default_zoom(self.mode, native));
+            ctx.set_zoom_factor(zoom.clamp(MIN_ZOOM, MAX_ZOOM));
+            self.zoom_saved = Some(ctx.zoom_factor());
+            return;
+        };
+        // Ctrl + wheel arrives as a zoom delta (egui turns it into one).
+        let delta = ctx.input(|i| i.zoom_delta());
+        if delta != 1.0 {
+            ctx.set_zoom_factor((ctx.zoom_factor() * delta).clamp(MIN_ZOOM, MAX_ZOOM));
+        }
+        let zoom = ctx.zoom_factor();
+        if (zoom - saved).abs() > 0.001 {
+            let _ = self.db.set_config(key, &format!("{zoom:.3}"));
+            self.zoom_saved = Some(zoom);
+        }
+    }
+
     fn fit_wizard_window(&mut self, ctx: &egui::Context) {
         // Let the first frames settle: the zoom factor is set from the app
         // creator, and the maximise request lands after window creation.
@@ -1786,6 +1861,7 @@ impl eframe::App for App {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        self.sync_zoom(ui.ctx());
         if self.mode == AppMode::Wizard && !self.wizard_size_checked {
             self.fit_wizard_window(ui.ctx());
         }
@@ -2229,5 +2305,21 @@ impl eframe::App for App {
                         }
                     });
             });
+    }
+}
+
+#[cfg(test)]
+mod zoom_tests {
+    use super::*;
+
+    #[test]
+    fn default_zoom_is_divided_by_the_display_scale() {
+        // Linux at scale 1: unchanged.
+        assert_eq!(default_zoom(AppMode::Wizard, 1.0), 2.4);
+        assert_eq!(default_zoom(AppMode::Launcher, 1.0), 1.2);
+        // Windows at 150 %: the same physical size as on Linux.
+        assert!((default_zoom(AppMode::Wizard, 1.5) * 1.5 - 2.4).abs() < 1e-6);
+        // Never below 1: a 250 % screen keeps egui's own size.
+        assert_eq!(default_zoom(AppMode::Launcher, 2.5), 1.0);
     }
 }
