@@ -75,10 +75,13 @@ fn unrotate_vec(rotation: Rotation, v: Vec2) -> Vec2 {
 /// is rotated (cabinet mode); on desktop the wheel keeps its native
 /// ScrollArea scrolling. Modifier keys (Shift/Ctrl) are suppressed
 /// while a text edit has focus so search-bar typing doesn't leak
-/// into navigation.
+/// into navigation. Enter is left to a focused button (reached with Tab):
+/// egui clicks it on Enter, and launching the table as well made Quit
+/// start the selected table while the launcher closed.
 pub fn collect_actions(ui: &egui::Ui, rotation: Rotation) -> Vec<LauncherAction> {
     let cabinet_mode = !rotation.is_none();
     let text_focused = ui.ctx().text_edit_focused();
+    let button_focused = !text_focused && ui.ctx().memory(|m| m.focused().is_some());
     ui.input(|i| {
         i.events
             .iter()
@@ -97,7 +100,7 @@ pub fn collect_actions(ui: &egui::Ui, rotation: Rotation) -> Vec<LauncherAction>
                     Key::ShiftRight if !text_focused => Some(LauncherAction::NextCard),
                     Key::ControlLeft if !text_focused => Some(LauncherAction::PrevRow),
                     Key::ControlRight if !text_focused => Some(LauncherAction::NextRow),
-                    Key::Enter => Some(LauncherAction::Launch),
+                    Key::Enter if !button_focused => Some(LauncherAction::Launch),
                     Key::Escape => Some(LauncherAction::Cancel),
                     _ => None,
                 },
