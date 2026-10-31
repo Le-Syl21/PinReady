@@ -86,7 +86,7 @@ vpx_browse = "Parcourir..."
 vpx_file_picker = "Sélectionner l'exécutable Visual Pinball"
 vpx_file_not_found = "Fichier introuvable"
 vpx_required = "Visual Pinball doit être installé avant de continuer."
-vpx_validated_on = "Testé sur : Ubuntu 24.04 et 26.04 LTS, GNOME, 4 écrans (pincab virtuel)"
+vpx_validated_on = "Testé sur : Ubuntu 24.04 et 26.04 LTS (GNOME), Windows 11, 4 écrans (pincab virtuel)"
 
 # Page Ecrans — Configuration des écrans
 screens_count_label = "Combien d'écrans ?"

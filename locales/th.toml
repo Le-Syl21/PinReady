@@ -70,7 +70,7 @@ vpx_browse = "เรียกดู..."
 vpx_file_picker = "เลือกไฟล์ Visual Pinball"
 vpx_file_not_found = "ไม่พบไฟล์"
 vpx_required = "ต้องติดตั้ง Visual Pinball ก่อนดำเนินการต่อ"
-vpx_validated_on = "ทดสอบบน: Ubuntu 24.04 และ 26.04 LTS, GNOME, 4 จอ (ตู้เสมือน)"
+vpx_validated_on = "ทดสอบบน: Ubuntu 24.04 และ 26.04 LTS (GNOME), Windows 11, 4 จอ (ตู้เสมือน)"
 
 # Screens page — Display config
 screens_count_label = "มีกี่หน้าจอ?"

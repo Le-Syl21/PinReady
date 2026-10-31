@@ -86,3 +86,24 @@ window: restart the container to inspect the launcher.
 - **Focus is not a real seat's.** Keyboard focus in a headless session does
   not always follow what a cabinet would do: confirm focus behaviour on real
   hardware before drawing conclusions from it.
+
+## Windows 11
+
+The Docker session is Linux only. PinReady 0.23 was also checked on a
+Windows 11 virtual machine with four virtual screens; the recipe:
+
+- **A GPU in the VM** (PCI passthrough here). The VM's own display adapter
+  (VirtIO, QXL...) drives a single screen and has no OpenGL, which PinReady
+  needs: disable it once the screens below are up.
+- **Four screens** from [Virtual Display Driver](https://github.com/VirtualDrivers/Virtual-Display-Driver):
+  in `C:\VirtualDisplayDriver\vdd_settings.xml` set the count to 4, the GPU's
+  name as `friendlyname` (so that GPU renders them) and the cabinet's
+  resolutions (3840x2160, 2560x1440, 1920x1080, 1920x480), then pick each
+  screen's mode in Windows' display settings.
+- **Real input.** In cabinet mode PinReady draws its own cursor and moves it
+  by relative mouse motion: tools that set an absolute pointer position
+  land nowhere, move the mouse instead.
+
+Things seen there: Visual Pinball decodes a big table's images for up to a
+minute without logging anything, and the game opens paused until its
+playfield window gets a real focus change.

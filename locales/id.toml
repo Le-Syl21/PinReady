@@ -70,7 +70,7 @@ vpx_browse = "Jelajahi..."
 vpx_file_picker = "Pilih file eksekusi Visual Pinball"
 vpx_file_not_found = "File tidak ditemukan"
 vpx_required = "Visual Pinball harus diinstal sebelum melanjutkan."
-vpx_validated_on = "Diuji pada: Ubuntu 24.04 dan 26.04 LTS, GNOME, 4 layar (kabinet virtual)"
+vpx_validated_on = "Diuji pada: Ubuntu 24.04 dan 26.04 LTS (GNOME), Windows 11, 4 layar (kabinet virtual)"
 
 # Screens page — Display config
 screens_count_label = "Berapa layar?"

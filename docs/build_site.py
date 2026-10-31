@@ -530,8 +530,8 @@ installation folder.</li>
 <li><strong>I already have Visual Pinball</strong> uses a copy you installed yourself: point PinReady to the
 <code>VPinballX_BGFX</code> program.</li>
 </ul>
-<p>The automatic install is validated on Ubuntu 24.04 LTS, under X11, on a 3-screen pincab. The official Visual
-Pinball project lives at <a href="{VPX_UPSTREAM}">vpinball/vpinball</a>.</p>
+<p>The automatic install is tested on Ubuntu 24.04 and 26.04 LTS (GNOME) and on Windows 11, with 4 screens. The
+official Visual Pinball project lives at <a href="{VPX_UPSTREAM}">vpinball/vpinball</a>.</p>
 
 <h2>Updates</h2>
 <p>At startup PinReady checks whether a new build of Visual Pinball or a new version of PinReady is out. When one
@@ -597,8 +597,8 @@ Raspberry Pi et RK3588 sous Linux ARM. Vous choisissez le dossier d'installation
 <li><strong>J'ai déjà Visual Pinball</strong> utilise une copie installée par vos soins : indiquez à PinReady le
 programme <code>VPinballX_BGFX</code>.</li>
 </ul>
-<p>L'installation automatique est validée sous Ubuntu 24.04 LTS, en X11, sur un pincab à 3 écrans. Le projet
-officiel Visual Pinball se trouve sur <a href="{VPX_UPSTREAM}">vpinball/vpinball</a>.</p>
+<p>L'installation automatique est testée sous Ubuntu 24.04 et 26.04 LTS (GNOME) et sous Windows 11, avec 4 écrans.
+Le projet officiel Visual Pinball se trouve sur <a href="{VPX_UPSTREAM}">vpinball/vpinball</a>.</p>
 
 <h2>Mises à jour</h2>
 <p>Au démarrage, PinReady vérifie si une nouvelle version de Visual Pinball ou de PinReady est sortie. Si c'est le

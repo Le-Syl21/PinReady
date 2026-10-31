@@ -70,7 +70,7 @@ vpx_browse = "浏览..."
 vpx_file_picker = "选择 Visual Pinball 可执行文件"
 vpx_file_not_found = "文件未找到"
 vpx_required = "继续之前必须安装 Visual Pinball。"
-vpx_validated_on = "测试环境：Ubuntu 24.04 和 26.04 LTS，GNOME，4 块屏幕（虚拟机柜）"
+vpx_validated_on = "测试环境：Ubuntu 24.04 和 26.04 LTS (GNOME)，Windows 11，4 块屏幕（虚拟机柜）"
 
 # Screens page — Display config
 screens_count_label = "有几块屏幕？"
