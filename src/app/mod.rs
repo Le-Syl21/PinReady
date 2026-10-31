@@ -285,6 +285,10 @@ enum CaptureState {
     Capturing(usize),
 }
 
+/// What the cursor diagnostics compare between lines: capture, dormancy,
+/// focus, and the position rounded to a 10-point cell.
+type CursorDiagState = (bool, bool, bool, Option<(i32, i32)>);
+
 pub struct App {
     mode: AppMode,
     page: WizardPage,
@@ -429,7 +433,7 @@ pub struct App {
     kiosk_last_virtual_pos: Option<egui::Pos2>,
     // Cursor diagnostics (PINREADY_CURSOR_DIAG): last logged state and when,
     // so the log carries transitions instead of one line per frame.
-    kiosk_diag_state: Option<(bool, bool, bool, Option<(i32, i32)>)>,
+    kiosk_diag_state: Option<CursorDiagState>,
     kiosk_diag_at: Option<std::time::Instant>,
     // Focus-reclaim attempts for the kiosk playfield, throttled and capped:
     // a compositor that refuses three times will refuse the thirtieth too.
