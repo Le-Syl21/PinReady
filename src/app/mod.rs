@@ -403,12 +403,14 @@ pub struct App {
     // when the user has clicked a table and PinReady sent
     // `ViewportCommand::RequestActivationToken` to the compositor but is
     // still waiting for the reply. The launcher polls this every frame
-    // in `App::ui`: on `Event::ActivationTokenReceived` (or after a
+    // in `App::ui`: on `Frame::take_activation_token` (or after a
     // 500 ms deadline) it drains the pending state and spawns VPX with
     // the token in `XDG_ACTIVATION_TOKEN` — the sealed serial is what
     // makes mutter/kwin actually grant focus to the freshly-created
     // window.
     pending_vpx_launch: Option<(std::path::PathBuf, std::time::Instant)>,
+    /// `begin_table_launch` wants a token asked for on the next frame.
+    activation_token_wanted: bool,
     // Viewport rotation for the root window. CW90 in cabinet mode, None
     // otherwise. Shadow copy of the value passed to the `RotationPlugin`
     // registered on the egui Context — kept here purely so layout code can
@@ -818,6 +820,7 @@ impl App {
             zoom_saved: None,
             about_open: false,
             pending_vpx_launch: None,
+            activation_token_wanted: false,
             rotation: egui_rotate::Rotation::None,
             kiosk_cursor: false,
             kiosk_cursor_warped: false,
@@ -1860,25 +1863,24 @@ impl eframe::App for App {
         }
     }
 
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         self.sync_zoom(ui.ctx());
         if self.mode == AppMode::Wizard && !self.wizard_size_checked {
             self.fit_wizard_window(ui.ctx());
         }
 
         // Two-step VPX launch: when the launcher clicks a table it stashes
-        // the path in `pending_vpx_launch` and asks the compositor for a
-        // fresh xdg-activation-v1 token via `RequestActivationToken`. The
-        // reply lands here as an `Event::ActivationTokenReceived` on the
-        // next frame; a 500 ms deadline bails out if the compositor never
-        // replies so the launch isn't held forever.
+        // the path in `pending_vpx_launch`; this frame asks the compositor
+        // for a fresh xdg-activation-v1 token, which eframe hands over a
+        // frame or more later. A 500 ms deadline bails out if the compositor
+        // never replies so the launch isn't held forever.
+        if self.activation_token_wanted {
+            self.activation_token_wanted = false;
+            let _stale = frame.take_activation_token();
+            frame.request_activation_token();
+        }
         if let Some((path, requested_at)) = self.pending_vpx_launch.clone() {
-            let token = ui.ctx().input(|i| {
-                i.raw.events.iter().find_map(|e| match e {
-                    egui::Event::ActivationTokenReceived { token, .. } => Some(token.clone()),
-                    _ => None,
-                })
-            });
+            let token = frame.take_activation_token();
             let deadline_exceeded = requested_at.elapsed() >= std::time::Duration::from_millis(500);
             if token.is_some() || deadline_exceeded {
                 self.pending_vpx_launch = None;

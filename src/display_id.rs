@@ -87,14 +87,15 @@ const BASE_BLOCK: usize = 128;
 ///
 /// Everything this module reads — manufacturer, product, serial, date, model
 /// name, physical size, preferred timing — lives in the base block. Handing
-/// the parser anything more buys nothing and costs correctness twice over.
+/// the parser anything more buys nothing, and costs correctness when the
+/// extensions are not all there.
 ///
-/// Once, because a DTD index is scoped to *its containing block*: the DMD
-/// panel on this cabinet has 1280x800 as its base block's first detailed
-/// timing and 1280x720 as its CTA extension's, both tagged `DtdIndex(0)`, and
-/// picking whichever came first in the list picked the wrong one.
+/// (It used to cost it a second way: before piaf 0.5 a DTD index was scoped
+/// to its block, so the DMD panel on this cabinet — 1280x800 in its base
+/// block, 1280x720 in its CTA extension — had two `DtdIndex(0)`. piaf 0.5
+/// names them `Dtd { block, index }`.)
 ///
-/// Twice, because EDIDs get captured short. The Iiyama PL4380UH here declares
+/// EDIDs get captured short. The Iiyama PL4380UH here declares
 /// two extension blocks and ships one, and a strict parser refuses the whole
 /// thing with `InvalidLength` over an extension nobody needed — dropping a
 /// real monitor from a real cabinet over a byte that says how much *else*
@@ -188,12 +189,8 @@ pub fn parse_edid(bytes: &[u8]) -> Option<MonitorId> {
         model_name: caps.display_name.map(|s| s.to_string()),
         serial_string: caps.serial_number_string.map(|s| s.to_string()),
         phys_mm,
-        // The preferred timing is the base block's first detailed descriptor,
-        // which is the first mode piaf collects. Deliberately not
-        // `native_pixels`: that field comes from a DisplayID Display Device
-        // Data Block, which most monitors do not carry at all.
         // The preferred timing is the base block's *first detailed* descriptor,
-        // which piaf tags `DtdIndex(0)`. Not `supported_modes.first()`: the
+        // which piaf tags `Dtd { block: 0, index: 0 }`. Not `supported_modes.first()`: the
         // established timings come first in that list, so the first entry here
         // is 720x400 — the VGA text mode every monitor still claims. And not
         // `native_pixels` either: that comes from a DisplayID Display Device
@@ -201,7 +198,7 @@ pub fn parse_edid(bytes: &[u8]) -> Option<MonitorId> {
         preferred_mode: caps
             .supported_modes
             .iter()
-            .find(|m| m.source == Some(display_types::ModeSource::DtdIndex(0)))
+            .find(|m| m.source == Some(display_types::ModeSource::Dtd { block: 0, index: 0 }))
             .map(|m| (u32::from(m.width), u32::from(m.height))),
     })
 }

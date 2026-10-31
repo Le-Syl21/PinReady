@@ -16,9 +16,9 @@ win-icon = ["winres"]
 
 [dependencies]
 # UI
-eframe = { version = "0.36", default-features = false, features = ["accesskit", "default_fonts", "glow", "wayland", "x11"] }
-egui = "0.36"
-egui_extras = { version = "0.36", features = ["image", "file"] }
+eframe = { version = "0.37", default-features = false, features = ["accesskit", "default_fonts", "glow", "wayland", "x11"] }
+egui = "0.37"
+egui_extras = { version = "0.37", features = ["image", "file"] }
 
 # Display / Input
 sdl3-sys = { version = "0.7", features = ["build-from-source-static"] }
@@ -29,7 +29,7 @@ serde_json = "1"
 ini-preserve = "0.1.4"
 
 # Database
-rusqlite = { version = "0.40", features = ["bundled"] }
+rusqlite = { version = "0.41", features = ["bundled"] }
 
 # File dialog
 rfd = "0.17"
@@ -118,7 +118,7 @@ sdl-keybridge = { version = "0.3", features = ["all-locales"] }
 # for cabinet mode. Registered as an egui Plugin from `main.rs`; the plugin owns
 # input rotation, primitive rotation and the software cursor draw — PinReady
 # has no eframe hooks left to wire.
-egui-rotate = { version = "3.1.1", features = ["software-cursor"] }
+egui-rotate = { version = "4", features = ["software-cursor"] }
 
 # Funnel keyboard input to the playfield (ROOT) viewport. In cabinet mode the
 # BG/DMD/Topper cover viewports can steal keyboard focus under Mutter Wayland
@@ -126,9 +126,9 @@ egui-rotate = { version = "3.1.1", features = ["software-cursor"] }
 # ROOT so flipper keys and launcher navigation always reach the playfield.
 # Registered as an egui Plugin from `main.rs`. Replaces the old eframe kiosk
 # routing that used to live in the egui fork.
-egui-keyfunnel = "0.2"
-piaf = "0.4.2"
-display-types = "0.4.2"
+egui-keyfunnel = "0.3"
+piaf = "0.5"
+display-types = "0.5"
 
 [target.'cfg(windows)'.build-dependencies]
 winres = { version = "0.1", optional = true }
@@ -182,35 +182,3 @@ inherits = "release"
 lto = false
 codegen-units = 16
 strip = true
-
-# Le-Syl21/egui fork, `pinready-0.36-slim` branch = egui 0.36.2 + three patches,
-# each pending upstream — drop a patch once its PR is merged *and* released:
-#
-#   - ViewportCommand::RequestActivationToken + Event::ActivationTokenReceived
-#     (Wayland xdg-activation / X11 startup-id token), used to hand focus to the
-#     freshly-launched VPX window. https://github.com/emilk/egui/pull/8282 —
-#     reworked upstream into `Frame::request_activation_token()` /
-#     `Frame::take_activation_token()`, so when it lands, `begin_table_launch`
-#     and the token wait in `App::ui` have to move to the `Frame` API.
-#   - eframe consumes the activation token from XDG_ACTIVATION_TOKEN /
-#     DESKTOP_STARTUP_ID at window creation, so a desktop entry with
-#     StartupNotify=true can hand the window its focus in the first place.
-#     https://github.com/emilk/egui/pull/8406 (approved).
-#   - the mouse half of the old kiosk routing, restored after it was dropped on
-#     the assumption that "the mouse follows the focused window". On a cabinet
-#     it follows nobody: Mutter hands the focus to a cover viewport as it maps
-#     and refuses to give it back, so the playfield sees no motion at all.
-#     `DeviceEvent::MouseMotion` is a device-level event with no surface
-#     attached, so it is routed to ROOT unconditionally — which is what makes
-#     the software cursor work without focus. Keyboard is covered by the
-#     `egui-keyfunnel` plugin (above); gamepad/joystick is read via SDL,
-#     independent of window focus. https://github.com/emilk/egui/pull/8405
-#
-# `ViewportBuilder::with_monitor` on the glow backend used to be a fourth patch;
-# it shipped in egui 0.36.2 (https://github.com/emilk/egui/pull/8302).
-#
-# Rotation lives in `egui-rotate`, keyboard funneling in `egui-keyfunnel`.
-[patch.crates-io]
-egui        = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.36-slim" }
-eframe      = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.36-slim" }
-egui_extras = { git = "https://github.com/Le-Syl21/egui", branch = "pinready-0.36-slim" }

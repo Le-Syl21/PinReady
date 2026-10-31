@@ -20,14 +20,14 @@ It replaces the non-existent native configuration tools for VPX standalone (SDL3
 
 | Layer | Crate | Role |
 |---|---|---|
-| UI | `eframe 0.35` + `egui 0.35` (Le-Syl21 fork) | Immediate mode GUI |
-| Rotation | `egui-rotate 2.0` (feature: `software-cursor`) | Cabinet viewport rotation + software cursor (as an egui Plugin) |
+| UI | `eframe 0.37` + `egui 0.37` | Immediate mode GUI |
+| Rotation | `egui-rotate 4` (feature: `software-cursor`) | Cabinet viewport rotation + software cursor (as an egui Plugin) |
 | Wayland caps | `wayland-client 0.31` (Linux) | Detect `wp_fifo_v1` to pick VPX's SDL driver |
 | X11 view | `x11rb 0.13` (Linux, already in tree via winit) | On a plain X server: `Xft.dpi` presence + winit's monitor order (`x11_display.rs`) |
-| Images | `egui_extras 0.35` (feature: `image`) | Thumbnail display |
+| Images | `egui_extras 0.37` (feature: `image`) | Thumbnail display |
 | Display/Input | `sdl3-sys 0.6` (feature: `build-from-source-static`) | Screen enumeration + input capture |
 | Config | `serde 1` + `ini-preserve` | Read/write VPinballX.ini (preserves comments) |
-| Database | `rusqlite 0.39` (feature: `bundled`) | Local catalog + PinReady config |
+| Database | `rusqlite 0.41` (feature: `bundled`) | Local catalog + PinReady config |
 | Backglass | `directb2s 0.1` | Extract backglass image from `.directb2s` |
 | Display info | `display-info 0.5` | Cross-platform physical size (mm → inches) |
 | EDID / hash | `sha2 0.11` + `/sys/class/drm/*/edid` | Driver-independent monitor identity (`display_id.rs`) |
@@ -41,45 +41,37 @@ It replaces the non-existent native configuration tools for VPX standalone (SDL3
 
 **No system dependencies required at runtime** — SDL3 and SQLite are statically linked via bundled features. Build-time deps are the standard xcb/xkb/ssl headers for winit.
 
-### Two egui plugins + a one-patch egui fork
+### Two egui plugins, stock egui
 
-Cabinet behaviour lives in **two standalone published `egui::Plugin` crates**,
-not in the fork:
+Cabinet behaviour lives in **two standalone published `egui::Plugin` crates**:
 
-- **`egui-rotate 3.1`** — viewport rotation, the software cursor, the OS pointer
+- **`egui-rotate 4`** — viewport rotation, the software cursor, the OS pointer
   grab, the soft/hard edge lock, the keyboard/gamepad auto-hide and the
   dissolve/reform fade. Registered as one `RotationPlugin` in `main.rs`.
-- **`egui-keyfunnel 0.2`** — funnels keyboard events from the BG/DMD/Topper cover
+- **`egui-keyfunnel 0.3`** — funnels keyboard events from the BG/DMD/Topper cover
   viewports to the playfield (ROOT). Under Mutter Wayland a freshly-mapped cover
   viewport can steal keyboard focus despite `with_active(false)`; the plugin
   moves its key events back to ROOT so flipper keys + launcher navigation always
-  reach the playfield. Registered as one `KeyFunnel` in `main.rs`. **This
-  replaces the old eframe "kiosk routing"** that used to live in the fork.
+  reach the playfield. Registered as one `KeyFunnel` in `main.rs`.
 
-The egui fork carries four patches — pinned in `[patch.crates-io]` on the
-`pinready-0.36-slim` branch (egui 0.36.0 + four commits):
+Since egui 0.37 there is **no egui fork**: the patches it carried shipped
+upstream.
 
-- **`ViewportCommand::RequestActivationToken` + `Event::ActivationTokenReceived`** — Wayland xdg-activation / X11 startup-id token, used to hand focus to the freshly-launched VPX window (pending upstream as [emilk/egui#8282]).
-- **eframe glow: apply `ViewportBuilder::with_monitor`** — borderless fullscreen on the target output; upstream only does it in the wgpu path (pending as [emilk/egui#8302]).
-- **eframe: consume the activation token from the environment** — `XDG_ACTIVATION_TOKEN` / `DESKTOP_STARTUP_ID` applied at window creation, so a `StartupNotify=true` desktop entry can give the window its focus. Upstreamable.
-- **`DeviceEvent::MouseMotion` routed to ROOT, unconditionally** — the mouse half of the old kiosk routing, restored.
+- Activation token ([emilk/egui#8282]) — now `Frame::request_activation_token`
+  / `Frame::take_activation_token`. `begin_table_launch` sets
+  `activation_token_wanted`; `App::ui` (which holds the `Frame`) asks on the
+  next frame and polls the reply with a 500 ms deadline.
+- Token consumed from `XDG_ACTIVATION_TOKEN` / `DESKTOP_STARTUP_ID` at window
+  creation (#8406), and `with_monitor` on the glow backend (#8302).
+- `DeviceEvent::MouseMotion` without focus (#8405), **in emilk's version**:
+  the motion goes to the viewport that has the pointer (or a drag), preferring
+  the focused one — not unconditionally to ROOT as the fork did. On a cabinet
+  Mutter hands the focus to a cover viewport as it maps and refuses to give it
+  back, so this is the load-bearing one: **check the software cursor on the
+  pincab** (it must keep moving on the playfield while a cover holds focus).
+  If it doesn't, the fix belongs upstream or in a plugin, not in a new fork.
 
-That last one is the load-bearing one on a cabinet, and it was dropped once on
-the assumption that "the mouse follows the focused window". It follows nobody
-here: Mutter hands the focus to a cover viewport as it maps (`with_active(false)`
-is a Wayland no-op) and refuses to give it back (`ViewportCommand::Focus` is
-exactly what focus-stealing prevention blocks — measured, five refusals in a
-row). An unfocused playfield gets no pointer constraint and no motion events, so
-the software cursor sits still while the real pointer wanders onto the
-backglass. `DeviceEvent::MouseMotion` is a device-level event with no surface
-attached, so routing it to ROOT is both correct and what makes the cursor work
-without focus.
-
-`with_monitor`/`SetMonitor` (#8140) and the physical modifier keys (#8127) ship
-in egui itself. Keyboard is handled by `egui-keyfunnel`; gamepad/joystick is read
-via SDL, independent of window focus.
-
-Branch pinned in `Cargo.toml`.
+---
 
 ---
 
@@ -649,20 +641,6 @@ When the user selects a table:
    - `kiosk_cursor_warped = false` → triggers a fresh warp + focus on next frame
 
 No `Minimized(true)` on the PF. Attempted once; Mutter does not reliably restore borderless-fullscreen windows with `Minimized(false)`.
-
-### Why a forked egui?
-
-Almost nothing anymore. Rotation + the software cursor live in the published
-`egui-rotate` crate, and keyboard funneling in the published `egui-keyfunnel`
-crate (see *Two egui plugins…* above). The fork (`Le-Syl21/egui`, branch
-`pinready-0.35-slim`) is down to a **single** commit: the activation-token API
-([#8282], still an open PR) used to focus the launched VPX window.
-`with_monitor`/`SetMonitor` ([#8140]) and the physical modifier keys ([#8127])
-landed in egui 0.35. The old kiosk routing is gone — replaced by
-`egui-keyfunnel`. **When #8282 merges + ships, the fork disappears entirely** and
-PinReady runs on stock egui/eframe.
-
----
 
 ## SDL3 threading model
 

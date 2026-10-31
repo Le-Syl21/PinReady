@@ -862,20 +862,23 @@ impl App {
     /// Entry point for launching a table from any UI path (click, Enter,
     /// joystick). On Wayland this is a two-step launch: request a fresh
     /// xdg-activation-v1 token from the compositor, then spawn VPX on a
-    /// later frame once winit delivers it via
-    /// `Event::ActivationTokenReceived` — without a serial-sealed token,
+    /// later frame once eframe hands it over (`Frame::take_activation_token`)
+    /// — without a serial-sealed token,
     /// mutter refuses to grant focus and the table opens behind PinReady.
     /// A 500 ms deadline in `App::ui` falls back to launching without a
     /// token if the compositor never replies.
     ///
     /// Everywhere else (macOS, Windows, X11, headless) the token dance is
-    /// pointless — `RequestActivationToken` would be a no-op or produce an
+    /// pointless — the token request would be a no-op or produce an
     /// unused X11 startup id, and every launch would eat the full 500 ms
     /// deadline — so we spawn immediately, exactly like pre-0.14.1.
     pub(super) fn begin_table_launch(&mut self, path: std::path::PathBuf, ctx: &egui::Context) {
         if crate::session::detect() == Some("wayland") {
+            // The request needs the eframe `Frame`, which `App::ui` holds:
+            // it sends it at the start of the next frame.
             self.pending_vpx_launch = Some((path, std::time::Instant::now()));
-            ctx.send_viewport_cmd(egui::ViewportCommand::RequestActivationToken);
+            self.activation_token_wanted = true;
+            ctx.request_repaint();
         } else {
             self.launch_table(&path, None);
         }

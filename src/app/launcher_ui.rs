@@ -331,7 +331,7 @@ impl App {
                 }
             }
             close |= esc;
-            egui::Modal::new(egui::Id::new("vpx-error-modal")).show(ui.ctx(), |ui| {
+            egui::Modal::new(egui::Id::unique("vpx-error-modal")).show(ui.ctx(), |ui| {
                 ui.set_max_width(720.0);
                 ui.label(
                     egui::RichText::new(t!("launcher_vpx_crashed").to_string())
@@ -691,7 +691,7 @@ impl App {
                             );
                             let badge_resp = ui.interact(
                                 badge_rect,
-                                ui.id().with(("update_badge", idx)),
+                                ui.scope_id().with(("update_badge", idx)),
                                 egui::Sense::click(),
                             );
                             let bg_color = if badge_resp.hovered() {
@@ -767,7 +767,7 @@ impl App {
             return;
         }
         let focused = ctx.input(|i| i.viewport().focused).unwrap_or(false);
-        let id = egui::Id::new(("cover_focus_diag", name));
+        let id = egui::Id::unique(("cover_focus_diag", name));
         let previous = ctx.data(|d| d.get_temp::<bool>(id));
         if previous != Some(focused) {
             ctx.data_mut(|d| d.insert_temp(id, focused));
@@ -781,7 +781,7 @@ impl App {
     /// the picture is lost on its way to the screen; when they stop, the
     /// cover itself is no longer being run.
     fn log_backglass_cover(ctx: &egui::Context, uri: &str, table: &str, has_image: bool) {
-        let id = egui::Id::new("backglass_cover_painted");
+        let id = egui::Id::unique("backglass_cover_painted");
         let current = (uri.to_owned(), has_image);
         let previous = ctx.data(|d| d.get_temp::<(String, bool)>(id));
         if previous.as_ref() != Some(&current) {
