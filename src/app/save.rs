@@ -67,13 +67,19 @@ impl App {
             .any(|d| d.role == DisplayRole::Backglass);
         let has_dmd = self.displays.iter().any(|d| d.role == DisplayRole::Dmd);
         let has_topper = self.displays.iter().any(|d| d.role == DisplayRole::Topper);
+        // B2SLegacy's overlay settings only mean something to the VPX builds
+        // that still carry that plugin
+        let b2s_legacy = crate::vpx_display::revision(&self.config, &self.db)
+            .is_some_and(|r| r < crate::vpx_display::FIRST_REVISION_WITHOUT_B2S_LEGACY);
 
         if !has_backglass {
             self.config.set_i32("Backglass", "BackglassOutput", 0);
         }
         if !has_dmd {
             self.config.set_i32("ScoreView", "ScoreViewOutput", 0);
-            if self.external_dmd {
+            if !b2s_legacy {
+                // Nothing to set: the B2S plugin places the DMD itself
+            } else if self.external_dmd {
                 // External DMD device (ZeDMD, PinDMD...) — no overlay needed,
                 // VPX auto-detects the device at runtime
                 self.config
@@ -85,7 +91,7 @@ impl App {
                 self.config
                     .set_i32("Plugin.B2SLegacy", "BackglassDMDAutoPos", 1);
             }
-        } else {
+        } else if b2s_legacy {
             self.config.set_i32("Plugin.B2SLegacy", "B2SHideGrill", 1);
             self.config
                 .set_i32("Plugin.B2SLegacy", "ScoreViewDMDOverlay", 1);
@@ -101,13 +107,16 @@ impl App {
             self.config.set_i32("Topper", "TopperOutput", 0);
         }
 
+        // VPX from rev 5515 takes "<name> [x, y]" rather than the bare name
+        let ids = crate::vpx_display::uses_ids(&self.config, &self.db);
         for display in self.displays.iter() {
+            let value = crate::vpx_display::value(&display.name, display.x, display.y, ids);
             match display.role {
                 DisplayRole::Playfield => {
                     self.config.set_display(
                         "Player",
                         "Playfield",
-                        &display.name,
+                        &value,
                         display.width,
                         display.height,
                         false,
@@ -132,7 +141,7 @@ impl App {
                     self.config.set_display(
                         "Backglass",
                         "Backglass",
-                        &display.name,
+                        &value,
                         display.width,
                         display.height,
                         true,
@@ -142,7 +151,7 @@ impl App {
                     self.config.set_display(
                         "ScoreView",
                         "ScoreView",
-                        &display.name,
+                        &value,
                         display.width,
                         display.height,
                         true,
@@ -152,7 +161,7 @@ impl App {
                     self.config.set_display(
                         "Topper",
                         "Topper",
-                        &display.name,
+                        &value,
                         display.width,
                         display.height,
                         true,

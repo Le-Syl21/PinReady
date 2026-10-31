@@ -40,6 +40,7 @@ mod tilt;
 mod updater;
 mod vbs_patches;
 mod vpsdb;
+mod vpx_display;
 mod vpx_ini_rewrite;
 mod wayland_caps;
 #[cfg(target_os = "windows")]
@@ -974,7 +975,11 @@ fn build_viewport(
     let playfield_idx = if cabinet_mode {
         playfield_name
             .as_ref()
-            .and_then(|name| displays.iter().position(|d| &d.name == name))
+            .and_then(|value| {
+                displays
+                    .iter()
+                    .position(|d| vpx_display::matches(value, &d.name, d.x, d.y))
+            })
             .or_else(|| {
                 display_reconcile::anchored_display_index(
                     db,

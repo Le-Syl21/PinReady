@@ -138,7 +138,7 @@ pub fn apply_saved_roles(config: &VpxConfig, db: &Database, displays: &mut [Disp
         let name = config.get(section, key).unwrap_or_default();
         let idx = displays
             .iter()
-            .position(|d| d.name == name)
+            .position(|d| crate::vpx_display::matches(&name, &d.name, d.x, d.y))
             .or_else(|| anchored_display_index(db, role, displays));
         let Some(idx) = idx else {
             log::info!("saved {role:?} display {name:?} not found, keeping guessed roles");
@@ -307,6 +307,8 @@ fn reconcile_all(config: &mut VpxConfig, db: &Database, driver: &str) -> bool {
         return false; // could not enumerate — never wipe names
     }
     let correlation = display_id::correlate(&sdl, &display_id::read_drm_monitors());
+    // VPX from rev 5515 wants the display id, name and position under its driver
+    let ids = crate::vpx_display::uses_ids(config, db);
 
     // Resolve everything first; only apply if all succeed.
     let mut resolved = Vec::new();
@@ -317,7 +319,17 @@ fn reconcile_all(config: &mut VpxConfig, db: &Database, driver: &str) -> bool {
         let Some(name) = display_id::resolve_anchor(&anchor, &sdl, &correlation) else {
             return false; // monitor gone under this driver → bail
         };
-        resolved.push((section, key, name));
+        // The anchor's own geometry first (two same-named screens), else the
+        // first display of that name
+        let pos = sdl
+            .iter()
+            .find(|d| d.name == name && d.x == anchor.x && d.y == anchor.y)
+            .or_else(|| sdl.iter().find(|d| d.name == name))
+            .map(|d| (d.x, d.y));
+        let Some((x, y)) = pos else {
+            return false;
+        };
+        resolved.push((section, key, crate::vpx_display::value(&name, x, y, ids)));
     }
     for (section, key, name) in resolved {
         config.set(section, key, &name);
@@ -350,7 +362,10 @@ pub fn unresolvable_assigned_displays(
         };
         let ok = match load_anchor(db, role) {
             Some(anchor) => display_id::resolve_anchor(&anchor, &sdl, &correlation).is_some(),
-            None => connected.iter().any(|d| d.name == name), // legacy fallback
+            // legacy fallback
+            None => connected
+                .iter()
+                .any(|d| crate::vpx_display::matches(&name, &d.name, d.x, d.y)),
         };
         if !ok {
             unresolved.push(name);

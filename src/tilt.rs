@@ -3,10 +3,14 @@
 #[derive(Debug, Clone)]
 pub struct TiltConfig {
     /// Tilt sensitivity 0–100% — 0 insensitive (large angle to trigger tilt), 100 ultra-sensitive (tiny angle triggers).
-    /// Written as PlumbThresholdAngle in INI: range 0.15°..4° (VPX upstream widened the
-    /// floor from 0.5° and moved the default 2°→1° in Aug 2026 — commit 05dd11dc6 era).
+    /// Written as PlumbThresholdAngle in INI over 0.15°..4°. VPX rev 6177
+    /// (e4b5c623d) accepts up to 15° with a 4° default, but a board at 1 g never
+    /// takes the plumb past ~1.45° and one at 4 g past ~5.7°: angles above 4°
+    /// would only fill the slider with settings that never tilt, so the slider
+    /// keeps the range real sensors reach and PinReady writes its own value.
     pub tilt_sensitivity_pct: f32,
-    /// PlumbDamping: tilt plumb simulation damping (0..2, VPX default 1.0). Replaces the older PlumbInertia.
+    /// PlumbDamping: tilt plumb simulation damping (0..2; VPX default 0.2 since rev 6177,
+    /// 1.0 before, which PinReady keeps writing). Replaces the older PlumbInertia.
     pub plumb_damping: f32,
     /// Nudge sensitivity 0–100% — written as `Mapping.Nudge0.Strength`
     /// (0..2, neutral at 1.0), *not* as the mapping's unit scale.
@@ -51,9 +55,10 @@ impl Default for TiltConfig {
         Self {
             // Cabinet-tuned defaults, in the order the sliders appear on the
             // tilt page: nudge 100 % (neutral, VPX's own default for
-            // Strength), deadzone 3 %, tilt 75 % = 1.11°, which lands within
-            // a tenth of a degree of VPX's own 1° default. VPX itself sets no
-            // deadzone at all; 3 % only swallows the sensor's own noise.
+            // Strength), deadzone 3 %, tilt 75 % = 1.11°, within reach of a
+            // 1 g board (VPX's own 4° default since rev 6177 is not). VPX
+            // itself sets no deadzone at all; 3 % only swallows the sensor's
+            // own noise.
             tilt_sensitivity_pct: 75.0,
             plumb_damping: 1.0,
             nudge_scale_pct: 100.0,

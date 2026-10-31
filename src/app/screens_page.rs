@@ -324,7 +324,7 @@ impl App {
                             })
                             .collect();
 
-                        for display in &mut self.displays {
+                        for (row, display) in self.displays.iter_mut().enumerate() {
                             // Name + inches
                             let label = if let Some(inches) = display.size_inches {
                                 format!("{} ({}\")", display.name, inches)
@@ -349,7 +349,9 @@ impl App {
                                 );
                             });
 
-                            egui::ComboBox::from_id_salt(format!("role_{}", display.name))
+                            // By row, not name: two screens of the same model (or
+                            // virtual ones) share a name, and the combos an id.
+                            egui::ComboBox::from_id_salt(("role", row))
                                 .selected_text(display.role.label())
                                 .show_ui(ui, |ui| {
                                     for role in &available_roles {
