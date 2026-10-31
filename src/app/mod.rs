@@ -429,7 +429,7 @@ pub struct App {
     kiosk_last_virtual_pos: Option<egui::Pos2>,
     // Cursor diagnostics (PINREADY_CURSOR_DIAG): last logged state and when,
     // so the log carries transitions instead of one line per frame.
-    kiosk_diag_state: Option<(bool, bool, bool, bool)>,
+    kiosk_diag_state: Option<(bool, bool, bool, Option<(i32, i32)>)>,
     kiosk_diag_at: Option<std::time::Instant>,
     // Focus-reclaim attempts for the kiosk playfield, throttled and capped:
     // a compositor that refuses three times will refuse the thirtieth too.
@@ -1990,7 +1990,9 @@ impl eframe::App for App {
             // compositor dropped, a pointer that left for another surface)
             // and they are indistinguishable from the outside.
             if std::env::var("PINREADY_CURSOR_DIAG").is_ok() {
-                let state = (is_captured, is_dormant, focused, virtual_pos.is_some());
+                // Rounded to 10 points: a cursor that moves (or does not) is the question
+                let cell = virtual_pos.map(|p| ((p.x / 10.0) as i32, (p.y / 10.0) as i32));
+                let state = (is_captured, is_dormant, focused, cell);
                 let now = std::time::Instant::now();
                 let due = self
                     .kiosk_diag_at

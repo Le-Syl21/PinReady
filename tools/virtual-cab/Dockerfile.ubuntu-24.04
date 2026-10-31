@@ -1,0 +1,15 @@
+# A headless GNOME session (gnome-shell on Ubuntu 24.04) with virtual monitors,
+# to run PinReady and Visual Pinball in cabinet mode without the hardware.
+FROM ubuntu:24.04
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      gnome-shell mutter dbus dbus-user-session gsettings-desktop-schemas xwayland \
+      pipewire wireplumber gstreamer1.0-pipewire gstreamer1.0-tools \
+      gstreamer1.0-plugins-base gstreamer1.0-plugins-good imagemagick \
+      python3-dbus python3-gi gir1.2-glib-2.0 \
+      libgl1-mesa-dri libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libwayland-client0 \
+      libwayland-egl1 libwayland-cursor0 libx11-6 libxcursor1 libxrandr2 libxi6 libudev1 \
+      libpulse0 libasound2t64 ca-certificates locales \
+    && locale-gen en_US.UTF-8 fr_FR.UTF-8 \
+    && rm -rf /var/lib/apt/lists/*
+COPY entry.sh /entry.sh
+COPY input.py shot.py /usr/local/bin/
