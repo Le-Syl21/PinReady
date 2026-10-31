@@ -13,11 +13,15 @@ readme = "README.md"
 [features]
 default = []
 win-icon = ["winres"]
+# Let egui_mcp drive the running GUI (EGUI_INSPECTION=1): development only.
+inspection = ["eframe/inspection"]
 
 [dependencies]
 # UI
 eframe = { version = "0.37", default-features = false, features = ["accesskit", "default_fonts", "glow", "wayland", "x11"] }
-egui = "0.37"
+# The emoji glyphs the UI uses (🔍 🌗 🌙 ↻ ℹ…) left the default fonts in
+# egui 0.37; this feature puts NotoEmoji and emoji-icon-font back.
+egui = { version = "0.37", features = ["monochrome_emoji_fonts"] }
 egui_extras = { version = "0.37", features = ["image", "file"] }
 
 # Display / Input

@@ -816,7 +816,7 @@ impl App {
             last_scroll_target: None,
             launcher_cols: 1,
             images_preloaded: false,
-            theme_pref: egui::ThemePreference::System,
+            theme_pref: egui::ThemePreference::System, // from the DB in `theme_pref`
             zoom_saved: None,
             about_open: false,
             pending_vpx_launch: None,
@@ -946,6 +946,13 @@ impl App {
     /// `main.rs` — this flag just tells the launcher runtime that the plugin
     /// was built with a `SoftwareCursor` and the kiosk warp/lock loop applies.
     /// Window placement is handled separately via `ViewportBuilder::with_monitor`.
+    /// The theme kept in the DB (System until the user picks one), applied
+    /// to the context with both palettes' styles.
+    pub fn apply_theme(&mut self, ctx: &egui::Context) {
+        self.theme_pref = theme::theme_from_db(self.db.get_config("ui_theme").as_deref());
+        theme::setup(ctx, self.theme_pref);
+    }
+
     pub fn enable_kiosk_cursor(&mut self) {
         self.kiosk_cursor = true;
         self.kiosk_cursor_warped = false;
@@ -1013,6 +1020,9 @@ impl App {
         if theme_resp.clicked() {
             self.theme_pref = next_theme;
             ctx.set_theme(self.theme_pref);
+            let _ = self
+                .db
+                .set_config("ui_theme", theme::theme_to_db(self.theme_pref));
         }
 
         let next_rotation = self.rotation.next_cw();
@@ -1827,6 +1837,7 @@ mod screens_page;
 mod system_apply;
 mod system_page;
 mod tables_dir_page;
+pub mod theme;
 mod tilt_page;
 
 pub(crate) use help::help_marker;
@@ -2164,107 +2175,195 @@ impl eframe::App for App {
         // leaves a small gap on the right that looks awkward on this layout.
         ui.style_mut().spacing.scroll.bar_outer_margin = 0.0;
 
-        // Header
-        egui::Panel::top("wizard_header").show(ui, |ui| {
-            ui.horizontal(|ui| {
-                // Two-icon toolbar (theme + rotation) at the very start of the
-                // wizard header — reachable from any wizard page. Rotation is
-                // especially useful during config from a bench off-axis from
-                // the playfield.
-                let toolbar_size = (ui.spacing().interact_size.y - 4.0).max(14.0);
-                let ctx = ui.ctx().clone();
-                self.toolbar_toggles(&ctx, ui, toolbar_size);
-                ui.separator();
-                ui.heading("PinReady");
-                ui.separator();
-                for i in 0..WizardPage::count() {
-                    let page = WizardPage::from_index(i).expect("WizardPage index within count()");
-                    let is_current = page == self.page;
-                    let label = format!("{}. {}", i + 1, page.title());
-                    if is_current {
-                        ui.strong(&label);
-                    } else {
-                        ui.label(&label);
-                    }
-                    if i < WizardPage::count() - 1 {
-                        ui.label(">");
-                    }
-                }
-            });
-        });
-
-        // Navigation footer
-        egui::Panel::bottom("wizard_nav").show(ui, |ui| {
-            ui.add_space(4.0);
-            ui.horizontal(|ui| {
-                if self.page.index() > 0 && ui.button(t!("wizard_previous")).clicked() {
-                    self.prev_page();
-                }
-
-                if ui.button(t!("wizard_reset")).clicked() {
-                    self.reset_current_page();
-                }
-
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    // Block navigation on Screens page if VPX is not installed or downloading
-                    let on_screens_page = self.page == WizardPage::Screens;
-                    let downloading = self.update_downloading && on_screens_page;
-                    let vpx_missing = on_screens_page && {
-                        let resolved =
-                            updater::resolve_vpx_exe(std::path::Path::new(&self.vpx_exe_path));
-                        self.vpx_exe_path.is_empty() || !resolved.is_file()
-                    };
-                    // Tables dir is mandatory before leaving the Tables page —
-                    // skipping it would land the user in a launcher that has
-                    // nothing to scan and shows an empty grid.
-                    let on_tables_page = self.page == WizardPage::TablesDir;
-                    let tables_dir_missing = on_tables_page
-                        && (self.tables_dir.is_empty()
-                            || !std::path::Path::new(&self.tables_dir).is_dir());
-                    // Finish was pressed: the window is closing.
-                    let finishing = self.close_at.is_some();
-                    let blocked = downloading || vpx_missing || tables_dir_missing || finishing;
-
-                    if self.page.index() < WizardPage::count() - 1 {
-                        let btn = egui::Button::new(t!("wizard_next"));
-                        if ui.add_enabled(!blocked, btn).clicked() {
-                            self.next_page();
-                        }
-                    } else {
-                        let btn = egui::Button::new(t!("wizard_finish"));
-                        if ui.add_enabled(!blocked, btn).clicked() {
-                            self.finalize_wizard(ui.ctx());
-                        }
-                    }
-                    if vpx_missing && !downloading {
-                        ui.colored_label(egui::Color32::from_rgb(255, 180, 50), t!("vpx_required"));
-                    }
-                    if tables_dir_missing {
-                        ui.colored_label(
-                            egui::Color32::from_rgb(255, 180, 50),
-                            t!("tables_path_required_inline"),
+        // Header: the wordmark and the toolbar, then the steps as a strip of
+        // pills that wraps on a narrow (rotated) window.
+        let p = theme::pal(ui.ctx());
+        egui::Panel::top("wizard_header")
+            .frame(
+                egui::Frame::new()
+                    .fill(p.bar)
+                    .stroke(egui::Stroke::new(1.0, p.border))
+                    .inner_margin(egui::Margin::symmetric(14, 10)),
+            )
+            .show(ui, |ui| {
+                egui::Sides::new().show(
+                    ui,
+                    |ui| {
+                        theme::dmd_wordmark(ui, 3.0)
+                            .on_hover_text(format!("PinReady v{}", env!("CARGO_PKG_VERSION")));
+                    },
+                    |ui| {
+                        // The right side fills right to left; give the
+                        // toolbar a left-to-right box as wide as it measured
+                        // last frame, so it reads in order and stays right.
+                        let id = egui::Id::unique("wizard_toolbar_width");
+                        let width = ui.data(|d| d.get_temp::<f32>(id)).unwrap_or(160.0);
+                        let resp = ui.allocate_ui_with_layout(
+                            egui::vec2(width, ui.spacing().interact_size.y),
+                            egui::Layout::left_to_right(egui::Align::Center),
+                            |ui| {
+                                let toolbar_size = (ui.spacing().interact_size.y - 4.0).max(14.0);
+                                let ctx = ui.ctx().clone();
+                                self.toolbar_toggles(&ctx, ui, toolbar_size);
+                                ui.min_rect().width()
+                            },
                         );
-                    }
-                    if downloading {
-                        let (current, total) = self.update_progress;
-                        if total > 0 {
-                            let pct = current as f32 / total as f32;
-                            let mb = current / (1024 * 1024);
-                            let total_mb = total / (1024 * 1024);
-                            ui.add(
-                                egui::ProgressBar::new(pct)
-                                    .text(format!("{mb}/{total_mb} MB"))
-                                    .desired_width(200.0),
-                            );
-                        } else {
-                            ui.spinner();
+                        let used = resp.inner;
+                        if (used - width).abs() > 0.5 {
+                            ui.data_mut(|d| d.insert_temp(id, used));
+                            ui.ctx().request_repaint();
                         }
-                        ui.ctx().request_repaint();
+                    },
+                );
+                ui.add_space(8.0);
+                // The whole strip needs about 900 points; narrower (a rotated
+                // playfield, a zoomed-in window) shows the current step and
+                // where it stands, since egui cannot wrap the pills.
+                let current = self.page.index();
+                let count = WizardPage::count();
+                let compact = ui.available_width() < 900.0;
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing = egui::vec2(5.0, 5.0);
+                    for i in 0..count {
+                        if compact && i != current {
+                            continue;
+                        }
+                        let page =
+                            WizardPage::from_index(i).expect("WizardPage index within count()");
+                        let (fill, fg) = match i.cmp(&current) {
+                            std::cmp::Ordering::Less => (p.raised, p.text_muted),
+                            std::cmp::Ordering::Equal => (p.accent, p.on_accent),
+                            std::cmp::Ordering::Greater => {
+                                (egui::Color32::TRANSPARENT, p.text_faint)
+                            }
+                        };
+                        egui::Frame::new()
+                            .fill(fill)
+                            .stroke(if i > current {
+                                egui::Stroke::new(1.0, p.border)
+                            } else {
+                                egui::Stroke::NONE
+                            })
+                            .corner_radius(egui::CornerRadius::same(theme::RADIUS_SMALL))
+                            .inner_margin(egui::Margin::symmetric(9, 3))
+                            .show(ui, |ui| {
+                                ui.horizontal(|ui| {
+                                    ui.spacing_mut().item_spacing.x = 5.0;
+                                    ui.label(
+                                        egui::RichText::new((i + 1).to_string())
+                                            .monospace()
+                                            .color(fg)
+                                            .strong(),
+                                    );
+                                    let title = egui::RichText::new(page.title()).color(fg);
+                                    ui.label(if i == current { title.strong() } else { title });
+                                });
+                            });
+                    }
+                    if compact {
+                        ui.label(
+                            egui::RichText::new(format!("{} / {count}", current + 1))
+                                .monospace()
+                                .color(p.text_faint),
+                        );
                     }
                 });
             });
-            ui.add_space(4.0);
-        });
+
+        // Navigation footer
+        egui::Panel::bottom("wizard_nav")
+            .frame(
+                egui::Frame::new()
+                    .fill(p.bar)
+                    .stroke(egui::Stroke::new(1.0, p.border))
+                    .inner_margin(egui::Margin::symmetric(14, 10)),
+            )
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    if self.page.index() > 0
+                        && ui
+                            .add(theme::secondary_button(
+                                format!(
+                                    "\u{2190}  {}",
+                                    t!("wizard_previous").trim_start_matches(['<', ' '])
+                                ),
+                                &p,
+                            ))
+                            .clicked()
+                    {
+                        self.prev_page();
+                    }
+
+                    if ui
+                        .add(
+                            egui::Button::new(
+                                egui::RichText::new(t!("wizard_reset")).color(p.text_muted),
+                            )
+                            .frame(false),
+                        )
+                        .clicked()
+                    {
+                        self.reset_current_page();
+                    }
+
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        // Block navigation on Screens page if VPX is not installed or downloading
+                        let on_screens_page = self.page == WizardPage::Screens;
+                        let downloading = self.update_downloading && on_screens_page;
+                        let vpx_missing = on_screens_page && {
+                            let resolved =
+                                updater::resolve_vpx_exe(std::path::Path::new(&self.vpx_exe_path));
+                            self.vpx_exe_path.is_empty() || !resolved.is_file()
+                        };
+                        // Tables dir is mandatory before leaving the Tables page —
+                        // skipping it would land the user in a launcher that has
+                        // nothing to scan and shows an empty grid.
+                        let on_tables_page = self.page == WizardPage::TablesDir;
+                        let tables_dir_missing = on_tables_page
+                            && (self.tables_dir.is_empty()
+                                || !std::path::Path::new(&self.tables_dir).is_dir());
+                        // Finish was pressed: the window is closing.
+                        let finishing = self.close_at.is_some();
+                        let blocked = downloading || vpx_missing || tables_dir_missing || finishing;
+
+                        if self.page.index() < WizardPage::count() - 1 {
+                            let label = t!("wizard_next").trim_end_matches(['>', ' ']).to_string();
+                            let btn =
+                                theme::primary_button(format!("{label}  \u{2192}"), &p, !blocked);
+                            if ui.add_enabled(!blocked, btn).clicked() {
+                                self.next_page();
+                            }
+                        } else {
+                            let btn = theme::primary_button(t!("wizard_finish"), &p, !blocked);
+                            if ui.add_enabled(!blocked, btn).clicked() {
+                                self.finalize_wizard(ui.ctx());
+                            }
+                        }
+                        if vpx_missing && !downloading {
+                            ui.colored_label(p.warning, t!("vpx_required"));
+                        }
+                        if tables_dir_missing {
+                            ui.colored_label(p.warning, t!("tables_path_required_inline"));
+                        }
+                        if downloading {
+                            let (current, total) = self.update_progress;
+                            if total > 0 {
+                                let pct = current as f32 / total as f32;
+                                let mb = current / (1024 * 1024);
+                                let total_mb = total / (1024 * 1024);
+                                ui.add(
+                                    egui::ProgressBar::new(pct)
+                                        .text(format!("{mb}/{total_mb} MB"))
+                                        .desired_width(200.0),
+                                );
+                            } else {
+                                ui.spinner();
+                            }
+                            ui.ctx().request_repaint();
+                        }
+                    });
+                });
+            });
 
         // Main content — zero right/bottom inner+outer margins and no stroke
         // so the scrollbar sits flush against the window edge.
@@ -2272,9 +2371,9 @@ impl eframe::App for App {
             .frame(
                 egui::Frame::central_panel(ui.style())
                     .inner_margin(egui::Margin {
-                        left: 8,
+                        left: 18,
                         right: 0,
-                        top: 8,
+                        top: 14,
                         bottom: 0,
                     })
                     .outer_margin(egui::Margin::ZERO)

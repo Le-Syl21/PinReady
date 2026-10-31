@@ -876,6 +876,7 @@ fn run_eframe_for_mode(mode: app::AppMode) -> Result<()> {
             // default divided by that scale.
             cc.egui_ctx
                 .set_zoom_factor(if start_in_wizard { 2.4 } else { 1.20 });
+            app.apply_theme(&cc.egui_ctx);
             // Register the egui-rotate plugin unconditionally. It owns
             // per-viewport input rotation, output rotation and the
             // software cursor. Registered even when the initial rotation

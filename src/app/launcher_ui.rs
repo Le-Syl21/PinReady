@@ -76,10 +76,17 @@ impl App {
         // Window placement handled via ViewportBuilder::with_monitor (main PF)
         // and render_cover_viewports (BG/DMD/Topper).
 
+        // The launcher draws straight on the root Ui, with no panel behind
+        // it: give it the theme's ground, or the clear color shows through.
+        let ground = ui.max_rect();
+        ui.painter()
+            .rect_filled(ground, 0.0, theme::pal(ui.ctx()).bg);
+
         // Header size: 2% of the window's available height, rounded up to
         // the next integer. Scales with the screen — readable on 4K cabinet
         // PFs, compact on desktop/windowed.
         let h_size = (ui.available_height() * 0.02).ceil();
+        ui.add_space(6.0);
         // Horizontal row with vertical Align::Center — same height-0
         // allocation as ui.horizontal (sized to content) but with center
         // cross-axis alignment so buttons + smaller search field line up.
@@ -93,6 +100,12 @@ impl App {
                 // sit here but ate too much width on rotated viewports; it
                 // now lives inside the About window opened by the ℹ icon.
                 let ctx = ui.ctx().clone();
+                // The DMD wordmark when the row has room for it (a rotated
+                // playfield is narrow, the search field matters more).
+                if hrow_w > 900.0 {
+                    theme::dmd_wordmark(ui, (h_size * 0.17).max(2.0));
+                    ui.add_space(12.0);
+                }
                 self.toolbar_toggles(&ctx, ui, h_size);
                 ui.add_space(16.0);
                 ui.label(egui::RichText::new("🔍").size(h_size));
@@ -105,7 +118,8 @@ impl App {
                 // a brighter light-gray + 3px width on all widget states.
                 let search_resp = ui
                     .scope(|ui| {
-                        let stroke = egui::Stroke::new(3.0, egui::Color32::from_gray(180));
+                        let p = theme::pal(ui.ctx());
+                        let stroke = egui::Stroke::new(3.0, p.text_muted);
                         let v = ui.visuals_mut();
                         v.widgets.inactive.bg_stroke = stroke;
                         v.widgets.hovered.bg_stroke = stroke;
@@ -196,14 +210,20 @@ impl App {
                 }
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let p = theme::pal(ui.ctx());
+                    let header_button = |text: String| {
+                        egui::Button::new(egui::RichText::new(text).size(h_size).color(p.text))
+                            .fill(egui::Color32::TRANSPARENT)
+                            .stroke(egui::Stroke::new(1.0, p.border))
+                    };
                     if ui
-                        .button(egui::RichText::new(t!("launcher_quit")).size(h_size))
+                        .add(header_button(t!("launcher_quit").to_string()))
                         .clicked()
                     {
                         self.quit_launcher(ui.ctx());
                     }
                     if ui
-                        .button(egui::RichText::new(t!("launcher_config")).size(h_size))
+                        .add(header_button(t!("launcher_config").to_string()))
                         .clicked()
                     {
                         // Signal main.rs to relaunch this eframe session in
@@ -239,10 +259,7 @@ impl App {
                     // handles "new tables" and "source file changed"
                     // cases transparently on every scan.
                     let label = t!("launcher_rebuild").to_string();
-                    if ui
-                        .button(egui::RichText::new(&label).size(h_size))
-                        .clicked()
-                    {
+                    if ui.add(header_button(label)).clicked() {
                         log::info!(
                             "Rebuild: flushing backglass + vbs_patches caches, full re-scan"
                         );
@@ -267,7 +284,7 @@ impl App {
                         ui.label(
                             egui::RichText::new(format!("↑ {updates}"))
                                 .size(h_size)
-                                .color(egui::Color32::from_rgb(80, 170, 240)),
+                                .color(p.info),
                         );
                     }
                 });
@@ -373,7 +390,8 @@ impl App {
                         };
                         let mut copy_btn = egui::Button::new(copy_label);
                         if flashing {
-                            copy_btn = copy_btn.fill(egui::Color32::from_rgb(0x2e, 0x7d, 0x32));
+                            copy_btn = copy_btn
+                                .fill(theme::pal(ui.ctx()).tint(theme::pal(ui.ctx()).success, 120));
                             // Keep repainting so it fades on its own, even if
                             // nothing else ever moves.
                             ui.ctx().request_repaint();
@@ -409,7 +427,7 @@ impl App {
                                 egui::RichText::new(
                                     t!("launcher_error_saved", path = path.as_str()).to_string(),
                                 )
-                                .color(egui::Color32::from_rgb(0x66, 0xcc, 0x66)),
+                                .color(theme::pal(ui.ctx()).success),
                             );
                         }
                         Some(Err(e)) => {
@@ -587,22 +605,31 @@ impl App {
                         let painter = ui.painter_at(rect);
                         let is_selected = idx == self.selected_table;
 
-                        // Card background
+                        // Card background: the selected table glows in the
+                        // DMD's orange, as if its playfield lights came on.
+                        let p = theme::pal(ui.ctx());
                         let bg_color = if is_selected {
-                            egui::Color32::from_rgb(60, 60, 90)
+                            p.tint(p.accent, 48)
                         } else if response.hovered() {
-                            egui::Color32::from_rgb(50, 50, 65)
+                            p.raised
                         } else {
-                            egui::Color32::from_rgb(35, 35, 45)
+                            p.surface
                         };
-                        painter.rect_filled(rect, 6.0, bg_color);
+                        painter.rect_filled(rect, 8.0, bg_color);
 
                         // Selection border (inside to avoid clipping by painter_at)
                         if is_selected {
                             painter.rect_stroke(
                                 rect,
-                                6.0,
-                                egui::Stroke::new(4.0, egui::Color32::from_rgb(255, 200, 0)),
+                                8.0,
+                                egui::Stroke::new(4.0, p.accent),
+                                egui::StrokeKind::Inside,
+                            );
+                        } else {
+                            painter.rect_stroke(
+                                rect,
+                                8.0,
+                                egui::Stroke::new(1.0, p.border),
                                 egui::StrokeKind::Inside,
                             );
                         }
@@ -628,7 +655,7 @@ impl App {
                             // exactly which two filenames they can drop in to fix
                             // it. Rendered live rather than pre-generated so the
                             // hint re-localizes when the user switches language.
-                            painter.rect_filled(img_area, 4.0, egui::Color32::from_rgb(25, 25, 30));
+                            painter.rect_filled(img_area, 4.0, p.bg);
                             let cx = img_area.center().x;
                             let h = img_area.height();
                             painter.text(
@@ -636,21 +663,21 @@ impl App {
                                 egui::Align2::CENTER_CENTER,
                                 t!("launcher_missing_title", table = table.name.clone()),
                                 egui::FontId::proportional(18.0),
-                                egui::Color32::LIGHT_GRAY,
+                                p.text_muted,
                             );
                             painter.text(
                                 egui::pos2(cx, img_area.min.y + h * 0.52),
                                 egui::Align2::CENTER_CENTER,
                                 t!("launcher_missing_hint_launcher"),
                                 egui::FontId::proportional(14.0),
-                                egui::Color32::GRAY,
+                                p.text_faint,
                             );
                             painter.text(
                                 egui::pos2(cx, img_area.min.y + h * 0.68),
                                 egui::Align2::CENTER_CENTER,
                                 t!("launcher_missing_hint_b2s"),
                                 egui::FontId::proportional(14.0),
-                                egui::Color32::GRAY,
+                                p.text_faint,
                             );
                         }
 
@@ -664,11 +691,7 @@ impl App {
                             egui::Align2::CENTER_CENTER,
                             &table.name,
                             egui::FontId::new(24.0, egui::FontFamily::Proportional),
-                            if is_selected {
-                                egui::Color32::from_rgb(255, 200, 0)
-                            } else {
-                                egui::Color32::WHITE
-                            },
+                            if is_selected { p.accent_text } else { p.text },
                         );
 
                         // Update-available badge: small "↑" disk in the
@@ -695,9 +718,9 @@ impl App {
                                 egui::Sense::click(),
                             );
                             let bg_color = if badge_resp.hovered() {
-                                egui::Color32::from_rgb(70, 170, 240)
+                                p.tint(p.info, 200)
                             } else {
-                                egui::Color32::from_rgb(40, 140, 220)
+                                p.info
                             };
                             painter.circle_filled(badge_center, badge_radius, bg_color);
                             painter.circle_stroke(
@@ -971,7 +994,7 @@ impl App {
                 egui::Label::new(
                     egui::RichText::new(msg)
                         .size(text_size)
-                        .color(egui::Color32::from_rgb(255, 100, 100)),
+                        .color(theme::pal(ui.ctx()).error),
                 ),
             );
         };
@@ -1004,7 +1027,7 @@ impl App {
                         egui::RichText::new(label)
                             .size(text_size)
                             .strong()
-                            .color(egui::Color32::from_rgb(100, 200, 100)),
+                            .color(theme::pal(ui.ctx()).success),
                     ),
                 );
                 if btn.clicked() {
@@ -1054,7 +1077,7 @@ impl App {
                         egui::RichText::new(label)
                             .size(text_size)
                             .strong()
-                            .color(egui::Color32::from_rgb(100, 180, 220)),
+                            .color(theme::pal(ui.ctx()).info),
                     ),
                 );
                 if btn.clicked() {
@@ -1186,7 +1209,7 @@ impl App {
                         egui::RichText::new(label)
                             .size(text_size)
                             .strong()
-                            .color(egui::Color32::from_rgb(220, 180, 100)),
+                            .color(theme::pal(ui.ctx()).warning),
                     ),
                 );
                 if btn.clicked() {
@@ -1203,7 +1226,7 @@ impl App {
                 egui::Label::new(
                     egui::RichText::new(t!("ht_banner_done", tag = tag.as_str()).to_string())
                         .size(text_size)
-                        .color(egui::Color32::from_rgb(120, 200, 120)),
+                        .color(theme::pal(ui.ctx()).success),
                 ),
             );
         }
@@ -1213,7 +1236,7 @@ impl App {
                 egui::Label::new(
                     egui::RichText::new(format!("⚠ {err}"))
                         .size(text_size)
-                        .color(egui::Color32::from_rgb(255, 100, 100)),
+                        .color(theme::pal(ui.ctx()).error),
                 ),
             );
         }
