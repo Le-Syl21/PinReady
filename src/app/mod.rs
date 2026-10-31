@@ -2216,12 +2216,12 @@ impl eframe::App for App {
                     },
                 );
                 ui.add_space(8.0);
-                // The whole strip needs about 900 points; narrower (a rotated
+                // The whole strip needs about 720 points; narrower (a rotated
                 // playfield, a zoomed-in window) shows the current step and
                 // where it stands, since egui cannot wrap the pills.
                 let current = self.page.index();
                 let count = WizardPage::count();
-                let compact = ui.available_width() < 900.0;
+                let compact = ui.available_width() < 720.0;
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing = egui::vec2(5.0, 5.0);
                     for i in 0..count {
@@ -2394,16 +2394,24 @@ impl eframe::App for App {
                         self.process_update_check();
                         self.process_pinready_update_check(ui.ctx());
 
-                        match self.page {
-                            WizardPage::Screens => self.render_screens_page(ui),
-                            WizardPage::Rendering => self.render_rendering_page(ui),
-                            WizardPage::Inputs => self.render_inputs_page(ui),
-                            WizardPage::Outputs => self.render_outputs_page(ui),
-                            WizardPage::Tilt => self.render_tilt_page(ui),
-                            WizardPage::Audio => self.render_audio_page(ui),
-                            WizardPage::TablesDir => self.render_tables_dir_page(ui),
-                            WizardPage::System => self.render_system_page(ui),
-                        }
+                        // The cards keep clear of the flush scrollbar
+                        egui::Frame::new()
+                            .inner_margin(egui::Margin {
+                                left: 0,
+                                right: 18,
+                                top: 0,
+                                bottom: 12,
+                            })
+                            .show(ui, |ui| match self.page {
+                                WizardPage::Screens => self.render_screens_page(ui),
+                                WizardPage::Rendering => self.render_rendering_page(ui),
+                                WizardPage::Inputs => self.render_inputs_page(ui),
+                                WizardPage::Outputs => self.render_outputs_page(ui),
+                                WizardPage::Tilt => self.render_tilt_page(ui),
+                                WizardPage::Audio => self.render_audio_page(ui),
+                                WizardPage::TablesDir => self.render_tables_dir_page(ui),
+                                WizardPage::System => self.render_system_page(ui),
+                            });
                     });
             });
     }

@@ -1,434 +1,438 @@
 use super::*;
 
-const ASTERISK_RED_SCREENS: egui::Color32 = egui::Color32::from_rgb(255, 80, 80);
-
 impl App {
     pub(super) fn render_screens_page(&mut self, ui: &mut egui::Ui) {
-        ui.heading(t!("screens_heading"));
-        ui.add_space(2.0);
-
         // System probe — shown only on the first wizard page so users
         // filing a bug report can screenshot the very first screen and
         // already have OS / display server / desktop pinned to it.
         let sys = crate::system_info::detect();
-        ui.label(format!(
-            "🖥 {}: {} · PinReady v{}",
-            t!("system_detected"),
-            sys.one_liner(),
-            crate::VERSION,
-        ));
-        ui.add_space(8.0);
+        theme::page_header(
+            ui,
+            &t!("screens_heading"),
+            Some(&format!(
+                "{} : {} \u{00b7} PinReady v{}",
+                theme::clean(&t!("system_detected")),
+                sys.one_liner(),
+                crate::VERSION,
+            )),
+        );
 
-        // Language selector
-        ui.horizontal(|ui| {
-            ui.label(egui::RichText::new("Langue / Language").size(14.0));
-            help_marker(ui, &t!("screens_language_hint"));
-            ui.add_space(8.0);
-            let prev_lang = self.selected_language;
-            let current_label = LANGUAGE_OPTIONS
-                .get(self.selected_language)
-                .map(|(_, l)| *l)
-                .unwrap_or("English");
-            egui::ComboBox::from_id_salt("lang_combo")
-                .selected_text(current_label)
-                .show_ui(ui, |ui| {
-                    for (idx, (_code, label)) in LANGUAGE_OPTIONS.iter().enumerate() {
-                        ui.selectable_value(&mut self.selected_language, idx, *label);
-                    }
-                });
-            if self.selected_language != prev_lang {
-                let (code, _) = LANGUAGE_OPTIONS[self.selected_language];
-                i18n::set_locale(code);
-                let _ = self.db.set_config("language", code);
-            }
-        });
-        ui.add_space(8.0);
-        ui.separator();
-        ui.add_space(8.0);
-
-        // Start over. Two clicks, because it throws away every answer given
-        // so far — and it is placed on the first page precisely because that
-        // is where someone who wants a clean slate comes looking.
-        ui.horizontal(|ui| {
-            if self.reset_armed {
-                if ui
-                    .button(
-                        egui::RichText::new(t!("config_reset_confirm")).color(ASTERISK_RED_SCREENS),
-                    )
-                    .clicked()
-                {
-                    match self.db.reset_config() {
-                        Ok(()) => {
-                            log::info!("Configuration reset — restarting the wizard");
-                            // Order matters: move the old ini aside first, so
-                            // the rewrite the restart rearms starts from
-                            // nothing and produces VPX's own defaults.
-                            Self::archive_vpx_ini();
-                            self.restart_wizard();
+        // Language first: everything below reads in it.
+        theme::section(
+            ui,
+            &t!("screens_section_language"),
+            Some(&t!("screens_language_hint")),
+            |ui| {
+                let prev_lang = self.selected_language;
+                let current_label = LANGUAGE_OPTIONS
+                    .get(self.selected_language)
+                    .map(|(_, l)| *l)
+                    .unwrap_or("English");
+                egui::ComboBox::from_id_salt("lang_combo")
+                    .selected_text(current_label)
+                    .width(220.0)
+                    .show_ui(ui, |ui| {
+                        for (idx, (_code, label)) in LANGUAGE_OPTIONS.iter().enumerate() {
+                            ui.selectable_value(&mut self.selected_language, idx, *label);
                         }
-                        Err(e) => log::error!("Configuration reset failed: {e:#}"),
-                    }
-                    self.reset_armed = false;
+                    });
+                if self.selected_language != prev_lang {
+                    let (code, _) = LANGUAGE_OPTIONS[self.selected_language];
+                    i18n::set_locale(code);
+                    let _ = self.db.set_config("language", code);
                 }
-                if ui.button(t!("config_reset_cancel")).clicked() {
-                    self.reset_armed = false;
-                }
-            } else if ui
-                .button(t!("config_reset"))
-                .on_hover_text(t!("config_reset_hint"))
-                .clicked()
-            {
-                self.reset_armed = true;
-            }
-            help_marker(ui, &t!("config_reset_hint"));
-        });
-
-        ui.add_space(8.0);
-        ui.separator();
-        ui.add_space(8.0);
+            },
+        );
 
         // Visual Pinball installation
-        ui.label(egui::RichText::new(t!("vpx_install_title")).strong());
-        ui.add_space(4.0);
-
-        ui.horizontal(|ui| {
-            ui.radio_value(
-                &mut self.vpx_install_mode,
-                VpxInstallMode::Auto,
-                t!("vpx_auto_install"),
-            );
-            help_marker(ui, &t!("screens_vpx_auto_hint"));
-        });
-        if self.vpx_install_mode == VpxInstallMode::Auto {
-            ui.indent("auto_install", |ui| {
-                if let Some(ref release) = self.vpx_latest_release {
-                    ui.label(t!("vpx_version_available", tag = release.tag.as_str()));
-                    let size_mb = release.asset_size / (1024 * 1024);
-                    ui.label(t!(
-                        "vpx_artifact_info",
-                        name = release.asset_name.as_str(),
-                        size = size_mb
-                    ));
-                } else if self.update_check_rx.is_some() {
-                    ui.horizontal(|ui| {
-                        ui.spinner();
-                        ui.label(t!("vpx_checking"));
-                    });
-                    ui.ctx().request_repaint();
-                } else if !self.vpx_installed_tag.is_empty() {
-                    ui.label(t!(
-                        "vpx_version_installed",
-                        tag = self.vpx_installed_tag.as_str()
-                    ));
-                } else {
-                    ui.label(t!("vpx_no_version"));
-                }
-
-                if self.update_downloading {
-                    let (current, total) = self.update_progress;
-                    if total > 0 {
-                        let pct = current as f32 / total as f32;
-                        let mb = current / (1024 * 1024);
-                        let total_mb = total / (1024 * 1024);
-                        ui.add(egui::ProgressBar::new(pct).text(format!("{mb}/{total_mb} Mo")));
-                    } else {
-                        ui.horizontal(|ui| {
-                            ui.spinner();
-                            ui.label(t!("vpx_extracting"));
-                        });
-                    }
-                    ui.ctx().request_repaint();
-                } else if let Some(release) = self.vpx_latest_release.clone() {
-                    // Already on the latest build is not a reason to hide the
-                    // button: a botched install has to be repairable, and the
-                    // page looked broken without it. Name the destination the
-                    // same way the head-tracking button does.
-                    let label = if self.vpx_installed_tag.is_empty() {
-                        t!("vpx_install_button")
-                    } else if release.tag == self.vpx_installed_tag {
-                        t!("vpx_reinstall_button", tag = release.tag.as_str())
-                    } else {
-                        t!(
-                            "vpx_update_button_to",
-                            from = self.vpx_installed_tag.as_str(),
-                            to = release.tag.as_str()
-                        )
-                    };
-                    if ui
-                        .button(label)
-                        .on_hover_text(t!("screens_vpx_install_button_hint"))
-                        .clicked()
-                    {
-                        self.start_vpx_download(&release);
-                    }
-                }
-
-                if let Some(ref err) = self.update_error {
-                    ui.colored_label(
-                        egui::Color32::from_rgb(255, 100, 100),
-                        t!("vpx_install_error", msg = err.as_str()),
+        theme::section(
+            ui,
+            &t!("vpx_install_title"),
+            Some(&t!("vpx_install_intro")),
+            |ui| {
+                ui.horizontal(|ui| {
+                    ui.radio_value(
+                        &mut self.vpx_install_mode,
+                        VpxInstallMode::Auto,
+                        t!("vpx_auto_install"),
                     );
+                    help_marker(ui, &t!("screens_vpx_auto_hint"));
+                });
+                if self.vpx_install_mode == VpxInstallMode::Auto {
+                    ui.indent("auto_install", |ui| {
+                        if let Some(ref release) = self.vpx_latest_release {
+                            ui.label(t!("vpx_version_available", tag = release.tag.as_str()));
+                            let size_mb = release.asset_size / (1024 * 1024);
+                            ui.label(t!(
+                                "vpx_artifact_info",
+                                name = release.asset_name.as_str(),
+                                size = size_mb
+                            ));
+                        } else if self.update_check_rx.is_some() {
+                            ui.horizontal(|ui| {
+                                ui.spinner();
+                                ui.label(t!("vpx_checking"));
+                            });
+                            ui.ctx().request_repaint();
+                        } else if !self.vpx_installed_tag.is_empty() {
+                            ui.label(t!(
+                                "vpx_version_installed",
+                                tag = self.vpx_installed_tag.as_str()
+                            ));
+                        } else {
+                            ui.label(t!("vpx_no_version"));
+                        }
+
+                        if self.update_downloading {
+                            let (current, total) = self.update_progress;
+                            if total > 0 {
+                                let pct = current as f32 / total as f32;
+                                let mb = current / (1024 * 1024);
+                                let total_mb = total / (1024 * 1024);
+                                ui.add(
+                                    egui::ProgressBar::new(pct).text(format!("{mb}/{total_mb} Mo")),
+                                );
+                            } else {
+                                ui.horizontal(|ui| {
+                                    ui.spinner();
+                                    ui.label(t!("vpx_extracting"));
+                                });
+                            }
+                            ui.ctx().request_repaint();
+                        } else if let Some(release) = self.vpx_latest_release.clone() {
+                            // Already on the latest build is not a reason to hide the
+                            // button: a botched install has to be repairable, and the
+                            // page looked broken without it. Name the destination the
+                            // same way the head-tracking button does.
+                            let label = if self.vpx_installed_tag.is_empty() {
+                                t!("vpx_install_button")
+                            } else if release.tag == self.vpx_installed_tag {
+                                t!("vpx_reinstall_button", tag = release.tag.as_str())
+                            } else {
+                                t!(
+                                    "vpx_update_button_to",
+                                    from = self.vpx_installed_tag.as_str(),
+                                    to = release.tag.as_str()
+                                )
+                            };
+                            if ui
+                                .button(label)
+                                .on_hover_text(t!("screens_vpx_install_button_hint"))
+                                .clicked()
+                            {
+                                self.start_vpx_download(&release);
+                            }
+                        }
+
+                        if let Some(ref err) = self.update_error {
+                            ui.colored_label(
+                                theme::pal(ui.ctx()).error,
+                                t!("vpx_install_error", msg = err.as_str()),
+                            );
+                        }
+
+                        ui.add_space(4.0);
+                        ui.horizontal(|ui| {
+                            ui.label(t!("vpx_install_dir_label"));
+                            help_marker(ui, &t!("vpx_install_dir_hint"));
+                        });
+                        ui.horizontal(|ui| {
+                            ui.add(
+                                egui::TextEdit::singleline(&mut self.vpx_install_dir)
+                                    .desired_width(400.0),
+                            );
+                            if ui
+                                .button(t!("vpx_browse"))
+                                .on_hover_text(t!("screens_vpx_browse_dir_hint"))
+                                .clicked()
+                                && let Some(path) = rfd::FileDialog::new()
+                                    .set_title(t!("vpx_install_dir_picker"))
+                                    .set_directory(&self.vpx_install_dir)
+                                    .pick_folder()
+                            {
+                                self.vpx_install_dir = path.display().to_string();
+                            }
+                        });
+                    });
+                }
+
+                ui.horizontal(|ui| {
+                    ui.radio_value(
+                        &mut self.vpx_install_mode,
+                        VpxInstallMode::Manual,
+                        t!("vpx_manual_install"),
+                    );
+                    help_marker(ui, &t!("screens_vpx_manual_hint"));
+                });
+                if self.vpx_install_mode == VpxInstallMode::Manual {
+                    ui.indent("manual_install", |ui| {
+                        ui.horizontal(|ui| {
+                            ui.add(
+                                egui::TextEdit::singleline(&mut self.vpx_exe_path)
+                                    .desired_width(400.0),
+                            )
+                            .on_hover_text(t!("screens_vpx_exe_hint"));
+                            if ui
+                                .button(t!("vpx_browse"))
+                                .on_hover_text(t!("screens_vpx_browse_exe_hint"))
+                                .clicked()
+                            {
+                                // On macOS, .app bundles are directories — use pick_folder
+                                // as fallback so users can select them.
+                                let picked = if cfg!(target_os = "macos") {
+                                    rfd::FileDialog::new()
+                                        .set_title(t!("vpx_file_picker"))
+                                        .pick_file()
+                                        .or_else(|| {
+                                            rfd::FileDialog::new()
+                                                .set_title(t!("vpx_file_picker"))
+                                                .pick_folder()
+                                        })
+                                } else {
+                                    rfd::FileDialog::new()
+                                        .set_title(t!("vpx_file_picker"))
+                                        .pick_file()
+                                };
+                                if let Some(path) = picked {
+                                    self.vpx_exe_path = path.display().to_string();
+                                }
+                            }
+                        });
+                        let resolved =
+                            updater::resolve_vpx_exe(std::path::Path::new(&self.vpx_exe_path));
+                        let vpx_exists = resolved.is_file();
+                        if !vpx_exists && !self.vpx_exe_path.is_empty() {
+                            ui.colored_label(
+                                theme::pal(ui.ctx()).error,
+                                format!("⚠ {}", t!("vpx_file_not_found")),
+                            );
+                        }
+                    });
                 }
 
                 ui.add_space(4.0);
-                ui.horizontal(|ui| {
-                    ui.label(t!("vpx_install_dir_label"));
-                    help_marker(ui, &t!("vpx_install_dir_hint"));
-                });
-                ui.horizontal(|ui| {
-                    ui.add(
-                        egui::TextEdit::singleline(&mut self.vpx_install_dir).desired_width(400.0),
-                    );
-                    if ui
-                        .button(t!("vpx_browse"))
-                        .on_hover_text(t!("screens_vpx_browse_dir_hint"))
-                        .clicked()
-                        && let Some(path) = rfd::FileDialog::new()
-                            .set_title(t!("vpx_install_dir_picker"))
-                            .set_directory(&self.vpx_install_dir)
-                            .pick_folder()
-                    {
-                        self.vpx_install_dir = path.display().to_string();
-                    }
-                });
-            });
-        }
+                ui.label(egui::RichText::new(t!("vpx_validated_on")).weak().italics());
+            },
+        );
 
-        ui.horizontal(|ui| {
-            ui.radio_value(
-                &mut self.vpx_install_mode,
-                VpxInstallMode::Manual,
-                t!("vpx_manual_install"),
-            );
-            help_marker(ui, &t!("screens_vpx_manual_hint"));
-        });
-        if self.vpx_install_mode == VpxInstallMode::Manual {
-            ui.indent("manual_install", |ui| {
+        // The screens: how many, how they are used, which one does what
+        theme::section(
+            ui,
+            &t!("screens_section_screens"),
+            Some(&t!("screens_section_screens_intro")),
+            |ui| {
                 ui.horizontal(|ui| {
-                    ui.add(egui::TextEdit::singleline(&mut self.vpx_exe_path).desired_width(400.0))
-                        .on_hover_text(t!("screens_vpx_exe_hint"));
-                    if ui
-                        .button(t!("vpx_browse"))
-                        .on_hover_text(t!("screens_vpx_browse_exe_hint"))
-                        .clicked()
-                    {
-                        // On macOS, .app bundles are directories — use pick_folder
-                        // as fallback so users can select them.
-                        let picked = if cfg!(target_os = "macos") {
-                            rfd::FileDialog::new()
-                                .set_title(t!("vpx_file_picker"))
-                                .pick_file()
-                                .or_else(|| {
-                                    rfd::FileDialog::new()
-                                        .set_title(t!("vpx_file_picker"))
-                                        .pick_folder()
-                                })
-                        } else {
-                            rfd::FileDialog::new()
-                                .set_title(t!("vpx_file_picker"))
-                                .pick_file()
+                    theme::field_label(ui, &t!("screens_count_label"));
+                    help_marker(ui, &t!("screens_count_hint"));
+                });
+                ui.horizontal(|ui| {
+                    for n in 1..=4 {
+                        let label = match n {
+                            1 => t!("screens_1"),
+                            2 => t!("screens_2"),
+                            3 => t!("screens_3"),
+                            _ => t!("screens_4"),
                         };
-                        if let Some(path) = picked {
-                            self.vpx_exe_path = path.display().to_string();
+                        if ui.radio_value(&mut self.screen_count, n, label).changed() {
+                            // Re-assign roles based on new screen count
+                            for (i, display) in self.displays.iter_mut().enumerate() {
+                                let roles = [
+                                    DisplayRole::Playfield,
+                                    DisplayRole::Backglass,
+                                    DisplayRole::Dmd,
+                                    DisplayRole::Topper,
+                                ];
+                                display.role = if i < self.screen_count {
+                                    roles.get(i).copied().unwrap_or(DisplayRole::Unused)
+                                } else {
+                                    DisplayRole::Unused
+                                };
+                            }
                         }
                     }
                 });
-                let resolved = updater::resolve_vpx_exe(std::path::Path::new(&self.vpx_exe_path));
-                let vpx_exists = resolved.is_file();
-                if !vpx_exists && !self.vpx_exe_path.is_empty() {
-                    ui.colored_label(
-                        egui::Color32::from_rgb(255, 100, 100),
-                        format!("⚠ {}", t!("vpx_file_not_found")),
-                    );
-                }
-            });
-        }
 
-        ui.add_space(4.0);
-        ui.label(egui::RichText::new(t!("vpx_validated_on")).weak().italics());
-        ui.add_space(12.0);
-        ui.separator();
-        ui.add_space(8.0);
-
-        // Screen count selection
-        ui.horizontal(|ui| {
-            ui.label(t!("screens_count_label"));
-            help_marker(ui, &t!("screens_count_hint"));
-        });
-        ui.horizontal(|ui| {
-            for n in 1..=4 {
-                let label = match n {
-                    1 => t!("screens_1"),
-                    2 => t!("screens_2"),
-                    3 => t!("screens_3"),
-                    _ => t!("screens_4"),
-                };
-                if ui.radio_value(&mut self.screen_count, n, label).changed() {
-                    // Re-assign roles based on new screen count
-                    for (i, display) in self.displays.iter_mut().enumerate() {
-                        let roles = [
-                            DisplayRole::Playfield,
-                            DisplayRole::Backglass,
-                            DisplayRole::Dmd,
-                            DisplayRole::Topper,
-                        ];
-                        display.role = if i < self.screen_count {
-                            roles.get(i).copied().unwrap_or(DisplayRole::Unused)
-                        } else {
-                            DisplayRole::Unused
-                        };
-                    }
-                }
-            }
-        });
-
-        ui.add_space(8.0);
-
-        // View mode
-        ui.horizontal(|ui| {
-            ui.label(t!("screens_display_mode"));
-            help_marker(ui, &t!("screens_display_mode_help"));
-        });
-        ui.horizontal(|ui| {
-            ui.radio_value(&mut self.view_mode, 0, t!("screens_mode_desktop"))
-                .on_hover_text(t!("screens_mode_desktop_hint"));
-            ui.radio_value(&mut self.view_mode, 1, t!("screens_mode_cabinet"))
-                .on_hover_text(t!("screens_mode_cabinet_hint"));
-            ui.radio_value(&mut self.view_mode, 2, t!("screens_mode_fss"))
-                .on_hover_text(t!("screens_mode_fss_hint"));
-        });
-
-        ui.add_space(8.0);
-
-        ui.horizontal(|ui| {
-            ui.checkbox(&mut self.disable_touch, t!("screens_disable_touch"));
-            help_marker(ui, &t!("screens_disable_touch_hint"));
-        });
-
-        // External DMD checkbox — only relevant when no screen has DMD role
-        let has_dmd_screen = self.displays.iter().any(|d| d.role == DisplayRole::Dmd);
-        if !has_dmd_screen {
-            ui.horizontal(|ui| {
-                ui.checkbox(&mut self.external_dmd, t!("screens_external_dmd"));
-                help_marker(ui, &t!("screens_external_dmd_hint"));
-            });
-        } else {
-            self.external_dmd = false;
-        }
-
-        ui.add_space(12.0);
-
-        // Display table
-        if self.displays.is_empty() {
-            ui.label(t!("screens_no_displays"));
-            return;
-        }
-
-        egui::Grid::new("displays_grid")
-            .striped(true)
-            .min_col_width(80.0)
-            .show(ui, |ui| {
-                ui.strong(t!("screens_col_screen"));
-                ui.strong(t!("screens_col_resolution"));
-                ui.strong(t!("screens_col_hz"));
+                ui.add_space(8.0);
                 ui.horizontal(|ui| {
-                    ui.strong(t!("screens_col_size"));
-                    help_marker(ui, &t!("screens_physical_size_hint"));
+                    theme::field_label(ui, &t!("screens_display_mode"));
+                    help_marker(ui, &t!("screens_display_mode_help"));
                 });
                 ui.horizontal(|ui| {
-                    ui.strong(t!("screens_col_role"));
-                    help_marker(ui, &t!("screens_role_hint"));
+                    ui.radio_value(&mut self.view_mode, 0, t!("screens_mode_desktop"))
+                        .on_hover_text(t!("screens_mode_desktop_hint"));
+                    ui.radio_value(&mut self.view_mode, 1, t!("screens_mode_cabinet"))
+                        .on_hover_text(t!("screens_mode_cabinet_hint"));
+                    ui.radio_value(&mut self.view_mode, 2, t!("screens_mode_fss"))
+                        .on_hover_text(t!("screens_mode_fss_hint"));
                 });
-                ui.end_row();
-
-                let available_roles: Vec<DisplayRole> = DisplayRole::all()
-                    .iter()
-                    .copied()
-                    .filter(|r| {
-                        *r == DisplayRole::Unused
-                            || match r {
-                                DisplayRole::Playfield => self.screen_count >= 1,
-                                DisplayRole::Backglass => self.screen_count >= 2,
-                                DisplayRole::Dmd => self.screen_count >= 3,
-                                DisplayRole::Topper => self.screen_count >= 4,
-                                DisplayRole::Unused => true,
-                            }
-                    })
-                    .collect();
-
-                for display in &mut self.displays {
-                    // Name + inches
-                    let label = if let Some(inches) = display.size_inches {
-                        format!("{} ({}\")", display.name, inches)
-                    } else {
-                        display.name.clone()
-                    };
-                    ui.label(&label);
-                    ui.label(format!("{}x{}", display.width, display.height));
-                    ui.label(format!("{:.0} Hz", display.refresh_rate));
-                    // Physical size mm (editable)
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    ui.checkbox(&mut self.disable_touch, t!("screens_disable_touch"));
+                    help_marker(ui, &t!("screens_disable_touch_hint"));
+                });
+                // External DMD checkbox — only relevant when no screen has DMD role
+                let has_dmd_screen = self.displays.iter().any(|d| d.role == DisplayRole::Dmd);
+                if !has_dmd_screen {
                     ui.horizontal(|ui| {
-                        ui.add(
-                            egui::DragValue::new(&mut display.width_mm)
-                                .speed(1)
-                                .suffix(" mm"),
-                        );
-                        ui.label("x");
-                        ui.add(
-                            egui::DragValue::new(&mut display.height_mm)
-                                .speed(1)
-                                .suffix(" mm"),
-                        );
+                        ui.checkbox(&mut self.external_dmd, t!("screens_external_dmd"));
+                        help_marker(ui, &t!("screens_external_dmd_hint"));
+                    });
+                } else {
+                    self.external_dmd = false;
+                }
+
+                ui.add_space(12.0);
+                if self.displays.is_empty() {
+                    ui.label(t!("screens_no_displays"));
+                    return;
+                }
+                egui::Grid::new("displays_grid")
+                    .striped(true)
+                    .min_col_width(80.0)
+                    .show(ui, |ui| {
+                        ui.strong(t!("screens_col_screen"));
+                        ui.strong(t!("screens_col_resolution"));
+                        ui.strong(t!("screens_col_hz"));
+                        ui.horizontal(|ui| {
+                            ui.strong(t!("screens_col_size"));
+                            help_marker(ui, &t!("screens_physical_size_hint"));
+                        });
+                        ui.horizontal(|ui| {
+                            ui.strong(t!("screens_col_role"));
+                            help_marker(ui, &t!("screens_role_hint"));
+                        });
+                        ui.end_row();
+
+                        let available_roles: Vec<DisplayRole> = DisplayRole::all()
+                            .iter()
+                            .copied()
+                            .filter(|r| {
+                                *r == DisplayRole::Unused
+                                    || match r {
+                                        DisplayRole::Playfield => self.screen_count >= 1,
+                                        DisplayRole::Backglass => self.screen_count >= 2,
+                                        DisplayRole::Dmd => self.screen_count >= 3,
+                                        DisplayRole::Topper => self.screen_count >= 4,
+                                        DisplayRole::Unused => true,
+                                    }
+                            })
+                            .collect();
+
+                        for display in &mut self.displays {
+                            // Name + inches
+                            let label = if let Some(inches) = display.size_inches {
+                                format!("{} ({}\")", display.name, inches)
+                            } else {
+                                display.name.clone()
+                            };
+                            ui.label(&label);
+                            ui.label(format!("{}x{}", display.width, display.height));
+                            ui.label(format!("{:.0} Hz", display.refresh_rate));
+                            // Physical size mm (editable)
+                            ui.horizontal(|ui| {
+                                ui.add(
+                                    egui::DragValue::new(&mut display.width_mm)
+                                        .speed(1)
+                                        .suffix(" mm"),
+                                );
+                                ui.label("x");
+                                ui.add(
+                                    egui::DragValue::new(&mut display.height_mm)
+                                        .speed(1)
+                                        .suffix(" mm"),
+                                );
+                            });
+
+                            egui::ComboBox::from_id_salt(format!("role_{}", display.name))
+                                .selected_text(display.role.label())
+                                .show_ui(ui, |ui| {
+                                    for role in &available_roles {
+                                        ui.selectable_value(&mut display.role, *role, role.label());
+                                    }
+                                });
+                            ui.end_row();
+                        }
                     });
 
-                    egui::ComboBox::from_id_salt(format!("role_{}", display.name))
-                        .selected_text(display.role.label())
-                        .show_ui(ui, |ui| {
-                            for role in &available_roles {
-                                ui.selectable_value(&mut display.role, *role, role.label());
-                            }
-                        });
-                    ui.end_row();
+                // TVs and bare panels report sizes nothing here can correct: point
+                // their owners at a database of real panel sizes.
+                let suspects: Vec<&str> = self
+                    .displays
+                    .iter()
+                    .filter(|d| crate::screens::size_looks_wrong(d))
+                    .map(|d| d.name.as_str())
+                    .collect();
+                if !suspects.is_empty() {
+                    ui.add_space(8.0);
+                    ui.colored_label(
+                        ui.visuals().warn_fg_color,
+                        t!("screens_size_suspect", names = suspects.join(", ")),
+                    );
+                    ui.hyperlink_to(
+                        t!("screens_size_lookup"),
+                        "https://www.displayspecifications.com/en",
+                    );
                 }
-            });
-
-        // TVs and bare panels report sizes nothing here can correct: point
-        // their owners at a database of real panel sizes.
-        let suspects: Vec<&str> = self
-            .displays
-            .iter()
-            .filter(|d| crate::screens::size_looks_wrong(d))
-            .map(|d| d.name.as_str())
-            .collect();
-        if !suspects.is_empty() {
-            ui.add_space(8.0);
-            ui.colored_label(
-                ui.visuals().warn_fg_color,
-                t!("screens_size_suspect", names = suspects.join(", ")),
-            );
-            ui.hyperlink_to(
-                t!("screens_size_lookup"),
-                "https://www.displayspecifications.com/en",
-            );
-        }
+            },
+        );
 
         if self.view_mode == 1 {
-            self.render_cabinet_diagram(ui);
+            theme::section(
+                ui,
+                &t!("cabinet_dimensions"),
+                Some(&t!("cabinet_drag_hint")),
+                |ui| {
+                    ui.horizontal(|ui| {
+                        self.render_cabinet_schema(ui);
+                        self.render_cabinet_values(ui);
+                    });
+                },
+            );
         }
-    }
 
-    /// Render the interactive side-view cabinet diagram with drag handles.
-    fn render_cabinet_diagram(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(16.0);
-        ui.strong(t!("cabinet_dimensions"));
-        ui.add_space(4.0);
-        ui.label(t!("cabinet_drag_hint"));
-        ui.add_space(8.0);
-
-        ui.horizontal(|ui| {
-            self.render_cabinet_schema(ui);
-            self.render_cabinet_values(ui);
-        });
+        // Start over. Two clicks, because it throws away every answer given
+        // so far — last on the first page, where someone who wants a clean
+        // slate comes looking.
+        theme::section(
+            ui,
+            &t!("screens_section_reset"),
+            Some(&t!("config_reset_hint")),
+            |ui| {
+                ui.horizontal(|ui| {
+                    if self.reset_armed {
+                        if ui
+                            .button(
+                                egui::RichText::new(t!("config_reset_confirm"))
+                                    .color(theme::pal(ui.ctx()).error),
+                            )
+                            .clicked()
+                        {
+                            match self.db.reset_config() {
+                                Ok(()) => {
+                                    log::info!("Configuration reset — restarting the wizard");
+                                    // Order matters: move the old ini aside first, so
+                                    // the rewrite the restart rearms starts from
+                                    // nothing and produces VPX's own defaults.
+                                    Self::archive_vpx_ini();
+                                    self.restart_wizard();
+                                }
+                                Err(e) => log::error!("Configuration reset failed: {e:#}"),
+                            }
+                            self.reset_armed = false;
+                        }
+                        if ui.button(t!("config_reset_cancel")).clicked() {
+                            self.reset_armed = false;
+                        }
+                    } else if ui
+                        .button(t!("config_reset"))
+                        .on_hover_text(t!("config_reset_hint"))
+                        .clicked()
+                    {
+                        self.reset_armed = true;
+                    }
+                });
+            },
+        );
     }
 
     /// Draw the interactive side-view schema (cabinet, player, drag handles).

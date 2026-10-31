@@ -35,280 +35,276 @@ impl App {
     }
 
     pub(super) fn render_tilt_page(&mut self, ui: &mut egui::Ui) {
-        ui.heading(t!("tilt_heading"));
-        ui.add_space(4.0);
-        ui.label(t!("tilt_desc"));
-        ui.add_space(12.0);
+        theme::page_header(ui, &t!("tilt_heading"), Some(&t!("tilt_desc")));
 
         // Request repaint for live accelerometer data
         ui.ctx().request_repaint();
 
         // --- Nudge section ---
-        ui.separator();
-        ui.strong(t!("tilt_nudge"));
-        ui.add_space(4.0);
-
-        // Sensor range — read from the board, not asked. The firmware knows it
-        // (Pinscape config variable 4) and the user generally does not, so the
-        // detected value is adopted and the choice stays available for boards
-        // that will not answer.
-        if let Some(rx) = &self.pinscape_cfg_rx
-            && let Ok(cfg) = rx.try_recv()
-        {
-            self.pinscape_cfg_rx = None;
-            if let Some(range) = cfg.and_then(|c| c.accel_range_g) {
-                self.tilt.nudge_range_g = range;
-            }
-            self.pinscape_cfg = cfg;
-        }
-        let detected_range = self.pinscape_cfg.and_then(|c| c.accel_range_g);
-        self.refresh_tilt_rings();
-
-        ui.horizontal(|ui| {
-            ui.label(t!("tilt_range"));
-            help_marker(ui, &t!("tilt_range_help"));
-        });
-        ui.horizontal(|ui| {
-            for range in SENSOR_RANGES_G {
-                let selected = (self.tilt.nudge_range_g - range).abs() < 0.01;
-                if ui
-                    .selectable_label(selected, format!("{range:.0} G"))
-                    .clicked()
-                {
+        theme::section(ui, &t!("tilt_nudge"), Some(&t!("tilt_nudge_intro")), |ui| {
+            // Sensor range — read from the board, not asked. The firmware knows it
+            // (Pinscape config variable 4) and the user generally does not, so the
+            // detected value is adopted and the choice stays available for boards
+            // that will not answer.
+            if let Some(rx) = &self.pinscape_cfg_rx
+                && let Ok(cfg) = rx.try_recv()
+            {
+                self.pinscape_cfg_rx = None;
+                if let Some(range) = cfg.and_then(|c| c.accel_range_g) {
                     self.tilt.nudge_range_g = range;
                 }
+                self.pinscape_cfg = cfg;
             }
-        });
-        match detected_range {
-            Some(detected) if (detected - self.tilt.nudge_range_g).abs() < 0.01 => {
-                ui.label(
-                    egui::RichText::new(t!("tilt_range_matches", range = format!("{detected:.0}")))
-                        .color(egui::Color32::from_rgb(120, 200, 120)),
-                );
-            }
-            // A range that disagrees with the firmware is the single most
-            // damaging setting on this page: it is a unit conversion, so it
-            // scales nudge and tilt together, and nothing downstream can undo
-            // it. Name the factor — that is what makes the symptom
-            // recognisable.
-            Some(detected) => {
-                let factor = self.tilt.nudge_range_g / detected;
-                ui.colored_label(
-                    egui::Color32::from_rgb(255, 140, 60),
-                    t!(
-                        if factor > 1.0 {
-                            "tilt_range_mismatch_high"
-                        } else {
-                            "tilt_range_mismatch_low"
-                        },
-                        detected = format!("{detected:.0}"),
-                        chosen = format!("{:.0}", self.tilt.nudge_range_g),
-                        factor = if factor > 1.0 {
-                            format!("×{factor:.0}")
-                        } else {
-                            format!("÷{:.0}", 1.0 / factor)
-                        }
-                    ),
-                );
-                if ui
-                    .button(t!("tilt_range_adopt", range = format!("{detected:.0}")))
-                    .clicked()
-                {
-                    self.tilt.nudge_range_g = detected;
+            let detected_range = self.pinscape_cfg.and_then(|c| c.accel_range_g);
+            self.refresh_tilt_rings();
+
+            ui.horizontal(|ui| {
+                ui.label(t!("tilt_range"));
+                help_marker(ui, &t!("tilt_range_help"));
+            });
+            ui.horizontal(|ui| {
+                for range in SENSOR_RANGES_G {
+                    let selected = (self.tilt.nudge_range_g - range).abs() < 0.01;
+                    if ui
+                        .selectable_label(selected, format!("{range:.0} G"))
+                        .clicked()
+                    {
+                        self.tilt.nudge_range_g = range;
+                    }
                 }
-            }
-            None => {
-                // Naming the board that stayed silent beats implying there is
-                // none.
-                ui.label(
-                    egui::RichText::new(match self.pinscape_cfg.map(|c| c.board) {
-                        Some(board) => t!(
-                            "tilt_range_unsupported",
-                            board = match board {
-                                crate::pinscape_config::Board::Kl25z => "Pinscape KL25Z",
-                                crate::pinscape_config::Board::Pico => "Pinscape Pico",
-                                crate::pinscape_config::Board::Opaque(name) => name,
+            });
+            match detected_range {
+                Some(detected) if (detected - self.tilt.nudge_range_g).abs() < 0.01 => {
+                    ui.label(
+                        egui::RichText::new(t!(
+                            "tilt_range_matches",
+                            range = format!("{detected:.0}")
+                        ))
+                        .color(egui::Color32::from_rgb(120, 200, 120)),
+                    );
+                }
+                // A range that disagrees with the firmware is the single most
+                // damaging setting on this page: it is a unit conversion, so it
+                // scales nudge and tilt together, and nothing downstream can undo
+                // it. Name the factor — that is what makes the symptom
+                // recognisable.
+                Some(detected) => {
+                    let factor = self.tilt.nudge_range_g / detected;
+                    ui.colored_label(
+                        egui::Color32::from_rgb(255, 140, 60),
+                        t!(
+                            if factor > 1.0 {
+                                "tilt_range_mismatch_high"
+                            } else {
+                                "tilt_range_mismatch_low"
+                            },
+                            detected = format!("{detected:.0}"),
+                            chosen = format!("{:.0}", self.tilt.nudge_range_g),
+                            factor = if factor > 1.0 {
+                                format!("×{factor:.0}")
+                            } else {
+                                format!("÷{:.0}", 1.0 / factor)
                             }
                         ),
-                        None => t!("tilt_range_unknown"),
-                    })
-                    .weak(),
-                );
+                    );
+                    if ui
+                        .button(t!("tilt_range_adopt", range = format!("{detected:.0}")))
+                        .clicked()
+                    {
+                        self.tilt.nudge_range_g = detected;
+                    }
+                }
+                None => {
+                    // Naming the board that stayed silent beats implying there is
+                    // none.
+                    ui.label(
+                        egui::RichText::new(match self.pinscape_cfg.map(|c| c.board) {
+                            Some(board) => t!(
+                                "tilt_range_unsupported",
+                                board = match board {
+                                    crate::pinscape_config::Board::Kl25z => "Pinscape KL25Z",
+                                    crate::pinscape_config::Board::Pico => "Pinscape Pico",
+                                    crate::pinscape_config::Board::Opaque(name) => name,
+                                }
+                            ),
+                            None => t!("tilt_range_unknown"),
+                        })
+                        .weak(),
+                    );
+                }
             }
-        }
-        // How the board is fitted. Not a setting — the firmware rotates its
-        // readings into cabinet axes itself, so nothing here is written to the
-        // ini. It is shown because a board declared one way and screwed down
-        // another mirrors the nudge, and no other screen would ever say so.
-        if let Some(key) = self.pinscape_cfg.and_then(|c| c.orientation_key()) {
-            ui.label(egui::RichText::new(t!("tilt_orientation", side = t!(key))).weak());
-        }
-        self.render_range_tables(ui);
-        ui.add_space(8.0);
+            // How the board is fitted. Not a setting — the firmware rotates its
+            // readings into cabinet axes itself, so nothing here is written to the
+            // ini. It is shown because a board declared one way and screwed down
+            // another mirrors the nudge, and no other screen would ever say so.
+            if let Some(key) = self.pinscape_cfg.and_then(|c| c.orientation_key()) {
+                ui.label(egui::RichText::new(t!("tilt_orientation", side = t!(key))).weak());
+            }
+            self.render_range_tables(ui);
+            ui.add_space(8.0);
 
-        // Strength — in practice the only setting worth touching once the
-        // range is read off the board, so it is the one that stands out.
-        ui.horizontal(|ui| {
-            ui.label(
-                egui::RichText::new(t!("tilt_sensitivity"))
-                    .strong()
-                    .color(STRENGTH_RED),
-            );
-            help_marker(ui, &t!("tilt_sensitivity_help"));
-        });
-        ui.scope(|ui| {
-            let visuals = &mut ui.style_mut().visuals;
-            visuals.selection.bg_fill = STRENGTH_RED;
-            visuals.widgets.inactive.fg_stroke.color = STRENGTH_RED;
+            // Strength — in practice the only setting worth touching once the
+            // range is read off the board, so it is the one that stands out.
+            ui.horizontal(|ui| {
+                ui.label(
+                    egui::RichText::new(t!("tilt_sensitivity"))
+                        .strong()
+                        .color(STRENGTH_RED),
+                );
+                help_marker(ui, &t!("tilt_sensitivity_help"));
+            });
+            ui.scope(|ui| {
+                let visuals = &mut ui.style_mut().visuals;
+                visuals.selection.bg_fill = STRENGTH_RED;
+                visuals.widgets.inactive.fg_stroke.color = STRENGTH_RED;
+                ui.add_sized(
+                    [ui.available_width(), 24.0],
+                    egui::Slider::new(&mut self.tilt.nudge_scale_pct, 0.0..=200.0)
+                        .custom_formatter(|v, _| format!("{v:.0}%")),
+                );
+            });
+            ui.add_space(4.0);
+
+            ui.horizontal(|ui| {
+                ui.label(t!("tilt_deadzone"));
+                help_marker(ui, &t!("tilt_deadzone_help"));
+            });
+            let full_scale = self.tilt.full_scale_ms2();
             ui.add_sized(
                 [ui.available_width(), 24.0],
-                egui::Slider::new(&mut self.tilt.nudge_scale_pct, 0.0..=200.0)
-                    .custom_formatter(|v, _| format!("{v:.0}%")),
+                // VPX caps this at 0.3 of the axis range ("relative amount of
+                // the axis range to nullify to avoid noise at rest position"), so
+                // offering more would write values its own UI cannot show. The
+                // m/s² is not decoration: this is the one setting whose real
+                // effect changes with the sensor range.
+                egui::Slider::new(&mut self.tilt.nudge_deadzone_pct, 0.0..=30.0).custom_formatter(
+                    move |v, _| format!("{v:.0}% ({:.2} m/s²)", (v as f32 / 100.0) * full_scale),
+                ),
             );
-        });
-        ui.add_space(4.0);
-
-        ui.horizontal(|ui| {
-            ui.label(t!("tilt_deadzone"));
-            help_marker(ui, &t!("tilt_deadzone_help"));
-        });
-        let full_scale = self.tilt.full_scale_ms2();
-        ui.add_sized(
-            [ui.available_width(), 24.0],
-            // VPX caps this at 0.3 of the axis range ("relative amount of
-            // the axis range to nullify to avoid noise at rest position"), so
-            // offering more would write values its own UI cannot show. The
-            // m/s² is not decoration: this is the one setting whose real
-            // effect changes with the sensor range.
-            egui::Slider::new(&mut self.tilt.nudge_deadzone_pct, 0.0..=30.0).custom_formatter(
-                move |v, _| format!("{v:.0}% ({:.2} m/s²)", (v as f32 / 100.0) * full_scale),
-            ),
-        );
-        ui.add_space(8.0);
-
-        ui.add_enabled_ui(false, |ui| {
-            egui::Frame::group(ui.style()).show(ui, |ui| {
-                // Peak of |x|,|y| since entering the page, as a share of full
-                // scale: a shake that never passes ~20 % means the board is
-                // set wider than the cabinet ever exercises. It doubles as a
-                // presence test — an axis that never leaves zero is either
-                // unmapped or has nothing wired to it, and telling that apart
-                // from "badly scaled" is the first question to answer.
-                let peak = self.accel_x.abs().max(self.accel_y.abs());
-                self.nudge_peak = self.nudge_peak.max(peak);
-                ui.label(if self.nudge_peak > 0.004 {
-                    egui::RichText::new(t!("tilt_accel_present"))
-                        .color(egui::Color32::from_rgb(120, 200, 120))
-                } else {
-                    egui::RichText::new(t!("tilt_accel_absent")).color(NOTICE_AMBER_TILT)
-                });
-                ui.label(
-                    egui::RichText::new(t!(
-                        "tilt_peak",
-                        pct = format!("{:.0}", self.nudge_peak * 100.0),
-                        accel = format!("{:.2}", self.nudge_peak * self.tilt.full_scale_ms2())
-                    ))
-                    .weak(),
-                );
-            });
-        });
-        if ui.small_button(t!("tilt_peak_reset")).clicked() {
-            self.nudge_peak = 0.0;
-        }
-        ui.add_space(8.0);
-
-        // What the three modes actually mean, and in what order the filters
-        // apply — none of which VPX documents, and all of which decides
-        // whether a nudge reaches the ball.
-        ui.collapsing(t!("tilt_modes_title"), |ui| {
-            ui.label(t!("tilt_modes_gamepad"));
-            ui.add_space(4.0);
-            ui.label(t!("tilt_modes_intent"));
-            ui.add_space(4.0);
-            ui.label(t!("tilt_modes_cabinet"));
             ui.add_space(8.0);
-            ui.label(egui::RichText::new(t!("tilt_modes_chain")).strong());
-            ui.label(t!("tilt_modes_chain_detail"));
-        });
-        ui.add_space(6.0);
 
-        // Nudge sensor type (VPX new sensor schema: Mapping.Nudge0.Type).
-        let sensor_types = [
-            (0_i32, t!("tilt_nudge_type_game")),
-            (1, t!("tilt_nudge_type_intent")),
-            (2, t!("tilt_nudge_type_cabinet")),
-        ];
-        ui.horizontal(|ui| {
-            ui.label(t!("tilt_nudge_type"));
-            help_marker(ui, &t!("tilt_nudge_type_help"));
-        });
-        let selected = sensor_types
-            .iter()
-            .find(|(v, _)| *v == self.tilt.nudge_sensor_type)
-            .map(|(_, l)| l.clone())
-            .unwrap_or_default();
-        egui::ComboBox::from_id_salt("nudge_sensor_type")
-            .selected_text(selected)
-            .width(ui.available_width())
-            .show_ui(ui, |ui| {
-                for (val, label) in &sensor_types {
-                    ui.selectable_value(&mut self.tilt.nudge_sensor_type, *val, label.clone());
-                }
+            ui.add_enabled_ui(false, |ui| {
+                egui::Frame::group(ui.style()).show(ui, |ui| {
+                    // Peak of |x|,|y| since entering the page, as a share of full
+                    // scale: a shake that never passes ~20 % means the board is
+                    // set wider than the cabinet ever exercises. It doubles as a
+                    // presence test — an axis that never leaves zero is either
+                    // unmapped or has nothing wired to it, and telling that apart
+                    // from "badly scaled" is the first question to answer.
+                    let peak = self.accel_x.abs().max(self.accel_y.abs());
+                    self.nudge_peak = self.nudge_peak.max(peak);
+                    ui.label(if self.nudge_peak > 0.004 {
+                        egui::RichText::new(t!("tilt_accel_present"))
+                            .color(egui::Color32::from_rgb(120, 200, 120))
+                    } else {
+                        egui::RichText::new(t!("tilt_accel_absent")).color(NOTICE_AMBER_TILT)
+                    });
+                    ui.label(
+                        egui::RichText::new(t!(
+                            "tilt_peak",
+                            pct = format!("{:.0}", self.nudge_peak * 100.0),
+                            accel = format!("{:.2}", self.nudge_peak * self.tilt.full_scale_ms2())
+                        ))
+                        .weak(),
+                    );
+                });
             });
-        ui.add_space(8.0);
+            if ui.small_button(t!("tilt_peak_reset")).clicked() {
+                self.nudge_peak = 0.0;
+            }
+            ui.add_space(8.0);
+
+            // What the three modes actually mean, and in what order the filters
+            // apply — none of which VPX documents, and all of which decides
+            // whether a nudge reaches the ball.
+            ui.collapsing(t!("tilt_modes_title"), |ui| {
+                ui.label(t!("tilt_modes_gamepad"));
+                ui.add_space(4.0);
+                ui.label(t!("tilt_modes_intent"));
+                ui.add_space(4.0);
+                ui.label(t!("tilt_modes_cabinet"));
+                ui.add_space(8.0);
+                ui.label(egui::RichText::new(t!("tilt_modes_chain")).strong());
+                ui.label(t!("tilt_modes_chain_detail"));
+            });
+            ui.add_space(6.0);
+
+            // Nudge sensor type (VPX new sensor schema: Mapping.Nudge0.Type).
+            let sensor_types = [
+                (0_i32, t!("tilt_nudge_type_game")),
+                (1, t!("tilt_nudge_type_intent")),
+                (2, t!("tilt_nudge_type_cabinet")),
+            ];
+            ui.horizontal(|ui| {
+                ui.label(t!("tilt_nudge_type"));
+                help_marker(ui, &t!("tilt_nudge_type_help"));
+            });
+            let selected = sensor_types
+                .iter()
+                .find(|(v, _)| *v == self.tilt.nudge_sensor_type)
+                .map(|(_, l)| l.clone())
+                .unwrap_or_default();
+            egui::ComboBox::from_id_salt("nudge_sensor_type")
+                .selected_text(selected)
+                .width(ui.available_width())
+                .show_ui(ui, |ui| {
+                    for (val, label) in &sensor_types {
+                        ui.selectable_value(&mut self.tilt.nudge_sensor_type, *val, label.clone());
+                    }
+                });
+        });
 
         // --- Tilt section ---
-        ui.separator();
-        ui.strong(t!("tilt_section"));
-        ui.add_space(4.0);
-
-        ui.horizontal(|ui| {
-            ui.label(t!("tilt_threshold"));
-            help_marker(ui, &t!("tilt_threshold_help"));
-        });
-        ui.add_sized(
-            [ui.available_width(), 24.0],
-            // The percentage is ours; the degrees are what VPX stores and
-            // what its own UI shows, so print both rather than make anyone
-            // convert between the two.
-            egui::Slider::new(&mut self.tilt.tilt_sensitivity_pct, 0.0..=100.0).custom_formatter(
-                |v, _| {
-                    format!(
-                        "{v:.0}% ({:.2}°)",
-                        crate::tilt::TiltConfig::threshold_angle(v as f32)
-                    )
-                },
-            ),
-        );
-        // The scale runs backwards from the angle it writes, so label both
-        // ends rather than leave anyone to work out which way is which.
-        ui.horizontal(|ui| {
-            ui.label(egui::RichText::new(t!("tilt_threshold_low")).weak().small());
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(
-                    egui::RichText::new(t!("tilt_threshold_high"))
-                        .weak()
-                        .small(),
+        theme::section(
+            ui,
+            &t!("tilt_section"),
+            Some(&t!("tilt_section_intro")),
+            |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(t!("tilt_threshold"));
+                    help_marker(ui, &t!("tilt_threshold_help"));
+                });
+                ui.add_sized(
+                    [ui.available_width(), 24.0],
+                    // The percentage is ours; the degrees are what VPX stores and
+                    // what its own UI shows, so print both rather than make anyone
+                    // convert between the two.
+                    egui::Slider::new(&mut self.tilt.tilt_sensitivity_pct, 0.0..=100.0)
+                        .custom_formatter(|v, _| {
+                            format!(
+                                "{v:.0}% ({:.2}°)",
+                                crate::tilt::TiltConfig::threshold_angle(v as f32)
+                            )
+                        }),
                 );
-            });
-        });
-        ui.add_space(6.0);
+                // The scale runs backwards from the angle it writes, so label both
+                // ends rather than leave anyone to work out which way is which.
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(t!("tilt_threshold_low")).weak().small());
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.label(
+                            egui::RichText::new(t!("tilt_threshold_high"))
+                                .weak()
+                                .small(),
+                        );
+                    });
+                });
+                ui.add_space(6.0);
 
-        self.refresh_tilt_rings();
-        // Comparable at last: both are accelerations now, so this says
-        // something true. The old version compared a dead-zone percentage
-        // against a sensitivity percentage — two different scales, and the
-        // warning fired on settings that worked perfectly.
-        if self.tilt_rings.deadzone >= self.tilt_rings.tilt {
-            ui.colored_label(
-                egui::Color32::from_rgb(255, 180, 50),
-                t!("tilt_deadzone_warning"),
-            );
-        }
-        self.render_out_of_reach_notice(ui);
-        ui.add_space(4.0);
+                self.refresh_tilt_rings();
+                // Comparable at last: both are accelerations now, so this says
+                // something true. The old version compared a dead-zone percentage
+                // against a sensitivity percentage — two different scales, and the
+                // warning fired on settings that worked perfectly.
+                if self.tilt_rings.deadzone >= self.tilt_rings.tilt {
+                    ui.colored_label(theme::pal(ui.ctx()).warning, t!("tilt_deadzone_warning"));
+                }
+                self.render_out_of_reach_notice(ui);
+                ui.add_space(4.0);
 
-        self.render_tilt_dial(ui);
+                self.render_tilt_dial(ui);
+            },
+        );
     }
 
     /// Warn — and offer the two ways out — when the configured tilt threshold

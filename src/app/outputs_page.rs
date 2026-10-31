@@ -77,104 +77,115 @@ fn open_in_file_manager(path: &std::path::Path) {
 
 impl App {
     pub(super) fn render_outputs_page(&mut self, ui: &mut egui::Ui) {
-        ui.heading(t!("outputs_heading"));
-        ui.add_space(12.0);
+        theme::page_header(ui, &t!("outputs_heading"), Some(&t!("outputs_intro")));
 
-        // The page now hosts two accessory families: DOF force feedback
-        // (outputs) and the head-tracking camera (input). Each gets its
-        // own sub-title; the heading stays the neutral "accessories".
-        ui.strong(format!("🔌 {}", t!("outputs_dof_subtitle")));
-        ui.add_space(4.0);
-        ui.label(t!("outputs_desc"));
-        ui.add_space(12.0);
+        // The page hosts two accessory families: DOF force feedback
+        // (outputs) and the head-tracking camera (input), each in its cards.
+        theme::section(
+            ui,
+            &t!("outputs_dof_subtitle"),
+            Some(&t!("outputs_desc")),
+            |ui| {
+                theme::field_label(ui, &t!("outputs_workflow_title"));
 
-        // --- Workflow steps ---
-        ui.separator();
-        ui.strong(t!("outputs_workflow_title"));
-        ui.add_space(6.0);
+                ui.label(format!("1. {}", t!("outputs_step1_account")));
+                ui.label(format!("2. {}", t!("outputs_step2_table")));
+                ui.label(format!("3. {}", t!("outputs_step3_output_system")));
+                ui.label(format!("4. {}", t!("outputs_step4_devices")));
+                ui.label(format!("5. {}", t!("outputs_step5_generate")));
+                ui.label(format!("6. {}", t!("outputs_step6_extract")));
+                ui.add_space(10.0);
 
-        ui.label(format!("1. {}", t!("outputs_step1_account")));
-        ui.label(format!("2. {}", t!("outputs_step2_table")));
-        ui.label(format!("3. {}", t!("outputs_step3_output_system")));
-        ui.label(format!("4. {}", t!("outputs_step4_devices")));
-        ui.label(format!("5. {}", t!("outputs_step5_generate")));
-        ui.label(format!("6. {}", t!("outputs_step6_extract")));
-        ui.add_space(10.0);
+                // --- Devices (non-exhaustive examples) ---
+                ui.label(t!("outputs_devices_intro"));
+                ui.add_space(2.0);
+                ui.horizontal_wrapped(|ui| {
+                    for key in [
+                        "outputs_device_solenoids",
+                        "outputs_device_flashers",
+                        "outputs_device_gi",
+                        "outputs_device_rgb_buttons",
+                        "outputs_device_rgb_strips",
+                        "outputs_device_shaker",
+                        "outputs_device_knocker",
+                        "outputs_device_beacon",
+                        "outputs_device_gear",
+                    ] {
+                        ui.label(format!("• {}", t!(key)));
+                        ui.add_space(8.0);
+                    }
+                });
+                ui.add_space(12.0);
 
-        // --- Devices (non-exhaustive examples) ---
-        ui.label(t!("outputs_devices_intro"));
-        ui.add_space(2.0);
-        ui.horizontal_wrapped(|ui| {
-            for key in [
-                "outputs_device_solenoids",
-                "outputs_device_flashers",
-                "outputs_device_gi",
-                "outputs_device_rgb_buttons",
-                "outputs_device_rgb_strips",
-                "outputs_device_shaker",
-                "outputs_device_knocker",
-                "outputs_device_beacon",
-                "outputs_device_gear",
-            ] {
-                ui.label(format!("• {}", t!(key)));
-                ui.add_space(8.0);
-            }
-        });
-        ui.add_space(12.0);
-
-        // --- Web generator link ---
-        ui.separator();
-        ui.strong(t!("outputs_generator_title"));
-        ui.add_space(4.0);
-        ui.label(t!("outputs_generator_desc"));
-        ui.add_space(4.0);
-        ui.hyperlink_to(
-            format!("🌐 {}", t!("outputs_open_generator")),
-            DOF_GENERATOR_URL,
-        );
-        ui.add_space(12.0);
-
-        // --- Local extraction target folder ---
-        ui.separator();
-        ui.strong(t!("outputs_target_title"));
-        ui.add_space(4.0);
-        ui.label(t!("outputs_target_desc"));
-        ui.add_space(4.0);
-
-        let dof_dir = dof_config_dir();
-        ui.monospace(dof_dir.display().to_string());
-        ui.add_space(6.0);
-
-        let exists = dof_dir.is_dir();
-        ui.horizontal(|ui| {
-            let btn_label = format!("📁 {}", t!("outputs_open_folder"));
-            if ui
-                .button(btn_label)
-                .on_hover_text(t!("outputs_open_folder_hint"))
-                .clicked()
-            {
-                if !exists && let Err(e) = std::fs::create_dir_all(&dof_dir) {
-                    log::error!("Failed to create DOF config dir: {e}");
-                }
-                open_in_file_manager(&dof_dir);
-            }
-
-            if !exists {
-                ui.colored_label(
-                    egui::Color32::from_rgb(255, 180, 50),
-                    t!("outputs_folder_missing"),
+                // --- Web generator link ---
+                theme::field_label(ui, &t!("outputs_generator_title"));
+                ui.add_space(4.0);
+                ui.label(t!("outputs_generator_desc"));
+                ui.add_space(4.0);
+                ui.hyperlink_to(
+                    format!("🌐 {}", t!("outputs_open_generator")),
+                    DOF_GENERATOR_URL,
                 );
-            }
-        });
+                ui.add_space(12.0);
 
-        ui.add_space(16.0);
-        self.render_output_discovery(ui);
+                // --- Local extraction target folder ---
+                theme::field_label(ui, &t!("outputs_target_title"));
+                ui.add_space(4.0);
+                ui.label(t!("outputs_target_desc"));
+                ui.add_space(4.0);
 
-        ui.add_space(16.0);
-        self.render_dof_enable(ui);
+                let dof_dir = dof_config_dir();
+                ui.monospace(dof_dir.display().to_string());
+                ui.add_space(6.0);
 
-        ui.add_space(16.0);
-        self.render_headtracking_section(ui);
+                let exists = dof_dir.is_dir();
+                ui.horizontal(|ui| {
+                    let btn_label = format!("📁 {}", t!("outputs_open_folder"));
+                    if ui
+                        .button(btn_label)
+                        .on_hover_text(t!("outputs_open_folder_hint"))
+                        .clicked()
+                    {
+                        if !exists && let Err(e) = std::fs::create_dir_all(&dof_dir) {
+                            log::error!("Failed to create DOF config dir: {e}");
+                        }
+                        open_in_file_manager(&dof_dir);
+                    }
+
+                    if !exists {
+                        ui.colored_label(
+                            theme::pal(ui.ctx()).warning,
+                            t!("outputs_folder_missing"),
+                        );
+                    }
+                });
+            },
+        );
+
+        theme::section(
+            ui,
+            &t!("outputs_discover_title"),
+            Some(&t!("outputs_discover_desc")),
+            |ui| {
+                self.render_output_discovery(ui);
+            },
+        );
+        theme::section(
+            ui,
+            &t!("outputs_dof_enable_title"),
+            Some(&t!("outputs_dof_enable_desc")),
+            |ui| {
+                self.render_dof_enable(ui);
+            },
+        );
+        theme::section(
+            ui,
+            &t!("ht_section_title"),
+            Some(&t!("ht_section_desc")),
+            |ui| {
+                self.render_headtracking_section(ui);
+            },
+        );
     }
 
     /// One-click headtracking install — for cabs with a Kinect or a camera
@@ -218,12 +229,6 @@ impl App {
                 }
             }
         }
-
-        ui.separator();
-        ui.strong(format!("🎯 {}", t!("ht_section_title")));
-        ui.add_space(4.0);
-        ui.label(t!("ht_section_desc"));
-        ui.add_space(6.0);
 
         let install_dir = std::path::PathBuf::from(&self.vpx_install_dir);
         let installed = self
@@ -328,12 +333,6 @@ impl App {
     /// explicitly. This button writes it, after a clear safety acknowledgement
     /// that the DOF config has been generated and extracted.
     fn render_dof_enable(&mut self, ui: &mut egui::Ui) {
-        ui.separator();
-        ui.strong(t!("outputs_dof_enable_title"));
-        ui.add_space(4.0);
-        ui.label(t!("outputs_dof_enable_desc"));
-        ui.add_space(8.0);
-
         let enabled = matches!(
             self.config.get("Plugin.DOF", "Enable").as_deref(),
             Some("1" | "true" | "on")
@@ -380,12 +379,6 @@ impl App {
     fn render_output_discovery(&mut self, ui: &mut egui::Ui) {
         self.output_discovery.poll_events();
         self.output_discovery.poll_udev_apply();
-
-        ui.separator();
-        ui.strong(t!("outputs_discover_title"));
-        ui.add_space(4.0);
-        ui.label(t!("outputs_discover_desc"));
-        ui.add_space(8.0);
 
         ui.colored_label(
             egui::Color32::from_rgb(255, 180, 50),

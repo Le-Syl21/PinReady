@@ -6,11 +6,11 @@ use super::*;
 // things like `SDLJoy_03004c8009120000eaea000011010000_1 ; Button 7` (≈ 50
 // chars) — are truncated with an ellipsis rather than stretching the row, which
 // kept the layout tidy no matter what value lands in the cell.
-const COL_ACTION_WIDTH: f32 = 280.0;
-const COL_KEYBOARD_WIDTH: f32 = 170.0;
+const COL_ACTION_WIDTH: f32 = 170.0;
+const COL_KEYBOARD_WIDTH: f32 = 140.0;
 /// Minimum for the elastic joystick column; it grows to fill the window.
-const COL_JOYSTICK_MIN: f32 = 240.0;
-const COL_BUTTON_WIDTH: f32 = 140.0;
+const COL_JOYSTICK_MIN: f32 = 130.0;
+const COL_BUTTON_WIDTH: f32 = 104.0;
 const COL_SPACING: f32 = 8.0;
 const ROW_HEIGHT: f32 = 28.0;
 /// Width reserved inside each binding column for its × unmap button, so the
@@ -21,184 +21,184 @@ const UNMAP_BTN_WIDTH: f32 = 22.0;
 const LIST_MIN_WIDTH: f32 =
     COL_ACTION_WIDTH + COL_KEYBOARD_WIDTH + COL_JOYSTICK_MIN + COL_BUTTON_WIDTH + 3.0 * COL_SPACING;
 
-// Higher-contrast stripes than the previous (40/28) — a 4K cabinet
-// playfield washes out subtle deltas, so we go full ±8 around mid-grey.
-const BG_EVEN: egui::Color32 = egui::Color32::from_rgb(48, 48, 54);
-const BG_ODD: egui::Color32 = egui::Color32::from_rgb(22, 22, 26);
-const BG_HOVER: egui::Color32 = egui::Color32::from_rgb(78, 78, 92);
-const BG_CAPTURING: egui::Color32 = egui::Color32::from_rgb(60, 110, 200);
-const BG_CONFLICT: egui::Color32 = egui::Color32::from_rgb(140, 70, 35);
-/// Thin horizontal divider painted between every row so the eye gets a
-/// clean rule line, not just a colour gradient.
-const ROW_BORDER: egui::Color32 = egui::Color32::from_rgb(95, 95, 110);
-
 impl App {
     pub(super) fn render_inputs_page(&mut self, ui: &mut egui::Ui) {
-        ui.heading(t!("inputs_heading"));
-        ui.add_space(4.0);
+        theme::page_header(ui, &t!("inputs_heading"), Some(&t!("inputs_intro")));
 
         // Detected controllers info
-        if self.pinscape_id.is_some() {
-            ui.label(t!("inputs_pinscape").to_string());
-            ui.horizontal(|ui| {
-                ui.label(t!("inputs_pinscape_profile"));
-                help_marker(ui, &t!("inputs_pinscape_profile_hint"));
-                let prev_profile = self.pinscape_profile;
-                // Product names, plus a localized "None" sentinel entry that
-                // clears the defaults and opts out of detection re-applying
-                // them.
-                let profile_label = |i: usize| -> String {
-                    inputs::PINSCAPE_PROFILES
-                        .get(i)
-                        .map(|s| (*s).to_string())
-                        .unwrap_or_else(|| t!("inputs_profile_none").to_string())
-                };
-                egui::ComboBox::from_id_salt("pinscape_profile")
-                    .selected_text(profile_label(self.pinscape_profile))
-                    .show_ui(ui, |ui| {
-                        for i in 0..=inputs::PINSCAPE_PROFILE_NONE {
-                            ui.selectable_value(&mut self.pinscape_profile, i, profile_label(i));
+        if self.pinscape_id.is_some() || self.gamepad_id.is_some() {
+            theme::section(ui, &t!("inputs_section_devices"), None, |ui| {
+                if self.pinscape_id.is_some() {
+                    ui.label(t!("inputs_pinscape").to_string());
+                    ui.horizontal(|ui| {
+                        theme::field_label(ui, &t!("inputs_pinscape_profile"));
+                        help_marker(ui, &t!("inputs_pinscape_profile_hint"));
+                        let prev_profile = self.pinscape_profile;
+                        // Product names, plus a localized "None" sentinel entry that
+                        // clears the defaults and opts out of detection re-applying
+                        // them.
+                        let profile_label = |i: usize| -> String {
+                            inputs::PINSCAPE_PROFILES
+                                .get(i)
+                                .map(|s| (*s).to_string())
+                                .unwrap_or_else(|| t!("inputs_profile_none").to_string())
+                        };
+                        egui::ComboBox::from_id_salt("pinscape_profile")
+                            .selected_text(profile_label(self.pinscape_profile))
+                            .show_ui(ui, |ui| {
+                                for i in 0..=inputs::PINSCAPE_PROFILE_NONE {
+                                    ui.selectable_value(
+                                        &mut self.pinscape_profile,
+                                        i,
+                                        profile_label(i),
+                                    );
+                                }
+                            });
+                        if self.pinscape_profile != prev_profile
+                            && let Some(vpx_id) = self.pinscape_id.clone()
+                        {
+                            for action in &mut self.actions {
+                                action.joystick = None;
+                            }
+                            self.apply_pinscape_defaults(&vpx_id);
                         }
                     });
-                if self.pinscape_profile != prev_profile
-                    && let Some(vpx_id) = self.pinscape_id.clone()
-                {
-                    for action in &mut self.actions {
-                        action.joystick = None;
-                    }
-                    self.apply_pinscape_defaults(&vpx_id);
+                }
+                if self.gamepad_id.is_some() {
+                    ui.horizontal(|ui| {
+                        ui.checkbox(&mut self.use_gamepad, t!("inputs_gamepad").to_string());
+                        help_marker(ui, &t!("inputs_gamepad_hint"));
+                    });
                 }
             });
         }
-        if self.gamepad_id.is_some() {
-            ui.horizontal(|ui| {
-                ui.checkbox(&mut self.use_gamepad, t!("inputs_gamepad").to_string());
-                help_marker(ui, &t!("inputs_gamepad_hint"));
-            });
-        }
 
-        ui.add_space(4.0);
-        ui.label(t!("inputs_instructions").to_string());
-        ui.add_space(8.0);
-
-        // Auto-map controls — walks every action in turn. "Skip" leaves the
-        // current action's binding untouched and moves to the next; "Cancel"
-        // bails out entirely. (Escape is a mappable key, not a skip.)
-        ui.horizontal(|ui| {
-            if !self.auto_map_active {
-                if ui
-                    .button(egui::RichText::new(t!("inputs_auto_map")).strong())
-                    .on_hover_text(t!("inputs_auto_map_hint"))
-                    .clicked()
-                {
-                    self.auto_map_active = true;
-                    if !self.actions.is_empty() {
-                        self.capture_state = CaptureState::Capturing(0);
-                    }
-                }
-            } else {
-                ui.colored_label(
-                    egui::Color32::from_rgb(255, 200, 80),
-                    t!("inputs_auto_map_running"),
-                );
-                if ui
-                    .button(t!("inputs_auto_map_skip"))
-                    .on_hover_text(t!("inputs_auto_map_skip_hint"))
-                    .clicked()
-                {
-                    // Keep the current binding, advance to the next action.
-                    self.advance_capture_or_finish();
-                }
-                if ui
-                    .button(t!("inputs_auto_map_cancel"))
-                    .on_hover_text(t!("inputs_auto_map_cancel_hint"))
-                    .clicked()
-                {
-                    self.auto_map_active = false;
-                    self.capture_state = CaptureState::Idle;
-                }
-            }
-        });
-        ui.add_space(8.0);
-
-        // Process keyboard input via egui (has window focus)
-        if let CaptureState::Capturing(idx) = self.capture_state {
-            let modifiers = ui.input(|i| i.modifiers);
-            let mut captured_or_skipped = false;
-
-            let key_events: Vec<(egui::Key, Option<egui::Key>, bool)> = ui.input(|i| {
-                i.events
-                    .iter()
-                    .filter_map(|e| {
-                        if let egui::Event::Key {
-                            key,
-                            physical_key,
-                            pressed,
-                            ..
-                        } = e
+        theme::section(
+            ui,
+            &t!("inputs_section_actions"),
+            Some(&t!("inputs_instructions")),
+            |ui| {
+                // Auto-map controls — walks every action in turn. "Skip" leaves the
+                // current action's binding untouched and moves to the next; "Cancel"
+                // bails out entirely. (Escape is a mappable key, not a skip.)
+                ui.horizontal(|ui| {
+                    if !self.auto_map_active {
+                        let p = theme::pal(ui.ctx());
+                        if ui
+                            .add(theme::primary_button(t!("inputs_auto_map"), &p, true))
+                            .on_hover_text(t!("inputs_auto_map_hint"))
+                            .clicked()
                         {
-                            Some((*key, *physical_key, *pressed))
-                        } else {
-                            None
+                            self.auto_map_active = true;
+                            if !self.actions.is_empty() {
+                                self.capture_state = CaptureState::Capturing(0);
+                            }
                         }
-                    })
-                    .collect()
-            });
-            for &(key, physical_key, pressed) in &key_events {
-                if pressed {
-                    // Escape is a mappable key (VPX's default ExitGame) — it is
-                    // captured like any other. Skipping an action is done only
-                    // via the "Skip" button, never a key.
-                    let sc = physical_key
-                        .and_then(inputs::egui_key_to_scancode)
-                        .or_else(|| inputs::egui_key_to_scancode(key));
-                    if let Some(sc) = sc {
+                    } else {
+                        ui.colored_label(
+                            theme::pal(ui.ctx()).warning,
+                            t!("inputs_auto_map_running"),
+                        );
+                        if ui
+                            .button(t!("inputs_auto_map_skip"))
+                            .on_hover_text(t!("inputs_auto_map_skip_hint"))
+                            .clicked()
+                        {
+                            // Keep the current binding, advance to the next action.
+                            self.advance_capture_or_finish();
+                        }
+                        if ui
+                            .button(t!("inputs_auto_map_cancel"))
+                            .on_hover_text(t!("inputs_auto_map_cancel_hint"))
+                            .clicked()
+                        {
+                            self.auto_map_active = false;
+                            self.capture_state = CaptureState::Idle;
+                        }
+                    }
+                });
+                ui.add_space(8.0);
+
+                // Process keyboard input via egui (has window focus)
+                if let CaptureState::Capturing(idx) = self.capture_state {
+                    let modifiers = ui.input(|i| i.modifiers);
+                    let mut captured_or_skipped = false;
+
+                    let key_events: Vec<(egui::Key, Option<egui::Key>, bool)> = ui.input(|i| {
+                        i.events
+                            .iter()
+                            .filter_map(|e| {
+                                if let egui::Event::Key {
+                                    key,
+                                    physical_key,
+                                    pressed,
+                                    ..
+                                } = e
+                                {
+                                    Some((*key, *physical_key, *pressed))
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect()
+                    });
+                    for &(key, physical_key, pressed) in &key_events {
+                        if pressed {
+                            // Escape is a mappable key (VPX's default ExitGame) — it is
+                            // captured like any other. Skipping an action is done only
+                            // via the "Skip" button, never a key.
+                            let sc = physical_key
+                                .and_then(inputs::egui_key_to_scancode)
+                                .or_else(|| inputs::egui_key_to_scancode(key));
+                            if let Some(sc) = sc {
+                                if idx < self.actions.len() {
+                                    // A key fills the keyboard slot only — any
+                                    // joystick binding stays alongside (VPX runs
+                                    // both as alternatives).
+                                    self.actions[idx].keyboard = Some(CapturedInput::Keyboard {
+                                        scancode: sc,
+                                        name: inputs::scancode_name(sc),
+                                    });
+                                }
+                                captured_or_skipped = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Modifier-only press fallback (Shift/Ctrl/Alt by themselves).
+                    if !captured_or_skipped
+                        && (modifiers.shift || modifiers.ctrl || modifiers.alt)
+                        && key_events.is_empty()
+                        && let Some(sc) = inputs::egui_modifiers_to_scancode(&modifiers)
+                    {
                         if idx < self.actions.len() {
-                            // A key fills the keyboard slot only — any
-                            // joystick binding stays alongside (VPX runs
-                            // both as alternatives).
                             self.actions[idx].keyboard = Some(CapturedInput::Keyboard {
                                 scancode: sc,
                                 name: inputs::scancode_name(sc),
                             });
                         }
                         captured_or_skipped = true;
-                        break;
                     }
+
+                    if captured_or_skipped {
+                        self.advance_capture_or_finish();
+                    }
+
+                    // Joystick events are processed in the main ui() method.
+
+                    // Request repaint while capturing to stay responsive.
+                    ui.ctx().request_repaint();
                 }
-            }
 
-            // Modifier-only press fallback (Shift/Ctrl/Alt by themselves).
-            if !captured_or_skipped
-                && (modifiers.shift || modifiers.ctrl || modifiers.alt)
-                && key_events.is_empty()
-                && let Some(sc) = inputs::egui_modifiers_to_scancode(&modifiers)
-            {
-                if idx < self.actions.len() {
-                    self.actions[idx].keyboard = Some(CapturedInput::Keyboard {
-                        scancode: sc,
-                        name: inputs::scancode_name(sc),
-                    });
-                }
-                captured_or_skipped = true;
-            }
+                // Conflicts
+                let conflicts = inputs::find_conflicts(&self.actions);
 
-            if captured_or_skipped {
-                self.advance_capture_or_finish();
-            }
-
-            // Joystick events are processed in the main ui() method.
-
-            // Request repaint while capturing to stay responsive.
-            ui.ctx().request_repaint();
-        }
-
-        // Conflicts
-        let conflicts = inputs::find_conflicts(&self.actions);
-
-        // Single unified action list — no more "advanced" toggle.
-        ui.add_space(4.0);
-        self.render_action_list_unified(ui, &conflicts);
+                // Single unified action list — no more "advanced" toggle.
+                ui.add_space(4.0);
+                self.render_action_list_unified(ui, &conflicts);
+            },
+        );
     }
 
     /// Move to the next action in auto-map mode, or fall back to Idle.
@@ -235,21 +235,31 @@ impl App {
     fn render_action_list_inner(&mut self, ui: &mut egui::Ui, conflicts: &[(usize, usize)]) {
         // Elastic joystick column: whatever width is left after the fixed
         // columns and gaps. Long bindings truncate inside it (see cell code).
-        let joystick_w = (ui.available_width()
-            - COL_ACTION_WIDTH
-            - COL_KEYBOARD_WIDTH
-            - COL_BUTTON_WIDTH
-            - 3.0 * COL_SPACING)
+        // Stripes and states from the palette: a 4K cabinet playfield
+        // washes out subtle deltas, so the stripes stay well apart.
+        let p = theme::pal(ui.ctx());
+        let bg_even = p.raised;
+        let bg_odd = p.surface;
+        let bg_hover = p.tint(p.accent, 46);
+        let bg_capturing = p.tint(p.info, 110);
+        let bg_conflict = p.tint(p.warning, 90);
+        let row_border = p.border;
+        // The two named columns share the width with the joystick one, so a
+        // key name like "Maj. gauche (défaut)" is not cut short.
+        let avail = ui.available_width();
+        let action_w = (avail * 0.28).max(COL_ACTION_WIDTH);
+        let keyboard_w = (avail * 0.26).max(COL_KEYBOARD_WIDTH);
+        let joystick_w = (avail - action_w - keyboard_w - COL_BUTTON_WIDTH - 3.0 * COL_SPACING)
             .max(COL_JOYSTICK_MIN);
 
         // Header row.
         ui.horizontal(|ui| {
             ui.add_sized(
-                [COL_ACTION_WIDTH, ROW_HEIGHT],
+                [action_w, ROW_HEIGHT],
                 egui::Label::new(egui::RichText::new(t!("inputs_col_action")).strong()),
             );
             ui.add_sized(
-                [COL_KEYBOARD_WIDTH, ROW_HEIGHT],
+                [keyboard_w, ROW_HEIGHT],
                 egui::Label::new(egui::RichText::new(t!("inputs_col_keyboard")).strong()),
             );
             ui.add_sized(
@@ -280,14 +290,12 @@ impl App {
                     ui.set_min_height(ROW_HEIGHT);
 
                     let action_text = if is_capturing {
-                        egui::RichText::new(t!(label))
-                            .strong()
-                            .color(egui::Color32::WHITE)
+                        egui::RichText::new(t!(label)).strong().color(p.text)
                     } else {
                         egui::RichText::new(t!(label))
                     };
                     ui.add_sized(
-                        [COL_ACTION_WIDTH, ROW_HEIGHT],
+                        [action_w, ROW_HEIGHT],
                         egui::Label::new(action_text).truncate(),
                     );
 
@@ -308,9 +316,7 @@ impl App {
                         t!("inputs_unassigned").to_string()
                     };
                     let keyboard_rich = if is_capturing {
-                        egui::RichText::new(keyboard_text)
-                            .strong()
-                            .color(egui::Color32::WHITE)
+                        egui::RichText::new(keyboard_text).strong().color(p.text)
                     } else if has_conflict {
                         egui::RichText::new(format!("/!\\ {keyboard_text}"))
                             .color(egui::Color32::from_rgb(255, 165, 0))
@@ -318,10 +324,7 @@ impl App {
                         egui::RichText::new(keyboard_text)
                     };
                     ui.add_sized(
-                        [
-                            COL_KEYBOARD_WIDTH - UNMAP_BTN_WIDTH - COL_SPACING,
-                            ROW_HEIGHT,
-                        ],
+                        [keyboard_w - UNMAP_BTN_WIDTH - COL_SPACING, ROW_HEIGHT],
                         egui::Label::new(keyboard_rich).truncate(),
                     );
                     // ✕ = drop the custom key, back to the VPX default.
@@ -395,15 +398,15 @@ impl App {
             // are visible even on a glossy 4K playfield.
             let hovered = ui.rect_contains_pointer(row_resp.rect);
             let bg = if is_capturing {
-                BG_CAPTURING
+                bg_capturing
             } else if has_conflict {
-                BG_CONFLICT
+                bg_conflict
             } else if hovered {
-                BG_HOVER
+                bg_hover
             } else if idx % 2 == 0 {
-                BG_EVEN
+                bg_even
             } else {
-                BG_ODD
+                bg_odd
             };
             // Build a two-shape group: filled rect + bottom rule.
             // Using `Shape::Vec` keeps the single bg_idx slot we reserved.
@@ -414,7 +417,7 @@ impl App {
                         egui::pos2(row_resp.rect.left() + 2.0, row_resp.rect.bottom()),
                         egui::pos2(row_resp.rect.right() - 2.0, row_resp.rect.bottom()),
                     ],
-                    egui::Stroke::new(1.0, ROW_BORDER),
+                    egui::Stroke::new(1.0, row_border),
                 ),
             ];
             ui.painter().set(bg_idx, egui::Shape::Vec(group));

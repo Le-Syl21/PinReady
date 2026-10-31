@@ -317,3 +317,67 @@ pub fn secondary_button(text: impl Into<String>, p: &Palette) -> egui::Button<'s
         .stroke(Stroke::new(1.0, p.border))
         .min_size(vec2(0.0, 30.0))
 }
+
+// ── Page structure ──────────────────────────────────────────────────
+
+/// A translated label as a title: without the trailing colon or ellipsis
+/// some strings carry for inline use ("Mode d'affichage :").
+pub fn clean(text: &str) -> &str {
+    text.trim_end()
+        .trim_end_matches([':', '\u{ff1a}', '\u{2026}'])
+        .trim_end()
+}
+
+/// The page title, with an optional line under it.
+pub fn page_header(ui: &mut egui::Ui, title: &str, subtitle: Option<&str>) {
+    let p = pal(ui.ctx());
+    ui.label(
+        egui::RichText::new(clean(title))
+            .size(24.0)
+            .color(p.text)
+            .strong(),
+    );
+    if let Some(sub) = subtitle {
+        ui.label(egui::RichText::new(sub).color(p.text_muted));
+    }
+    ui.add_space(12.0);
+}
+
+/// One group of settings: a bordered card with its title, an optional
+/// sentence saying what it is for, then its controls.
+pub fn section<R>(
+    ui: &mut egui::Ui,
+    title: &str,
+    intro: Option<&str>,
+    add_contents: impl FnOnce(&mut egui::Ui) -> R,
+) -> R {
+    let p = pal(ui.ctx());
+    let r = egui::Frame::new()
+        .fill(p.surface)
+        .stroke(Stroke::new(1.0, p.border))
+        .corner_radius(CornerRadius::same(RADIUS))
+        .inner_margin(Margin::symmetric(18, 14))
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.label(
+                egui::RichText::new(clean(title))
+                    .size(17.0)
+                    .color(p.text)
+                    .strong(),
+            );
+            if let Some(intro) = intro {
+                ui.label(egui::RichText::new(intro).color(p.text_muted));
+            }
+            ui.add_space(6.0);
+            add_contents(ui)
+        })
+        .inner;
+    ui.add_space(12.0);
+    r
+}
+
+/// The label above a control inside a section.
+pub fn field_label(ui: &mut egui::Ui, text: &str) -> egui::Response {
+    let p = pal(ui.ctx());
+    ui.label(egui::RichText::new(clean(text)).color(p.text).strong())
+}

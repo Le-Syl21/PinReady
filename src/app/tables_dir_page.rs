@@ -1,7 +1,7 @@
 use super::*;
 
 const ASTERISK_RED: egui::Color32 = egui::Color32::from_rgb(255, 80, 80);
-const NOTICE_AMBER: egui::Color32 = egui::Color32::from_rgb(255, 200, 80);
+const NOTICE_AMBER: egui::Color32 = egui::Color32::from_rgb(232, 168, 40);
 
 /// Last two components of a path — a whole-disk scan walks paths far too
 /// long for one line, and the tail is the part that says where we are.
@@ -25,132 +25,125 @@ fn pulse_alpha(ctx: &egui::Context) -> f32 {
 
 impl App {
     pub(super) fn render_tables_dir_page(&mut self, ui: &mut egui::Ui) {
-        ui.heading(t!("tables_heading"));
-        ui.add_space(4.0);
-        ui.label(t!("tables_desc"));
-        ui.add_space(12.0);
-
-        // ---- The question that decides how many paths we need ----------
-        //
-        // Asked before anything else: a modern collection needs one path
-        // (it is both source and destination), a bulk one needs two.
-        ui.label(egui::RichText::new(t!("merge_layout_question")).strong());
-        let mut layout_changed = false;
-        if ui
-            .radio_value(
-                &mut self.merge_layout_modern,
-                true,
-                t!("merge_layout_modern"),
-            )
-            .on_hover_text(t!("merge_layout_modern_hint"))
-            .changed()
-        {
-            layout_changed = true;
-        }
-        if ui
-            .radio_value(
-                &mut self.merge_layout_modern,
-                false,
-                t!("merge_layout_legacy"),
-            )
-            .on_hover_text(t!("merge_layout_legacy_hint"))
-            .changed()
-        {
-            layout_changed = true;
-        }
-        if layout_changed {
-            let _ = self.db.set_config(
-                "merge_layout_modern",
-                if self.merge_layout_modern { "1" } else { "0" },
-            );
-        }
-        ui.add_space(12.0);
-
-        // ---- Paths, in the order the answer implies ---------------------
-        if !self.merge_layout_modern {
-            let mut source = std::mem::take(&mut self.merge_src_root);
-            if pick_dir_row(
-                ui,
-                "🔎",
-                &t!("merge_src_root"),
-                &t!("merge_src_root_hint"),
-                &t!("merge_src_root_picker"),
-                &mut source,
-                false,
-            ) {
-                let _ = self.db.set_merge_source("root", &source);
+        theme::page_header(ui, &t!("tables_heading"), Some(&t!("tables_desc")));
+        theme::section(ui, &t!("tables_section_where"), None, |ui| {
+            // ---- The question that decides how many paths we need ----------
+            //
+            // Asked before anything else: a modern collection needs one path
+            // (it is both source and destination), a bulk one needs two.
+            theme::field_label(ui, &t!("merge_layout_question"));
+            let mut layout_changed = false;
+            if ui
+                .radio_value(
+                    &mut self.merge_layout_modern,
+                    true,
+                    t!("merge_layout_modern"),
+                )
+                .on_hover_text(t!("merge_layout_modern_hint"))
+                .changed()
+            {
+                layout_changed = true;
             }
-            self.merge_src_root = source;
-            ui.add_space(10.0);
-        }
-
-        // The tables directory is the wizard's only mandatory field here
-        // (the Next button is gated on it in mod.rs), hence the asterisk.
-        let dest_label = if self.merge_layout_modern {
-            t!("tables_path")
-        } else {
-            t!("tables_path_output")
-        };
-        let mut dest = std::mem::take(&mut self.tables_dir);
-        pick_dir_row(
-            ui,
-            "📂",
-            &dest_label,
-            &t!("tables_dir_path_hint"),
-            &t!("tables_folder_picker"),
-            &mut dest,
-            true,
-        );
-        self.tables_dir = dest;
-
-        ui.add_space(4.0);
-        if self.tables_dir.is_empty() {
-            ui.colored_label(ASTERISK_RED, format!("⚠ {}", t!("tables_path_required")));
-        } else {
-            let path = std::path::Path::new(&self.tables_dir);
-            if path.is_dir() {
-                let count = std::fs::read_dir(path)
-                    .map(|entries| {
-                        entries
-                            .filter_map(|e| e.ok())
-                            .filter(|e| e.path().is_dir())
-                            .count()
-                    })
-                    .unwrap_or(0);
-                ui.colored_label(
-                    egui::Color32::from_rgb(120, 200, 120),
-                    format!("✔ {}", t!("tables_valid", count = count)),
+            if ui
+                .radio_value(
+                    &mut self.merge_layout_modern,
+                    false,
+                    t!("merge_layout_legacy"),
+                )
+                .on_hover_text(t!("merge_layout_legacy_hint"))
+                .changed()
+            {
+                layout_changed = true;
+            }
+            if layout_changed {
+                let _ = self.db.set_config(
+                    "merge_layout_modern",
+                    if self.merge_layout_modern { "1" } else { "0" },
                 );
-            } else {
-                ui.colored_label(ASTERISK_RED, format!("⚠ {}", t!("tables_invalid")));
             }
-        }
+            ui.add_space(12.0);
 
-        ui.add_space(16.0);
-        ui.separator();
-        ui.add_space(8.0);
+            // ---- Paths, in the order the answer implies ---------------------
+            if !self.merge_layout_modern {
+                let mut source = std::mem::take(&mut self.merge_src_root);
+                if pick_dir_row(
+                    ui,
+                    "🔎",
+                    &t!("merge_src_root"),
+                    &t!("merge_src_root_hint"),
+                    &t!("merge_src_root_picker"),
+                    &mut source,
+                    false,
+                ) {
+                    let _ = self.db.set_merge_source("root", &source);
+                }
+                self.merge_src_root = source;
+                ui.add_space(10.0);
+            }
+
+            // The tables directory is the wizard's only mandatory field here
+            // (the Next button is gated on it in mod.rs), hence the asterisk.
+            let dest_label = if self.merge_layout_modern {
+                t!("tables_path")
+            } else {
+                t!("tables_path_output")
+            };
+            let mut dest = std::mem::take(&mut self.tables_dir);
+            pick_dir_row(
+                ui,
+                "📂",
+                &dest_label,
+                &t!("tables_dir_path_hint"),
+                &t!("tables_folder_picker"),
+                &mut dest,
+                true,
+            );
+            self.tables_dir = dest;
+
+            ui.add_space(4.0);
+            if self.tables_dir.is_empty() {
+                ui.colored_label(ASTERISK_RED, format!("⚠ {}", t!("tables_path_required")));
+            } else {
+                let path = std::path::Path::new(&self.tables_dir);
+                if path.is_dir() {
+                    let count = std::fs::read_dir(path)
+                        .map(|entries| {
+                            entries
+                                .filter_map(|e| e.ok())
+                                .filter(|e| e.path().is_dir())
+                                .count()
+                        })
+                        .unwrap_or(0);
+                    ui.colored_label(
+                        egui::Color32::from_rgb(120, 200, 120),
+                        format!("✔ {}", t!("tables_valid", count = count)),
+                    );
+                } else {
+                    ui.colored_label(ASTERISK_RED, format!("⚠ {}", t!("tables_invalid")));
+                }
+            }
+        });
 
         // ---- Import: the action, now that both ends are known ----------
-        self.render_merge_section(ui);
-
-        ui.add_space(16.0);
-        ui.separator();
-        ui.add_space(8.0);
+        theme::section(
+            ui,
+            &t!("merge_section_title"),
+            Some(&t!("merge_section_desc")),
+            |ui| {
+                self.render_merge_section(ui);
+            },
+        );
 
         // ---- Maintenance: rescan / patches / catalog. Kept open because
         // these settings are scan-time and users need them visible to make
         // a deliberate choice. Placed before the layout reference, which is
         // documentation rather than something to act on.
-        egui::CollapsingHeader::new(
-            egui::RichText::new(format!("🛠 {}", t!("tables_maintenance_section"))).strong(),
-        )
-        .default_open(true)
-        .show(ui, |ui| {
+        theme::section(ui, &t!("tables_maintenance_section"), None, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.label(
                     egui::RichText::new(t!("launcher_rebuild"))
                         .strong()
-                        .color(egui::Color32::from_rgb(255, 80, 80)),
+                        .color(theme::pal(ui.ctx()).error),
                 );
                 ui.label(t!("tables_rebuild_desc"));
             });
@@ -182,29 +175,15 @@ impl App {
             });
         });
 
-        ui.add_space(16.0);
-        ui.separator();
-        ui.add_space(8.0);
-
         // ---- Reference: what the modern layout actually looks like -----
-        egui::CollapsingHeader::new(
-            egui::RichText::new(format!("❓ {}", t!("tables_help_section"))).strong(),
-        )
-        .default_open(true)
-        .show(ui, |ui| {
+        theme::section(ui, &t!("tables_help_section"), None, |ui| {
             ui.label(t!("tables_structure"));
             ui.add_space(4.0);
             ui.code(t!("tables_structure_tree").to_string());
 
             ui.add_space(6.0);
-            ui.colored_label(
-                egui::Color32::from_rgb(200, 180, 100),
-                t!("tables_formats_supported"),
-            );
-            ui.colored_label(
-                egui::Color32::from_rgb(255, 80, 80),
-                t!("tables_formats_unsupported"),
-            );
+            ui.colored_label(theme::pal(ui.ctx()).warning, t!("tables_formats_supported"));
+            ui.colored_label(theme::pal(ui.ctx()).error, t!("tables_formats_unsupported"));
 
             ui.add_space(8.0);
             ui.label(t!("tables_modifiable"));
@@ -296,12 +275,7 @@ impl App {
 
         // Not a collapsible section: bundling the collection is what this
         // page is for, not an optional extra.
-        ui.strong(format!("📥 {}", t!("merge_section_title")));
-        ui.add_space(4.0);
         {
-            ui.label(t!("merge_section_desc"));
-            ui.add_space(8.0);
-
             // Where the files will land, spelled out — the whole point of
             // the question above is that these two cases differ.
             ui.horizontal_wrapped(|ui| {

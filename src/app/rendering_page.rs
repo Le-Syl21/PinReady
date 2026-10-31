@@ -2,283 +2,316 @@ use super::*;
 
 impl App {
     pub(super) fn render_rendering_page(&mut self, ui: &mut egui::Ui) {
-        ui.heading(t!("rendering_heading"));
-        ui.add_space(4.0);
-        ui.label(t!("rendering_desc"));
-        ui.add_space(12.0);
+        theme::page_header(ui, &t!("rendering_heading"), Some(&t!("rendering_desc")));
 
-        egui::Grid::new("rendering_grid")
-            .min_col_width(250.0)
-            .striped(true)
-            .show(ui, |ui| {
-                // Sync mode — the four VPX SyncMode values.
-                ui.horizontal(|ui| {
-                    ui.label(t!("rendering_sync"));
-                    help_marker(ui, &t!("rendering_vsync_hint"));
-                });
-                let sync_label = |m: i32| match m {
-                    0 => t!("rendering_sync_none").to_string(),
-                    1 => t!("rendering_sync_vsync").to_string(),
-                    2 => t!("rendering_sync_adaptive").to_string(),
-                    _ => t!("rendering_sync_framepacing").to_string(),
-                };
-                egui::ComboBox::from_id_salt("sync_mode")
-                    .selected_text(sync_label(self.sync_mode))
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut self.sync_mode, 0, sync_label(0))
-                            .on_hover_text(t!("rendering_sync_none_hint"));
-                        ui.selectable_value(&mut self.sync_mode, 1, sync_label(1))
-                            .on_hover_text(t!("rendering_sync_vsync_hint"));
-                        ui.selectable_value(&mut self.sync_mode, 2, sync_label(2))
-                            .on_hover_text(t!("rendering_sync_adaptive_hint"));
-                        ui.selectable_value(&mut self.sync_mode, 3, sync_label(3))
-                            .on_hover_text(t!("rendering_sync_framepacing_hint"));
+        // Smoothness first (what decides whether a table plays well), then
+        // the picture quality options, each group a card of its own.
+        theme::section(
+            ui,
+            &t!("rendering_section_smooth"),
+            Some(&t!("rendering_section_smooth_intro")),
+            |ui| {
+                egui::Grid::new("rendering_grid")
+                    .min_col_width(230.0)
+                    .spacing([16.0, 10.0])
+                    .show(ui, |ui| {
+                        // Sync mode — the four VPX SyncMode values.
+                        ui.horizontal(|ui| {
+                            theme::field_label(ui, &t!("rendering_sync"));
+                            help_marker(ui, &t!("rendering_vsync_hint"));
+                        });
+                        let sync_label = |m: i32| match m {
+                            0 => t!("rendering_sync_none").to_string(),
+                            1 => t!("rendering_sync_vsync").to_string(),
+                            2 => t!("rendering_sync_adaptive").to_string(),
+                            _ => t!("rendering_sync_framepacing").to_string(),
+                        };
+                        egui::ComboBox::from_id_salt("sync_mode")
+                            .selected_text(sync_label(self.sync_mode))
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(&mut self.sync_mode, 0, sync_label(0))
+                                    .on_hover_text(t!("rendering_sync_none_hint"));
+                                ui.selectable_value(&mut self.sync_mode, 1, sync_label(1))
+                                    .on_hover_text(t!("rendering_sync_vsync_hint"));
+                                ui.selectable_value(&mut self.sync_mode, 2, sync_label(2))
+                                    .on_hover_text(t!("rendering_sync_adaptive_hint"));
+                                ui.selectable_value(&mut self.sync_mode, 3, sync_label(3))
+                                    .on_hover_text(t!("rendering_sync_framepacing_hint"));
+                            });
+                        ui.end_row();
+
+                        // Max framerate — auto-set from playfield refresh rate
+                        ui.horizontal(|ui| {
+                            theme::field_label(ui, &t!("rendering_fps_limit"));
+                            help_marker(ui, &t!("rendering_fps_limit_help"));
+                        });
+                        let pf_refresh = self
+                            .displays
+                            .iter()
+                            .find(|d| d.role == DisplayRole::Playfield)
+                            .map(|d| d.refresh_rate)
+                            .unwrap_or(60.0);
+                        self.max_framerate = pf_refresh;
+                        theme::field_label(
+                            ui,
+                            &t!("rendering_fps_info", hz = format!("{:.2}", pf_refresh)),
+                        );
+                        ui.end_row();
+
+                        // FPS overlay in game (Player/ShowFPS) — recommended on, so a
+                        // fresh setup can immediately judge the rendering settings.
+                        ui.horizontal(|ui| {
+                            theme::field_label(ui, &t!("rendering_show_fps"));
+                            help_marker(ui, &t!("rendering_show_fps_help"));
+                        });
+                        ui.checkbox(
+                            &mut self.show_fps,
+                            t!("rendering_show_fps_hint").to_string(),
+                        );
+                        ui.end_row();
                     });
-                ui.end_row();
+            },
+        );
 
-                // Max framerate — auto-set from playfield refresh rate
-                ui.horizontal(|ui| {
-                    ui.label(t!("rendering_fps_limit"));
-                    help_marker(ui, &t!("rendering_fps_limit_help"));
-                });
-                let pf_refresh = self
-                    .displays
-                    .iter()
-                    .find(|d| d.role == DisplayRole::Playfield)
-                    .map(|d| d.refresh_rate)
-                    .unwrap_or(60.0);
-                self.max_framerate = pf_refresh;
-                ui.label(t!("rendering_fps_info", hz = format!("{:.2}", pf_refresh)));
-                ui.end_row();
+        theme::section(
+            ui,
+            &t!("rendering_section_quality"),
+            Some(&t!("rendering_section_quality_intro")),
+            |ui| {
+                egui::Grid::new("rendering_quality_grid")
+                    .min_col_width(230.0)
+                    .spacing([16.0, 10.0])
+                    .show(ui, |ui| {
+                        // Round ball (Player/BallAntiStretch) — recommended on: keeps
+                        // the ball circular by compensating the render stretch.
+                        ui.horizontal(|ui| {
+                            theme::field_label(ui, &t!("rendering_ball_round"));
+                            help_marker(ui, &t!("rendering_ball_round_tip"));
+                        });
+                        ui.checkbox(
+                            &mut self.ball_antistretch,
+                            t!("rendering_ball_round_hint").to_string(),
+                        );
+                        ui.end_row();
 
-                // FPS overlay in game (Player/ShowFPS) — recommended on, so a
-                // fresh setup can immediately judge the rendering settings.
-                ui.horizontal(|ui| {
-                    ui.label(t!("rendering_show_fps"));
-                    help_marker(ui, &t!("rendering_show_fps_help"));
-                });
-                ui.checkbox(
-                    &mut self.show_fps,
-                    t!("rendering_show_fps_hint").to_string(),
-                );
-                ui.end_row();
-
-                // Round ball (Player/BallAntiStretch) — recommended on: keeps
-                // the ball circular by compensating the render stretch.
-                ui.horizontal(|ui| {
-                    ui.label(t!("rendering_ball_round"));
-                    help_marker(ui, &t!("rendering_ball_round_tip"));
-                });
-                ui.checkbox(
-                    &mut self.ball_antistretch,
-                    t!("rendering_ball_round_hint").to_string(),
-                );
-                ui.end_row();
-
-                // Supersampling
-                ui.horizontal(|ui| {
-                    ui.label(t!("rendering_supersampling"));
-                    help_marker(ui, &t!("rendering_aa_hint"));
-                });
-                ui.horizontal(|ui| {
-                    ui.add(egui::Slider::new(&mut self.aa_factor, 0.5..=2.0).step_by(0.25));
-                    let tip = if self.aa_factor < 0.8 {
-                        t!("rendering_aa_perf")
-                    } else if self.aa_factor <= 1.1 {
-                        t!("rendering_aa_default")
-                    } else if self.aa_factor <= 1.5 {
-                        t!("rendering_aa_quality")
-                    } else {
-                        t!("rendering_aa_quality_heavy")
-                    };
-                    ui.label(tip.to_string());
-                });
-                ui.end_row();
-
-                // MSAA
-                ui.horizontal(|ui| {
-                    ui.label(t!("rendering_msaa"));
-                    help_marker(ui, &t!("rendering_msaa_hint"));
-                });
-                egui::ComboBox::from_id_salt("msaa")
-                    .selected_text(match self.msaa {
-                        0 => t!("rendering_msaa_off").to_string(),
-                        1 => t!("rendering_msaa_4").to_string(),
-                        2 => t!("rendering_msaa_6").to_string(),
-                        3 => t!("rendering_msaa_8").to_string(),
-                        _ => t!("rendering_msaa_off").to_string(),
-                    })
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(
-                            &mut self.msaa,
-                            0,
-                            t!("rendering_msaa_off_default").to_string(),
-                        );
-                        ui.selectable_value(&mut self.msaa, 1, t!("rendering_msaa_4").to_string());
-                        ui.selectable_value(&mut self.msaa, 2, t!("rendering_msaa_6").to_string());
-                        ui.selectable_value(&mut self.msaa, 3, t!("rendering_msaa_8").to_string());
-                    });
-                ui.end_row();
-
-                // Post-process AA
-                ui.horizontal(|ui| {
-                    ui.label(t!("rendering_fxaa"));
-                    help_marker(ui, &t!("rendering_fxaa_hint"));
-                });
-                egui::ComboBox::from_id_salt("fxaa")
-                    .selected_text(match self.fxaa {
-                        0 => t!("rendering_fxaa_off").to_string(),
-                        1 => t!("rendering_fxaa_fast").to_string(),
-                        2 => t!("rendering_fxaa_standard").to_string(),
-                        3 => t!("rendering_fxaa_quality").to_string(),
-                        4 => t!("rendering_fxaa_nfaa").to_string(),
-                        5 => t!("rendering_fxaa_dlaa").to_string(),
-                        6 => t!("rendering_fxaa_smaa").to_string(),
-                        7 => t!("rendering_fxaa_faaa").to_string(),
-                        _ => t!("rendering_fxaa_off").to_string(),
-                    })
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(
-                            &mut self.fxaa,
-                            0,
-                            t!("rendering_fxaa_off").to_string(),
-                        );
-                        ui.selectable_value(
-                            &mut self.fxaa,
-                            1,
-                            t!("rendering_fxaa_fast").to_string(),
-                        );
-                        ui.selectable_value(
-                            &mut self.fxaa,
-                            2,
-                            t!("rendering_fxaa_standard").to_string(),
-                        );
-                        ui.selectable_value(
-                            &mut self.fxaa,
-                            3,
-                            t!("rendering_fxaa_quality").to_string(),
-                        );
-                        ui.selectable_value(
-                            &mut self.fxaa,
-                            4,
-                            t!("rendering_fxaa_nfaa").to_string(),
-                        );
-                        ui.selectable_value(
-                            &mut self.fxaa,
-                            5,
-                            t!("rendering_fxaa_dlaa").to_string(),
-                        );
-                        ui.selectable_value(
-                            &mut self.fxaa,
-                            6,
-                            t!("rendering_fxaa_smaa").to_string(),
-                        );
-                        ui.selectable_value(
-                            &mut self.fxaa,
-                            7,
-                            t!("rendering_fxaa_faaa").to_string(),
-                        );
-                    });
-                ui.end_row();
-
-                // Sharpening
-                ui.horizontal(|ui| {
-                    ui.label(t!("rendering_sharpen"));
-                    help_marker(ui, &t!("rendering_sharpen_hint"));
-                });
-                egui::ComboBox::from_id_salt("sharpen")
-                    .selected_text(match self.sharpen {
-                        0 => t!("rendering_sharpen_off").to_string(),
-                        1 => t!("rendering_sharpen_cas").to_string(),
-                        2 => t!("rendering_sharpen_bilateral").to_string(),
-                        _ => t!("rendering_sharpen_off").to_string(),
-                    })
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(
-                            &mut self.sharpen,
-                            0,
-                            t!("rendering_sharpen_off").to_string(),
-                        );
-                        ui.selectable_value(
-                            &mut self.sharpen,
-                            1,
-                            t!("rendering_sharpen_cas").to_string(),
-                        );
-                        ui.selectable_value(
-                            &mut self.sharpen,
-                            2,
-                            t!("rendering_sharpen_bilateral").to_string(),
-                        );
-                    });
-                ui.end_row();
-
-                // Reflections
-                ui.horizontal(|ui| {
-                    ui.label(t!("rendering_reflections"));
-                    help_marker(ui, &t!("rendering_reflections_hint"));
-                });
-                egui::ComboBox::from_id_salt("pf_reflection")
-                    .selected_text(match self.pf_reflection {
-                        0 => t!("rendering_reflect_off").to_string(),
-                        1 => t!("rendering_reflect_balls").to_string(),
-                        2 => t!("rendering_reflect_static").to_string(),
-                        3 => t!("rendering_reflect_static_balls").to_string(),
-                        4 => t!("rendering_reflect_static_dynamic").to_string(),
-                        5 => t!("rendering_reflect_dynamic").to_string(),
-                        _ => t!("rendering_reflect_dynamic").to_string(),
-                    })
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(
-                            &mut self.pf_reflection,
-                            0,
-                            t!("rendering_reflect_off_perf").to_string(),
-                        );
-                        ui.selectable_value(
-                            &mut self.pf_reflection,
-                            1,
-                            t!("rendering_reflect_balls").to_string(),
-                        );
-                        ui.selectable_value(
-                            &mut self.pf_reflection,
-                            2,
-                            t!("rendering_reflect_static_zero").to_string(),
-                        );
-                        ui.selectable_value(
-                            &mut self.pf_reflection,
-                            3,
-                            t!("rendering_reflect_static_balls").to_string(),
-                        );
-                        ui.selectable_value(
-                            &mut self.pf_reflection,
-                            4,
-                            t!("rendering_reflect_static_dynamic").to_string(),
-                        );
-                        ui.selectable_value(
-                            &mut self.pf_reflection,
-                            5,
-                            t!("rendering_reflect_dynamic_default").to_string(),
-                        );
-                    });
-                ui.end_row();
-
-                // Max texture dimension
-                ui.horizontal(|ui| {
-                    ui.label(t!("rendering_tex_size"));
-                    help_marker(ui, &t!("rendering_tex_size_hint"));
-                });
-                egui::ComboBox::from_id_salt("max_tex")
-                    .selected_text(self.max_tex_dim.to_string())
-                    .show_ui(ui, |ui| {
-                        for &size in &[512, 1024, 2048, 4096, 8192, 16384] {
-                            let label = if size == 16384 {
-                                t!("rendering_tex_default").to_string()
+                        // Supersampling
+                        ui.horizontal(|ui| {
+                            theme::field_label(ui, &t!("rendering_supersampling"));
+                            help_marker(ui, &t!("rendering_aa_hint"));
+                        });
+                        ui.horizontal(|ui| {
+                            ui.add(egui::Slider::new(&mut self.aa_factor, 0.5..=2.0).step_by(0.25));
+                            let tip = if self.aa_factor < 0.8 {
+                                t!("rendering_aa_perf")
+                            } else if self.aa_factor <= 1.1 {
+                                t!("rendering_aa_default")
+                            } else if self.aa_factor <= 1.5 {
+                                t!("rendering_aa_quality")
                             } else {
-                                format!("{size}")
+                                t!("rendering_aa_quality_heavy")
                             };
-                            ui.selectable_value(&mut self.max_tex_dim, size, label);
-                        }
+                            ui.label(tip.to_string());
+                        });
+                        ui.end_row();
+
+                        // MSAA
+                        ui.horizontal(|ui| {
+                            theme::field_label(ui, &t!("rendering_msaa"));
+                            help_marker(ui, &t!("rendering_msaa_hint"));
+                        });
+                        egui::ComboBox::from_id_salt("msaa")
+                            .selected_text(match self.msaa {
+                                0 => t!("rendering_msaa_off").to_string(),
+                                1 => t!("rendering_msaa_4").to_string(),
+                                2 => t!("rendering_msaa_6").to_string(),
+                                3 => t!("rendering_msaa_8").to_string(),
+                                _ => t!("rendering_msaa_off").to_string(),
+                            })
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(
+                                    &mut self.msaa,
+                                    0,
+                                    t!("rendering_msaa_off_default").to_string(),
+                                );
+                                ui.selectable_value(
+                                    &mut self.msaa,
+                                    1,
+                                    t!("rendering_msaa_4").to_string(),
+                                );
+                                ui.selectable_value(
+                                    &mut self.msaa,
+                                    2,
+                                    t!("rendering_msaa_6").to_string(),
+                                );
+                                ui.selectable_value(
+                                    &mut self.msaa,
+                                    3,
+                                    t!("rendering_msaa_8").to_string(),
+                                );
+                            });
+                        ui.end_row();
+
+                        // Post-process AA
+                        ui.horizontal(|ui| {
+                            theme::field_label(ui, &t!("rendering_fxaa"));
+                            help_marker(ui, &t!("rendering_fxaa_hint"));
+                        });
+                        egui::ComboBox::from_id_salt("fxaa")
+                            .selected_text(match self.fxaa {
+                                0 => t!("rendering_fxaa_off").to_string(),
+                                1 => t!("rendering_fxaa_fast").to_string(),
+                                2 => t!("rendering_fxaa_standard").to_string(),
+                                3 => t!("rendering_fxaa_quality").to_string(),
+                                4 => t!("rendering_fxaa_nfaa").to_string(),
+                                5 => t!("rendering_fxaa_dlaa").to_string(),
+                                6 => t!("rendering_fxaa_smaa").to_string(),
+                                7 => t!("rendering_fxaa_faaa").to_string(),
+                                _ => t!("rendering_fxaa_off").to_string(),
+                            })
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(
+                                    &mut self.fxaa,
+                                    0,
+                                    t!("rendering_fxaa_off").to_string(),
+                                );
+                                ui.selectable_value(
+                                    &mut self.fxaa,
+                                    1,
+                                    t!("rendering_fxaa_fast").to_string(),
+                                );
+                                ui.selectable_value(
+                                    &mut self.fxaa,
+                                    2,
+                                    t!("rendering_fxaa_standard").to_string(),
+                                );
+                                ui.selectable_value(
+                                    &mut self.fxaa,
+                                    3,
+                                    t!("rendering_fxaa_quality").to_string(),
+                                );
+                                ui.selectable_value(
+                                    &mut self.fxaa,
+                                    4,
+                                    t!("rendering_fxaa_nfaa").to_string(),
+                                );
+                                ui.selectable_value(
+                                    &mut self.fxaa,
+                                    5,
+                                    t!("rendering_fxaa_dlaa").to_string(),
+                                );
+                                ui.selectable_value(
+                                    &mut self.fxaa,
+                                    6,
+                                    t!("rendering_fxaa_smaa").to_string(),
+                                );
+                                ui.selectable_value(
+                                    &mut self.fxaa,
+                                    7,
+                                    t!("rendering_fxaa_faaa").to_string(),
+                                );
+                            });
+                        ui.end_row();
+
+                        // Sharpening
+                        ui.horizontal(|ui| {
+                            theme::field_label(ui, &t!("rendering_sharpen"));
+                            help_marker(ui, &t!("rendering_sharpen_hint"));
+                        });
+                        egui::ComboBox::from_id_salt("sharpen")
+                            .selected_text(match self.sharpen {
+                                0 => t!("rendering_sharpen_off").to_string(),
+                                1 => t!("rendering_sharpen_cas").to_string(),
+                                2 => t!("rendering_sharpen_bilateral").to_string(),
+                                _ => t!("rendering_sharpen_off").to_string(),
+                            })
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(
+                                    &mut self.sharpen,
+                                    0,
+                                    t!("rendering_sharpen_off").to_string(),
+                                );
+                                ui.selectable_value(
+                                    &mut self.sharpen,
+                                    1,
+                                    t!("rendering_sharpen_cas").to_string(),
+                                );
+                                ui.selectable_value(
+                                    &mut self.sharpen,
+                                    2,
+                                    t!("rendering_sharpen_bilateral").to_string(),
+                                );
+                            });
+                        ui.end_row();
+
+                        // Reflections
+                        ui.horizontal(|ui| {
+                            theme::field_label(ui, &t!("rendering_reflections"));
+                            help_marker(ui, &t!("rendering_reflections_hint"));
+                        });
+                        egui::ComboBox::from_id_salt("pf_reflection")
+                            .selected_text(match self.pf_reflection {
+                                0 => t!("rendering_reflect_off").to_string(),
+                                1 => t!("rendering_reflect_balls").to_string(),
+                                2 => t!("rendering_reflect_static").to_string(),
+                                3 => t!("rendering_reflect_static_balls").to_string(),
+                                4 => t!("rendering_reflect_static_dynamic").to_string(),
+                                5 => t!("rendering_reflect_dynamic").to_string(),
+                                _ => t!("rendering_reflect_dynamic").to_string(),
+                            })
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(
+                                    &mut self.pf_reflection,
+                                    0,
+                                    t!("rendering_reflect_off_perf").to_string(),
+                                );
+                                ui.selectable_value(
+                                    &mut self.pf_reflection,
+                                    1,
+                                    t!("rendering_reflect_balls").to_string(),
+                                );
+                                ui.selectable_value(
+                                    &mut self.pf_reflection,
+                                    2,
+                                    t!("rendering_reflect_static_zero").to_string(),
+                                );
+                                ui.selectable_value(
+                                    &mut self.pf_reflection,
+                                    3,
+                                    t!("rendering_reflect_static_balls").to_string(),
+                                );
+                                ui.selectable_value(
+                                    &mut self.pf_reflection,
+                                    4,
+                                    t!("rendering_reflect_static_dynamic").to_string(),
+                                );
+                                ui.selectable_value(
+                                    &mut self.pf_reflection,
+                                    5,
+                                    t!("rendering_reflect_dynamic_default").to_string(),
+                                );
+                            });
+                        ui.end_row();
+
+                        // Max texture dimension
+                        ui.horizontal(|ui| {
+                            theme::field_label(ui, &t!("rendering_tex_size"));
+                            help_marker(ui, &t!("rendering_tex_size_hint"));
+                        });
+                        egui::ComboBox::from_id_salt("max_tex")
+                            .selected_text(self.max_tex_dim.to_string())
+                            .show_ui(ui, |ui| {
+                                for &size in &[512, 1024, 2048, 4096, 8192, 16384] {
+                                    let label = if size == 16384 {
+                                        t!("rendering_tex_default").to_string()
+                                    } else {
+                                        format!("{size}")
+                                    };
+                                    ui.selectable_value(&mut self.max_tex_dim, size, label);
+                                }
+                            });
+                        ui.end_row();
                     });
-                ui.end_row();
-            });
+            },
+        );
     }
 }
