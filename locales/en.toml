@@ -479,7 +479,7 @@ tables_path = "Path:"
 tables_path_output = "Tables folder (destination):"
 tables_browse = "Browse..."
 tables_folder_picker = "Select tables directory"
-tables_valid = "Valid directory — %{count} folders found"
+tables_valid = "Valid directory — folders found: %{count}"
 tables_invalid = "This directory does not exist"
 
 # Rescan hint (tables page)

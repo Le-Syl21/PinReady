@@ -479,7 +479,7 @@ tables_path = "Chemin :"
 tables_path_output = "Répertoire des tables (destination) :"
 tables_browse = "Parcourir..."
 tables_folder_picker = "Sélectionnez le répertoire des tables"
-tables_valid = "Répertoire valide — %{count} dossiers trouvés"
+tables_valid = "Répertoire valide — dossiers trouvés : %{count}"
 tables_invalid = "Ce répertoire n'existe pas"
 
 # Aide rescan (page tables)
