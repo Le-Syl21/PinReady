@@ -308,7 +308,7 @@ impl RunLog {
 /// startup/progress detection only ever looked at stdout, so anything VPX
 /// wrote to stderr — which is where a logger routes warnings by default —
 /// could never satisfy it. `Startup done` arriving on the wrong pipe left
-/// `startup_done` false and the 30 s loading hang-detector armed for the
+/// `startup_done` false and the loading hang-detector armed for the
 /// whole session.
 enum VpxLine {
     Out(String),
@@ -1088,9 +1088,12 @@ impl App {
                     {
                         // Poll often, decide slowly: draining every 250 ms
                         // notices an exit promptly, while the hang rule below
-                        // still measures a real 30 s of silence.
+                        // still measures a real 2 min of silence. VPX logs
+                        // nothing while it decodes a table's images: a 4-core
+                        // Windows machine spent 60 s there on The Lord of the
+                        // Rings, and 30 s killed that healthy load.
                         const POLL: std::time::Duration = std::time::Duration::from_millis(250);
-                        const HANG_AFTER: std::time::Duration = std::time::Duration::from_secs(30);
+                        const HANG_AFTER: std::time::Duration = std::time::Duration::from_secs(120);
                         let (line_tx, line_rx) = crossbeam_channel::unbounded();
 
                         // Both pipes feed the channel. They carry the
@@ -1268,7 +1271,7 @@ impl App {
                                     // that guess is always wrong: whatever we did
                                     // receive came from PinMAME or dmdutil, and once
                                     // those go quiet — a long load, or simply a table
-                                    // running — the 30 s timer fires on a perfectly
+                                    // running — the hang timer fires on a perfectly
                                     // healthy game. Field report: a table killed
                                     // mid-load right after `loading fshtl_5.rom`.
                                     //
@@ -1280,20 +1283,25 @@ impl App {
                                     // it from, and killing someone's game on a guess is
                                     // the worse failure.
                                     log::warn!(
-                                        "no VPX log line in 30s (only third-party output, if any): \
+                                        "no VPX log line in {}s (only third-party output, if any): \
                                              this build has no console logger. Assuming it started; \
-                                             VPX's own diagnostics are in vpinball.log."
+                                             VPX's own diagnostics are in vpinball.log.",
+                                        HANG_AFTER.as_secs()
                                     );
                                     startup_done = true;
                                     let _ = tx.send(VpxStatus::Started);
                                     continue;
                                 }
                                 log::error!(
-                                    "VPX log silent for 30s during loading — treating as hung"
+                                    "VPX log silent for {}s during loading — treating as hung",
+                                    HANG_AFTER.as_secs()
                                 );
                                 let _ = child.kill();
                                 let err = build_error_log(
-                                    "Timeout: Visual Pinball stopped responding during loading (no output for 30s).",
+                                    &format!(
+                                        "Timeout: Visual Pinball stopped responding during loading (no output for {}s).",
+                                        HANG_AFTER.as_secs()
+                                    ),
                                     &loading_log,
                                     &ingame_log,
                                     saw_vpx_log,

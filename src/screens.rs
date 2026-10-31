@@ -12,13 +12,14 @@ pub enum DisplayRole {
 }
 
 impl DisplayRole {
+    /// Translation key of the role's name: the UI shows `t!(role.label())`.
     pub fn label(&self) -> &'static str {
         match self {
-            Self::Playfield => "Playfield",
-            Self::Backglass => "Backglass",
-            Self::Dmd => "DMD",
-            Self::Topper => "Topper",
-            Self::Unused => "Non utilisé",
+            Self::Playfield => "role_playfield",
+            Self::Backglass => "role_backglass",
+            Self::Dmd => "role_dmd",
+            Self::Topper => "role_topper",
+            Self::Unused => "role_unused",
         }
     }
 
@@ -550,11 +551,11 @@ mod tests {
 
     #[test]
     fn display_role_labels() {
-        assert_eq!(DisplayRole::Playfield.label(), "Playfield");
-        assert_eq!(DisplayRole::Backglass.label(), "Backglass");
-        assert_eq!(DisplayRole::Dmd.label(), "DMD");
-        assert_eq!(DisplayRole::Topper.label(), "Topper");
-        assert_eq!(DisplayRole::Unused.label(), "Non utilisé");
+        assert_eq!(DisplayRole::Playfield.label(), "role_playfield");
+        assert_eq!(DisplayRole::Backglass.label(), "role_backglass");
+        assert_eq!(DisplayRole::Dmd.label(), "role_dmd");
+        assert_eq!(DisplayRole::Topper.label(), "role_topper");
+        assert_eq!(DisplayRole::Unused.label(), "role_unused");
     }
 
     #[test]

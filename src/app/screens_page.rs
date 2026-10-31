@@ -96,7 +96,7 @@ impl App {
                                 let mb = current / (1024 * 1024);
                                 let total_mb = total / (1024 * 1024);
                                 ui.add(
-                                    egui::ProgressBar::new(pct).text(format!("{mb}/{total_mb} Mo")),
+                                    egui::ProgressBar::new(pct).text(format!("{mb}/{total_mb} MB")),
                                 );
                             } else {
                                 ui.horizontal(|ui| {
@@ -352,10 +352,14 @@ impl App {
                             // By row, not name: two screens of the same model (or
                             // virtual ones) share a name, and the combos an id.
                             egui::ComboBox::from_id_salt(("role", row))
-                                .selected_text(display.role.label())
+                                .selected_text(t!(display.role.label()))
                                 .show_ui(ui, |ui| {
                                     for role in &available_roles {
-                                        ui.selectable_value(&mut display.role, *role, role.label());
+                                        ui.selectable_value(
+                                            &mut display.role,
+                                            *role,
+                                            t!(role.label()),
+                                        );
                                     }
                                 });
                             ui.end_row();
