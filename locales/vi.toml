@@ -70,7 +70,7 @@ vpx_browse = "Duyệt..."
 vpx_file_picker = "Chọn tệp thực thi Visual Pinball"
 vpx_file_not_found = "Không tìm thấy tệp"
 vpx_required = "Visual Pinball phải được cài đặt trước khi tiếp tục."
-vpx_validated_on = "Đã xác minh: Ubuntu 24.04 LTS, X11, PinCab 3 màn hình"
+vpx_validated_on = "Đã thử trên: Ubuntu 24.04 và 26.04 LTS, GNOME, 4 màn hình (tủ ảo)"
 
 # Screens page — Display config
 screens_count_label = "Có mấy màn hình?"

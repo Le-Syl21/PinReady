@@ -70,7 +70,7 @@ vpx_browse = "瀏覽..."
 vpx_file_picker = "選擇 Visual Pinball 執行檔"
 vpx_file_not_found = "找不到檔案"
 vpx_required = "繼續之前必須安裝 Visual Pinball。"
-vpx_validated_on = "已驗證：Ubuntu 24.04 LTS、X11、3 螢幕 PinCab"
+vpx_validated_on = "測試環境：Ubuntu 24.04 與 26.04 LTS，GNOME，4 個螢幕（虛擬機台）"
 
 # Screens page — Display config
 screens_count_label = "有幾個螢幕？"

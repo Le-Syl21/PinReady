@@ -89,7 +89,7 @@ If you prefer to compile it yourself:
 ```bash
 sudo apt install build-essential cmake pkg-config \
   libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
-  libxkbcommon-dev libssl-dev
+  libxkbcommon-dev libssl-dev libudev-dev libwayland-dev
 
 cargo build --release
 ```
@@ -100,7 +100,16 @@ cargo build --release
 cargo build --release
 ```
 
+Or straight from crates.io, with the same build dependencies:
+
+```bash
+cargo install pinready
+```
+
 SDL3 and SQLite compile from source automatically -- no manual installation needed. ✅
+
+Working on PinReady without a cabinet? [`tools/virtual-cab`](tools/virtual-cab) runs a 4-screen
+cabinet in Docker (Ubuntu 24.04 or 26.04), Visual Pinball included.
 
 ### 🚀 Usage
 
@@ -411,7 +420,7 @@ Si vous préférez compiler vous-même :
 ```bash
 sudo apt install build-essential cmake pkg-config \
   libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
-  libxkbcommon-dev libssl-dev
+  libxkbcommon-dev libssl-dev libudev-dev libwayland-dev
 
 cargo build --release
 ```
@@ -422,7 +431,16 @@ cargo build --release
 cargo build --release
 ```
 
+Ou directement depuis crates.io, avec les mêmes dépendances de compilation :
+
+```bash
+cargo install pinready
+```
+
 SDL3 et SQLite se compilent depuis les sources automatiquement -- aucune installation manuelle nécessaire. ✅
+
+Vous travaillez sur PinReady sans flipper ? [`tools/virtual-cab`](tools/virtual-cab) lance un pincab
+de 4 écrans dans Docker (Ubuntu 24.04 ou 26.04), Visual Pinball compris.
 
 ### 🚀 Utilisation
 

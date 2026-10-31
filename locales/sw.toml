@@ -70,7 +70,7 @@ vpx_browse = "Vinjari..."
 vpx_file_picker = "Chagua faili ya kuendesha Visual Pinball"
 vpx_file_not_found = "Faili haipatikani"
 vpx_required = "Visual Pinball lazima isakinishwe kabla ya kuendelea."
-vpx_validated_on = "Imethibitishwa: Ubuntu 24.04 LTS, X11, PinCab ya skrini 3"
+vpx_validated_on = "Imejaribiwa kwenye: Ubuntu 24.04 na 26.04 LTS, GNOME, skrini 4 (kabati pepe)"
 
 # Screens page — Display config
 screens_count_label = "Skrini ngapi?"
