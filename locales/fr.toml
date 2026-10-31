@@ -705,7 +705,7 @@ ht_unsupported_platform = "Pas encore de build head tracking pour cette platefor
 screens_section_language = "Langue"
 vpx_install_intro = "PinReady installe et met à jour la version de Visual Pinball qu'il a testée, ou utilise celle que vous avez déjà."
 screens_section_screens = "Vos écrans"
-screens_section_screens_intro = "Indiquez sur combien d'écrans vous jouez et ce que chacun affiche. PinReady a deviné d'après leur taille ; corrigez si besoin."
+screens_section_screens_intro = "Indiquez sur combien d'écrans vous jouez et ce que chacun affiche. PinReady a deviné d'après leur taille : corrigez si besoin."
 screens_section_reset = "Repartir de zéro"
 
 # Redesign 0.23

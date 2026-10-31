@@ -705,7 +705,7 @@ ht_unsupported_platform = "No head tracking build for this platform yet (macOS I
 screens_section_language = "Language"
 vpx_install_intro = "PinReady installs and updates the build of Visual Pinball it has tested, or uses the one you already have."
 screens_section_screens = "Your screens"
-screens_section_screens_intro = "Say how many screens you play on and what each one shows. PinReady has guessed from their sizes; correct it if needed."
+screens_section_screens_intro = "Say how many screens you play on and what each one shows. PinReady has guessed from their sizes: correct it if needed."
 screens_section_reset = "Start over"
 
 # Redesign 0.23

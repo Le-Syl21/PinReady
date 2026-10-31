@@ -10,8 +10,14 @@ impl App {
             ui,
             &t!("screens_heading"),
             Some(&format!(
-                "{} : {} \u{00b7} PinReady v{}",
+                "{}{} {} \u{00b7} PinReady v{}",
                 theme::clean(&t!("system_detected")),
+                // French puts a space before the colon
+                if rust_i18n::locale().starts_with("fr") {
+                    " :"
+                } else {
+                    ":"
+                },
                 sys.one_liner(),
                 crate::VERSION,
             )),

@@ -82,10 +82,12 @@ impl App {
         ui.painter()
             .rect_filled(ground, 0.0, theme::pal(ui.ctx()).bg);
 
-        // Header size: 2% of the window's available height, rounded up to
-        // the next integer. Scales with the screen — readable on 4K cabinet
-        // PFs, compact on desktop/windowed.
-        let h_size = (ui.available_height() * 0.02).ceil();
+        // Header size: 2% of the window's smaller side, rounded up to the
+        // next integer. Scales with the screen — readable on 4K cabinet PFs,
+        // compact on desktop/windowed. The smaller side, not the height: a
+        // rotated playfield is tall and narrow, and a header sized on its
+        // height ran out of width.
+        let h_size = (ui.available_height().min(ui.available_width()) * 0.02).ceil();
         ui.add_space(6.0);
         // Horizontal row with vertical Align::Center — same height-0
         // allocation as ui.horizontal (sized to content) but with center
