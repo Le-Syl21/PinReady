@@ -104,7 +104,7 @@ jobs:
 
       - name: Clippy
         if: matrix.lint
-        run: cargo clippy --release --target ${{ matrix.target }} -- -D warnings
+        run: cargo clippy --release --all-targets --all-features --target ${{ matrix.target }} -- -D warnings
 
       # --- Build ---
       - name: Set macOS deployment target
