@@ -1210,9 +1210,9 @@ dependencies = [
 
 [[package]]
 name = "display-types"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9babf91a660bef635a411f90ea6d9cf8d1ff5d45f9adb1bd8cd4f7d64704d485"
+checksum = "c2a14d4076790bab27f37a48c0e8fb29993ec8254effcb930b9dab9df29040e2"
 dependencies = [
  "bitflags 2.13.2",
 ]
@@ -3525,9 +3525,9 @@ dependencies = [
 
 [[package]]
 name = "piaf"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bde3b9a256b797ee30d813e683bf5624f2a60048529557fff052576911ad5859"
+checksum = "3d2b6cb88e26e5b76d7928a9a535ca9bee546d57b1fbf023bac1ac10f2d4758d"
 dependencies = [
  "bitflags 2.13.2",
  "display-types",
@@ -3569,7 +3569,6 @@ dependencies = [
  "crossbeam-channel",
  "directb2s",
  "dirs 7.0.0",
- "display-types",
  "eframe",
  "egui",
  "egui-keyfunnel",

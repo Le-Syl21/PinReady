@@ -189,16 +189,15 @@ pub fn parse_edid(bytes: &[u8]) -> Option<MonitorId> {
         model_name: caps.display_name.map(|s| s.to_string()),
         serial_string: caps.serial_number_string.map(|s| s.to_string()),
         phys_mm,
-        // The preferred timing is the base block's *first detailed* descriptor,
-        // which piaf tags `Dtd { block: 0, index: 0 }`. Not `supported_modes.first()`: the
-        // established timings come first in that list, so the first entry here
-        // is 720x400 — the VGA text mode every monitor still claims. And not
-        // `native_pixels` either: that comes from a DisplayID Display Device
-        // Data Block, which most monitors do not carry at all.
+        // The preferred timing is the base block's first detailed timing, as
+        // edid-decode, libdisplay-info and Linux read it. Not
+        // `supported_modes.first()`: the established timings come first in
+        // that list, so the first entry is 720x400, the VGA text mode every
+        // monitor still claims. And not `native_pixels` either: that comes
+        // from a DisplayID Display Device Data Block, which most monitors do
+        // not carry at all.
         preferred_mode: caps
-            .supported_modes
-            .iter()
-            .find(|m| m.source == Some(display_types::ModeSource::Dtd { block: 0, index: 0 }))
+            .preferred_timing
             .map(|m| (u32::from(m.width), u32::from(m.height))),
     })
 }
