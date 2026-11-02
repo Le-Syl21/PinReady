@@ -56,6 +56,7 @@ impl App {
             &t!("vpx_install_title"),
             Some(&t!("vpx_install_intro")),
             |ui| {
+                let mode_before = self.vpx_install_mode;
                 ui.horizontal(|ui| {
                     ui.radio_value(
                         &mut self.vpx_install_mode,
@@ -64,6 +65,16 @@ impl App {
                     );
                     help_marker(ui, &t!("screens_vpx_auto_hint"));
                 });
+                // A manual install never checks for updates at startup, so
+                // switching to automatic must ask now: without it the page
+                // only showed the installed version, with no way to update.
+                if mode_before == VpxInstallMode::Manual
+                    && self.vpx_install_mode == VpxInstallMode::Auto
+                    && self.update_check_rx.is_none()
+                    && self.vpx_latest_release.is_none()
+                {
+                    self.update_check_rx = Self::spawn_update_check(&self.vpx_fork_repo);
+                }
                 if self.vpx_install_mode == VpxInstallMode::Auto {
                     ui.indent("auto_install", |ui| {
                         if let Some(ref release) = self.vpx_latest_release {
