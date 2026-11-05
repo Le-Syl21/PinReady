@@ -66,6 +66,13 @@ pub(super) fn set_autostart(enabled: bool) -> anyhow::Result<()> {
         // compositor settle. Harmless on X11 where outputs are exposed
         // synchronously.
         //
+        // A cabinet has no keyboard to start the program again, so a crash
+        // must not leave it on the bare desktop: the shell starts PinReady
+        // again after an abnormal exit (up to 5 launches, 3 s apart, so a program
+        // that cannot start does not loop for ever). A normal exit (Quit) ends
+        // the loop. No `$` in the command, which would need one more level of
+        // backslashes in the Exec value (Desktop Entry spec §1.5.3).
+        //
         // POSIX-shell-quote the binary path: replace `'` with `'\''`
         // and wrap in single quotes so paths with spaces or other
         // shell metacharacters survive the `sh -c` re-parse. The
@@ -77,7 +84,7 @@ pub(super) fn set_autostart(enabled: bool) -> anyhow::Result<()> {
              Type=Application\n\
              Name=PinReady\n\
              Comment=Visual Pinball configurator and launcher\n\
-             Exec=sh -c \"sleep 3 && '{exe_quoted}'\"\n\
+             Exec=sh -c \"sleep 3; for i in 1 2 3 4 5; do '{exe_quoted}' && break; sleep 3; done\"\n\
              Terminal=false\n\
              X-GNOME-Autostart-enabled=true\n"
         );
