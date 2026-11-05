@@ -11,9 +11,11 @@ categories = ["games", "config", "gui"]
 readme = "README.md"
 
 [features]
-default = []
+default = ["inspection"]
 win-icon = ["winres"]
-# Let egui_mcp drive the running GUI (EGUI_INSPECTION=1): development only.
+# Let egui_mcp drive the running GUI. On by default but inert until the
+# program is started with EGUI_INSPECTION set (see the README): without it
+# no port is opened. Build with `--no-default-features` to leave it out.
 inspection = ["eframe/inspection"]
 
 [dependencies]
@@ -49,6 +51,8 @@ image = { version = "0.25", features = ["png", "jpeg", "webp"] }
 
 # B2S parsing (directb2s backglass thumbnail extraction)
 directb2s = "0.1"
+# The same reader the directb2s crate builds on: lenient fallback for files it refuses.
+quick-xml = "0.41"
 base64 = "0.23"
 
 # .vpx file parsing — used to extract the embedded backglass preview

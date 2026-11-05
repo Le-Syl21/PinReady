@@ -672,15 +672,29 @@ Utile quand vous avez des dizaines de tables qui mangent de l'espace disque.
 src/
   main.rs       Entry point, first-run detection, eframe launch
   app/          Main App struct, page routing, wizard & launcher UI
+  app/bgcache.rs  Where backglass pictures live: thumbnails of every table in the GPU, the page on screen full size in the GPU, its neighbours in RAM
   screens.rs    SDL3 display enumeration + role assignment
   inputs.rs     Input mapping with SDL3 event loop on dedicated thread
   tilt.rs       Tilt/nudge sensitivity configuration
   audio.rs      Audio device detection + routing + test sequences
-  assets.rs     Backglass extraction from directb2s files
+  assets.rs     Backglass extraction from directb2s files, grid thumbnails
   config.rs     VPinballX.ini read/write (format-preserving)
   db.rs         SQLite catalog
   updater.rs    Visual Pinball release check, download, install
 ```
+
+## 🔍 GUI inspection (egui_mcp)
+
+The program can be driven from outside, by an MCP client or a test script: it exposes the widget tree, takes screenshots and accepts clicks and keystrokes. It is built in, and **off until you ask for it** with an environment variable at launch; without it no port is opened.
+
+```bash
+EGUI_INSPECTION=1 pinready               # binds 127.0.0.1:5719 (this machine only)
+EGUI_INSPECTION=0.0.0.0:5719 pinready    # reachable from other devices on the network
+```
+
+There is no authentication: whoever reaches the port controls the window, and PinReady launches Visual Pinball and writes its configuration. Use the second form on a network you trust, to drive a cabinet from your desk, and not otherwise. To leave the feature out of a build: `cargo build --no-default-features`.
+
+*Français :* le programme peut être piloté de l'extérieur (client MCP, script de test) : arbre des widgets, captures d'écran, clics et frappes. Il est intégré et **inactif tant que la variable d'environnement `EGUI_INSPECTION` n'est pas posée** au lancement ; sans elle, aucun port n'est ouvert. `EGUI_INSPECTION=1` écoute sur `127.0.0.1:5719` (cette machine seulement) ; `EGUI_INSPECTION=0.0.0.0:5719` rend le port joignable depuis le réseau, sans authentification : à réserver à un réseau de confiance, par exemple pour piloter un cab depuis son bureau. Pour l'exclure d'une compilation : `cargo build --no-default-features`.
 
 ## 🧰 Stack
 

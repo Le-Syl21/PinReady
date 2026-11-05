@@ -475,19 +475,7 @@ impl App {
         // becomes a no-op (channel closed) — a small CPU optimisation
         // on top of the gen-check belt-and-suspenders above.
         self.bg_rx = None;
-        // Force `preload_images_once` to re-register URIs for the
-        // freshly-scanned table set against the new generation.
-        self.images_preloaded = false;
         self.tables.clear();
-        // Forget per-row image cache entries we may have populated for
-        // the previous scan: row 7 used to be Apollo 13, after rescan
-        // it might be Avatar, but egui still has `bytes://bg/7` cached
-        // pointing at the Apollo 13 JPEG. Clearing the loaders here
-        // would be cheaper than a full asset reload, but egui's
-        // ImageButton reads via `image()` which respects the include
-        // map, so flushing per-uri caches is enough — see
-        // `process_bg_extraction` where we re-include with the new
-        // generation.
         if self.tables_dir.is_empty() {
             return;
         }
@@ -538,14 +526,23 @@ impl App {
             self.tables.push(TableEntry {
                 path: vpx_path.clone(),
                 name,
-                bg_bytes: None,
+                has_bg: false,
                 update_available: false,
                 vps_id: None,
             });
         }
         self.tables.sort_by_key(|a| a.name.to_lowercase());
+        // Fresh numbering for the pictures: textures and in-flight decodes
+        // of the previous scan go away with the old generation.
+        self.bg_cache.reset(self.scan_generation, self.tables.len());
 
         let mut jobs: Vec<(usize, std::path::PathBuf, std::path::PathBuf, i64)> = Vec::new();
+        // Thumbnails are small: all of them in one query. Rows from before
+        // the column existed are listed apart and filled in the background.
+        let thumbs = self.db.get_all_thumbs();
+        let legacy: std::collections::HashMap<String, i64> =
+            self.db.list_without_thumb().into_iter().collect();
+        let mut backfill: Vec<(usize, String, i64)> = Vec::new();
         for (table_dir, vpx_path, rel_path, source_mtime) in found {
             let idx = match self.tables.iter().position(|t| t.path == vpx_path) {
                 Some(i) => i,
@@ -553,12 +550,21 @@ impl App {
             };
             self.tables[idx].update_available = self.db.get_update_available(&rel_path);
             self.tables[idx].vps_id = self.db.get_vps_link(&rel_path).map(|l| l.0);
-            match self.db.get_backglass(&rel_path) {
-                Some((bytes, cached_mtime)) if cached_mtime >= source_mtime => {
-                    self.tables[idx].bg_bytes =
-                        Some(std::sync::Arc::from(bytes.into_boxed_slice()));
+            match thumbs.get(&rel_path) {
+                Some((bytes, cached_mtime)) if *cached_mtime >= source_mtime => {
+                    self.tables[idx].has_bg = true;
+                    self.bg_cache
+                        .queue_thumb(idx, std::sync::Arc::from(bytes.as_slice()));
                 }
-                _ => jobs.push((idx, table_dir, vpx_path, source_mtime)),
+                _ => match legacy.get(&rel_path) {
+                    // Cached before thumbnails existed: its full picture is
+                    // good, only the thumbnail is missing.
+                    Some(cached_mtime) if *cached_mtime >= source_mtime => {
+                        backfill.push((idx, rel_path.clone(), *cached_mtime));
+                        self.tables[idx].has_bg = true;
+                    }
+                    _ => jobs.push((idx, table_dir, vpx_path, source_mtime)),
+                },
             }
         }
         log::info!("Scanned {} tables in {}", self.tables.len(), dir);
@@ -601,6 +607,12 @@ impl App {
 
         let (tx, rx) = crossbeam_channel::unbounded();
         self.bg_rx = Some(rx);
+        crate::scan_worker::spawn_thumb_backfill(
+            backfill,
+            tx.clone(),
+            cancel.clone(),
+            self.scan_generation,
+        );
 
         if scan_jobs.is_empty() {
             return;
@@ -1439,7 +1451,7 @@ impl App {
         }
     }
 
-    pub(super) fn process_bg_extraction(&mut self, ctx: &egui::Context) {
+    pub(super) fn process_bg_extraction(&mut self) {
         if let Some(rx) = &self.bg_rx {
             // Drain without holding a borrow of `self` — we need `&mut self`
             // below for `self.db.set_backglass` and the TableEntry update.
@@ -1484,16 +1496,13 @@ impl App {
                 let Some(idx) = cur_idx else {
                     continue;
                 };
-                if let Err(e) = self.db.set_backglass(&rel_path, &bytes, source_mtime) {
-                    log::error!("Failed to cache backglass for {rel_path}: {e}");
-                }
-                let arc: std::sync::Arc<[u8]> = std::sync::Arc::from(bytes.into_boxed_slice());
-                // Generation-tagged URI: even if egui's image cache
-                // still holds `bytes://bg/N` from a prior scan, the new
-                // URI guarantees a fresh fetch on the new row.
-                let uri = format!("bytes://bg/{}/{idx}", self.scan_generation);
-                ctx.include_bytes(uri, arc.clone());
-                self.tables[idx].bg_bytes = Some(arc);
+                // The worker already stored the picture and its thumbnail
+                // (database writes stay off the UI thread); the bytes here
+                // are the thumbnail, decoded by the cache's threads.
+                let _ = source_mtime;
+                self.tables[idx].has_bg = true;
+                self.bg_cache
+                    .queue_thumb(idx, std::sync::Arc::from(bytes.into_boxed_slice()));
                 log::debug!("BG cached for table {idx} ({rel_path})");
             }
         }
@@ -1524,28 +1533,6 @@ impl App {
                     log::error!("Failed to upsert vbs_patches row for {rel_path}: {e}");
                 }
             }
-        }
-    }
-
-    pub(super) fn preload_images_once(&mut self, ctx: &egui::Context) {
-        if self.images_preloaded {
-            return;
-        }
-        self.images_preloaded = true;
-        let mut count = 0;
-        for (idx, table) in self.tables.iter().enumerate() {
-            if let Some(ref arc) = table.bg_bytes {
-                // Generation-tagged: post-rescan, idx might point at a
-                // different table than before. The new gen forces egui
-                // to refetch and we never reuse a stale `bytes://bg/N`
-                // entry that was registered against the prior scan.
-                let uri = format!("bytes://bg/{}/{idx}", self.scan_generation);
-                ctx.include_bytes(uri, arc.clone());
-                count += 1;
-            }
-        }
-        if count > 0 {
-            log::info!("Preloaded {count} cached images into RAM");
         }
     }
 

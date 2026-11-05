@@ -55,9 +55,116 @@ pub(crate) fn adjust_brightness(img: &mut image::RgbImage, factor: f32) {
     }
 }
 
+/// What `extract_backglass_from_b2s` needs from a `.directb2s`: the
+/// backglass image, the grill height and the Backglass bulbs. Filled from
+/// the strict `directb2s` crate when the file parses, else by
+/// [`read_b2s_lenient`], so a file with a field the crate insists on
+/// (`FileName` missing, `"-1"` where a `u8` is expected) still gets a
+/// thumbnail. These are the only fields used anywhere in PinReady.
+#[derive(Debug, Default, PartialEq)]
+struct B2sData {
+    backglass_image: String,
+    grill_height: String,
+    bulbs: Vec<B2sBulb>,
+}
+
+#[derive(Debug, Default, PartialEq)]
+struct B2sBulb {
+    parent: Option<String>,
+    image: String,
+    loc_x: String,
+    loc_y: String,
+}
+
+impl From<directb2s::DirectB2SData> for B2sData {
+    fn from(d: directb2s::DirectB2SData) -> Self {
+        B2sData {
+            backglass_image: d
+                .images
+                .backglass_image
+                .map(|i| i.value)
+                .unwrap_or_default(),
+            grill_height: d.grill_height.value,
+            bulbs: d
+                .illumination
+                .bulb
+                .unwrap_or_default()
+                .into_iter()
+                .map(|b| B2sBulb {
+                    parent: b.parent,
+                    image: b.image,
+                    loc_x: b.loc_x,
+                    loc_y: b.loc_y,
+                })
+                .collect(),
+        }
+    }
+}
+
+/// Read only the fields of [`B2sData`] from a `.directb2s`, ignoring
+/// everything else and every attribute that is missing or malformed.
+/// Used when the strict `directb2s` parser refuses the file.
+fn read_b2s_lenient<R: std::io::BufRead>(reader: R) -> Option<B2sData> {
+    use quick_xml::events::Event;
+    let mut xml = quick_xml::Reader::from_reader(reader);
+    let mut buf = Vec::new();
+    let mut out = B2sData::default();
+    let mut path: Vec<Vec<u8>> = Vec::new();
+    let mut seen_root = false;
+    loop {
+        let (ev, empty) = match xml.read_event_into(&mut buf) {
+            Ok(Event::Eof) => break,
+            Ok(Event::Start(e)) => (Some(e.into_owned()), false),
+            Ok(Event::Empty(e)) => (Some(e.into_owned()), true),
+            Ok(Event::End(_)) => {
+                path.pop();
+                (None, false)
+            }
+            Ok(_) => (None, false),
+            // A broken document: keep what was read so far if it has an image.
+            Err(_) => break,
+        };
+        buf.clear();
+        let Some(e) = ev else { continue };
+        let name = e.name().as_ref().to_vec();
+        seen_root = true;
+        let attr = |key: &str| -> Option<String> {
+            e.attributes().flatten().find_map(|a| {
+                (a.key.as_ref() == key.as_bytes())
+                    .then(|| {
+                        a.normalized_value(quick_xml::XmlVersion::Implicit1_0)
+                            .ok()
+                            .map(|v| v.into_owned())
+                    })
+                    .flatten()
+            })
+        };
+        let parent = path.last().map(|p| p.as_slice());
+        match (parent, name.as_slice()) {
+            (Some(b"Images"), b"BackglassImage") => {
+                out.backglass_image = attr("Value").unwrap_or_default();
+            }
+            (Some(b"Illumination"), b"Bulb") => out.bulbs.push(B2sBulb {
+                parent: attr("Parent"),
+                image: attr("Image").unwrap_or_default(),
+                loc_x: attr("LocX").unwrap_or_default(),
+                loc_y: attr("LocY").unwrap_or_default(),
+            }),
+            (Some(_), b"GrillHeight") => {
+                out.grill_height = attr("Value").unwrap_or_default();
+            }
+            _ => {}
+        }
+        if !empty {
+            path.push(name);
+        }
+    }
+    (seen_root && !out.backglass_image.is_empty()).then_some(out)
+}
+
 /// Composite a single bulb sprite onto the base image at 50% opacity.
 /// Only composites bulbs with Parent="Backglass".
-fn composite_bulb(base: &mut image::RgbaImage, bulb: &directb2s::Bulb) {
+fn composite_bulb(base: &mut image::RgbaImage, bulb: &B2sBulb) {
     // Only Backglass bulbs
     match &bulb.parent {
         Some(p) if p == "Backglass" => {}
@@ -192,25 +299,40 @@ pub fn extract_backglass_from_b2s(directb2s_path: &Path) -> Option<Vec<u8>> {
         }
     };
     let reader = BufReader::new(file);
-    let data = match directb2s::read(reader) {
-        Ok(d) => d,
-        Err(e) => {
-            log::error!("Failed to parse {}: {e}", directb2s_path.display());
-            return None;
+    let data: B2sData = match directb2s::read(reader) {
+        Ok(d) => d.into(),
+        Err(strict) => {
+            // The strict parser insists on fields we never use. Read the
+            // few we need on our own before giving up on the file.
+            let again = std::fs::File::open(directb2s_path)
+                .ok()
+                .and_then(|f| read_b2s_lenient(BufReader::new(f)));
+            match again {
+                Some(d) => {
+                    log::warn!(
+                        "{}: strict parse failed ({strict}); read the backglass leniently",
+                        directb2s_path.display()
+                    );
+                    d
+                }
+                None => {
+                    log::error!("Failed to parse {}: {strict}", directb2s_path.display());
+                    return None;
+                }
+            }
         }
     };
 
     // Step 1: Load base backglass image
-    let bg_image = data.images.backglass_image.as_ref()?;
-    if bg_image.value.is_empty() || bg_image.value == "[stripped]" {
+    if data.backglass_image.is_empty() || data.backglass_image == "[stripped]" {
         log::warn!("No backglass image data in {}", directb2s_path.display());
         return None;
     }
 
-    let img = decode_b64_image(&bg_image.value)?;
+    let img = decode_b64_image(&data.backglass_image)?;
 
     // Step 2: Crop grill/DMD area
-    let grill_height: u32 = data.grill_height.value.parse().unwrap_or(0);
+    let grill_height: u32 = data.grill_height.trim().parse().unwrap_or(0);
     let crop_height = if grill_height > 0 && grill_height < img.height() {
         img.height() - grill_height
     } else {
@@ -220,8 +342,9 @@ pub fn extract_backglass_from_b2s(directb2s_path: &Path) -> Option<Vec<u8>> {
     let mut rgba = cropped.to_rgba8();
 
     // Step 3: Composite Backglass bulbs at 50% opacity
-    let bulb_count = if let Some(ref bulbs) = data.illumination.bulb {
-        let bg_bulbs: Vec<_> = bulbs
+    let bulb_count = {
+        let bg_bulbs: Vec<_> = data
+            .bulbs
             .iter()
             .filter(|b| {
                 b.parent.as_deref() == Some("Backglass")
@@ -230,17 +353,17 @@ pub fn extract_backglass_from_b2s(directb2s_path: &Path) -> Option<Vec<u8>> {
             })
             .collect();
         let count = bg_bulbs.len();
-        log::info!(
-            "Compositing {} Backglass bulbs at {}% opacity",
-            count,
-            (BULB_OPACITY * 100.0) as u32
-        );
-        for bulb in bulbs {
+        if count > 0 {
+            log::info!(
+                "Compositing {} Backglass bulbs at {}% opacity",
+                count,
+                (BULB_OPACITY * 100.0) as u32
+            );
+        }
+        for bulb in &data.bulbs {
             composite_bulb(&mut rgba, bulb);
         }
         count
-    } else {
-        0
     };
 
     // Step 4: Normalize brightness by median luminosity
@@ -401,6 +524,29 @@ pub fn extract_backglass_from_vpx(vpx_path: &Path) -> Option<Vec<u8>> {
 /// than PNG, ~2× smaller than WebP lossless.
 const BG_JPEG_QUALITY: u8 = 85;
 
+/// Grid tile size. Stored apart from the full image (`backglass.thumb`)
+/// and kept in the GPU for every table, so scrolling the grid never waits
+/// for a decode: 480×384×4 bytes ≈ 0.74 MB per table.
+pub const THUMB_WIDTH: u32 = 480;
+pub const THUMB_HEIGHT: u32 = 384;
+
+/// The grid thumbnail of an encoded backglass (any format the `image`
+/// crate reads): fitted in `THUMB_WIDTH`×`THUMB_HEIGHT`, never enlarged,
+/// JPEG. `None` if the bytes do not decode.
+pub fn make_thumbnail(image_bytes: &[u8]) -> Option<Vec<u8>> {
+    let img = image::load_from_memory(image_bytes).ok()?;
+    let small = if img.width() <= THUMB_WIDTH && img.height() <= THUMB_HEIGHT {
+        img
+    } else {
+        img.resize(
+            THUMB_WIDTH,
+            THUMB_HEIGHT,
+            image::imageops::FilterType::Triangle,
+        )
+    };
+    encode_jpeg(&small)
+}
+
 /// Encode a [`image::DynamicImage`] as JPEG bytes at `BG_JPEG_QUALITY`
 /// for the SQLite cache. Uses `image::codecs::jpeg::JpegEncoder` because
 /// `DynamicImage::write_to(ImageFormat::Jpeg)` doesn't expose a quality
@@ -529,5 +675,90 @@ mod tests {
         // Same PNG with whitespace injected
         let png_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAf\n FcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
         assert!(decode_b64_image(png_b64).is_some());
+    }
+
+    // --- lenient .directb2s reader ---
+
+    const B2S_ODD: &str = r#"<?xml version="1.0" encoding="utf-8"?>
+<DirectB2SData Version="1.2">
+  <Name Value="odd"/>
+  <Images>
+    <BackglassOffImage Value="ignored"/>
+    <BackglassImage Value="IMGDATA"/>
+    <ThumbnailImage Value="ignored"/>
+  </Images>
+  <GrillHeight Value=" 120 "/>
+  <Illumination>
+    <Bulb ID="1" Parent="Backglass" Image="BULB1" LocX="10" LocY="20" RomIDType="-1" DualMode="-1"/>
+    <Bulb ID="2" Parent="DMD" Image="BULB2" LocX="1" LocY="2"/>
+    <Bulb ID="3" Image="BULB3"/>
+  </Illumination>
+</DirectB2SData>"#;
+
+    #[test]
+    fn lenient_reader_takes_what_the_strict_parser_refuses() {
+        // No FileName on BackglassImage and "-1" where the crate wants a u8.
+        assert!(directb2s::read(std::io::Cursor::new(B2S_ODD)).is_err());
+        let d = read_b2s_lenient(std::io::Cursor::new(B2S_ODD)).unwrap();
+        assert_eq!(d.backglass_image, "IMGDATA");
+        assert_eq!(d.grill_height.trim(), "120");
+        assert_eq!(d.bulbs.len(), 3);
+        assert_eq!(
+            d.bulbs[0],
+            B2sBulb {
+                parent: Some("Backglass".into()),
+                image: "BULB1".into(),
+                loc_x: "10".into(),
+                loc_y: "20".into(),
+            }
+        );
+        assert_eq!(d.bulbs[1].parent.as_deref(), Some("DMD"));
+        assert_eq!(d.bulbs[2].parent, None);
+        assert_eq!(d.bulbs[2].loc_x, "");
+    }
+
+    #[test]
+    fn lenient_reader_needs_a_backglass_image() {
+        let no_image = "<DirectB2SData><Images/><GrillHeight Value=\"1\"/></DirectB2SData>";
+        assert!(read_b2s_lenient(std::io::Cursor::new(no_image)).is_none());
+        assert!(read_b2s_lenient(std::io::Cursor::new("not xml at all")).is_none());
+        assert!(read_b2s_lenient(std::io::Cursor::new("")).is_none());
+    }
+
+    #[test]
+    fn lenient_reader_keeps_the_image_of_a_truncated_file() {
+        let cut = &B2S_ODD[..B2S_ODD.find("<Illumination>").unwrap() + 20];
+        let d = read_b2s_lenient(std::io::Cursor::new(cut)).unwrap();
+        assert_eq!(d.backglass_image, "IMGDATA");
+        assert!(d.bulbs.is_empty());
+    }
+
+    // --- grid thumbnails ---
+
+    fn png_of(w: u32, h: u32) -> Vec<u8> {
+        let img = image::DynamicImage::ImageRgb8(RgbImage::from_pixel(w, h, Rgb([90, 40, 160])));
+        let mut buf = Vec::new();
+        img.write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
+            .unwrap();
+        buf
+    }
+
+    #[test]
+    fn thumbnail_fits_the_tile_and_keeps_the_ratio() {
+        let t = make_thumbnail(&png_of(1280, 720)).unwrap();
+        let img = image::load_from_memory(&t).unwrap();
+        assert_eq!(img.width(), THUMB_WIDTH);
+        assert_eq!(img.height(), 270);
+        let tall = image::load_from_memory(&make_thumbnail(&png_of(1146, 1024)).unwrap()).unwrap();
+        assert_eq!(tall.height(), THUMB_HEIGHT);
+        assert!(tall.width() < THUMB_WIDTH);
+    }
+
+    #[test]
+    fn thumbnail_never_enlarges_and_refuses_garbage() {
+        let small = image::load_from_memory(&make_thumbnail(&png_of(200, 100)).unwrap()).unwrap();
+        assert_eq!((small.width(), small.height()), (200, 100));
+        assert!(make_thumbnail(b"not an image").is_none());
+        assert!(make_thumbnail(&[]).is_none());
     }
 }

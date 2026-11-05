@@ -181,6 +181,7 @@ const ABOUT_PEOPLE_THANKS: &[&str] = &[
 /// every `scan_tables()` so receiver can drop stale messages from a
 /// previous scan whose indices no longer match the current grid.
 pub type BgExtraction = (u64, usize, String, Vec<u8>, i64);
+// The `Vec<u8>` is the grid thumbnail (JPEG), not the full picture.
 
 /// A completed VBS-patch classification+apply result: (rel_path,
 /// embedded_sha256, sidecar_sha256, status, last_checked_mtime).
@@ -192,11 +193,12 @@ pub type VbsPatchRecord = (String, String, Option<String>, String, i64);
 pub struct TableEntry {
     pub path: std::path::PathBuf,
     pub name: String,
-    /// Backglass image bytes (JPEG/PNG/WebP depending on source) loaded
-    /// from the SQLite cache on scan, or `None` if extraction is pending
-    /// or nothing could be found. When `None`, the grid renders a
-    /// localized placeholder with instructions.
-    pub bg_bytes: Option<std::sync::Arc<[u8]>>,
+    /// `true` once the table has a backglass thumbnail (from the SQLite
+    /// cache on scan, or just made by a worker); `false` while extraction
+    /// is pending or when nothing could be found, in which case the grid
+    /// renders a localized placeholder with instructions. The pictures
+    /// themselves live in `bg_cache` (see `bgcache.rs`).
+    pub has_bg: bool,
     /// `true` when the live VPSDB `Game.updated_at` has moved past the
     /// value we stored at link time → a fresher version of this table
     /// (or its metadata/media) is published in the catalog. Surfaced in
@@ -394,7 +396,9 @@ pub struct App {
     scroll_to_selected: bool, // set by joystick navigation to trigger scroll
     last_scroll_target: Option<f32>, // last forced vertical scroll offset — skip reset when the target hasn't moved
     launcher_cols: usize,            // number of columns in the grid (computed in render)
-    images_preloaded: bool,
+    // Backglass pictures: thumbnails for every table in the GPU, the page
+    // on screen full size in the GPU, its neighbours in RAM.
+    bg_cache: bgcache::BgCache,
     // User theme preference, cycled from the topbar/wizard toggle. Purely
     // in-memory (starts at System every launch) — no persistence yet.
     theme_pref: egui::ThemePreference,
@@ -819,7 +823,7 @@ impl App {
             scroll_to_selected: false,
             last_scroll_target: None,
             launcher_cols: 1,
-            images_preloaded: false,
+            bg_cache: bgcache::BgCache::new(),
             theme_pref: egui::ThemePreference::System, // from the DB in `theme_pref`
             zoom_saved: None,
             about_open: false,
@@ -1828,6 +1832,7 @@ impl App {
 
 mod audio_page;
 mod autostart;
+mod bgcache;
 mod desktop_integration;
 mod help;
 mod inputs_page;

@@ -32,10 +32,9 @@ impl App {
         // About window: painted on top of everything when open.
         self.render_about_window(ui.ctx());
 
-        self.process_bg_extraction(ui.ctx());
+        self.process_bg_extraction();
         self.process_vbs_extraction();
         self.process_preview_audio(ui.ctx());
-        self.preload_images_once(ui.ctx());
         // Process VPX status before the joystick handler so the post-exit
         // input grace window (armed in `process_vpx_status`) is already set
         // on the very first frame `vpx_running` reads false — otherwise the
@@ -271,8 +270,7 @@ impl App {
                         if let Err(e) = self.db.clear_vbs_patches() {
                             log::error!("clear_vbs_patches failed: {e}");
                         }
-                        self.tables.iter_mut().for_each(|t| t.bg_bytes = None);
-                        self.images_preloaded = false;
+                        self.tables.iter_mut().for_each(|t| t.has_bg = false);
                         self.scan_tables();
                     }
 
@@ -568,6 +566,8 @@ impl App {
             }
         }
 
+        // Positions (in `filtered`) of the cards drawn on screen this frame.
+        let mut visible_pos: Vec<usize> = Vec::new();
         scroll_area.show(ui, |ui| {
             for row_start in (0..filtered.len()).step_by(cols) {
                 // Center the row
@@ -589,6 +589,9 @@ impl App {
                             egui::vec2(card_width, card_height),
                             egui::Sense::click(),
                         );
+                        if ui.is_rect_visible(rect) {
+                            visible_pos.push(fi);
+                        }
 
                         // Only let hover drive selection when the cursor is actively
                         // moving. If the user presses a flipper/magna (no mouse motion),
@@ -641,17 +644,21 @@ impl App {
                             rect.min + egui::vec2(4.0, 4.0),
                             egui::vec2(card_width - 8.0, img_height - 8.0),
                         );
-                        if table.bg_bytes.is_some() {
-                            // Generation-tagged URI matches what
-                            // `process_bg_extraction` and the preload
-                            // path register, so post-rescan the cell
-                            // pulls the fresh JPEG instead of whatever
-                            // was at this index in the previous scan.
-                            let uri = format!("bytes://bg/{}/{idx}", self.scan_generation);
-                            let img = egui::Image::new(uri)
+                        if table.has_bg {
+                            // The thumbnail made for the grid, in the GPU
+                            // for every table (see `bgcache`); a plain tile
+                            // while it is still on its way.
+                            if let Some(tex) = self.bg_cache.thumb(idx) {
+                                egui::Image::from_texture(egui::load::SizedTexture::new(
+                                    tex.id(),
+                                    tex.size_vec2(),
+                                ))
                                 .shrink_to_fit()
-                                .corner_radius(egui::CornerRadius::same(4));
-                            img.paint_at(ui, img_area);
+                                .corner_radius(egui::CornerRadius::same(4))
+                                .paint_at(ui, img_area);
+                            } else {
+                                painter.rect_filled(img_area, 4.0, p.bg);
+                            }
                         } else {
                             // Localized "missing image" placeholder. Tells the user
                             // exactly which two filenames they can drop in to fix
@@ -764,6 +771,45 @@ impl App {
             }
         });
 
+        // Which pictures to hold: the page on screen (plus the selection, if
+        // it was jumped to) in the GPU at full size, the page before and the
+        // page after in RAM.
+        {
+            let on_screen: Vec<usize> = {
+                let mut v: Vec<usize> = visible_pos.iter().map(|&fi| filtered[fi]).collect();
+                if let Some(sel) = self
+                    .tables
+                    .get(self.selected_table)
+                    .map(|_| self.selected_table)
+                    && !v.contains(&sel)
+                {
+                    v.push(sel);
+                }
+                v
+            };
+            let mut near: Vec<usize> = Vec::new();
+            if let (Some(&first), Some(&last)) = (visible_pos.first(), visible_pos.last()) {
+                let page = last - first + 1;
+                near.extend(filtered[first.saturating_sub(page)..first].iter().copied());
+                near.extend(
+                    filtered[(last + 1).min(filtered.len())..(last + 1 + page).min(filtered.len())]
+                        .iter()
+                        .copied(),
+                );
+            }
+            let tables_dir = self.tables_dir.clone();
+            let paths: Vec<std::path::PathBuf> =
+                self.tables.iter().map(|t| t.path.clone()).collect();
+            let rel = move |idx: usize| -> Option<String> {
+                paths
+                    .get(idx)?
+                    .strip_prefix(&tables_dir)
+                    .ok()
+                    .map(|p| p.to_string_lossy().into_owned())
+            };
+            self.bg_cache.update(ui.ctx(), &on_screen, &near, &rel);
+        }
+
         if let Some(idx) = launch_idx {
             self.selected_table = idx;
             let path = self.tables[idx].path.clone();
@@ -828,21 +874,23 @@ impl App {
         ui: &mut egui::Ui,
         uri: &str,
         table_name: &str,
-        bg_bytes: Option<&std::sync::Arc<[u8]>>,
+        bg: Option<&egui::TextureHandle>,
     ) {
         let ctx = ui.ctx().clone();
         Self::diag_cover_focus(&ctx, "backglass");
-        Self::log_backglass_cover(&ctx, uri, table_name, bg_bytes.is_some());
-        egui_extras::install_image_loaders(&ctx);
+        Self::log_backglass_cover(&ctx, uri, table_name, bg.is_some());
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE.fill(egui::Color32::BLACK))
             .show(ui, |ui| {
-                if let Some(bytes) = bg_bytes {
-                    // Normally already registered by the list; a
-                    // no-op then (egui keeps the first bytes).
-                    ctx.include_bytes(uri.to_owned(), bytes.clone());
+                if let Some(tex) = bg {
                     ui.centered_and_justified(|ui| {
-                        ui.add(egui::Image::new(uri.to_owned()).shrink_to_fit());
+                        ui.add(
+                            egui::Image::from_texture(egui::load::SizedTexture::new(
+                                tex.id(),
+                                tex.size_vec2(),
+                            ))
+                            .shrink_to_fit(),
+                        );
                     });
                 } else {
                     ui.centered_and_justified(|ui| {
@@ -875,13 +923,10 @@ impl App {
         {
             let selected = self.selected_table.min(self.tables.len() - 1);
             let table_name = self.tables[selected].name.clone();
-            let bg_bytes = self.tables[selected].bg_bytes.clone();
-            // The playfield list's own URI for this row: generation-tagged, so
-            // a rescan that reorders rows never serves the previous scan's
-            // picture (egui keeps the first bytes and texture registered
-            // under a URI), and the decoded texture is shared with the list
-            // instead of uploaded a second time.
-            let uri = format!("bytes://bg/{}/{selected}", self.scan_generation);
+            // The full picture if the page's pictures are in the GPU, else
+            // its thumbnail, else nothing yet (the cover shows the name).
+            let bg_tex = self.bg_cache.best(selected);
+            let uri = format!("table {}/{selected}", self.scan_generation);
 
             let bg_viewport_id = egui::ViewportId::from_hash_of(BG_VIEWPORT);
             let builder = egui::ViewportBuilder::default()
@@ -900,13 +945,13 @@ impl App {
             if BACKGLASS_COVER_IMMEDIATE {
                 ui.ctx()
                     .show_viewport_immediate(bg_viewport_id, builder, move |ui, _class| {
-                        Self::paint_backglass_cover(ui, &uri, &table_name, bg_bytes.as_ref());
+                        Self::paint_backglass_cover(ui, &uri, &table_name, bg_tex.as_ref());
                     });
             } else {
                 ui.ctx().request_repaint_of(bg_viewport_id);
                 ui.ctx()
                     .show_viewport_deferred(bg_viewport_id, builder, move |ui, _class| {
-                        Self::paint_backglass_cover(ui, &uri, &table_name, bg_bytes.as_ref());
+                        Self::paint_backglass_cover(ui, &uri, &table_name, bg_tex.as_ref());
                     });
             }
         }

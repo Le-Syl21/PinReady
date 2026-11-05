@@ -19,7 +19,7 @@
 //!    The same worker that may have just installed `medias/bg.png`
 //!    in step 2 then reads it in step 3b — no cross-thread file
 //!    race possible.
-//! 4. **DB write** — `set_backglass(rel_path, bytes, source_mtime)`
+//! 4. **DB write** — `set_backglass(rel_path, bytes, thumb, source_mtime)`
 //!    and `set_vps_link(...)` on the worker's own DB connection
 //!    (WAL mode lets multiple writers commit concurrently).
 //! 5. **UI signal** — emit `BgExtraction` on `bg_tx` so the launcher
@@ -273,16 +273,68 @@ fn process_table(
         })
         .or_else(|| crate::assets::extract_backglass_from_vpx(&job.vpx_path));
 
-    // 4 + 5. DB write + UI signal.
+    // 4 + 5. Thumbnail, DB write, UI signal. The thumbnail is what the grid
+    // shows; the full picture only goes to the database (and from there to
+    // the GPU when its tile is on screen, see `app::bgcache`). The write
+    // is done here, on the worker's own connection, not on the UI thread.
     if let Some(bytes) = bytes {
         let rel_path = job
             .vpx_path
             .strip_prefix(tables_root)
             .map(|p| p.to_string_lossy().into_owned())
             .unwrap_or_else(|_| job.vpx_path.to_string_lossy().into_owned());
-        let _ = bg_tx.send((generation, job.idx, rel_path, bytes, job.source_mtime));
+        let thumb = crate::assets::make_thumbnail(&bytes);
+        if let Err(e) = db.set_backglass(&rel_path, &bytes, thumb.as_deref(), job.source_mtime) {
+            log::error!("Failed to cache backglass for {rel_path}: {e}");
+        }
+        if let Some(thumb) = thumb {
+            let _ = bg_tx.send((generation, job.idx, rel_path, thumb, job.source_mtime));
+        }
     }
     Ok(())
+}
+
+/// Thumbnails for the rows cached before `backglass.thumb` existed: read
+/// each full picture from the database, make its thumbnail, store it and
+/// signal the UI like a worker would. One thread, its own connection.
+pub fn spawn_thumb_backfill(
+    rows: Vec<(usize, String, i64)>,
+    bg_tx: Sender<BgExtraction>,
+    cancel: Arc<AtomicBool>,
+    generation: u64,
+) {
+    if rows.is_empty() {
+        return;
+    }
+    log::info!("Making {} missing thumbnails in the background", rows.len());
+    let _ = std::thread::Builder::new()
+        .name(format!("pinready-thumbs-{generation}"))
+        .spawn(move || {
+            let Ok(db) = Database::open(None) else {
+                log::error!("thumbnail backfill: cannot open the DB");
+                return;
+            };
+            for (idx, rel_path, mtime) in rows {
+                if cancel.load(Ordering::Relaxed) {
+                    return;
+                }
+                let Some((full, _)) = db.get_backglass(&rel_path) else {
+                    continue;
+                };
+                let Some(thumb) = crate::assets::make_thumbnail(&full) else {
+                    continue;
+                };
+                if let Err(e) = db.set_thumb(&rel_path, &thumb) {
+                    log::error!("Failed to store thumbnail of {rel_path}: {e}");
+                }
+                if bg_tx
+                    .send((generation, idx, rel_path, thumb, mtime))
+                    .is_err()
+                {
+                    return;
+                }
+            }
+        });
 }
 
 /// Download + write the asset only if `medias/<filename>` doesn't

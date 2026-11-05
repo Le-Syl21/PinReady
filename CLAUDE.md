@@ -88,7 +88,7 @@ src/
   inputs.rs          # Joystick thread (SDL3), controller profile detection, input actions
   tilt.rs            # Tilt/nudge sensitivity settings
   audio.rs           # Audio device detection, routing, ogg/mp3 playback thread
-  assets.rs          # Backglass extraction + cache
+  assets.rs          # Backglass extraction + cache; `make_thumbnail` (480×384 JPEG for the grid); lenient `.directb2s` reader when the strict `directb2s` crate refuses a file
   config.rs          # VPinballX.ini read/write (preserves comments via ini-preserve)
   db.rs              # SQLite: tables catalog + PinReady config (wizard_completed, display_anchor_*, etc.)
   updater.rs         # VPX-fork auto-install from GitHub releases
@@ -98,6 +98,7 @@ src/
     mod.rs            # App struct, eframe::App impl, kiosk cursor loop, launch-time reconcile
     launcher.rs       # VPX subprocess mgmt, status polling, joystick nav, driver pinning
     launcher_ui.rs    # Grid view, secondary viewports (BG/DMD/Topper covers)
+    bgcache.rs        # Backglass pictures: grid thumbnails of every table in the GPU, the page on screen at full size in the GPU, the pages before/after decoded in RAM (4 decoder threads)
     screens_page.rs   # Wizard: screens + cabinet dimensions + VPX install
     rendering_page.rs # Wizard: sync mode / max framerate / AA / FPS overlay / round ball
     inputs_page.rs    # Wizard: controller profile + keyboard & joystick capture (two columns)

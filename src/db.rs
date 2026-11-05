@@ -112,6 +112,34 @@ impl Database {
                 .context("Failed to add cached_at_mtime column")?;
         }
 
+        // v4 → v5: add `thumb` to backglass (grid tiles no longer share the
+        // full-size image: it filled the GPU with 2000+ textures of 5 MB).
+        let has_thumb_col: bool = self
+            .conn
+            .query_row(
+                "SELECT 1 FROM pragma_table_info('backglass')
+                 WHERE name = 'thumb' LIMIT 1",
+                [],
+                |row| row.get::<_, i32>(0),
+            )
+            .map(|_| true)
+            .unwrap_or(false);
+        let backglass_exists: bool = self
+            .conn
+            .query_row(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='backglass'",
+                [],
+                |row| row.get::<_, i32>(0),
+            )
+            .map(|_| true)
+            .unwrap_or(false);
+        if backglass_exists && !has_thumb_col {
+            log::info!("Adding thumb column to backglass (schema upgrade to v5)");
+            self.conn
+                .execute("ALTER TABLE backglass ADD COLUMN thumb BLOB", [])
+                .context("Failed to add thumb column")?;
+        }
+
         // v3 → v4: add `update_available` to vps_link. Set by the catalog
         // worker when the live `Game.updated_at` has moved past the value
         // we stored at link time → surfaced in the launcher as a "↑"
@@ -177,13 +205,17 @@ impl Database {
             -- stored as-is when the source was a user override at
             -- `<table_dir>/medias/launcher.(png|webp|jpg|jpeg)` or
             -- `<table_dir>/medias/bg.png` (vpinmediadb).
+            -- `thumb` is the small grid tile made from `image` (JPEG, see
+            -- `assets::THUMB_WIDTH`); NULL on rows cached before the column
+            -- existed, filled in the background at the next launch.
             -- `cached_at_mtime` is the Unix-seconds mtime of the source
             -- file at extraction time; the scanner re-extracts when any
             -- candidate source file on disk is newer.
             CREATE TABLE IF NOT EXISTS backglass (
                 rel_path        TEXT    PRIMARY KEY,
                 image           BLOB    NOT NULL,
-                cached_at_mtime INTEGER NOT NULL DEFAULT 0
+                cached_at_mtime INTEGER NOT NULL DEFAULT 0,
+                thumb           BLOB
             );
 
             -- jsm174/vpx-standalone-scripts catalog cache. Single-row
@@ -266,21 +298,81 @@ impl Database {
     }
 
     /// Upsert an encoded backglass image (JPEG/PNG/WebP depending on
-    /// source) for a table's relative path. `source_mtime` is the Unix
-    /// seconds mtime of the file we extracted from — stored so the next
-    /// scan can detect user-dropped launcher.* overrides without a
-    /// manual rescan.
-    pub fn set_backglass(&self, rel_path: &str, image: &[u8], source_mtime: i64) -> Result<()> {
+    /// source) and its grid thumbnail for a table's relative path.
+    /// `source_mtime` is the Unix seconds mtime of the file we extracted
+    /// from — stored so the next scan can detect user-dropped launcher.*
+    /// overrides without a manual rescan.
+    pub fn set_backglass(
+        &self,
+        rel_path: &str,
+        image: &[u8],
+        thumb: Option<&[u8]>,
+        source_mtime: i64,
+    ) -> Result<()> {
         self.conn
             .execute(
-                "INSERT INTO backglass (rel_path, image, cached_at_mtime)
-                 VALUES (?1, ?2, ?3)
+                "INSERT INTO backglass (rel_path, image, cached_at_mtime, thumb)
+                 VALUES (?1, ?2, ?3, ?4)
                  ON CONFLICT(rel_path) DO UPDATE
                  SET image = excluded.image,
-                     cached_at_mtime = excluded.cached_at_mtime",
-                rusqlite::params![rel_path, image, source_mtime],
+                     cached_at_mtime = excluded.cached_at_mtime,
+                     thumb = excluded.thumb",
+                rusqlite::params![rel_path, image, source_mtime, thumb],
             )
             .context("Failed to insert backglass row")?;
+        Ok(())
+    }
+
+    /// Every cached grid thumbnail: `rel_path -> (thumb bytes,
+    /// cached_at_mtime)`. One query at launch: thumbnails are small
+    /// (~20 KB), unlike the full images that `get_backglass` reads one by one.
+    pub fn get_all_thumbs(&self) -> std::collections::HashMap<String, (Vec<u8>, i64)> {
+        let mut out = std::collections::HashMap::new();
+        let Ok(mut stmt) = self.conn.prepare(
+            "SELECT rel_path, thumb, cached_at_mtime FROM backglass WHERE thumb IS NOT NULL",
+        ) else {
+            return out;
+        };
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, Vec<u8>>(1)?,
+                row.get::<_, i64>(2)?,
+            ))
+        });
+        if let Ok(rows) = rows {
+            for (rel, thumb, mtime) in rows.flatten() {
+                out.insert(rel, (thumb, mtime));
+            }
+        }
+        out
+    }
+
+    /// Rows cached before the `thumb` column existed: `(rel_path,
+    /// cached_at_mtime)`. The launcher makes their thumbnails in the
+    /// background from the stored full image.
+    pub fn list_without_thumb(&self) -> Vec<(String, i64)> {
+        let Ok(mut stmt) = self
+            .conn
+            .prepare("SELECT rel_path, cached_at_mtime FROM backglass WHERE thumb IS NULL")
+        else {
+            return Vec::new();
+        };
+        stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        })
+        .map(|rows| rows.flatten().collect())
+        .unwrap_or_default()
+    }
+
+    /// Store the thumbnail of an already cached backglass.
+    pub fn set_thumb(&self, rel_path: &str, thumb: &[u8]) -> Result<()> {
+        self.conn
+            .execute(
+                "UPDATE backglass SET thumb = ?2 WHERE rel_path = ?1",
+                rusqlite::params![rel_path, thumb],
+            )
+            .context("Failed to store backglass thumbnail")?;
         Ok(())
     }
 
@@ -850,5 +942,52 @@ mod tests {
         // …but the playfield is still lying flat, so the wizard comes back
         // the right way up instead of sideways.
         assert_eq!(db.get_config("ui_rotation").as_deref(), Some("90"));
+    }
+
+    #[test]
+    fn backglass_thumbnail_round_trip() {
+        let db = temp_db();
+        db.set_backglass("A/a.vpx", b"full-a", Some(b"thumb-a"), 10)
+            .unwrap();
+        db.set_backglass("B/b.vpx", b"full-b", None, 20).unwrap();
+        let all = db.get_all_thumbs();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all["A/a.vpx"], (b"thumb-a".to_vec(), 10));
+        // A row without a thumbnail is listed for the background fill, with
+        // the mtime it was cached at; its full picture is still readable.
+        assert_eq!(db.list_without_thumb(), vec![("B/b.vpx".to_string(), 20)]);
+        assert_eq!(db.get_backglass("B/b.vpx"), Some((b"full-b".to_vec(), 20)));
+        db.set_thumb("B/b.vpx", b"thumb-b").unwrap();
+        assert!(db.list_without_thumb().is_empty());
+        assert_eq!(db.get_all_thumbs().len(), 2);
+        // Re-extraction replaces both.
+        db.set_backglass("A/a.vpx", b"full-a2", Some(b"thumb-a2"), 30)
+            .unwrap();
+        assert_eq!(db.get_all_thumbs()["A/a.vpx"], (b"thumb-a2".to_vec(), 30));
+    }
+
+    #[test]
+    fn old_backglass_table_gains_the_thumb_column() {
+        let db = temp_db();
+        // Rebuild the v4 shape (no `thumb`), with a row, then migrate again.
+        db.conn.execute("DROP TABLE backglass", []).unwrap();
+        db.conn
+            .execute(
+                "CREATE TABLE backglass (
+                    rel_path TEXT PRIMARY KEY,
+                    image BLOB NOT NULL,
+                    cached_at_mtime INTEGER NOT NULL DEFAULT 0
+                )",
+                [],
+            )
+            .unwrap();
+        db.conn
+            .execute(
+                "INSERT INTO backglass (rel_path, image, cached_at_mtime) VALUES ('x.vpx', x'01', 5)",
+                [],
+            )
+            .unwrap();
+        db.migrate().unwrap();
+        assert_eq!(db.list_without_thumb(), vec![("x.vpx".to_string(), 5)]);
     }
 }

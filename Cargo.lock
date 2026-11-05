@@ -3586,6 +3586,7 @@ dependencies = [
  "objc2-io-kit",
  "percent-encoding",
  "piaf",
+ "quick-xml 0.41.0",
  "regex",
  "rfd",
  "rusqlite",
