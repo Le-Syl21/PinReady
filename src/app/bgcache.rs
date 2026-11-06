@@ -75,6 +75,9 @@ pub struct BgCache {
     full_ready: Vec<(usize, ColorImage)>,
     inflight_full: HashSet<usize>,
     inflight_thumbs: usize,
+    /// Everything was freed for a running VPX: nothing is decoded or
+    /// uploaded until [`restore`](Self::restore).
+    released: bool,
 }
 
 impl BgCache {
@@ -145,6 +148,7 @@ impl BgCache {
             full_ready: Vec::new(),
             inflight_full: HashSet::new(),
             inflight_thumbs: 0,
+            released: false,
         }
     }
 
@@ -159,6 +163,42 @@ impl BgCache {
         self.full_ready.clear();
         self.inflight_full.clear();
         self.inflight_thumbs = 0;
+    }
+
+    /// Frees every picture held in the GPU and in RAM, to leave the room to a
+    /// VPX that is starting, and stops loading more until [`restore`].
+    /// `keep` is the full picture of one table that stays in the GPU (the
+    /// cover shown while VPX loads); release it with a second call.
+    ///
+    /// The numbering moves on, so the decodes still in flight are dropped when
+    /// they come back.
+    ///
+    /// [`restore`]: Self::restore
+    pub fn release(&mut self, keep: Option<usize>) {
+        self.generation += 1;
+        let kept = keep.and_then(|idx| self.gpu.remove(&idx).map(|tex| (idx, tex)));
+        self.thumbs.iter_mut().for_each(|t| *t = None);
+        self.thumb_ready.clear();
+        self.gpu.clear();
+        self.ram.clear();
+        self.full_ready.clear();
+        self.inflight_full.clear();
+        self.inflight_thumbs = 0;
+        self.released = true;
+        if let Some((idx, tex)) = kept {
+            self.gpu.insert(idx, tex);
+        }
+    }
+
+    /// VPX is gone: pictures are loaded again. The thumbnails have to be
+    /// queued again by the caller (they come from the database), the full
+    /// pictures follow the page on screen as usual.
+    pub fn restore(&mut self) {
+        self.released = false;
+    }
+
+    pub fn is_released(&self) -> bool {
+        self.released
     }
 
     /// Ask for the thumbnail of table `idx` to be decoded and uploaded.
@@ -197,6 +237,9 @@ impl BgCache {
         near: &[usize],
         rel_path: &dyn Fn(usize) -> Option<String>,
     ) {
+        if self.released {
+            return;
+        }
         let mut got = 0usize;
         while let Ok(d) = self.res_rx.try_recv() {
             got += 1;
@@ -298,5 +341,42 @@ impl BgCache {
 impl Default for BgCache {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn nothing_is_loaded_while_released_and_loading_resumes_after_restore() {
+        let ctx = egui::Context::default();
+        let mut cache = BgCache::new();
+        cache.reset(1, 3);
+        let rel = |idx: usize| Some(format!("table{idx}"));
+
+        cache.release(None);
+        assert!(cache.is_released());
+        cache.update(&ctx, &[0, 1], &[2], &rel);
+        assert!(
+            cache.inflight_full.is_empty(),
+            "a released cache must not ask for pictures"
+        );
+
+        cache.restore();
+        cache.update(&ctx, &[0, 1], &[2], &rel);
+        assert_eq!(cache.inflight_full.len(), 3);
+    }
+
+    #[test]
+    fn release_forgets_what_was_in_flight() {
+        let mut cache = BgCache::new();
+        cache.reset(1, 2);
+        cache.queue_thumb(0, Arc::from(&[][..]));
+        let before = cache.generation;
+        cache.release(None);
+        assert_eq!(cache.inflight_thumbs, 0);
+        assert!(cache.generation > before);
+        assert!(cache.thumb(0).is_none());
     }
 }

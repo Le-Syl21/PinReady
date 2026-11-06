@@ -9,6 +9,7 @@ impl App {
         match page {
             WizardPage::Screens => self.save_screens(),
             WizardPage::Rendering => self.save_rendering(),
+            WizardPage::ThreeD => self.save_threed(),
             WizardPage::Inputs => self.save_inputs(),
             WizardPage::Outputs => {
                 // The one thing this page owns: whether head tracking runs.
@@ -219,6 +220,10 @@ impl App {
             "BallAntiStretch",
             if self.ball_antistretch { 1 } else { 0 },
         );
+    }
+
+    pub(super) fn save_threed(&mut self) {
+        self.threed.save(&mut self.config);
     }
 
     pub(super) fn save_inputs(&mut self) {

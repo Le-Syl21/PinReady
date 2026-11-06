@@ -422,6 +422,7 @@ impl App {
         // Save ALL pages
         self.save_screens();
         self.save_rendering();
+        self.save_threed();
         self.save_inputs();
         self.save_tilt();
         self.save_audio();
@@ -918,6 +919,11 @@ impl App {
         // counters) so VPX can claim them cleanly. They'll be re-spawned
         // when VPX exits — see `process_vpx_status`.
         self.shutdown_sdl_threads();
+        // Make room for VPX: the backglass pictures and thumbnails of the
+        // grid are not needed while it runs. Only the cover of the table being
+        // launched stays until VPX's own windows are up.
+        let launching = self.tables.iter().position(|t| t.path == table_path);
+        self.bg_cache.release(launching);
         log::info!(
             "Launching: {} -Play {}",
             resolved.display(),
@@ -1777,6 +1783,26 @@ impl App {
         }
     }
 
+    /// VPX is gone: the grid's pictures were freed when it launched, so load
+    /// the thumbnails again from the database (the full pictures follow the
+    /// page on screen).
+    pub(super) fn restore_bg_cache(&mut self) {
+        if !self.bg_cache.is_released() {
+            return;
+        }
+        self.bg_cache.restore();
+        let thumbs = self.db.get_all_thumbs();
+        for (idx, table) in self.tables.iter().enumerate() {
+            let Ok(rel) = table.path.strip_prefix(&self.tables_dir) else {
+                continue;
+            };
+            if let Some((bytes, _)) = thumbs.get(rel.to_string_lossy().as_ref()) {
+                self.bg_cache
+                    .queue_thumb(idx, std::sync::Arc::from(bytes.as_slice()));
+            }
+        }
+    }
+
     pub(super) fn process_vpx_status(&mut self, ctx: &egui::Context) {
         if let Some(rx) = &self.vpx_status_rx {
             while let Ok(status) = rx.try_recv() {
@@ -1789,6 +1815,8 @@ impl App {
                         self.vpx_loading_msg = "Startup done".to_string();
                         self.vpx_loading_pct = None;
                         self.vpx_hide_covers = true;
+                        // The covers are hidden now: the last picture can go too.
+                        self.bg_cache.release(None);
                         // Release the cursor capture so VPX gets the mouse —
                         // the plugin drops its OS grab on that transition
                         // (egui-rotate 1.1). Focus is released naturally
@@ -1803,6 +1831,7 @@ impl App {
                         self.vpx_hide_covers = false;
                         self.vpx_status_rx = None;
                         self.respawn_sdl_threads();
+                        self.restore_bg_cache();
                         self.restore_kiosk_after_vpx(ctx);
                         return;
                     }
@@ -1812,6 +1841,7 @@ impl App {
                         self.vpx_error_log = Some(log);
                         self.vpx_status_rx = None;
                         self.respawn_sdl_threads();
+                        self.restore_bg_cache();
                         self.restore_kiosk_after_vpx(ctx);
                         return;
                     }
@@ -1821,6 +1851,7 @@ impl App {
                         self.vpx_error_log = Some(msg);
                         self.vpx_status_rx = None;
                         self.respawn_sdl_threads();
+                        self.restore_bg_cache();
                         self.restore_kiosk_after_vpx(ctx);
                         return;
                     }

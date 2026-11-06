@@ -215,6 +215,7 @@ pub struct TableEntry {
 pub enum WizardPage {
     Screens,
     Rendering,
+    ThreeD,
     Inputs,
     Outputs,
     Tilt,
@@ -228,6 +229,7 @@ impl WizardPage {
         match self {
             Self::Screens => t!("page_screens"),
             Self::Rendering => t!("page_rendering"),
+            Self::ThreeD => t!("page_3d"),
             Self::Inputs => t!("page_inputs"),
             Self::Outputs => t!("page_outputs"),
             Self::Tilt => t!("page_tilt"),
@@ -242,12 +244,13 @@ impl WizardPage {
         match self {
             Self::Screens => 0,
             Self::Rendering => 1,
-            Self::Inputs => 2,
-            Self::Outputs => 3,
-            Self::Tilt => 4,
-            Self::Audio => 5,
-            Self::TablesDir => 6,
-            Self::System => 7,
+            Self::ThreeD => 2,
+            Self::Inputs => 3,
+            Self::Outputs => 4,
+            Self::Tilt => 5,
+            Self::Audio => 6,
+            Self::TablesDir => 7,
+            Self::System => 8,
         }
     }
 
@@ -255,18 +258,19 @@ impl WizardPage {
         match i {
             0 => Some(Self::Screens),
             1 => Some(Self::Rendering),
-            2 => Some(Self::Inputs),
-            3 => Some(Self::Outputs),
-            4 => Some(Self::Tilt),
-            5 => Some(Self::Audio),
-            6 => Some(Self::TablesDir),
-            7 => Some(Self::System),
+            2 => Some(Self::ThreeD),
+            3 => Some(Self::Inputs),
+            4 => Some(Self::Outputs),
+            5 => Some(Self::Tilt),
+            6 => Some(Self::Audio),
+            7 => Some(Self::TablesDir),
+            8 => Some(Self::System),
             _ => None,
         }
     }
 
     fn count() -> usize {
-        8
+        9
     }
 }
 
@@ -328,6 +332,7 @@ pub struct App {
     max_framerate: f32,        // -1=display ("Max" in the UI), 0=unlimited, else value
     compress_textures: bool,   // Player/CompressTextures (VPX default on)
     effects: effects::Effects, // Visual effects: AO, bloom, motion blur, reflections...
+    threed: threed::ThreeD,    // 3D page: VR and stereoscopic rendering (both off by default)
     show_fps: bool,            // Player/ShowFPS: FPS overlay in game (recommended on)
     ball_antistretch: bool,    // Player/BallAntiStretch: keep the ball round (recommended on)
 
@@ -717,6 +722,7 @@ impl App {
             compress_textures,
         ) = Self::load_rendering_config(&config);
         let effects = effects::Effects::load(&config);
+        let threed = threed::ThreeD::load(&config);
 
         // Detect + install the user's language BEFORE anything that
         // calls `t!()` or `scancode_name()`, so localised labels (key
@@ -803,6 +809,7 @@ impl App {
             ball_antistretch,
             compress_textures,
             effects,
+            threed,
             capture_state: CaptureState::Idle,
             show_advanced_inputs: false,
             auto_map_active: false,
@@ -1576,6 +1583,10 @@ impl App {
             self.normalize_max_framerate();
         }
 
+        if current < WizardPage::ThreeD.index() {
+            self.threed = threed::ThreeD::load(&self.config);
+        }
+
         if current < WizardPage::Inputs.index() {
             self.actions = Self::load_input_mappings(&self.config);
             // Controller detection may already have run — re-apply its button
@@ -1688,6 +1699,9 @@ impl App {
                 self.ball_antistretch = true;
                 self.compress_textures = true;
                 self.effects = effects::Effects::default();
+            }
+            WizardPage::ThreeD => {
+                self.threed = threed::ThreeD::default();
             }
             WizardPage::Inputs => {
                 self.actions = crate::inputs::default_actions();
@@ -1880,6 +1894,8 @@ mod system_apply;
 mod system_page;
 mod tables_dir_page;
 pub mod theme;
+mod threed;
+mod threed_page;
 mod tilt_page;
 
 pub(crate) use help::help_marker;
@@ -2260,12 +2276,12 @@ impl eframe::App for App {
                     },
                 );
                 ui.add_space(8.0);
-                // The whole strip needs about 720 points; narrower (a rotated
+                // The whole strip needs about 800 points; narrower (a rotated
                 // playfield, a zoomed-in window) shows the current step and
                 // where it stands, since egui cannot wrap the pills.
                 let current = self.page.index();
                 let count = WizardPage::count();
-                let compact = ui.available_width() < 720.0;
+                let compact = ui.available_width() < 800.0;
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing = egui::vec2(5.0, 5.0);
                     for i in 0..count {
@@ -2458,6 +2474,7 @@ impl eframe::App for App {
                             .show(ui, |ui| match self.page {
                                 WizardPage::Screens => self.render_screens_page(ui),
                                 WizardPage::Rendering => self.render_rendering_page(ui),
+                                WizardPage::ThreeD => self.render_threed_page(ui),
                                 WizardPage::Inputs => self.render_inputs_page(ui),
                                 WizardPage::Outputs => self.render_outputs_page(ui),
                                 WizardPage::Tilt => self.render_tilt_page(ui),
