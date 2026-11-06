@@ -21,6 +21,9 @@ pub struct InputAction {
     pub keyboard: Option<CapturedInput>,
     /// Joystick binding, alongside the keyboard one (`None` = unassigned).
     pub joystick: Option<CapturedInput>,
+    /// The action is deliberately left without any key or button, not even
+    /// the VPX default (an auto-map pass skipped it). Written as [`UNMAPPED`].
+    pub unmapped: bool,
 }
 
 /// A captured input event (keyboard or joystick).
@@ -69,6 +72,50 @@ impl CapturedInput {
             | Self::JoystickButton { name, .. }
             | Self::JoystickAxis { name, .. } => name,
         }
+    }
+}
+
+/// Default keys older PinReady versions wrote for actions whose VPX default
+/// has since been dropped (VPX rev 6500+: "Don't overlay mapping for extended
+/// service & volume buttons"). PinReady used to append the default key to every
+/// mapping, so these sit in many inis; they are read as "no custom key".
+pub fn legacy_default_scancode(setting_id: &str) -> Option<SDL_Scancode> {
+    match setting_id {
+        "Service5" => Some(SDL_SCANCODE_6),
+        "Service7" => Some(SDL_SCANCODE_MINUS),
+        _ => None,
+    }
+}
+
+/// What goes in the ini for an action left without any binding. VPX reads an
+/// empty value as "not set" and falls back to the action's default, so
+/// "nothing" has to be spelled as a mapping that parses and never fires:
+/// scancode 0 is no key.
+pub const UNMAPPED: &str = "Key;0";
+
+/// The value to write for `action`.
+/// The keyboard slot always has a value (the custom key, else the VPX
+/// default) so a cabinet with a keyboard can still use Esc / 5 / 1 for
+/// debugging; an action left unmapped on purpose has none, not even that.
+pub fn mapping_for_save(action: &InputAction) -> Option<String> {
+    if action.unmapped && action.keyboard.is_none() && action.joystick.is_none() {
+        return Some(UNMAPPED.to_string());
+    }
+    let keyboard = match &action.keyboard {
+        Some(captured) => Some(captured.to_mapping_string()),
+        None if action.default_scancode != SDL_SCANCODE_UNKNOWN => {
+            Some(format!("Key;{}", action.default_scancode.0))
+        }
+        None => None,
+    };
+    let joystick = action.joystick.as_ref().map(|c| c.to_mapping_string());
+    match (joystick, keyboard) {
+        (Some(joy), Some(key)) => Some(format!("{joy} | {key}")),
+        (Some(joy), None) => Some(joy),
+        (None, Some(key)) => Some(key),
+        // Nothing to bind and no default key either: an empty value is VPX's
+        // "not set", which also clears whatever an older version left there.
+        (None, None) => Some(String::new()),
     }
 }
 
@@ -364,6 +411,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: true,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "RightFlipper",
@@ -372,6 +420,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: true,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "LeftStagedFlipper",
@@ -380,6 +429,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: true,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "RightStagedFlipper",
@@ -388,6 +438,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: true,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "LeftMagna",
@@ -396,6 +447,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: true,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "RightMagna",
@@ -404,6 +456,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: true,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "Lockbar",
@@ -412,6 +465,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: true,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "ExtraBall",
@@ -420,6 +474,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: true,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "LaunchBall",
@@ -428,6 +483,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: true,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "Start",
@@ -436,6 +492,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: true,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "Credit1",
@@ -444,6 +501,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: true,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "ExitGame",
@@ -452,6 +510,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: true,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         // Advanced — coin door, services, keyboard nudge, etc.
         InputAction {
@@ -461,6 +520,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "Credit3",
@@ -469,6 +529,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "Credit4",
@@ -477,6 +538,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "CoinDoor",
@@ -485,6 +547,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "SlamTilt",
@@ -493,6 +556,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "Reset",
@@ -501,6 +565,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "Service1",
@@ -509,6 +574,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "Service2",
@@ -517,6 +583,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "Service3",
@@ -525,6 +592,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "Service4",
@@ -533,14 +601,16 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "Service5",
             label: "input_service5",
-            default_scancode: SDL_SCANCODE_6,
+            default_scancode: SDL_SCANCODE_UNKNOWN,
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "Service6",
@@ -549,14 +619,16 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "Service7",
             label: "input_service7",
-            default_scancode: SDL_SCANCODE_MINUS,
+            default_scancode: SDL_SCANCODE_UNKNOWN,
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "Service8",
@@ -565,6 +637,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "LeftNudge",
@@ -573,6 +646,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "RightNudge",
@@ -581,6 +655,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "CenterNudge",
@@ -589,6 +664,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "Tilt",
@@ -597,6 +673,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "Pause",
@@ -605,6 +682,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "VolumeDown",
@@ -613,6 +691,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "VolumeUp",
@@ -621,6 +700,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "Custom1",
@@ -629,6 +709,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "Custom2",
@@ -637,6 +718,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "Custom3",
@@ -645,6 +727,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
         InputAction {
             setting_id: "Custom4",
@@ -653,6 +736,7 @@ pub fn default_actions() -> Vec<InputAction> {
             essential: false,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         },
     ]
 }
@@ -1184,6 +1268,108 @@ pub fn spawn_joystick_thread() -> (
 
 #[cfg(test)]
 mod tests {
+
+    fn action(setting_id: &'static str) -> InputAction {
+        let mut a = default_actions()
+            .into_iter()
+            .find(|a| a.setting_id == setting_id)
+            .expect("action exists");
+        a.keyboard = None;
+        a.joystick = None;
+        a.unmapped = false;
+        a
+    }
+
+    #[test]
+    fn default_keys_are_not_shared_between_actions_except_the_staged_flippers() {
+        // VPX removed the overlap of Service5 with Credit4 and of Service7
+        // with VolumeDown; the staged flippers share their key with the main
+        // ones on purpose.
+        let actions = default_actions();
+        let keyed: Vec<&InputAction> = actions
+            .iter()
+            .filter(|a| a.default_scancode != SDL_SCANCODE_UNKNOWN)
+            .collect();
+        for (i, a) in keyed.iter().enumerate() {
+            for b in &keyed[i + 1..] {
+                if a.default_scancode == b.default_scancode {
+                    let pair = (a.setting_id, b.setting_id);
+                    let staged = matches!(
+                        pair,
+                        ("LeftFlipper", "LeftStagedFlipper")
+                            | ("RightFlipper", "RightStagedFlipper")
+                    );
+                    assert!(
+                        staged,
+                        "{} and {} share a default key",
+                        a.setting_id, b.setting_id
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn service5_and_service7_have_no_default_key_any_more() {
+        for id in ["Service5", "Service7"] {
+            assert_eq!(
+                action(id).default_scancode.0,
+                SDL_SCANCODE_UNKNOWN.0,
+                "{id}"
+            );
+        }
+        assert_eq!(
+            legacy_default_scancode("Service5").map(|s| s.0),
+            Some(SDL_SCANCODE_6.0)
+        );
+        assert_eq!(
+            legacy_default_scancode("Service7").map(|s| s.0),
+            Some(SDL_SCANCODE_MINUS.0)
+        );
+        assert!(legacy_default_scancode("LeftFlipper").is_none());
+    }
+
+    #[test]
+    fn an_action_with_no_binding_and_no_default_clears_the_ini_value() {
+        assert_eq!(mapping_for_save(&action("Service5")).as_deref(), Some(""));
+    }
+
+    #[test]
+    fn an_untouched_action_is_saved_with_its_vpx_default_key() {
+        let a = action("LeftFlipper");
+        assert_eq!(
+            mapping_for_save(&a),
+            Some(format!("Key;{}", a.default_scancode.0))
+        );
+    }
+
+    #[test]
+    fn a_skipped_action_is_saved_as_unmapped_not_as_its_default() {
+        let mut a = action("LeftFlipper");
+        a.unmapped = true;
+        assert_eq!(mapping_for_save(&a).as_deref(), Some(UNMAPPED));
+    }
+
+    #[test]
+    fn a_binding_made_after_a_skip_wins_over_it() {
+        let mut a = action("LeftFlipper");
+        a.unmapped = true;
+        a.joystick = Some(CapturedInput::JoystickButton {
+            device_id: "Pad".into(),
+            button: 3,
+            name: "Pad Button 3".into(),
+        });
+        let saved = mapping_for_save(&a).unwrap();
+        assert!(saved.starts_with("Pad;3"), "{saved}");
+    }
+
+    #[test]
+    fn the_unmapped_value_reads_back_as_a_valid_key_mapping_that_never_fires() {
+        // Scancode 0 is "no key": it parses in VPX (no "Invalid input
+        // mapping" error) and nothing ever presses it.
+        assert_eq!(UNMAPPED, "Key;0");
+        assert_eq!(SDL_SCANCODE_UNKNOWN.0, 0);
+    }
     use super::*;
 
     // --- joysticks_to_open ---
@@ -1316,6 +1502,7 @@ mod tests {
             essential: true,
             keyboard: None,
             joystick: None,
+            unmapped: false,
         };
         assert!(effective_scancode(&action) == SDL_SCANCODE_A);
     }
@@ -1332,6 +1519,7 @@ mod tests {
                 name: "B".to_string(),
             }),
             joystick: None,
+            unmapped: false,
         };
         assert!(effective_scancode(&action) == SDL_SCANCODE_B);
     }
@@ -1351,6 +1539,7 @@ mod tests {
                 button: 0,
                 name: "B0".to_string(),
             }),
+            unmapped: false,
         };
         assert!(effective_scancode(&action) == SDL_SCANCODE_A);
     }
@@ -1367,6 +1556,7 @@ mod tests {
                 essential: true,
                 keyboard: None,
                 joystick: None,
+                unmapped: false,
             },
             InputAction {
                 setting_id: "B",
@@ -1375,6 +1565,7 @@ mod tests {
                 essential: true,
                 keyboard: None,
                 joystick: None,
+                unmapped: false,
             },
         ];
         assert!(find_conflicts(&actions).is_empty());
@@ -1390,6 +1581,7 @@ mod tests {
                 essential: true,
                 keyboard: None,
                 joystick: None,
+                unmapped: false,
             },
             InputAction {
                 setting_id: "B",
@@ -1398,6 +1590,7 @@ mod tests {
                 essential: true,
                 keyboard: None,
                 joystick: None,
+                unmapped: false,
             },
         ];
         let conflicts = find_conflicts(&actions);
@@ -1415,6 +1608,7 @@ mod tests {
                 essential: false,
                 keyboard: None,
                 joystick: None,
+                unmapped: false,
             },
             InputAction {
                 setting_id: "B",
@@ -1423,6 +1617,7 @@ mod tests {
                 essential: false,
                 keyboard: None,
                 joystick: None,
+                unmapped: false,
             },
         ];
         assert!(find_conflicts(&actions).is_empty());
@@ -1441,6 +1636,7 @@ mod tests {
                     name: "Z".to_string(),
                 }),
                 joystick: None,
+                unmapped: false,
             },
             InputAction {
                 setting_id: "B",
@@ -1449,6 +1645,7 @@ mod tests {
                 essential: true,
                 keyboard: None,
                 joystick: None,
+                unmapped: false,
             },
         ];
         let conflicts = find_conflicts(&actions);
@@ -1471,6 +1668,7 @@ mod tests {
                     button: 0,
                     name: "B0".to_string(),
                 }),
+                unmapped: false,
             },
             InputAction {
                 setting_id: "B",
@@ -1479,6 +1677,7 @@ mod tests {
                 essential: true,
                 keyboard: None,
                 joystick: None,
+                unmapped: false,
             },
         ];
         assert_eq!(find_conflicts(&actions).len(), 1);
@@ -1498,6 +1697,7 @@ mod tests {
                     button: 3,
                     name: "B3".to_string(),
                 }),
+                unmapped: false,
             },
             InputAction {
                 setting_id: "B",
@@ -1510,6 +1710,7 @@ mod tests {
                     button: 3,
                     name: "B3".to_string(),
                 }),
+                unmapped: false,
             },
         ];
         assert_eq!(find_conflicts(&actions).len(), 1);
@@ -1529,6 +1730,7 @@ mod tests {
                     button: 3,
                     name: "B3".to_string(),
                 }),
+                unmapped: false,
             },
             InputAction {
                 setting_id: "B",
@@ -1541,6 +1743,7 @@ mod tests {
                     button: 4,
                     name: "B4".to_string(),
                 }),
+                unmapped: false,
             },
         ];
         assert!(find_conflicts(&actions).is_empty());
@@ -1633,38 +1836,20 @@ mod tests {
     // --- Known VPX default key conflicts ---
 
     #[test]
-    fn default_actions_known_conflicts() {
+    fn default_actions_have_no_conflicts() {
         // Flipper/StagedFlipper sharing the same shift key is intentional
         // on a pincab (staged flippers are literally a second switch on
-        // the same flipper button stack) — those collisions are filtered
-        // out by `is_intentional_collision`, so they must NOT surface.
-        // The two remaining unintentional collisions inherited from VPX's
-        // own defaults (VolumeDown/Service7 on `-`, Credit4/Service5 on
-        // `6`) must still be reported until upstream fixes them.
+        // the same flipper button stack): `is_intentional_collision` filters
+        // those out. The two real overlaps VPX used to ship (VolumeDown and
+        // Service7 on `-`, Credit4 and Service5 on `6`) were removed upstream
+        // ("Don't overlay mapping for extended service & volume buttons"),
+        // and PinReady's defaults follow, so nothing is reported any more.
         let actions = default_actions();
         let conflicts = find_conflicts(&actions);
-        assert!(
-            !conflicts.is_empty(),
-            "expected known default conflicts (MINUS, 6) inherited from VPX"
-        );
-        let find_pair = |id_a: &str, id_b: &str| -> bool {
-            conflicts.iter().any(|&(i, j)| {
-                (actions[i].setting_id == id_a && actions[j].setting_id == id_b)
-                    || (actions[i].setting_id == id_b && actions[j].setting_id == id_a)
-            })
-        };
-        assert!(
-            !find_pair("LeftFlipper", "LeftStagedFlipper"),
-            "LSHIFT flipper+staged collision should be whitelisted (intentional)"
-        );
-        assert!(
-            !find_pair("RightFlipper", "RightStagedFlipper"),
-            "RSHIFT flipper+staged collision should be whitelisted (intentional)"
-        );
-        assert!(
-            find_pair("VolumeDown", "Service7"),
-            "MINUS conflict missing"
-        );
-        assert!(find_pair("Credit4", "Service5"), "6 key conflict missing");
+        let names: Vec<(&str, &str)> = conflicts
+            .iter()
+            .map(|&(i, j)| (actions[i].setting_id, actions[j].setting_id))
+            .collect();
+        assert!(names.is_empty(), "unexpected default conflicts: {names:?}");
     }
 }

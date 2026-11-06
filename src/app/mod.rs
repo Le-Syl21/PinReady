@@ -1214,6 +1214,10 @@ impl App {
                     continue;
                 }
                 log::info!("  {} = {}", action.setting_id, mapping_str);
+                if mapping_str.trim() == inputs::UNMAPPED {
+                    action.unmapped = true;
+                    continue;
+                }
                 // VPX alternatives (`a | b`) fill the two independent slots:
                 // the first `Key;N` part lands in `keyboard`, the first
                 // device part in `joystick`. `&` combos: keep the first leg,
@@ -1250,6 +1254,13 @@ impl App {
                 // "(default)" instead of a phantom customization.
                 if let Some(CapturedInput::Keyboard { scancode, .. }) = &action.keyboard
                     && *scancode == action.default_scancode
+                {
+                    action.keyboard = None;
+                }
+                // The same goes for a default VPX has since dropped (Service5 on
+                // 6, Service7 on -: they overlapped Credit4 and Volume Down).
+                if let Some(CapturedInput::Keyboard { scancode, .. }) = &action.keyboard
+                    && inputs::legacy_default_scancode(action.setting_id) == Some(*scancode)
                 {
                     action.keyboard = None;
                 }
@@ -1806,6 +1817,7 @@ impl App {
                         if idx < self.actions.len() {
                             // Fills the joystick slot only — the keyboard
                             // binding of the action is kept alongside.
+                            self.actions[idx].unmapped = false;
                             self.actions[idx].joystick = Some(CapturedInput::JoystickButton {
                                 device_id: device_id.clone(),
                                 button: *button,
@@ -1865,6 +1877,7 @@ impl App {
         for (action_id, button) in defaults {
             if let Some(action) = self.actions.iter_mut().find(|a| a.setting_id == *action_id)
                 && action.joystick.is_none()
+                && !action.unmapped
             {
                 action.joystick = Some(CapturedInput::JoystickButton {
                     device_id: vpx_id.to_string(),

@@ -342,27 +342,9 @@ impl App {
         }
 
         for action in &self.actions {
-            // The two slots are independent alternatives (VPX `|` syntax):
-            // pressing either the joystick button OR the key triggers the
-            // action. The keyboard side always has a value — the custom key
-            // if set, else the VPX default — so a cabinet with a keyboard
-            // plugged in can still use Esc / 5 / 1 / etc. for debugging.
-            let keyboard_str = match &action.keyboard {
-                Some(captured) => Some(captured.to_mapping_string()),
-                None if action.default_scancode != sdl3_sys::everything::SDL_SCANCODE_UNKNOWN => {
-                    Some(format!("Key;{}", action.default_scancode.0))
-                }
-                None => None,
-            };
-            let joystick_str = action.joystick.as_ref().map(|c| c.to_mapping_string());
-
-            let mapping = match (joystick_str, keyboard_str) {
-                (Some(joy), Some(key)) => format!("{joy} | {key}"),
-                (Some(joy), None) => joy,
-                (None, Some(key)) => key,
-                (None, None) => continue,
-            };
-            self.config.set_input_mapping(action.setting_id, &mapping);
+            if let Some(mapping) = inputs::mapping_for_save(action) {
+                self.config.set_input_mapping(action.setting_id, &mapping);
+            }
         }
     }
 

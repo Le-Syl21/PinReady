@@ -79,7 +79,7 @@ impl App {
             Some(&t!("inputs_instructions")),
             |ui| {
                 // Auto-map controls — walks every action in turn. "Skip" leaves the
-                // current action's binding untouched and moves to the next; "Cancel"
+                // current action with no binding at all and moves to the next; "Cancel"
                 // bails out entirely. (Escape is a mappable key, not a skip.)
                 ui.horizontal(|ui| {
                     if !self.auto_map_active {
@@ -104,7 +104,15 @@ impl App {
                             .on_hover_text(t!("inputs_auto_map_skip_hint"))
                             .clicked()
                         {
-                            // Keep the current binding, advance to the next action.
+                            // Skipped = left without any key or button (not even the
+                            // VPX default), then on to the next action.
+                            if let CaptureState::Capturing(idx) = self.capture_state
+                                && let Some(action) = self.actions.get_mut(idx)
+                            {
+                                action.keyboard = None;
+                                action.joystick = None;
+                                action.unmapped = true;
+                            }
                             self.advance_capture_or_finish();
                         }
                         if ui
@@ -155,6 +163,7 @@ impl App {
                                     // A key fills the keyboard slot only — any
                                     // joystick binding stays alongside (VPX runs
                                     // both as alternatives).
+                                    self.actions[idx].unmapped = false;
                                     self.actions[idx].keyboard = Some(CapturedInput::Keyboard {
                                         scancode: sc,
                                         name: inputs::scancode_name(sc),
@@ -173,6 +182,7 @@ impl App {
                         && let Some(sc) = inputs::egui_modifiers_to_scancode(&modifiers)
                     {
                         if idx < self.actions.len() {
+                            self.actions[idx].unmapped = false;
                             self.actions[idx].keyboard = Some(CapturedInput::Keyboard {
                                 scancode: sc,
                                 name: inputs::scancode_name(sc),
@@ -277,6 +287,7 @@ impl App {
             let keyboard = self.actions[idx].keyboard.clone();
             let joystick = self.actions[idx].joystick.clone();
             let default_scancode = self.actions[idx].default_scancode;
+            let unmapped = self.actions[idx].unmapped;
             let is_capturing = self.capture_state == CaptureState::Capturing(idx);
             let has_conflict = conflicts.iter().any(|(a, b)| *a == idx || *b == idx);
 
@@ -306,6 +317,9 @@ impl App {
                         t!("inputs_capturing").to_string()
                     } else if let Some(ref captured) = keyboard {
                         captured.display_name().to_string()
+                    } else if unmapped {
+                        // Left without a key on purpose: not the VPX default.
+                        t!("inputs_unassigned").to_string()
                     } else if default_scancode != sdl3_sys::everything::SDL_SCANCODE_UNKNOWN {
                         format!(
                             "{}{}",
