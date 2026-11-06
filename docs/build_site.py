@@ -620,10 +620,10 @@ automatiquement. Le programme se trouve ensuite dans <code>target/release/</code
 """)
 
     if page == "wizard":
-        toc_en = [("screens", "Screens"), ("rendering", "Rendering"), ("inputs", "Inputs"),
+        toc_en = [("screens", "Screens"), ("rendering", "Picture"), ("threed", "3D"), ("inputs", "Controls"),
                   ("accessories", "Accessories"), ("tilt", "Tilt / Nudge"), ("audio", "Audio"),
                   ("tables", "Tables"), ("system", "System")]
-        toc_fr = [("screens", "Écrans"), ("rendering", "Rendu"), ("inputs", "Inputs"),
+        toc_fr = [("screens", "Écrans"), ("rendering", "Image"), ("threed", "3D"), ("inputs", "Commandes"),
                   ("accessories", "Accessoires"), ("tilt", "Tilt / Nudge"), ("audio", "Audio"),
                   ("tables", "Tables"), ("system", "Système")]
         toc = "".join(f'<li><a href="#{a}">{n}</a></li>' for a, n in (toc_en if en else toc_fr))
@@ -659,7 +659,7 @@ automatiquement. Le programme se trouve ensuite dans <code>target/release/</code
                     "keyboard and Pinscape/DudesCab/PinOne controls, tilt and nudge, SSF audio, DOF, tables folder.",
                     f"""
 <h1>The setup wizard</h1>
-<p class="lead">The first time you start PinReady, a wizard walks you through eight pages. Each option has a small
+<p class="lead">The first time you start PinReady, a wizard walks you through nine pages. Each option has a small
 info marker: hover it, or click it on a cabinet, for a plain-language explanation.</p>
 <p>Your answers are written into <code>VPinballX.ini</code>, the settings file of Visual Pinball, and the comments
 in that file are kept. If the file does not exist yet, PinReady first has Visual Pinball create its complete default
@@ -691,23 +691,40 @@ screen or when you control the cabinet remotely.</li>
 Drag the handles on the drawing or type the values; they give the 3D view the right perspective.</li>
 </ul>
 
-<h2 id="rendering">2. Rendering</h2>
+<h2 id="rendering">2. Picture</h2>
 <p>Graphics settings for the playfield. The advice on the page: start with the defaults, then adjust to your
 machine.</p>
 <ul>
 <li><strong>Synchronization</strong>: <em>No sync</em>, <em>Vertical sync</em>, <em>Adaptive sync</em> or <em>Frame
 pacing</em>, the Visual Pinball default. Each choice explains its trade-off between smoothness and input delay.</li>
-<li><strong>FPS limit</strong>: set to the refresh rate of your playfield screen, so no frame is drawn faster than the
-screen can show it.</li>
+<li><strong>FPS limit</strong>: <em>Max</em> by default, which follows the refresh rate of your playfield screen so
+no frame is drawn faster than the screen can show it. Press <em>Choose a number</em> to set your own limit. If your
+screen can do more than the page reports, set its refresh rate in your system's display settings first (PinReady cannot
+change it), then come back.</li>
+<li><strong>Compress textures</strong> (on by default) packs the table's pictures to use less graphics memory, at the
+cost of a slightly longer first load of each table.</li>
 <li><strong>Image quality</strong>: supersampling, MSAA, post-processing anti-aliasing (FXAA and others), sharpening,
 reflections and maximum texture size.</li>
 <li><strong>Show FPS</strong> (on by default) displays a frame counter in game, handy to check your settings right
 after setup.</li>
 <li><strong>Round ball</strong> (on by default) keeps the ball from looking slightly egg-shaped when it moves fast.
 Purely cosmetic.</li>
+<li><strong>Visual effects</strong>: soft shadows (ambient occlusion), glow around bright lights, ball motion blur,
+sharper textures at a slant, whole-table reflections, pre-rendered frames and ball and ramp smoothness. Each one shows
+the recommended value; if a game stutters, turn off the ones at the bottom of the list first.</li>
 </ul>
 
-<h2 id="inputs">3. Inputs</h2>
+<h2 id="threed">3. 3D</h2>
+<p>Two optional blocks, both off by default because a cabinet does not need them.</p>
+<ul>
+<li><strong>Virtual reality (VR)</strong>: play in a headset. You need a headset and a VR program (an OpenXR runtime
+such as SteamVR or Monado) running on the computer. Once enabled, you choose when VR starts, the headset refresh rate,
+what the desktop shows meanwhile, and the audio routing.</li>
+<li><strong>Stereoscopic 3D</strong>: a 3D image for a 3D television or glasses. Once enabled, you pick the 3D format
+and adjust the eye separation, brightness and colour saturation.</li>
+</ul>
+
+<h2 id="inputs">4. Controls</h2>
 <p>Every Visual Pinball action has two columns, <strong>Keyboard</strong> and <strong>Joystick</strong>, and both
 work side by side. Click <strong>Map</strong> and press a key or a button: a key fills the keyboard column, a joystick
 button the joystick column. <strong>Auto-map all inputs</strong> walks through every action in one pass. Essential
@@ -721,7 +738,7 @@ yourself. A detected gamepad can also be used for the flippers, plunger and nudg
 <p class="muted">Button numbers are the ones SDL reports, counted from 0. Buttons a profile leaves unmapped are not
 listed.</p>
 
-<h2 id="accessories">4. Accessories</h2>
+<h2 id="accessories">5. Accessories</h2>
 <h3>DOF effects (lights and toys)</h3>
 <p>VPX 10.8.1 standalone includes DOF (Direct Output Framework), which drives the solenoids, lights, shaker motor,
 knocker or beacon of a cabinet. It only needs a configuration describing your hardware. The page walks you through
@@ -743,7 +760,7 @@ One click downloads the <a href="{HEADTRACKING}">head tracking</a> plugin and it
 Visual Pinball to the <em>Window</em> view mode it needs, and opens the demo so you can install the camera drivers and
 check that you are tracked. Not available on Intel Macs.</p>
 
-<h2 id="tilt">5. Tilt / Nudge</h2>
+<h2 id="tilt">6. Tilt / Nudge</h2>
 <p>Settings for the accelerometer that detects when you shake (nudge) the cabinet.</p>
 <ul>
 <li><strong>Nudge sensor type</strong>: <em>Game Controller</em> for a gamepad stick, <em>Intent Sensor</em> for
@@ -761,7 +778,7 @@ threshold and the tilt; crossing the red ring means TILT. PinReady also keeps th
 tilt angle is out of the sensor's reach, and asks you to check which way the board is mounted, since a board turned
 the wrong way swaps or mirrors the nudge directions.</p>
 
-<h2 id="audio">6. Audio</h2>
+<h2 id="audio">7. Audio</h2>
 <p>Visual Pinball plays sound on two devices, and PinReady lists your sound cards for each:</p>
 <ul>
 <li><strong>Backglass</strong>: music, voices and general game sounds.</li>
@@ -779,7 +796,7 @@ rolling ball from the top to the bottom and from left to right. If the ball move
 change the output mode; from left to right, check the wiring. A sound card with only 3 jacks (green, pink, blue) can
 often be switched to 5.1 or 7.1: see the guides for {audiomap}.</p>
 
-<h2 id="tables">7. Tables</h2>
+<h2 id="tables">8. Tables</h2>
 <p>Choose the folder that holds your tables, one subfolder per table: the layout used by Visual Pinball 10.8.1.</p>
 <pre><code>Tables/
 └── Table Name/
@@ -811,7 +828,7 @@ patched <code>.vbs</code> next to the <code>.vpx</code>. A <code>.vbs</code> of 
 catalog data, plus a few MB per matched table. Turn it off on an offline cabinet.</li>
 </ul>
 
-<h2 id="system">8. System</h2>
+<h2 id="system">9. System</h2>
 <p>Optional conveniences, best suited to a dedicated cabinet:</p>
 <ul>
 <li><strong>Launch PinReady automatically at startup.</strong></li>
@@ -828,7 +845,7 @@ of GitHub.</li>
                 "cartes Pinscape/DudesCab/PinOne, tilt et secousses, son SSF, DOF, dossier des tables.",
                 f"""
 <h1>L'assistant de configuration</h1>
-<p class="lead">Au premier lancement de PinReady, un assistant vous guide sur huit pages. Chaque option a un petit
+<p class="lead">Au premier lancement de PinReady, un assistant vous guide sur neuf pages. Chaque option a un petit
 repère d'information : survolez-le, ou cliquez dessus sur un flipper, pour lire une explication en mots simples.</p>
 <p>Vos réponses sont écrites dans <code>VPinballX.ini</code>, le fichier de réglages de Visual Pinball, en conservant
 les commentaires de ce fichier. S'il n'existe pas encore, PinReady fait d'abord créer par Visual Pinball son fichier
@@ -863,24 +880,42 @@ votre taille et votre position. Déplacez les poignées sur le schéma ou tapez 
 la bonne perspective.</li>
 </ul>
 
-<h2 id="rendering">2. Rendu</h2>
+<h2 id="rendering">2. Image</h2>
 <p>Réglages graphiques du plateau. Le conseil de la page : partez des valeurs par défaut, puis ajustez selon votre
 machine.</p>
 <ul>
 <li><strong>Synchronisation</strong> : <em>Aucune synchro</em>, <em>Synchro verticale</em>, <em>Synchro
 adaptative</em> ou <em>Cadencement (Frame Pacing)</em>, le choix par défaut de Visual Pinball. Chaque choix explique
 son compromis entre fluidité et délai de réaction.</li>
-<li><strong>Limite d'images par seconde</strong> : calée sur la fréquence de l'écran du plateau, pour ne jamais
-dessiner plus d'images que l'écran ne peut en afficher.</li>
+<li><strong>Limite d'images par seconde</strong> : <em>Max</em> par défaut, ce qui suit la fréquence de l'écran du
+plateau pour ne jamais dessiner plus d'images que l'écran ne peut en afficher. « Choisir un nombre » permet de fixer
+votre propre limite. Si votre écran sait faire plus que ce que la page indique, réglez d'abord sa fréquence dans les
+réglages d'affichage du système (PinReady ne peut pas la changer), puis revenez.</li>
+<li><strong>Compresser les textures</strong> (activé par défaut) range les images de la table dans moins de mémoire
+graphique, au prix d'un premier chargement un peu plus long pour chaque table.</li>
 <li><strong>Qualité d'image</strong> : suréchantillonnage, MSAA, anticrénelage en post-traitement (FXAA et autres),
 netteté, reflets et taille maximale des textures.</li>
 <li><strong>Afficher les FPS</strong> (activé par défaut) montre un compteur d'images par seconde en jeu, pratique pour
 vérifier vos réglages juste après la configuration.</li>
 <li><strong>Bille ronde</strong> (activé par défaut) évite que la bille paraisse légèrement ovale quand elle va vite.
 Purement esthétique.</li>
+<li><strong>Effets visuels</strong> : ombres douces (occlusion ambiante), halo autour des lumières vives, flou de
+mouvement de la bille, textures plus nettes vues de biais, reflets de toute la scène, images préparées à l'avance et
+finesse des billes et des rampes. Chacun affiche la valeur recommandée ; si le jeu saccade, désactivez d'abord ceux du
+bas de la liste.</li>
 </ul>
 
-<h2 id="inputs">3. Inputs (commandes)</h2>
+<h2 id="threed">3. 3D</h2>
+<p>Deux blocs facultatifs, désactivés par défaut car un cabinet n'en a pas besoin.</p>
+<ul>
+<li><strong>Réalité virtuelle (VR)</strong> : jouer dans un casque. Il faut un casque et un programme de VR (un runtime
+OpenXR comme SteamVR ou Monado) lancé sur l'ordinateur. Une fois activée, vous choisissez quand la VR démarre, la
+fréquence du casque, ce qu'affiche le bureau pendant ce temps et l'orientation du son.</li>
+<li><strong>3D stéréoscopique</strong> : une image en 3D pour un téléviseur 3D ou des lunettes. Une fois activée, vous
+choisissez le format 3D et réglez l'écart entre les yeux, la luminosité et la saturation des couleurs.</li>
+</ul>
+
+<h2 id="inputs">4. Commandes</h2>
 <p>Chaque action de Visual Pinball a deux colonnes, <strong>Clavier</strong> et <strong>Joystick</strong>, qui
 fonctionnent côte à côte. Cliquez sur <strong>Mapper</strong> et appuyez sur une touche ou un bouton : une touche
 remplit la colonne Clavier, un bouton de joystick la colonne Joystick. <strong>Auto-assigner toutes les entrées</strong>
@@ -896,7 +931,7 @@ servir pour les batteurs, le lanceur et les secousses.</p>
 <p class="muted">Les numéros de bouton sont ceux que rapporte SDL, comptés à partir de 0. Les boutons laissés libres
 par un profil ne sont pas listés.</p>
 
-<h2 id="accessories">4. Accessoires</h2>
+<h2 id="accessories">5. Accessoires</h2>
 <h3>Effets DOF (lumières et jouets)</h3>
 <p>VPX 10.8.1 standalone intègre DOF (Direct Output Framework), qui pilote les solénoïdes, lumières, moteur de
 vibration (shaker), knocker ou gyrophare d'un meuble. Il lui faut seulement une configuration qui décrit votre
@@ -920,7 +955,7 @@ votre tête. Un clic télécharge le plugin <a href="{HEADTRACKING}">head tracki
 Visual Pinball dans le mode d'affichage <em>Window</em> dont il a besoin, et ouvre la démo pour installer les pilotes
 de la caméra et vérifier que vous êtes bien suivi. Non disponible sur les Mac Intel.</p>
 
-<h2 id="tilt">5. Tilt / Nudge (secousses)</h2>
+<h2 id="tilt">6. Tilt / Nudge (secousses)</h2>
 <p>Réglages de l'accéléromètre qui détecte quand vous secouez le meuble (le « nudge »).</p>
 <ul>
 <li><strong>Type de capteur</strong> : <em>Manette de jeu</em> pour le stick d'une manette, <em>Capteur
@@ -940,7 +975,7 @@ morte, le seuil de secousse et le tilt ; franchir l'anneau rouge, c'est TILT. Pi
 signale quand l'angle de tilt est hors de portée du capteur, et vous demande de vérifier le sens de montage de la
 carte, car une carte tournée dans le mauvais sens inverse ou échange les directions des secousses.</p>
 
-<h2 id="audio">6. Audio</h2>
+<h2 id="audio">7. Audio</h2>
 <p>Visual Pinball joue le son sur deux périphériques, et PinReady liste vos cartes son pour chacun :</p>
 <ul>
 <li><strong>Backglass (fronton)</strong> : musique, voix et sons généraux du jeu.</li>
@@ -960,7 +995,7 @@ va dans le mauvais sens d'avant en arrière, changez le mode de sortie ; de gauc
 carte son à 3 prises seulement (verte, rose, bleue) peut souvent passer en 5.1 ou 7.1 : voir les guides pour
 {audiomap} (en anglais et en français).</p>
 
-<h2 id="tables">7. Tables</h2>
+<h2 id="tables">8. Tables</h2>
 <p>Choisissez le dossier qui contient vos tables, un sous-dossier par table : le format utilisé par Visual Pinball
 10.8.1.</p>
 <pre><code>Tables/
@@ -994,7 +1029,7 @@ télécharge environ 7 Mo de catalogue, plus quelques Mo par table identifiée. 
 ligne.</li>
 </ul>
 
-<h2 id="system">8. Système</h2>
+<h2 id="system">9. Système</h2>
 <p>Des options de confort facultatives, surtout utiles sur un flipper dédié :</p>
 <ul>
 <li><strong>Lancer PinReady automatiquement au démarrage.</strong></li>

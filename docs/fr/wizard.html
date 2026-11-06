@@ -26,7 +26,7 @@
 <meta name="color-scheme" content="light dark">
 <link rel="icon" type="image/svg+xml" href="../img/favicon.svg">
 <link rel="stylesheet" href="../style.css">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "SoftwareApplication", "@id": "https://le-syl21.github.io/PinReady/#app", "name": "PinReady", "description": "Configurateur et lanceur multiplateforme pour Visual Pinball X 10.8.1 standalone.", "applicationCategory": "GameApplication", "operatingSystem": "Linux, macOS, Windows", "url": "https://le-syl21.github.io/PinReady/", "downloadUrl": "https://github.com/Le-Syl21/PinReady/releases/latest", "license": "https://www.gnu.org/licenses/gpl-3.0.html", "codeRepository": "https://github.com/Le-Syl21/PinReady", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"}, "softwareVersion": "0.23.2"}, {"@type": "WebPage", "name": "Configurer un flipper virtuel VPX standalone : écrans, commandes, tilt, son – PinReady", "description": "Comment PinReady configure Visual Pinball X 10.8.1 standalone pas à pas : écrans du pincab, clavier et cartes Pinscape/DudesCab/PinOne, tilt et secousses, son SSF, DOF, dossier des tables.", "url": "https://le-syl21.github.io/PinReady/fr/wizard.html", "inLanguage": "fr", "about": {"@id": "https://le-syl21.github.io/PinReady/#app"}}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "SoftwareApplication", "@id": "https://le-syl21.github.io/PinReady/#app", "name": "PinReady", "description": "Configurateur et lanceur multiplateforme pour Visual Pinball X 10.8.1 standalone.", "applicationCategory": "GameApplication", "operatingSystem": "Linux, macOS, Windows", "url": "https://le-syl21.github.io/PinReady/", "downloadUrl": "https://github.com/Le-Syl21/PinReady/releases/latest", "license": "https://www.gnu.org/licenses/gpl-3.0.html", "codeRepository": "https://github.com/Le-Syl21/PinReady", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"}, "softwareVersion": "0.24.0"}, {"@type": "WebPage", "name": "Configurer un flipper virtuel VPX standalone : écrans, commandes, tilt, son – PinReady", "description": "Comment PinReady configure Visual Pinball X 10.8.1 standalone pas à pas : écrans du pincab, clavier et cartes Pinscape/DudesCab/PinOne, tilt et secousses, son SSF, DOF, dossier des tables.", "url": "https://le-syl21.github.io/PinReady/fr/wizard.html", "inLanguage": "fr", "about": {"@id": "https://le-syl21.github.io/PinReady/#app"}}]}</script>
 </head>
 <body>
 <header class="site"><div class="wrap">
@@ -36,14 +36,14 @@
 </div></header>
 <main><div class="wrap">
 <h1>L'assistant de configuration</h1>
-<p class="lead">Au premier lancement de PinReady, un assistant vous guide sur huit pages. Chaque option a un petit
+<p class="lead">Au premier lancement de PinReady, un assistant vous guide sur neuf pages. Chaque option a un petit
 repère d'information : survolez-le, ou cliquez dessus sur un flipper, pour lire une explication en mots simples.</p>
 <p>Vos réponses sont écrites dans <code>VPinballX.ini</code>, le fichier de réglages de Visual Pinball, en conservant
 les commentaires de ce fichier. S'il n'existe pas encore, PinReady fait d'abord créer par Visual Pinball son fichier
 complet par défaut, puis y ajoute vos choix. Vous pouvez rouvrir l'assistant à tout moment avec le bouton
 <strong>Config</strong> du lanceur ou avec <code>pinready --config</code> : chaque champ affiche vos réglages actuels.
 La plupart des réglages se changent aussi en jeu, depuis le menu de Visual Pinball sur la touche <kbd>F12</kbd>.</p>
-<nav class="toc" aria-label="Pages de l'assistant"><ol><li><a href="#screens">Écrans</a></li><li><a href="#rendering">Rendu</a></li><li><a href="#inputs">Inputs</a></li><li><a href="#accessories">Accessoires</a></li><li><a href="#tilt">Tilt / Nudge</a></li><li><a href="#audio">Audio</a></li><li><a href="#tables">Tables</a></li><li><a href="#system">Système</a></li></ol></nav>
+<nav class="toc" aria-label="Pages de l'assistant"><ol><li><a href="#screens">Écrans</a></li><li><a href="#rendering">Image</a></li><li><a href="#threed">3D</a></li><li><a href="#inputs">Commandes</a></li><li><a href="#accessories">Accessoires</a></li><li><a href="#tilt">Tilt / Nudge</a></li><li><a href="#audio">Audio</a></li><li><a href="#tables">Tables</a></li><li><a href="#system">Système</a></li></ol></nav>
 <p><strong>Réinitialiser la configuration</strong> efface toutes les réponses, met de côté le
 <code>VPinballX.ini</code> global sous le nom <code>VPinballX.ini.reset-backup</code> et repart de la première page.
 Vos tables ne sont pas touchées.</p>
@@ -71,24 +71,42 @@ votre taille et votre position. Déplacez les poignées sur le schéma ou tapez 
 la bonne perspective.</li>
 </ul>
 
-<h2 id="rendering">2. Rendu</h2>
+<h2 id="rendering">2. Image</h2>
 <p>Réglages graphiques du plateau. Le conseil de la page : partez des valeurs par défaut, puis ajustez selon votre
 machine.</p>
 <ul>
 <li><strong>Synchronisation</strong> : <em>Aucune synchro</em>, <em>Synchro verticale</em>, <em>Synchro
 adaptative</em> ou <em>Cadencement (Frame Pacing)</em>, le choix par défaut de Visual Pinball. Chaque choix explique
 son compromis entre fluidité et délai de réaction.</li>
-<li><strong>Limite d'images par seconde</strong> : calée sur la fréquence de l'écran du plateau, pour ne jamais
-dessiner plus d'images que l'écran ne peut en afficher.</li>
+<li><strong>Limite d'images par seconde</strong> : <em>Max</em> par défaut, ce qui suit la fréquence de l'écran du
+plateau pour ne jamais dessiner plus d'images que l'écran ne peut en afficher. « Choisir un nombre » permet de fixer
+votre propre limite. Si votre écran sait faire plus que ce que la page indique, réglez d'abord sa fréquence dans les
+réglages d'affichage du système (PinReady ne peut pas la changer), puis revenez.</li>
+<li><strong>Compresser les textures</strong> (activé par défaut) range les images de la table dans moins de mémoire
+graphique, au prix d'un premier chargement un peu plus long pour chaque table.</li>
 <li><strong>Qualité d'image</strong> : suréchantillonnage, MSAA, anticrénelage en post-traitement (FXAA et autres),
 netteté, reflets et taille maximale des textures.</li>
 <li><strong>Afficher les FPS</strong> (activé par défaut) montre un compteur d'images par seconde en jeu, pratique pour
 vérifier vos réglages juste après la configuration.</li>
 <li><strong>Bille ronde</strong> (activé par défaut) évite que la bille paraisse légèrement ovale quand elle va vite.
 Purement esthétique.</li>
+<li><strong>Effets visuels</strong> : ombres douces (occlusion ambiante), halo autour des lumières vives, flou de
+mouvement de la bille, textures plus nettes vues de biais, reflets de toute la scène, images préparées à l'avance et
+finesse des billes et des rampes. Chacun affiche la valeur recommandée ; si le jeu saccade, désactivez d'abord ceux du
+bas de la liste.</li>
 </ul>
 
-<h2 id="inputs">3. Inputs (commandes)</h2>
+<h2 id="threed">3. 3D</h2>
+<p>Deux blocs facultatifs, désactivés par défaut car un cabinet n'en a pas besoin.</p>
+<ul>
+<li><strong>Réalité virtuelle (VR)</strong> : jouer dans un casque. Il faut un casque et un programme de VR (un runtime
+OpenXR comme SteamVR ou Monado) lancé sur l'ordinateur. Une fois activée, vous choisissez quand la VR démarre, la
+fréquence du casque, ce qu'affiche le bureau pendant ce temps et l'orientation du son.</li>
+<li><strong>3D stéréoscopique</strong> : une image en 3D pour un téléviseur 3D ou des lunettes. Une fois activée, vous
+choisissez le format 3D et réglez l'écart entre les yeux, la luminosité et la saturation des couleurs.</li>
+</ul>
+
+<h2 id="inputs">4. Commandes</h2>
 <p>Chaque action de Visual Pinball a deux colonnes, <strong>Clavier</strong> et <strong>Joystick</strong>, qui
 fonctionnent côte à côte. Cliquez sur <strong>Mapper</strong> et appuyez sur une touche ou un bouton : une touche
 remplit la colonne Clavier, un bouton de joystick la colonne Joystick. <strong>Auto-assigner toutes les entrées</strong>
@@ -107,7 +125,7 @@ servir pour les batteurs, le lanceur et les secousses.</p>
 <p class="muted">Les numéros de bouton sont ceux que rapporte SDL, comptés à partir de 0. Les boutons laissés libres
 par un profil ne sont pas listés.</p>
 
-<h2 id="accessories">4. Accessoires</h2>
+<h2 id="accessories">5. Accessoires</h2>
 <h3>Effets DOF (lumières et jouets)</h3>
 <p>VPX 10.8.1 standalone intègre DOF (Direct Output Framework), qui pilote les solénoïdes, lumières, moteur de
 vibration (shaker), knocker ou gyrophare d'un meuble. Il lui faut seulement une configuration qui décrit votre
@@ -131,7 +149,7 @@ votre tête. Un clic télécharge le plugin <a href="https://github.com/Le-Syl21
 Visual Pinball dans le mode d'affichage <em>Window</em> dont il a besoin, et ouvre la démo pour installer les pilotes
 de la caméra et vérifier que vous êtes bien suivi. Non disponible sur les Mac Intel.</p>
 
-<h2 id="tilt">5. Tilt / Nudge (secousses)</h2>
+<h2 id="tilt">6. Tilt / Nudge (secousses)</h2>
 <p>Réglages de l'accéléromètre qui détecte quand vous secouez le meuble (le « nudge »).</p>
 <ul>
 <li><strong>Type de capteur</strong> : <em>Manette de jeu</em> pour le stick d'une manette, <em>Capteur
@@ -151,7 +169,7 @@ morte, le seuil de secousse et le tilt ; franchir l'anneau rouge, c'est TILT. Pi
 signale quand l'angle de tilt est hors de portée du capteur, et vous demande de vérifier le sens de montage de la
 carte, car une carte tournée dans le mauvais sens inverse ou échange les directions des secousses.</p>
 
-<h2 id="audio">6. Audio</h2>
+<h2 id="audio">7. Audio</h2>
 <p>Visual Pinball joue le son sur deux périphériques, et PinReady liste vos cartes son pour chacun :</p>
 <ul>
 <li><strong>Backglass (fronton)</strong> : musique, voix et sons généraux du jeu.</li>
@@ -171,7 +189,7 @@ va dans le mauvais sens d'avant en arrière, changez le mode de sortie ; de gauc
 carte son à 3 prises seulement (verte, rose, bleue) peut souvent passer en 5.1 ou 7.1 : voir les guides pour
 <a href="https://github.com/Le-Syl21/PinReady/tree/main/audiomapping_linux">Linux</a>, <a href="https://github.com/Le-Syl21/PinReady/tree/main/audiomapping_windows">Windows</a>, <a href="https://github.com/Le-Syl21/PinReady/tree/main/audiomapping_mac">macOS</a> (en anglais et en français).</p>
 
-<h2 id="tables">7. Tables</h2>
+<h2 id="tables">8. Tables</h2>
 <p>Choisissez le dossier qui contient vos tables, un sous-dossier par table : le format utilisé par Visual Pinball
 10.8.1.</p>
 <pre><code>Tables/
@@ -205,7 +223,7 @@ télécharge environ 7 Mo de catalogue, plus quelques Mo par table identifiée. 
 ligne.</li>
 </ul>
 
-<h2 id="system">8. Système</h2>
+<h2 id="system">9. Système</h2>
 <p>Des options de confort facultatives, surtout utiles sur un flipper dédié :</p>
 <ul>
 <li><strong>Lancer PinReady automatiquement au démarrage.</strong></li>
