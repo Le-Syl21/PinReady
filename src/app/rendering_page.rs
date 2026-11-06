@@ -51,10 +51,39 @@ impl App {
                             .find(|d| d.role == DisplayRole::Playfield)
                             .map(|d| d.refresh_rate)
                             .unwrap_or(60.0);
-                        self.max_framerate = pf_refresh;
-                        theme::field_label(
-                            ui,
-                            &t!("rendering_fps_info", hz = format!("{:.2}", pf_refresh)),
+                        // -1 is VPX's "follow the screen": shown as "Max", never as a number.
+                        ui.horizontal(|ui| {
+                            if self.max_framerate < 0.0 {
+                                theme::field_label(
+                                    ui,
+                                    &t!("rendering_fps_max", hz = format!("{:.0}", pf_refresh)),
+                                );
+                                if ui.button(t!("rendering_fps_set_number")).clicked() {
+                                    self.max_framerate = pf_refresh.round().max(24.0);
+                                }
+                            } else {
+                                ui.add(
+                                    egui::DragValue::new(&mut self.max_framerate)
+                                        .range(24.0..=1000.0)
+                                        .speed(1.0)
+                                        .suffix(format!(" {}", t!("rendering_fps_unit"))),
+                                );
+                                if ui.button(t!("rendering_fps_max_button")).clicked() {
+                                    self.max_framerate = -1.0;
+                                }
+                            }
+                        });
+                        ui.end_row();
+
+                        // Texture compression (Player/CompressTextures): VPX's own
+                        // default is on. It compresses once per table, then caches.
+                        ui.horizontal(|ui| {
+                            theme::field_label(ui, &t!("rendering_compress"));
+                            help_marker(ui, &t!("rendering_compress_help"));
+                        });
+                        ui.checkbox(
+                            &mut self.compress_textures,
+                            t!("rendering_compress_hint").to_string(),
                         );
                         ui.end_row();
 

@@ -45,6 +45,10 @@ pub struct DisplayInfo {
     pub width: i32,
     pub height: i32,
     pub refresh_rate: f32,
+    /// The best mode this screen offers (width, height, refresh rate), when
+    /// it is better than the one in use: the OS picked the screen's preferred
+    /// mode, which is often not its fastest. See [`better_mode`].
+    pub best_mode: Option<(i32, i32, f32)>,
     pub is_primary: bool,
     pub total_pixels: u64,
     pub size_inches: Option<u32>,
@@ -170,6 +174,45 @@ pub fn size_looks_wrong(d: &DisplayInfo) -> bool {
     generic || (px - mm).abs() / px > 0.1
 }
 
+/// Every mode SDL knows for this screen, as (width, height, refresh rate).
+fn display_modes(id: SDL_DisplayID) -> Vec<(i32, i32, f32)> {
+    let mut count = 0;
+    // SAFETY: SDL hands back a null-terminated array of `count` pointers that
+    // it owns until we free the array; nothing is kept past this function.
+    unsafe {
+        let modes = SDL_GetFullscreenDisplayModes(id, &mut count);
+        if modes.is_null() {
+            return Vec::new();
+        }
+        let list = (0..count.max(0) as usize)
+            .filter_map(|i| (*modes.add(i)).as_ref())
+            .map(|m| (m.w, m.h, m.refresh_rate))
+            .collect();
+        SDL_free(modes as *mut _);
+        list
+    }
+}
+
+/// The mode of `modes` worth moving to from `current`, if any: among those
+/// that lose neither pixels nor refresh rate, the most pixels, then the
+/// highest refresh rate. A gain of less than a hertz is rounding (59.94
+/// against 60), not a better mode.
+pub fn better_mode(current: (i32, i32, f32), modes: &[(i32, i32, f32)]) -> Option<(i32, i32, f32)> {
+    let pixels = |m: &(i32, i32, f32)| m.0 as i64 * m.1 as i64;
+    let best = modes
+        .iter()
+        .copied()
+        .filter(|m| pixels(m) >= pixels(&current) && m.2 >= current.2 - 1.0)
+        .max_by(|a, b| {
+            pixels(a)
+                .cmp(&pixels(b))
+                .then(a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal))
+        })?;
+    let more_pixels = pixels(&best) > pixels(&current);
+    let faster = best.2 > current.2 + 1.0;
+    (more_pixels || faster).then_some(best)
+}
+
 /// Enumerate all connected displays using SDL3. Initializes
 /// `SDL_INIT_VIDEO` on first call (no-op refcount bump on subsequent
 /// calls); never quits the subsystem manually. `App::shutdown_sdl_threads`
@@ -244,6 +287,7 @@ pub fn enumerate_displays() -> Vec<DisplayInfo> {
                 width: bounds.w,
                 height: bounds.h,
                 refresh_rate,
+                best_mode: better_mode((bounds.w, bounds.h, refresh_rate), &display_modes(id)),
                 is_primary: id == primary_id,
                 total_pixels,
                 size_inches,
@@ -472,6 +516,7 @@ mod tests {
             width: w,
             height: h,
             refresh_rate: 60.0,
+            best_mode: None,
             is_primary: false,
             total_pixels: w as u64 * h as u64,
             size_inches: None,
@@ -484,6 +529,37 @@ mod tests {
             content_scale: 1.0,
             native_handle: None,
         }
+    }
+
+    #[test]
+    fn a_faster_mode_at_the_same_size_is_proposed() {
+        let modes = [
+            (3840, 2160, 59.997),
+            (3840, 2160, 119.91),
+            (1920, 1080, 119.91),
+        ];
+        assert_eq!(
+            better_mode((3840, 2160, 59.997), &modes),
+            Some((3840, 2160, 119.91))
+        );
+    }
+
+    #[test]
+    fn the_best_mode_already_in_use_proposes_nothing() {
+        let modes = [(3840, 2160, 119.91), (3840, 2160, 59.997)];
+        assert_eq!(better_mode((3840, 2160, 119.91), &modes), None);
+    }
+
+    #[test]
+    fn rounding_between_59_94_and_60_is_not_a_better_mode() {
+        let modes = [(1920, 1080, 60.0), (1920, 1080, 59.94)];
+        assert_eq!(better_mode((1920, 1080, 59.94), &modes), None);
+    }
+
+    #[test]
+    fn a_mode_that_loses_refresh_rate_is_never_proposed() {
+        let modes = [(3840, 2160, 30.0), (1920, 1080, 144.0)];
+        assert_eq!(better_mode((1920, 1080, 144.0), &modes), None);
     }
 
     // --- Wizard window size ---

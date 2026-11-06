@@ -318,16 +318,17 @@ pub struct App {
     player_height: f32,      // Player total height in cm (used to compute Z)
 
     // Page 2 — Rendering
-    aa_factor: f32,         // Supersampling 0.5–2.0 (default 1.0)
-    msaa: i32,              // 0=Off, 1=4x, 2=6x, 3=8x
-    fxaa: i32,              // 0=Off, 1–7 various modes
-    sharpen: i32,           // 0=Off, 1=CAS, 2=Bilateral CAS
-    pf_reflection: i32,     // 0–5 reflection quality
-    max_tex_dim: i32,       // 512–16384
-    sync_mode: i32,         // 0=No sync, 1=VSync
-    max_framerate: f32,     // -1=display, 0=unlimited, else value
-    show_fps: bool,         // Player/ShowFPS: FPS overlay in game (recommended on)
-    ball_antistretch: bool, // Player/BallAntiStretch: keep the ball round (recommended on)
+    aa_factor: f32,          // Supersampling 0.5–2.0 (default 1.0)
+    msaa: i32,               // 0=Off, 1=4x, 2=6x, 3=8x
+    fxaa: i32,               // 0=Off, 1–7 various modes
+    sharpen: i32,            // 0=Off, 1=CAS, 2=Bilateral CAS
+    pf_reflection: i32,      // 0–5 reflection quality
+    max_tex_dim: i32,        // 512–16384
+    sync_mode: i32,          // 0=No sync, 1=VSync, 2=Adaptive, 3=Frame Pacing (VPX default)
+    max_framerate: f32,      // -1=display ("Max" in the UI), 0=unlimited, else value
+    compress_textures: bool, // Player/CompressTextures (VPX default on)
+    show_fps: bool,          // Player/ShowFPS: FPS overlay in game (recommended on)
+    ball_antistretch: bool,  // Player/BallAntiStretch: keep the ball round (recommended on)
 
     // Live accelerometer data from joystick thread
     accel_x: f32,
@@ -712,6 +713,7 @@ impl App {
             max_framerate,
             show_fps,
             ball_antistretch,
+            compress_textures,
         ) = Self::load_rendering_config(&config);
 
         // Detect + install the user's language BEFORE anything that
@@ -797,6 +799,7 @@ impl App {
             max_framerate,
             show_fps,
             ball_antistretch,
+            compress_textures,
             capture_state: CaptureState::Idle,
             show_advanced_inputs: false,
             auto_map_active: false,
@@ -916,10 +919,28 @@ impl App {
             ini_normalized: false,
             vpx_driver,
         };
+        s.normalize_max_framerate();
         if !start_in_wizard {
             s.scan_tables();
         }
         s
+    }
+
+    /// PinReady used to write the playfield's refresh rate into `MaxFramerate`,
+    /// so a stored number that equals it is that old automatic value, not a
+    /// choice. It would also pin the limit at 60 after a move to a 120 Hz mode
+    /// in the OS. Read it as "Max" (-1), which follows the screen.
+    fn normalize_max_framerate(&mut self) {
+        let refresh = self
+            .displays
+            .iter()
+            .find(|d| d.role == DisplayRole::Playfield)
+            .map(|d| d.refresh_rate);
+        if self.max_framerate > 0.0
+            && refresh.is_some_and(|hz| (hz - self.max_framerate).abs() < 1.0)
+        {
+            self.max_framerate = -1.0;
+        }
     }
 
     fn load_cabinet_dimensions(config: &VpxConfig) -> (f32, f32, f32, f32, f32, f32, f32) {
@@ -1153,7 +1174,7 @@ impl App {
     #[allow(clippy::type_complexity)]
     fn load_rendering_config(
         config: &VpxConfig,
-    ) -> (f32, i32, i32, i32, i32, i32, i32, f32, bool, bool) {
+    ) -> (f32, i32, i32, i32, i32, i32, i32, f32, bool, bool, bool) {
         (
             config.get_f32("Player", "AAFactor").unwrap_or(1.0),
             config.get_i32("Player", "MSAASamples").unwrap_or(0),
@@ -1161,7 +1182,7 @@ impl App {
             config.get_i32("Player", "Sharpen").unwrap_or(0),
             config.get_i32("Player", "PFReflection").unwrap_or(5),
             config.get_i32("Player", "MaxTexDimension").unwrap_or(16384),
-            config.get_i32("Player", "SyncMode").unwrap_or(0),
+            config.get_i32("Player", "SyncMode").unwrap_or(3),
             config.get_f32("Player", "MaxFramerate").unwrap_or(-1.0),
             // ShowFPS: 0 = off, 1 = FPS overlay, 2 = full perf stats. PinReady
             // recommends the FPS overlay on — pre-checked when unset.
@@ -1169,6 +1190,8 @@ impl App {
             // BallAntiStretch: keep the ball round. VPX defaults it off, but
             // PinReady recommends it on — pre-checked when unset.
             config.get_i32("Player", "BallAntiStretch").unwrap_or(1) != 0,
+            // CompressTextures: VPX's own default is on.
+            config.get_i32("Player", "CompressTextures").unwrap_or(1) != 0,
         )
     }
 
@@ -1533,6 +1556,7 @@ impl App {
                 max_framerate,
                 show_fps,
                 ball_antistretch,
+                compress_textures,
             ) = Self::load_rendering_config(&self.config);
             self.aa_factor = aa_factor;
             self.msaa = msaa;
@@ -1544,6 +1568,8 @@ impl App {
             self.max_framerate = max_framerate;
             self.show_fps = show_fps;
             self.ball_antistretch = ball_antistretch;
+            self.compress_textures = compress_textures;
+            self.normalize_max_framerate();
         }
 
         if current < WizardPage::Inputs.index() {
@@ -1652,10 +1678,11 @@ impl App {
                 self.sharpen = 0;
                 self.pf_reflection = 5;
                 self.max_tex_dim = 16384;
-                self.sync_mode = 0;
+                self.sync_mode = 3;
                 self.max_framerate = -1.0;
                 self.show_fps = true;
                 self.ball_antistretch = true;
+                self.compress_textures = true;
             }
             WizardPage::Inputs => {
                 self.actions = crate::inputs::default_actions();
@@ -2303,6 +2330,15 @@ impl eframe::App for App {
                             .clicked()
                     {
                         self.prev_page();
+                    }
+
+                    // Leaves without writing anything: the settings of the pages
+                    // already validated only live in memory until the last page.
+                    if ui
+                        .add(theme::secondary_button(t!("wizard_quit_nosave"), &p))
+                        .clicked()
+                    {
+                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                     }
 
                     if ui

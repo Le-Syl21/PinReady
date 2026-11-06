@@ -377,6 +377,29 @@ impl App {
                         }
                     });
 
+                // The OS usually picks a screen's preferred mode, not its fastest.
+                // Only the playfield matters for the frame rate; PinReady does not
+                // change the mode itself, it tells the player where to do it.
+                if let Some(pf) = self
+                    .displays
+                    .iter()
+                    .find(|d| d.role == DisplayRole::Playfield)
+                    && let Some((w, h, hz)) = pf.best_mode
+                {
+                    ui.add_space(8.0);
+                    ui.colored_label(
+                        ui.visuals().warn_fg_color,
+                        t!(
+                            "screens_better_mode",
+                            best = format!("{w}\u{d7}{h} \u{b7} {hz:.0} Hz"),
+                            current = format!(
+                                "{}\u{d7}{} \u{b7} {:.0} Hz",
+                                pf.width, pf.height, pf.refresh_rate
+                            )
+                        ),
+                    );
+                }
+
                 // TVs and bare panels report sizes nothing here can correct: point
                 // their owners at a database of real panel sizes.
                 let suspects: Vec<&str> = self

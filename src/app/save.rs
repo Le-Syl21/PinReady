@@ -123,8 +123,6 @@ impl App {
                     );
                     self.config
                         .set_f32("Player", "PlayfieldRefreshRate", display.refresh_rate);
-                    self.config
-                        .set_f32("Player", "MaxFramerate", display.refresh_rate);
                     let w_cm = display.width_mm as f32 / 10.0;
                     let h_cm = display.height_mm as f32 / 10.0;
                     if w_cm > 0.0 && h_cm > 0.0 {
@@ -204,6 +202,11 @@ impl App {
         self.config
             .set_i32("Player", "MaxTexDimension", self.max_tex_dim);
         self.config.set_i32("Player", "SyncMode", self.sync_mode);
+        self.config.set_i32(
+            "Player",
+            "CompressTextures",
+            if self.compress_textures { 1 } else { 0 },
+        );
         self.config
             .set_f32("Player", "MaxFramerate", self.max_framerate);
         // 0 = off, 1 = FPS overlay (2 = full perf stats, not offered here).

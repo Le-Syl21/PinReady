@@ -476,6 +476,7 @@ mod tests {
             width: w,
             height: h,
             refresh_rate: 60.0,
+            best_mode: None,
             is_primary: false,
             total_pixels: w as u64 * h as u64,
             size_inches: None,
