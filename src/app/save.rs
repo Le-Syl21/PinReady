@@ -209,6 +209,7 @@ impl App {
         );
         self.config
             .set_f32("Player", "MaxFramerate", self.max_framerate);
+        self.effects.save(&mut self.config);
         // 0 = off, 1 = FPS overlay (2 = full perf stats, not offered here).
         self.config
             .set_i32("Player", "ShowFPS", if self.show_fps { 1 } else { 0 });

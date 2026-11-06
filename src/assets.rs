@@ -126,11 +126,11 @@ fn read_b2s_lenient<R: std::io::BufRead>(reader: R) -> Option<B2sData> {
         };
         buf.clear();
         let Some(e) = ev else { continue };
-        let name = e.name().as_ref().to_vec();
+        let name = e.name().as_ref().as_bytes().to_vec();
         seen_root = true;
         let attr = |key: &str| -> Option<String> {
             e.attributes().flatten().find_map(|a| {
-                (a.key.as_ref() == key.as_bytes())
+                (a.key.as_ref() == key)
                     .then(|| {
                         a.normalized_value(quick_xml::XmlVersion::Implicit1_0)
                             .ok()

@@ -318,17 +318,18 @@ pub struct App {
     player_height: f32,      // Player total height in cm (used to compute Z)
 
     // Page 2 — Rendering
-    aa_factor: f32,          // Supersampling 0.5–2.0 (default 1.0)
-    msaa: i32,               // 0=Off, 1=4x, 2=6x, 3=8x
-    fxaa: i32,               // 0=Off, 1–7 various modes
-    sharpen: i32,            // 0=Off, 1=CAS, 2=Bilateral CAS
-    pf_reflection: i32,      // 0–5 reflection quality
-    max_tex_dim: i32,        // 512–16384
-    sync_mode: i32,          // 0=No sync, 1=VSync, 2=Adaptive, 3=Frame Pacing (VPX default)
-    max_framerate: f32,      // -1=display ("Max" in the UI), 0=unlimited, else value
-    compress_textures: bool, // Player/CompressTextures (VPX default on)
-    show_fps: bool,          // Player/ShowFPS: FPS overlay in game (recommended on)
-    ball_antistretch: bool,  // Player/BallAntiStretch: keep the ball round (recommended on)
+    aa_factor: f32,            // Supersampling 0.5–2.0 (default 1.0)
+    msaa: i32,                 // 0=Off, 1=4x, 2=6x, 3=8x
+    fxaa: i32,                 // 0=Off, 1–7 various modes
+    sharpen: i32,              // 0=Off, 1=CAS, 2=Bilateral CAS
+    pf_reflection: i32,        // 0–5 reflection quality
+    max_tex_dim: i32,          // 512–16384
+    sync_mode: i32,            // 0=No sync, 1=VSync, 2=Adaptive, 3=Frame Pacing (VPX default)
+    max_framerate: f32,        // -1=display ("Max" in the UI), 0=unlimited, else value
+    compress_textures: bool,   // Player/CompressTextures (VPX default on)
+    effects: effects::Effects, // Visual effects: AO, bloom, motion blur, reflections...
+    show_fps: bool,            // Player/ShowFPS: FPS overlay in game (recommended on)
+    ball_antistretch: bool,    // Player/BallAntiStretch: keep the ball round (recommended on)
 
     // Live accelerometer data from joystick thread
     accel_x: f32,
@@ -715,6 +716,7 @@ impl App {
             ball_antistretch,
             compress_textures,
         ) = Self::load_rendering_config(&config);
+        let effects = effects::Effects::load(&config);
 
         // Detect + install the user's language BEFORE anything that
         // calls `t!()` or `scancode_name()`, so localised labels (key
@@ -800,6 +802,7 @@ impl App {
             show_fps,
             ball_antistretch,
             compress_textures,
+            effects,
             capture_state: CaptureState::Idle,
             show_advanced_inputs: false,
             auto_map_active: false,
@@ -1569,6 +1572,7 @@ impl App {
             self.show_fps = show_fps;
             self.ball_antistretch = ball_antistretch;
             self.compress_textures = compress_textures;
+            self.effects = effects::Effects::load(&self.config);
             self.normalize_max_framerate();
         }
 
@@ -1683,6 +1687,7 @@ impl App {
                 self.show_fps = true;
                 self.ball_antistretch = true;
                 self.compress_textures = true;
+                self.effects = effects::Effects::default();
             }
             WizardPage::Inputs => {
                 self.actions = crate::inputs::default_actions();
@@ -1861,6 +1866,7 @@ mod audio_page;
 mod autostart;
 mod bgcache;
 mod desktop_integration;
+mod effects;
 mod help;
 mod inputs_page;
 mod launcher;

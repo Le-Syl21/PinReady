@@ -52,12 +52,12 @@ image = { version = "0.25", features = ["png", "jpeg", "webp"] }
 # B2S parsing (directb2s backglass thumbnail extraction)
 directb2s = "0.1"
 # The same reader the directb2s crate builds on: lenient fallback for files it refuses.
-quick-xml = "0.41"
+quick-xml = "0.42"
 base64 = "0.23"
 
 # .vpx file parsing — used to extract the embedded backglass preview
 # (`TableInfo.screenshot`) when a table doesn't ship a separate .directb2s.
-vpin = "0.39"
+vpin = "0.40"
 
 # Audio decoding (OGG Vorbis + MP3 → PCM for SDL3). MP3 is needed
 # for table preview audio (medias/audio.mp3 from vpinmediadb).
@@ -135,7 +135,7 @@ egui-rotate = { version = "4", features = ["software-cursor"] }
 # Registered as an egui Plugin from `main.rs`. Replaces the old eframe kiosk
 # routing that used to live in the egui fork.
 egui-keyfunnel = "0.3"
-piaf = "0.6"
+piaf = "0.7"
 
 [target.'cfg(windows)'.build-dependencies]
 winres = { version = "0.1", optional = true }

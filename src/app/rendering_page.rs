@@ -342,5 +342,109 @@ impl App {
                     });
             },
         );
+
+        theme::section(
+            ui,
+            &t!("rendering_section_effects"),
+            Some(&t!("rendering_section_effects_intro")),
+            |ui| {
+                use super::effects::AmbientOcclusion;
+                egui::Grid::new("rendering_effects_grid")
+                    .min_col_width(230.0)
+                    .spacing([16.0, 10.0])
+                    .show(ui, |ui| {
+                        // Ambient occlusion
+                        ui.horizontal(|ui| {
+                            theme::field_label(ui, &t!("rendering_ao"));
+                            help_marker(ui, &t!("rendering_ao_help"));
+                        });
+                        let ao_label = |ao: AmbientOcclusion| match ao {
+                            AmbientOcclusion::Off => t!("rendering_ao_off").to_string(),
+                            AmbientOcclusion::Fixed => t!("rendering_ao_static").to_string(),
+                            AmbientOcclusion::Moving => t!("rendering_ao_dynamic").to_string(),
+                        };
+                        egui::ComboBox::from_id_salt("ambient_occlusion")
+                            .selected_text(ao_label(self.effects.ao))
+                            .show_ui(ui, |ui| {
+                                for ao in [
+                                    AmbientOcclusion::Off,
+                                    AmbientOcclusion::Fixed,
+                                    AmbientOcclusion::Moving,
+                                ] {
+                                    ui.selectable_value(&mut self.effects.ao, ao, ao_label(ao));
+                                }
+                            });
+                        ui.end_row();
+
+                        // Plain on/off effects: label, explanation, then the
+                        // recommendation beside the box.
+                        let toggle = |ui: &mut egui::Ui,
+                                      value: &mut bool,
+                                      label: String,
+                                      help: String,
+                                      hint: String| {
+                            ui.horizontal(|ui| {
+                                theme::field_label(ui, &label);
+                                help_marker(ui, &help);
+                            });
+                            ui.checkbox(value, hint);
+                            ui.end_row();
+                        };
+                        toggle(
+                            ui,
+                            &mut self.effects.bloom,
+                            t!("rendering_bloom").to_string(),
+                            t!("rendering_bloom_help").to_string(),
+                            t!("rendering_bloom_hint").to_string(),
+                        );
+                        toggle(
+                            ui,
+                            &mut self.effects.motion_blur,
+                            t!("rendering_motionblur").to_string(),
+                            t!("rendering_motionblur_help").to_string(),
+                            t!("rendering_motionblur_hint").to_string(),
+                        );
+                        toggle(
+                            ui,
+                            &mut self.effects.anisotropic,
+                            t!("rendering_aniso").to_string(),
+                            t!("rendering_aniso_help").to_string(),
+                            t!("rendering_aniso_hint").to_string(),
+                        );
+                        toggle(
+                            ui,
+                            &mut self.effects.screen_reflections,
+                            t!("rendering_ssr").to_string(),
+                            t!("rendering_ssr_help").to_string(),
+                            t!("rendering_ssr_hint").to_string(),
+                        );
+
+                        // Images prepared in advance
+                        ui.horizontal(|ui| {
+                            theme::field_label(ui, &t!("rendering_prerender"));
+                            help_marker(ui, &t!("rendering_prerender_help"));
+                        });
+                        ui.horizontal(|ui| {
+                            ui.add(egui::Slider::new(
+                                &mut self.effects.prerendered_frames,
+                                1..=3,
+                            ));
+                            ui.label(t!("rendering_prerender_hint").to_string());
+                        });
+                        ui.end_row();
+
+                        // Detail of balls and ramps
+                        ui.horizontal(|ui| {
+                            theme::field_label(ui, &t!("rendering_detail"));
+                            help_marker(ui, &t!("rendering_detail_help"));
+                        });
+                        ui.horizontal(|ui| {
+                            ui.add(egui::Slider::new(&mut self.effects.detail, 1..=10));
+                            ui.label(t!("rendering_detail_hint").to_string());
+                        });
+                        ui.end_row();
+                    });
+            },
+        );
     }
 }
