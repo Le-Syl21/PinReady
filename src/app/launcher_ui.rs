@@ -88,208 +88,237 @@ impl App {
         // height ran out of width.
         let h_size = (ui.available_height().min(ui.available_width()) * 0.02).ceil();
         ui.add_space(6.0);
-        // Horizontal row with vertical Align::Center — same height-0
-        // allocation as ui.horizontal (sized to content) but with center
-        // cross-axis alignment so buttons + smaller search field line up.
+        // The row is laid out in three parts, each in its own child Ui: the
+        // toolbar and Rebuild on the left, Configuration and Quit on the
+        // right, and the search field in the middle, centred between them
+        // and as wide as what is typed. The side groups are drawn first so
+        // the middle knows how much room is left.
         let hrow_w = ui.available_size_before_wrap().x;
-        ui.allocate_ui_with_layout(
-            egui::vec2(hrow_w, 0.0),
-            egui::Layout::left_to_right(egui::Align::Center),
-            |ui| {
-                // Toolbar toggles (theme + rotation + info) at the very
-                // start of the launcher topbar. The version string used to
-                // sit here but ate too much width on rotated viewports; it
-                // now lives inside the About window opened by the ℹ icon.
-                let ctx = ui.ctx().clone();
-                // The DMD wordmark when the row has room for it (a rotated
-                // playfield is narrow, the search field matters more).
-                if hrow_w > 900.0 {
-                    theme::dmd_wordmark(ui, (h_size * 0.17).max(2.0));
-                    ui.add_space(12.0);
-                }
-                self.toolbar_toggles(&ctx, ui, h_size);
-                ui.add_space(16.0);
-                ui.label(egui::RichText::new("🔍").size(h_size));
-                // Search bar font is h_size - 2 so the box sits slightly smaller
-                // than the buttons without losing alignment on the row.
-                let search_font = (h_size - 2.0).max(1.0);
-                // Scoped visuals tweak — thicker + lighter bg_stroke so the
-                // search frame is visible on glossy / bright pincab playfields.
-                // Default inactive stroke is gray(60) which washes out; we force
-                // a brighter light-gray + 3px width on all widget states.
-                let search_resp = ui
-                    .scope(|ui| {
-                        let p = theme::pal(ui.ctx());
-                        let stroke = egui::Stroke::new(3.0, p.text_muted);
-                        let v = ui.visuals_mut();
-                        v.widgets.inactive.bg_stroke = stroke;
-                        v.widgets.hovered.bg_stroke = stroke;
-                        v.widgets.active.bg_stroke = stroke;
-                        v.widgets.noninteractive.bg_stroke = stroke;
-                        v.widgets.open.bg_stroke = stroke;
-                        ui.add(
-                            egui::TextEdit::singleline(&mut self.table_filter)
-                                .font(egui::FontId::proportional(search_font))
-                                .hint_text(
-                                    egui::RichText::new(
-                                        t!("launcher_search", count = self.tables.len())
-                                            .to_string(),
-                                    )
-                                    .size(search_font),
-                                )
-                                .desired_width(h_size * 7.0),
-                        )
-                    })
-                    .inner;
-                let mut filter_changed = false;
-                if search_resp.changed() {
-                    self.table_filter_lower = self.table_filter.to_lowercase();
-                    filter_changed = true;
-                }
+        let row_h = (h_size * 1.8).max(ui.spacing().interact_size.y);
+        let (row_rect, _) = ui.allocate_exact_size(egui::vec2(hrow_w, row_h), egui::Sense::hover());
+        let ctx = ui.ctx().clone();
+        let p = theme::pal(&ctx);
+        let header_button = |text: String| {
+            egui::Button::new(egui::RichText::new(text).size(h_size).color(p.text))
+                .fill(egui::Color32::TRANSPARENT)
+                .stroke(egui::Stroke::new(1.0, p.border))
+        };
 
-                // Type-anywhere-to-search: when no text field has focus
-                // and a printable character is typed, append it to the
-                // filter and grab focus on the search bar so the next
-                // keystrokes go directly into the field. Skipped while
-                // VPX is running (game owns the input) and while a text
-                // edit already has focus (avoid double-insertion: the
-                // TextEdit will consume the same Event::Text natively).
-                if !ui.ctx().text_edit_focused() && !self.vpx_running.load(Ordering::Relaxed) {
-                    let typed: String = ui.input(|i| {
-                        i.events
-                            .iter()
-                            .filter_map(|e| match e {
-                                egui::Event::Text(s) => Some(s.as_str()),
-                                _ => None,
-                            })
-                            .collect::<Vec<_>>()
-                            .join("")
-                    });
-                    let appended: String = typed.chars().filter(|c| !c.is_control()).collect();
-                    if !appended.is_empty() {
-                        self.table_filter.push_str(&appended);
-                        self.table_filter_lower = self.table_filter.to_lowercase();
-                        filter_changed = true;
-                        // Place the caret at the end of the buffer so
-                        // subsequent typing appends instead of inserting
-                        // before the freshly-typed characters.
-                        let id = search_resp.id;
-                        let mut state =
-                            egui::TextEdit::load_state(ui.ctx(), id).unwrap_or_default();
-                        let end = self.table_filter.chars().count();
-                        state
-                            .cursor
-                            .set_char_range(Some(egui::text::CCursorRange::one(
-                                egui::text::CCursor::new(end),
-                            )));
-                        state.store(ui.ctx(), id);
-                        search_resp.request_focus();
-                    }
-                }
-
-                // When the filter changes, snap the selection to the
-                // first match so Enter launches a table that's actually
-                // visible in the filtered grid. Skip if the current
-                // selection still satisfies the new filter (lets the
-                // user refine without losing their place).
-                if filter_changed && !self.table_filter_lower.is_empty() {
-                    let f = self.table_filter_lower.as_str();
-                    let current_matches = self
-                        .tables
-                        .get(self.selected_table)
-                        .map(|t| t.name.to_lowercase().contains(f))
-                        .unwrap_or(false);
-                    if !current_matches
-                        && let Some(idx) = self
-                            .tables
-                            .iter()
-                            .position(|t| t.name.to_lowercase().contains(f))
-                    {
-                        self.selected_table = idx;
-                        self.scroll_to_selected = true;
-                    }
-                }
-
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let p = theme::pal(ui.ctx());
-                    let header_button = |text: String| {
-                        egui::Button::new(egui::RichText::new(text).size(h_size).color(p.text))
-                            .fill(egui::Color32::TRANSPARENT)
-                            .stroke(egui::Stroke::new(1.0, p.border))
-                    };
-                    if ui
-                        .add(header_button(t!("launcher_quit").to_string()))
-                        .clicked()
-                    {
-                        self.quit_launcher(ui.ctx());
-                    }
-                    if ui
-                        .add(header_button(t!("launcher_config").to_string()))
-                        .clicked()
-                    {
-                        // Signal main.rs to relaunch this eframe session in
-                        // Wizard mode with a fresh viewport (windowed on the
-                        // primary display), then close this one. Cover
-                        // viewports go first to keep the Mutter destruction
-                        // order deterministic — same reason as in
-                        // `quit_launcher`.
-                        // Stop any currently-playing table preview audio
-                        // before the mode switch so the user doesn't hear
-                        // it linger into the wizard. The audio thread
-                        // itself stays alive — the wizard needs it for
-                        // its test sequence.
-                        if let Some(tx) = &self.audio_cmd_tx {
-                            let _ = tx.send(AudioCommand::PreviewStop);
-                            let _ = tx.send(AudioCommand::StopAll);
-                        }
-                        self.preview_playing = false;
-                        self.preview_due_at = None;
-                        crate::app::request_mode_switch(AppMode::Wizard);
-                        Self::close_cover_viewports(ui.ctx());
-                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
-                    }
-                    // Update buttons/progress used to live here inline, but any
-                    // transition (available → downloading → gone) resized the
-                    // row and shifted the other buttons around. They now render
-                    // as full-width banners just below the header — see
-                    // `render_update_banners` after this row closes.
-
-                    // Rebuild button: single click, flushes backglass +
-                    // vbs_patches caches and re-scans from scratch. The
-                    // mtime-invalidation inside `scan_tables` already
-                    // handles "new tables" and "source file changed"
-                    // cases transparently on every scan.
-                    let label = t!("launcher_rebuild").to_string();
-                    if ui.add(header_button(label)).clicked() {
-                        log::info!(
-                            "Rebuild: flushing backglass + vbs_patches caches, full re-scan"
-                        );
-                        if let Err(e) = self.db.clear_backglass() {
-                            log::error!("clear_backglass failed: {e}");
-                        }
-                        if let Err(e) = self.db.clear_vbs_patches() {
-                            log::error!("clear_vbs_patches failed: {e}");
-                        }
-                        self.tables.iter_mut().for_each(|t| t.has_bg = false);
-                        self.scan_tables();
-                    }
-
-                    // Update counter — surfaces tables flagged
-                    // `update_available` by the catalog worker. Sits to
-                    // the left of Rebuild (added after it in this
-                    // right-to-left layout). Click is currently a no-op;
-                    // the per-card badge is the primary affordance.
-                    let updates = self.tables.iter().filter(|t| t.update_available).count();
-                    if updates > 0 {
-                        ui.label(
-                            egui::RichText::new(format!("↑ {updates}"))
-                                .size(h_size)
-                                .color(p.info),
-                        );
-                    }
-                });
-            },
+        let mut left = ui.new_child(
+            egui::UiBuilder::new()
+                .max_rect(row_rect)
+                .layout(egui::Layout::left_to_right(egui::Align::Center)),
         );
+        // The DMD wordmark when the row has room for it (a rotated
+        // playfield is narrow, the search field matters more).
+        if hrow_w > 900.0 {
+            theme::dmd_wordmark(&mut left, (h_size * 0.17).max(2.0));
+            left.add_space(12.0);
+        }
+        // Toolbar toggles (theme + rotation + info). The version string
+        // used to sit here but ate too much width on rotated viewports; it
+        // now lives inside the About window opened by the info icon.
+        self.toolbar_toggles(&ctx, &mut left, h_size);
+        left.add_space(16.0);
+        // Rebuild button: single click, flushes backglass +
+        // vbs_patches caches and re-scans from scratch. The
+        // mtime-invalidation inside `scan_tables` already
+        // handles "new tables" and "source file changed"
+        // cases transparently on every scan.
+        let label = t!("launcher_rebuild").to_string();
+        if left.add(header_button(label)).clicked() {
+            log::info!("Rebuild: flushing backglass + vbs_patches caches, full re-scan");
+            if let Err(e) = self.db.clear_backglass() {
+                log::error!("clear_backglass failed: {e}");
+            }
+            if let Err(e) = self.db.clear_vbs_patches() {
+                log::error!("clear_vbs_patches failed: {e}");
+            }
+            self.tables.iter_mut().for_each(|t| t.has_bg = false);
+            self.scan_tables();
+        }
+
+        // Update counter — surfaces tables flagged `update_available` by the
+        // catalog worker. The per-card badge is the primary affordance.
+        // Update buttons/progress used to live in this row, but any
+        // transition (available → downloading → gone) resized it and
+        // shifted the other buttons around: they render as full-width
+        // banners below the header, see `render_update_banners`.
+        let updates = self.tables.iter().filter(|t| t.update_available).count();
+        if updates > 0 {
+            left.label(
+                egui::RichText::new(format!("↑ {updates}"))
+                    .size(h_size)
+                    .color(p.info),
+            );
+        }
+        let left_end = left.min_rect().right();
+
+        let mut right = ui.new_child(
+            egui::UiBuilder::new()
+                .max_rect(row_rect)
+                .layout(egui::Layout::right_to_left(egui::Align::Center)),
+        );
+        if right
+            .add(header_button(t!("launcher_quit").to_string()))
+            .clicked()
+        {
+            self.quit_launcher(&ctx);
+        }
+        if right
+            .add(header_button(t!("launcher_config").to_string()))
+            .clicked()
+        {
+            // Signal main.rs to relaunch this eframe session in
+            // Wizard mode with a fresh viewport (windowed on the
+            // primary display), then close this one. Cover
+            // viewports go first to keep the Mutter destruction
+            // order deterministic — same reason as in
+            // `quit_launcher`.
+            // Stop any currently-playing table preview audio
+            // before the mode switch so the user doesn't hear
+            // it linger into the wizard. The audio thread
+            // itself stays alive — the wizard needs it for
+            // its test sequence.
+            if let Some(tx) = &self.audio_cmd_tx {
+                let _ = tx.send(AudioCommand::PreviewStop);
+                let _ = tx.send(AudioCommand::StopAll);
+            }
+            self.preview_playing = false;
+            self.preview_due_at = None;
+            crate::app::request_mode_switch(AppMode::Wizard);
+            Self::close_cover_viewports(&ctx);
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+        let right_start = right.min_rect().left();
+
+        // Search: a magnifier and a field that grows with what is typed (or
+        // with the hint while empty), between a minimum and a maximum, and
+        // centred on the row unless the side groups push it off-centre.
+        let search_font = (h_size - 2.0).max(1.0);
+        let hint = t!("launcher_search", count = self.tables.len()).to_string();
+        let shown = if self.table_filter.is_empty() {
+            hint.clone()
+        } else {
+            self.table_filter.clone()
+        };
+        let text_w = ui
+            .painter()
+            .layout_no_wrap(
+                shown,
+                egui::FontId::proportional(search_font),
+                egui::Color32::WHITE,
+            )
+            .size()
+            .x;
+        let gap = h_size;
+        let icon_w = h_size * 1.6;
+        let room = (right_start - left_end - 2.0 * gap - icon_w).max(0.0);
+        let field_w = (text_w + h_size * 2.5)
+            .clamp(h_size * 7.0, h_size * 30.0)
+            .min(room);
+        let total_w = icon_w + field_w;
+        let lo = left_end + gap;
+        let hi = (right_start - gap - total_w).max(lo);
+        let x0 = (row_rect.center().x - total_w / 2.0).clamp(lo, hi);
+        let mut center = ui.new_child(
+            egui::UiBuilder::new()
+                .max_rect(egui::Rect::from_min_size(
+                    egui::pos2(x0, row_rect.top()),
+                    egui::vec2(total_w, row_h),
+                ))
+                .layout(egui::Layout::left_to_right(egui::Align::Center)),
+        );
+        center.label(egui::RichText::new("🔍").size(h_size));
+        // Scoped visuals tweak — thicker + lighter bg_stroke so the search
+        // frame is visible on glossy / bright pincab playfields. The default
+        // inactive stroke is gray(60), which washes out; we force a brighter
+        // light-gray + 3px width on all widget states.
+        let search_resp = center
+            .scope(|ui| {
+                let stroke = egui::Stroke::new(3.0, p.text_muted);
+                let v = ui.visuals_mut();
+                v.widgets.inactive.bg_stroke = stroke;
+                v.widgets.hovered.bg_stroke = stroke;
+                v.widgets.active.bg_stroke = stroke;
+                v.widgets.noninteractive.bg_stroke = stroke;
+                v.widgets.open.bg_stroke = stroke;
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.table_filter)
+                        .font(egui::FontId::proportional(search_font))
+                        .hint_text(egui::RichText::new(hint).size(search_font))
+                        .desired_width(field_w),
+                )
+            })
+            .inner;
+        let mut filter_changed = false;
+        if search_resp.changed() {
+            self.table_filter_lower = self.table_filter.to_lowercase();
+            filter_changed = true;
+        }
+
+        // Type-anywhere-to-search: when no text field has focus
+        // and a printable character is typed, append it to the
+        // filter and grab focus on the search bar so the next
+        // keystrokes go directly into the field. Skipped while
+        // VPX is running (game owns the input) and while a text
+        // edit already has focus (avoid double-insertion: the
+        // TextEdit will consume the same Event::Text natively).
+        if !ui.ctx().text_edit_focused() && !self.vpx_running.load(Ordering::Relaxed) {
+            let typed: String = ui.input(|i| {
+                i.events
+                    .iter()
+                    .filter_map(|e| match e {
+                        egui::Event::Text(s) => Some(s.as_str()),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+                    .join("")
+            });
+            let appended: String = typed.chars().filter(|c| !c.is_control()).collect();
+            if !appended.is_empty() {
+                self.table_filter.push_str(&appended);
+                self.table_filter_lower = self.table_filter.to_lowercase();
+                filter_changed = true;
+                // Place the caret at the end of the buffer so
+                // subsequent typing appends instead of inserting
+                // before the freshly-typed characters.
+                let id = search_resp.id;
+                let mut state = egui::TextEdit::load_state(ui.ctx(), id).unwrap_or_default();
+                let end = self.table_filter.chars().count();
+                state
+                    .cursor
+                    .set_char_range(Some(egui::text::CCursorRange::one(
+                        egui::text::CCursor::new(end),
+                    )));
+                state.store(ui.ctx(), id);
+                search_resp.request_focus();
+            }
+        }
+
+        // When the filter changes, snap the selection to the
+        // first match so Enter launches a table that's actually
+        // visible in the filtered grid. Skip if the current
+        // selection still satisfies the new filter (lets the
+        // user refine without losing their place).
+        if filter_changed && !self.table_filter_lower.is_empty() {
+            let f = self.table_filter_lower.as_str();
+            let current_matches = self
+                .tables
+                .get(self.selected_table)
+                .map(|t| t.name.to_lowercase().contains(f))
+                .unwrap_or(false);
+            if !current_matches
+                && let Some(idx) = self
+                    .tables
+                    .iter()
+                    .position(|t| t.name.to_lowercase().contains(f))
+            {
+                self.selected_table = idx;
+                self.scroll_to_selected = true;
+            }
+        }
+
         ui.add_space(8.0);
 
         // Full-width update banners (one per pending update). Rendering
