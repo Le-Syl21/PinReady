@@ -283,6 +283,13 @@ pub enum VpxInstallMode {
     Manual,
 }
 
+/// Kind of input an auto-map pass listens for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AutoMapDevice {
+    Keyboard,
+    Joystick,
+}
+
 /// State for input capture
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CaptureState {
@@ -353,6 +360,10 @@ pub struct App {
     /// Escape, which leaves that action's binding unchanged). Stops
     /// when reaching the end of the list or when the user clicks Cancel.
     auto_map_active: bool,
+    /// Which kind of input the running auto-map pass listens for: a key
+    /// pass never touches the joystick column and vice versa, so a pass
+    /// on the joystick keeps Escape on its quit action.
+    auto_map_device: AutoMapDevice,
     joystick_rx: Option<crossbeam_channel::Receiver<JoystickEvent>>,
     /// Set to false to ask the joystick thread to drain + exit. The
     /// thread joins quickly (≤ 10 ms — its sleep granularity), closes
@@ -813,6 +824,7 @@ impl App {
             capture_state: CaptureState::Idle,
             show_advanced_inputs: false,
             auto_map_active: false,
+            auto_map_device: AutoMapDevice::Keyboard,
             joystick_rx: Some(joystick_rx),
             joystick_running: Some(joystick_running),
             joystick_thread: Some(joystick_thread),
@@ -1813,7 +1825,10 @@ impl App {
                     button,
                     name,
                 } => {
-                    if let CaptureState::Capturing(idx) = self.capture_state {
+                    if let CaptureState::Capturing(idx) = self.capture_state
+                        && !(self.auto_map_active
+                            && self.auto_map_device != AutoMapDevice::Joystick)
+                    {
                         if idx < self.actions.len() {
                             // Fills the joystick slot only — the keyboard
                             // binding of the action is kept alongside.

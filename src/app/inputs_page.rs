@@ -84,14 +84,28 @@ impl App {
                 ui.horizontal(|ui| {
                     if !self.auto_map_active {
                         let p = theme::pal(ui.ctx());
-                        if ui
-                            .add(theme::primary_button(t!("inputs_auto_map"), &p, true))
-                            .on_hover_text(t!("inputs_auto_map_hint"))
-                            .clicked()
-                        {
-                            self.auto_map_active = true;
-                            if !self.actions.is_empty() {
-                                self.capture_state = CaptureState::Capturing(0);
+                        for (device, label, hint) in [
+                            (
+                                AutoMapDevice::Keyboard,
+                                t!("inputs_auto_map_keyboard"),
+                                t!("inputs_auto_map_keyboard_hint"),
+                            ),
+                            (
+                                AutoMapDevice::Joystick,
+                                t!("inputs_auto_map_joystick"),
+                                t!("inputs_auto_map_joystick_hint"),
+                            ),
+                        ] {
+                            if ui
+                                .add(theme::primary_button(label, &p, true))
+                                .on_hover_text(hint)
+                                .clicked()
+                            {
+                                self.auto_map_active = true;
+                                self.auto_map_device = device;
+                                if !self.actions.is_empty() {
+                                    self.capture_state = CaptureState::Capturing(0);
+                                }
                             }
                         }
                     } else {
@@ -104,14 +118,19 @@ impl App {
                             .on_hover_text(t!("inputs_auto_map_skip_hint"))
                             .clicked()
                         {
-                            // Skipped = left without any key or button (not even the
-                            // VPX default), then on to the next action.
+                            // Skipped = this pass's column left empty, then on to
+                            // the next action. A key pass also drops the VPX
+                            // default key; the other column is never touched.
                             if let CaptureState::Capturing(idx) = self.capture_state
                                 && let Some(action) = self.actions.get_mut(idx)
                             {
-                                action.keyboard = None;
-                                action.joystick = None;
-                                action.unmapped = true;
+                                match self.auto_map_device {
+                                    AutoMapDevice::Keyboard => {
+                                        action.keyboard = None;
+                                        action.unmapped = true;
+                                    }
+                                    AutoMapDevice::Joystick => action.joystick = None,
+                                }
                             }
                             self.advance_capture_or_finish();
                         }
@@ -150,8 +169,11 @@ impl App {
                             })
                             .collect()
                     });
+                    // A joystick pass ignores the keyboard entirely.
+                    let keys_listen =
+                        !self.auto_map_active || self.auto_map_device == AutoMapDevice::Keyboard;
                     for &(key, physical_key, pressed) in &key_events {
-                        if pressed {
+                        if keys_listen && pressed {
                             // Escape is a mappable key (VPX's default ExitGame) — it is
                             // captured like any other. Skipping an action is done only
                             // via the "Skip" button, never a key.
@@ -176,7 +198,8 @@ impl App {
                     }
 
                     // Modifier-only press fallback (Shift/Ctrl/Alt by themselves).
-                    if !captured_or_skipped
+                    if keys_listen
+                        && !captured_or_skipped
                         && (modifiers.shift || modifiers.ctrl || modifiers.alt)
                         && key_events.is_empty()
                         && let Some(sc) = inputs::egui_modifiers_to_scancode(&modifiers)
