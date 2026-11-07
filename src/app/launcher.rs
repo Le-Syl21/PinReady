@@ -1961,7 +1961,17 @@ impl App {
         self.update_error = None;
         std::thread::spawn(move || {
             if let Err(e) = updater::download_and_install(&release, &install_dir, tx.clone()) {
-                let _ = tx.send(UpdateProgress::Error(format!("{e}")));
+                let dir = install_dir.display().to_string();
+                let msg = match updater::classify_install_error(&e) {
+                    Some(updater::InstallFailure::Denied) => {
+                        t!("update_install_denied", dir = dir).to_string()
+                    }
+                    Some(updater::InstallFailure::NotFound) => {
+                        t!("update_install_not_found", dir = dir).to_string()
+                    }
+                    None => format!("{e}"),
+                };
+                let _ = tx.send(UpdateProgress::Error(msg));
             }
         });
     }

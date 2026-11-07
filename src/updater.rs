@@ -333,6 +333,26 @@ pub fn vpx_executable_name() -> &'static str {
     }
 }
 
+/// Why an install into a user-chosen folder failed, when the OS says so.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InstallFailure {
+    /// Windows error 5 / EACCES: no write access to the folder.
+    Denied,
+    /// Windows error 3 / ENOENT: the path can't be reached.
+    NotFound,
+}
+
+/// Look through an install error for the I/O error behind it.
+pub fn classify_install_error(err: &anyhow::Error) -> Option<InstallFailure> {
+    err.chain()
+        .filter_map(|e| e.downcast_ref::<std::io::Error>())
+        .find_map(|io| match io.kind() {
+            std::io::ErrorKind::PermissionDenied => Some(InstallFailure::Denied),
+            std::io::ErrorKind::NotFound => Some(InstallFailure::NotFound),
+            _ => None,
+        })
+}
+
 /// Download a release asset and extract it into `install_dir`.
 /// Sends progress updates through `progress_tx`.
 /// This is a blocking call — run it from a background thread.
@@ -341,16 +361,11 @@ pub fn download_and_install(
     install_dir: &Path,
     progress_tx: Sender<UpdateProgress>,
 ) -> Result<()> {
-    // Download to a temp file
-    let tmp_path = install_dir
-        .parent()
-        .unwrap_or(install_dir)
-        .join(".vpx_download.zip");
-
-    // Ensure parent dir exists
-    if let Some(parent) = tmp_path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
+    // Download to the system temp folder: a normal user can create a folder
+    // in the root of C:\ (C:\VPinball) but not a file there, so a zip next
+    // to the install folder was refused with "Access denied" (OS error 5).
+    let tmp_path =
+        std::env::temp_dir().join(format!(".pinready_vpx_download_{}.zip", std::process::id()));
 
     let result = download_and_install_inner(release, install_dir, &tmp_path, &progress_tx);
 
@@ -817,6 +832,23 @@ mod tests {
             name.starts_with("VPinballX"),
             "expected VPinballX prefix: {name}"
         );
+    }
+
+    #[test]
+    fn install_errors_are_classified() {
+        use std::io::{Error, ErrorKind};
+        let denied = anyhow::Error::new(Error::from(ErrorKind::PermissionDenied));
+        assert_eq!(
+            classify_install_error(&denied),
+            Some(InstallFailure::Denied)
+        );
+        let missing = anyhow::Error::new(Error::from(ErrorKind::NotFound)).context("extract");
+        assert_eq!(
+            classify_install_error(&missing),
+            Some(InstallFailure::NotFound)
+        );
+        let other = anyhow::anyhow!("network down");
+        assert_eq!(classify_install_error(&other), None);
     }
 
     #[test]
