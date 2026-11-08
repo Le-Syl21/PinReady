@@ -163,31 +163,62 @@ fn largest_dark_rect(
     best
 }
 
-/// Find the hole of a frame image and fit the DMD's shape in its middle.
-fn find_hole(image: &image::DynamicImage) -> Option<DmdRect> {
+/// Luminance (0..255) of every pixel, with see-through pixels counted as black:
+/// a transparent hole is as good as a dark one.
+fn luminance(image: &image::DynamicImage) -> (Vec<u8>, usize, usize) {
     let rgba = image.to_rgba8();
     let (width, height) = (rgba.width() as usize, rgba.height() as usize);
-    if width < 64 || height < 24 {
-        return None;
-    }
-    // Dark, or see-through: a transparent hole is as good as a black one
-    let dark: Vec<bool> = rgba
+    let luma = rgba
         .pixels()
         .map(|p| {
-            let luma =
-                (u32::from(p[0]) * 299 + u32::from(p[1]) * 587 + u32::from(p[2]) * 114) / 1000;
-            p[3] < 32 || luma < u32::from(DARK_THRESHOLD)
+            if p[3] < 32 {
+                0
+            } else {
+                ((u32::from(p[0]) * 299 + u32::from(p[1]) * 587 + u32::from(p[2]) * 114) / 1000)
+                    as u8
+            }
         })
         .collect();
-    let (area, mut x, mut y, mut w, mut h) = largest_dark_rect(&dark, width, height);
-    if area == 0 {
-        return None;
+    (luma, width, height)
+}
+
+/// Mean luminance of a rectangle of the image.
+fn mean_luma(luma: &[u8], width: usize, x: usize, y: usize, w: usize, h: usize) -> f32 {
+    let mut sum = 0u64;
+    for row in y..y + h {
+        sum += luma[row * width + x..row * width + x + w]
+            .iter()
+            .map(|&v| u64::from(v))
+            .sum::<u64>();
     }
-    if (w as f32) < width as f32 * MIN_WIDTH_SHARE || (h as f32) < height as f32 * MIN_HEIGHT_SHARE
-    {
-        return None;
+    sum as f32 / (w * h).max(1) as f32
+}
+
+/// How much brighter the ring of pixels around a rectangle is than its inside.
+/// A frame has a border that stands out from the hole; a patch of dark artwork
+/// does not.
+fn edge_contrast(
+    luma: &[u8],
+    width: usize,
+    height: usize,
+    rect: (usize, usize, usize, usize),
+) -> f32 {
+    const RING: usize = 6;
+    let (x, y, w, h) = rect;
+    if x < RING || y < RING || x + w + RING > width || y + h + RING > height {
+        return 0.0; // touches the edge of the image: the artwork goes on
     }
-    // Fit the DMD's shape, centred in the rectangle found
+    let outer = mean_luma(luma, width, x - RING, y - RING, w + 2 * RING, h + 2 * RING);
+    let inner = mean_luma(luma, width, x, y, w, h);
+    // mean of the ring alone
+    let outer_area = ((w + 2 * RING) * (h + 2 * RING)) as f32;
+    let inner_area = (w * h) as f32;
+    (outer * outer_area - inner * inner_area) / (outer_area - inner_area) - inner
+}
+
+/// The DMD's shape fitted in the middle of the rectangle `(x, y, w, h)`.
+fn fit_aspect(x: usize, y: usize, w: usize, h: usize) -> DmdRect {
+    let (mut x, mut y, mut w, mut h) = (x, y, w, h);
     if w as f32 / h as f32 > DMD_ASPECT {
         let nw = (h as f32 * DMD_ASPECT) as usize;
         x += (w - nw) / 2;
@@ -197,12 +228,54 @@ fn find_hole(image: &image::DynamicImage) -> Option<DmdRect> {
         y += (h - nh) / 2;
         h = nh;
     }
-    Some(DmdRect {
+    DmdRect {
         x: x as u32,
         y: y as u32,
         w: w as u32,
         h: h as u32,
-    })
+    }
+}
+
+/// Find the hole of a frame image and fit the DMD's shape in its middle.
+///
+/// The hole is not always pure black (a gradient, some noise), so the search is
+/// repeated at growing thresholds. Of the dark rectangles found, those that
+/// stand out from their surroundings (a border around them) and do not touch
+/// the edge of the image are candidates, and the largest wins: a patch of dark
+/// artwork has no border, and a larger threshold only grows the hole up to its
+/// border.
+fn find_hole(image: &image::DynamicImage) -> Option<DmdRect> {
+    const THRESHOLDS: [u8; 5] = [DARK_THRESHOLD, 24, 32, 44, 60];
+    /// A border at least this much brighter than the inside, in luminance levels.
+    const MIN_CONTRAST: f32 = 25.0;
+    let (luma, width, height) = luminance(image);
+    if width < 64 || height < 24 {
+        return None;
+    }
+    let mut best: Option<(usize, DmdRect)> = None;
+    for threshold in THRESHOLDS {
+        let mut dark: Vec<bool> = luma.iter().map(|&v| v < threshold).collect();
+        // The largest dark rectangle may be artwork (a night sky): when it is
+        // not a frame hole, blank it out and look at the next one
+        for _ in 0..4 {
+            let (area, x, y, w, h) = largest_dark_rect(&dark, width, height);
+            if area == 0 {
+                break;
+            }
+            let big_enough = (w as f32) >= width as f32 * MIN_WIDTH_SHARE
+                && (h as f32) >= height as f32 * MIN_HEIGHT_SHARE;
+            if big_enough && edge_contrast(&luma, width, height, (x, y, w, h)) >= MIN_CONTRAST {
+                if best.is_none_or(|(a, _)| area > a) {
+                    best = Some((area, fit_aspect(x, y, w, h)));
+                }
+                break;
+            }
+            for row in y..y + h {
+                dark[row * width + x..row * width + x + w].fill(false);
+            }
+        }
+    }
+    best.map(|(_, rect)| rect)
 }
 
 /// Look at the text of a `.directb2s`.
@@ -357,6 +430,27 @@ mod tests {
             (rect.x as i64 - 36).abs() <= 2 && (rect.y as i64 - 37).abs() <= 1,
             "{rect:?}"
         );
+    }
+
+    #[test]
+    fn a_hole_that_is_not_pure_black_is_still_found() {
+        // A hole with a gradient (luminance 18..40) inside a bright border,
+        // under a band of dark artwork that touches the top of the image
+        let img = ImageBuffer::from_fn(1280, 720, |x, y| {
+            if (115..1165).contains(&x) && (450..710).contains(&y) {
+                let v = 18 + ((x - 115) * 22 / 1050) as u8;
+                Rgba([v, v, v, 255])
+            } else if y < 400 {
+                Rgba([12, 14, 24, 255]) // dark sky, no border
+            } else {
+                Rgba([150, 110, 40, 255]) // gold frame
+            }
+        });
+        let rect = find_hole(&image::DynamicImage::ImageRgba8(img)).expect("hole");
+        // inside the hole, and most of it
+        assert!(rect.x >= 115 && rect.x + rect.w <= 1165, "{rect:?}");
+        assert!(rect.y >= 450 && rect.y + rect.h <= 710, "{rect:?}");
+        assert!(rect.w >= 1000, "{rect:?}");
     }
 
     #[test]
