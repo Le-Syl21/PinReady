@@ -47,7 +47,7 @@ walkdir = "2.5"
 # at quality 85 (5× smaller than PNG, visually lossless on photographic
 # content at our 1280×1024 target). `webp` kept for decode compatibility
 # with any legacy cache rows still stored as WebP after a version upgrade.
-image = { version = "0.25", features = ["png", "jpeg", "webp"] }
+image = { version = "0.25", features = ["png", "jpeg", "webp", "bmp"] }
 
 # B2S parsing (directb2s backglass thumbnail extraction)
 directb2s = "0.1"

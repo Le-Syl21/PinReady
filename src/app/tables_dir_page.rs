@@ -163,6 +163,18 @@ impl App {
             ui.add_space(10.0);
             ui.horizontal(|ui| {
                 if ui
+                    .checkbox(&mut self.b2s_dmd, t!("tables_b2s_dmd_toggle"))
+                    .changed()
+                    && let Err(e) = self.db.set_b2s_dmd_enabled(self.b2s_dmd)
+                {
+                    log::error!("Failed to persist b2s_dmd_enabled: {e}");
+                }
+                help_marker(ui, &t!("tables_b2s_dmd_desc"));
+            });
+
+            ui.add_space(10.0);
+            ui.horizontal(|ui| {
+                if ui
                     .checkbox(&mut self.catalog_enrichment, t!("tables_catalog_toggle"))
                     .changed()
                     && let Err(e) = self

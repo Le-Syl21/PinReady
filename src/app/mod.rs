@@ -522,6 +522,8 @@ pub struct App {
     // `vbs_patches` table. Silent on the UI side — we don't show per-
     // table badges; the log is the source of truth for what happened.
     vbs_rx: Option<crossbeam_channel::Receiver<VbsPatchRecord>>,
+    // DMD area check of the .directb2s files — (rel_path, status, mtime)
+    b2s_dmd_rx: Option<crossbeam_channel::Receiver<(String, String, i64)>>,
 
     // VPX process running — disables launcher while true
     vpx_running: Arc<AtomicBool>,
@@ -608,6 +610,11 @@ pub struct App {
     // sometimes introduces regressions on specific tables, so users
     // enable this deliberately from the Tables wizard page.
     jsm174_patching: bool,
+
+    // Add the DMD area to the .directb2s files that lack it, so the DMD
+    // shows in the backglass frame. On by default; the original is kept.
+    // Persisted in `config.b2s_dmd_enabled`.
+    b2s_dmd: bool,
 
     // Opt-in: VPSDB + VPinMediaDB enrichment at scan. Off by default
     // because the first sync downloads ~7 MB of JSON + per-table
@@ -772,6 +779,7 @@ impl App {
             Self::spawn_update_check(&vpx_fork_repo)
         };
         let jsm174_patching = db.jsm174_patching_enabled();
+        let b2s_dmd = db.b2s_dmd_enabled();
         let catalog_enrichment = db.catalog_enrichment_enabled();
         let merge_src_root = db.get_merge_source("root");
         let merge_layout_modern = db
@@ -878,6 +886,7 @@ impl App {
             bg_rx: None,
             scan_generation: 0,
             vbs_rx: None,
+            b2s_dmd_rx: None,
             vpx_running: Arc::new(AtomicBool::new(false)),
             vpx_status_rx: None,
             vpx_loading_msg: String::new(),
@@ -915,6 +924,7 @@ impl App {
             merge_dry_run_report: None,
             merge_running: false,
             jsm174_patching,
+            b2s_dmd,
             catalog_enrichment,
             catalog_cancel_token: None,
             close_at: None,
@@ -1192,7 +1202,6 @@ impl App {
         self.about_open = open;
     }
 
-    #[allow(clippy::type_complexity)]
     #[allow(clippy::type_complexity)]
     fn load_rendering_config(
         config: &VpxConfig,

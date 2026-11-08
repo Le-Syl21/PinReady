@@ -37,6 +37,16 @@ fn max_source_mtime(table_dir: &std::path::Path, vpx_path: &std::path::Path) -> 
 /// `.vbs` sidecar matter (the launcher.* override is irrelevant to VBS
 /// classification). Same semantics and failure mode as
 /// `max_source_mtime`.
+/// Modification time of a file in seconds since the epoch; `None` when it is missing.
+fn file_mtime(path: &std::path::Path) -> Option<i64> {
+    let modified = std::fs::metadata(path).ok()?.modified().ok()?;
+    let secs = modified
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_secs();
+    Some(secs as i64)
+}
+
 fn max_vbs_mtime(vpx_path: &std::path::Path) -> i64 {
     let sidecar = vpx_path.with_extension("vbs");
     let candidates = [vpx_path.to_path_buf(), sidecar];
@@ -707,6 +717,85 @@ impl App {
         // VBS patch pipeline runs independently — separate mtime
         // tracking (sidecar + .vpx only), separate DB table.
         self.scan_vbs_patches(dir_path);
+
+        // The DMD area of the backglass files: its own mtime tracking too
+        self.scan_b2s_dmd(dir_path);
+    }
+
+    /// Give the `.directb2s` of each table the DMD area VPX's B2S plugin
+    /// needs, when it is missing (see `b2s_dmd.rs`). Reads and rewrites files
+    /// on a background thread, only those that changed since the last check;
+    /// the result of each is recorded by `process_b2s_dmd`.
+    fn scan_b2s_dmd(&mut self, dir_path: &std::path::Path) {
+        if !self.db.b2s_dmd_enabled() {
+            log::debug!("b2s_dmd: disabled — skipping");
+            return;
+        }
+        let mut jobs: Vec<(std::path::PathBuf, String)> = Vec::new();
+        for table in &self.tables {
+            let b2s = table.path.with_extension("directb2s");
+            let Some(mtime) = file_mtime(&b2s) else {
+                continue; // no backglass file for this table
+            };
+            let rel_path = table
+                .path
+                .strip_prefix(dir_path)
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_else(|_| table.path.to_string_lossy().into_owned());
+            match self.db.get_b2s_dmd(&rel_path) {
+                Some((_, cached)) if cached >= mtime => {}
+                _ => jobs.push((b2s, rel_path)),
+            }
+        }
+        if jobs.is_empty() {
+            return;
+        }
+        log::info!(
+            "b2s_dmd: checking {} backglass files in background...",
+            jobs.len()
+        );
+        let backup_root = crate::db::default_db_path()
+            .parent()
+            .map(|p| p.join("b2s-backup"))
+            .unwrap_or_else(|| std::path::PathBuf::from("b2s-backup"));
+        let (tx, rx) = crossbeam_channel::unbounded();
+        std::thread::spawn(move || {
+            for (b2s, rel_path) in jobs {
+                let status = match crate::b2s_dmd::fix_file(&b2s, &backup_root) {
+                    Ok(status) => status.to_string(),
+                    Err(e) => {
+                        log::warn!("b2s_dmd: {rel_path}: {e:#}");
+                        crate::b2s_dmd::status::FAILED.to_string()
+                    }
+                };
+                // The mtime after the check: a file we just rewrote is not
+                // "changed" for the next scan
+                let mtime = file_mtime(&b2s).unwrap_or(0);
+                log::info!("b2s_dmd: {rel_path} → {status}");
+                let _ = tx.send((rel_path, status, mtime));
+            }
+            log::info!("b2s_dmd: check complete");
+        });
+        self.b2s_dmd_rx = Some(rx);
+    }
+
+    /// Record the results of `scan_b2s_dmd`. Silent by design, like the VBS patches.
+    pub(super) fn process_b2s_dmd(&mut self) {
+        if let Some(rx) = &self.b2s_dmd_rx {
+            let drained: Vec<_> = std::iter::from_fn(|| rx.try_recv().ok()).collect();
+            let disconnected = matches!(
+                rx.try_recv(),
+                Err(crossbeam_channel::TryRecvError::Disconnected)
+            );
+            if disconnected {
+                self.b2s_dmd_rx = None;
+            }
+            for (rel_path, status, mtime) in drained {
+                if let Err(e) = self.db.set_b2s_dmd(&rel_path, &status, mtime) {
+                    log::error!("Failed to upsert b2s_dmd row for {rel_path}: {e}");
+                }
+            }
+        }
     }
 
     /// Classify each table's VBS state and apply patches from the

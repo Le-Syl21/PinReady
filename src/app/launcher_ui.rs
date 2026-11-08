@@ -34,6 +34,7 @@ impl App {
 
         self.process_bg_extraction();
         self.process_vbs_extraction();
+        self.process_b2s_dmd();
         self.process_preview_audio(ui.ctx());
         // Process VPX status before the joystick handler so the post-exit
         // input grace window (armed in `process_vpx_status`) is already set
@@ -133,6 +134,9 @@ impl App {
             }
             if let Err(e) = self.db.clear_vbs_patches() {
                 log::error!("clear_vbs_patches failed: {e}");
+            }
+            if let Err(e) = self.db.clear_b2s_dmd() {
+                log::error!("clear_b2s_dmd failed: {e}");
             }
             self.tables.iter_mut().for_each(|t| t.has_bg = false);
             self.scan_tables();

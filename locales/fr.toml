@@ -496,6 +496,8 @@ tables_vbs_patch_backup = "Si vous aviez un fichier <table>.vbs personnalisé, i
 tables_catalog_title = "Enrichissement catalog (VPSDB + VPinMediaDB)"
 tables_catalog_desc = "Identifie chaque table installée dans la base Virtual Pinball Spreadsheet (~2500 jeux) et télécharge backglass (bg.png) + jingle audio (audio.mp3) depuis VPinMediaDB dans <table>/medias/. La première synchro transfère ~7 Mo de JSON plus quelques Mo par table identifiée. Indispensable pour le preview au survol et les badges 'mise à jour disponible' dans la grille launcher. Activé par défaut — décochez sur un pincab offline ou en data limitée."
 tables_catalog_toggle = "Synchroniser VPSDB + VPinMediaDB au scan"
+tables_b2s_dmd_toggle = "Afficher le DMD dans le cadre du backglass (ajoute la zone DMD manquante aux fichiers .directb2s)"
+tables_b2s_dmd_desc = "Certains fichiers de backglass ont un cadre avec un trou sombre pour le DMD, mais n'indiquent pas où il se trouve : le DMD reste noir alors qu'il fonctionne. Quand cette option est activée, PinReady repère le trou et ajoute la ligne manquante au fichier .directb2s. Le fichier d'origine est conservé dans le dossier de données de PinReady (b2s-backup). Les fichiers qui l'ont déjà ne sont pas modifiés."
 
 # Démarrage automatique
 autostart_label = "Lancer PinReady automatiquement au démarrage"

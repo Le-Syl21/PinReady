@@ -1,0 +1,507 @@
+//! Give a `.directb2s` the DMD area VPX's B2S plugin needs.
+//!
+//! A backglass made for a full DMD (the "FullDMD" artwork) carries a frame
+//! image, `<DMDImage>`, with a dark hole where the DMD should show. The B2S
+//! plugin of VPX standalone (build 6577 and later) draws the DMD in that hole
+//! only when the document says where it is: "a display presence in the
+//! document means enabled". A file without a `<Displays><DMD .../></Displays>`
+//! element leaves the hole black, even though the DMD itself runs (the table
+//! script, PinMAME or FlexDMD, produces it). Backglasses written for the old
+//! B2S server never had that element, because it found the hole by itself.
+//!
+//! This module finds the hole in the frame image (the largest dark rectangle
+//! with the DMD's 4:1 shape), and writes the missing element just before
+//! `</DirectB2SData>`, after keeping the original file. Files that already
+//! have a `<Displays>` element, or no frame image, are left alone.
+
+use anyhow::{Context, Result, bail};
+use base64::Engine;
+use sha2::{Digest, Sha256};
+use std::path::{Path, PathBuf};
+
+/// Persisted outcome of a check, in the `b2s_dmd` table.
+pub mod status {
+    /// The file already has a `<Displays>` element, or no frame image: nothing to add.
+    pub const NOT_NEEDED: &str = "NotNeeded";
+    /// The element was added.
+    pub const APPLIED: &str = "Applied";
+    /// The frame image has no dark hole of the DMD's shape: left alone.
+    pub const NO_HOLE: &str = "NoHole";
+    /// The file could not be read, decoded or written; retried at the next change.
+    pub const FAILED: &str = "Failed";
+}
+
+/// Where the DMD is, in pixels of the frame image (origin top left).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DmdRect {
+    pub x: u32,
+    pub y: u32,
+    pub w: u32,
+    pub h: u32,
+}
+
+impl DmdRect {
+    /// The element VPX reads, for the ScoreView display (the third screen).
+    fn element(&self) -> String {
+        format!(
+            "<Displays><DMD Target=\"ScoreView\" X=\"{}\" Y=\"{}\" W=\"{}\" H=\"{}\" /></Displays>",
+            self.x, self.y, self.w, self.h
+        )
+    }
+}
+
+/// What a check of a file found.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Analysis {
+    /// A `<Displays>` element exists: authored, leave it.
+    HasDisplays,
+    /// No `<DMDImage>`: no DMD frame to put a DMD in.
+    NoDmdImage,
+    /// The frame image has no dark hole of the right shape.
+    NoHole,
+    /// The element is missing and this is where the DMD goes.
+    Missing(DmdRect),
+}
+
+/// DMD shape: 128x32.
+const DMD_ASPECT: f32 = 4.0;
+/// The hole may be this much narrower than the exact aspect.
+const ASPECT_TOLERANCE: f32 = 0.25;
+/// Luminance below which a pixel is part of the hole.
+const DARK_THRESHOLD: u8 = 16;
+/// A hole smaller than this share of the image is not a DMD frame.
+const MIN_WIDTH_SHARE: f32 = 0.25;
+const MIN_HEIGHT_SHARE: f32 = 0.06;
+
+fn find(haystack: &[u8], needle: &[u8], from: usize) -> Option<usize> {
+    haystack
+        .get(from..)?
+        .windows(needle.len())
+        .position(|w| w == needle)
+        .map(|p| p + from)
+}
+
+/// The base64 of the `Value="..."` attribute of the `<DMDImage>` element.
+/// The XML escapes line breaks as `&#xD;&#xA;` inside the value, which are
+/// dropped along with any other character reference and whitespace.
+fn dmd_image_bytes(doc: &[u8]) -> Result<Option<Vec<u8>>> {
+    let Some(tag) = find(doc, b"<DMDImage", 0) else {
+        return Ok(None);
+    };
+    let Some(value) = find(doc, b"Value=\"", tag) else {
+        return Ok(None);
+    };
+    let start = value + b"Value=\"".len();
+    let end = find(doc, b"\"", start).context("unterminated DMDImage value")?;
+    let mut b64 = Vec::with_capacity(end - start);
+    let mut i = start;
+    while i < end {
+        match doc[i] {
+            b'&' => {
+                // character reference: skip to its `;`
+                while i < end && doc[i] != b';' {
+                    i += 1;
+                }
+            }
+            c if c.is_ascii_whitespace() => {}
+            c => b64.push(c),
+        }
+        i += 1;
+    }
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(&b64)
+        .context("DMDImage is not valid base64")?;
+    Ok(Some(bytes))
+}
+
+/// The largest all-dark rectangle at least `aspect * (1 - tol)` wide for its
+/// height (histogram and stack method), as `(area, x, y, w, h)`.
+fn largest_dark_rect(
+    dark: &[bool],
+    width: usize,
+    height: usize,
+) -> (usize, usize, usize, usize, usize) {
+    let mut best = (0, 0, 0, 0, 0);
+    let mut heights = vec![0usize; width];
+    let mut stack: Vec<(usize, usize)> = Vec::new();
+    for y in 0..height {
+        let row = &dark[y * width..(y + 1) * width];
+        for (run, &is_dark) in heights.iter_mut().zip(row) {
+            *run = if is_dark { *run + 1 } else { 0 };
+        }
+        stack.clear();
+        // one more step at the end, with a height of 0, empties the stack
+        for (x, h) in heights
+            .iter()
+            .copied()
+            .chain(std::iter::once(0))
+            .enumerate()
+        {
+            let mut start = x;
+            while let Some(&(sx, sh)) = stack.last() {
+                if sh < h {
+                    break;
+                }
+                stack.pop();
+                let w = x - sx;
+                if sh >= 20 && w >= 60 {
+                    let ar = w as f32 / sh as f32;
+                    if ar >= DMD_ASPECT * (1.0 - ASPECT_TOLERANCE) {
+                        let fw =
+                            w.min((sh as f32 * DMD_ASPECT * (1.0 + ASPECT_TOLERANCE)) as usize);
+                        let area = fw * sh;
+                        if area > best.0 {
+                            best = (area, sx, y + 1 - sh, fw, sh);
+                        }
+                    }
+                }
+                start = sx;
+            }
+            stack.push((start, h));
+        }
+    }
+    best
+}
+
+/// Find the hole of a frame image and fit the DMD's shape in its middle.
+fn find_hole(image: &image::DynamicImage) -> Option<DmdRect> {
+    let rgba = image.to_rgba8();
+    let (width, height) = (rgba.width() as usize, rgba.height() as usize);
+    if width < 64 || height < 24 {
+        return None;
+    }
+    // Dark, or see-through: a transparent hole is as good as a black one
+    let dark: Vec<bool> = rgba
+        .pixels()
+        .map(|p| {
+            let luma =
+                (u32::from(p[0]) * 299 + u32::from(p[1]) * 587 + u32::from(p[2]) * 114) / 1000;
+            p[3] < 32 || luma < u32::from(DARK_THRESHOLD)
+        })
+        .collect();
+    let (area, mut x, mut y, mut w, mut h) = largest_dark_rect(&dark, width, height);
+    if area == 0 {
+        return None;
+    }
+    if (w as f32) < width as f32 * MIN_WIDTH_SHARE || (h as f32) < height as f32 * MIN_HEIGHT_SHARE
+    {
+        return None;
+    }
+    // Fit the DMD's shape, centred in the rectangle found
+    if w as f32 / h as f32 > DMD_ASPECT {
+        let nw = (h as f32 * DMD_ASPECT) as usize;
+        x += (w - nw) / 2;
+        w = nw;
+    } else {
+        let nh = (w as f32 / DMD_ASPECT) as usize;
+        y += (h - nh) / 2;
+        h = nh;
+    }
+    Some(DmdRect {
+        x: x as u32,
+        y: y as u32,
+        w: w as u32,
+        h: h as u32,
+    })
+}
+
+/// Look at the text of a `.directb2s`.
+pub fn analyze(doc: &[u8]) -> Result<Analysis> {
+    if find(doc, b"<Displays", 0).is_some() {
+        return Ok(Analysis::HasDisplays);
+    }
+    let Some(bytes) = dmd_image_bytes(doc)? else {
+        return Ok(Analysis::NoDmdImage);
+    };
+    let image = image::load_from_memory(&bytes).context("DMDImage cannot be decoded")?;
+    Ok(match find_hole(&image) {
+        Some(rect) => Analysis::Missing(rect),
+        None => Analysis::NoHole,
+    })
+}
+
+/// `doc` with the element before the closing tag of the document.
+fn insert_element(doc: &[u8], rect: &DmdRect) -> Result<Vec<u8>> {
+    const CLOSE: &[u8] = b"</DirectB2SData>";
+    let at = doc
+        .windows(CLOSE.len())
+        .rposition(|w| w == CLOSE)
+        .context("no </DirectB2SData> in the file")?;
+    let element = rect.element();
+    let mut out = Vec::with_capacity(doc.len() + element.len());
+    out.extend_from_slice(&doc[..at]);
+    out.extend_from_slice(element.as_bytes());
+    out.extend_from_slice(&doc[at..]);
+    Ok(out)
+}
+
+/// Where the original of `file` is kept: one folder per file path, so two
+/// tables with the same file name never share a backup.
+pub fn backup_path(backup_root: &Path, file: &Path) -> PathBuf {
+    let digest = Sha256::digest(file.to_string_lossy().as_bytes());
+    let folder: String = digest.iter().take(6).map(|b| format!("{b:02x}")).collect();
+    let name = file
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "backglass.directb2s".into());
+    backup_root.join(folder).join(format!("{name}.orig"))
+}
+
+/// Check `file` and add the DMD element when it is missing and the frame image
+/// shows where it goes. The original is copied to `backup_root` first (never
+/// overwritten once it exists), and the new file replaces it in one rename.
+/// Returns the status to record.
+pub fn fix_file(file: &Path, backup_root: &Path) -> Result<&'static str> {
+    let doc = std::fs::read(file).with_context(|| format!("cannot read {}", file.display()))?;
+    let rect = match analyze(&doc)? {
+        Analysis::HasDisplays | Analysis::NoDmdImage => return Ok(status::NOT_NEEDED),
+        Analysis::NoHole => return Ok(status::NO_HOLE),
+        Analysis::Missing(rect) => rect,
+    };
+    let fixed = insert_element(&doc, &rect)?;
+
+    let backup = backup_path(backup_root, file);
+    if !backup.exists() {
+        if let Some(dir) = backup.parent() {
+            std::fs::create_dir_all(dir)
+                .with_context(|| format!("cannot create {}", dir.display()))?;
+        }
+        std::fs::write(&backup, &doc)
+            .with_context(|| format!("cannot write the backup {}", backup.display()))?;
+    }
+    // The backup has to be what was read, not an earlier copy of another version
+    if std::fs::read(&backup).map(|b| b.len()).unwrap_or(0) == 0 {
+        bail!("the backup {} is empty", backup.display());
+    }
+
+    let mut tmp_name = file.as_os_str().to_owned();
+    tmp_name.push(".pinready-tmp");
+    let tmp = PathBuf::from(tmp_name);
+    std::fs::write(&tmp, &fixed).with_context(|| format!("cannot write {}", tmp.display()))?;
+    if let Ok(meta) = std::fs::metadata(file) {
+        let _ = std::fs::set_permissions(&tmp, meta.permissions());
+    }
+    if let Err(e) = std::fs::rename(&tmp, file) {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(e).with_context(|| format!("cannot replace {}", file.display()));
+    }
+    log::info!(
+        "b2s_dmd: {} got its DMD area X={} Y={} W={} H={} (original kept in {})",
+        file.display(),
+        rect.x,
+        rect.y,
+        rect.w,
+        rect.h,
+        backup.display()
+    );
+    Ok(status::APPLIED)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{ImageBuffer, Rgba};
+
+    /// A frame image: grey artwork with a black 4:1 hole at (x, y, w, h).
+    fn frame(width: u32, height: u32, hole: (u32, u32, u32, u32)) -> image::DynamicImage {
+        let img = ImageBuffer::from_fn(width, height, |px, py| {
+            let (x, y, w, h) = hole;
+            if px >= x && px < x + w && py >= y && py < y + h {
+                Rgba([0, 0, 0, 255])
+            } else {
+                Rgba([120, 120, 130, 255])
+            }
+        });
+        image::DynamicImage::ImageRgba8(img)
+    }
+
+    fn png(img: &image::DynamicImage) -> Vec<u8> {
+        let mut out = std::io::Cursor::new(Vec::new());
+        img.write_to(&mut out, image::ImageFormat::Png).unwrap();
+        out.into_inner()
+    }
+
+    /// A document the way the writers of .directb2s produce it: the base64
+    /// is cut in lines escaped as character references.
+    fn document(img: Option<&image::DynamicImage>, displays: bool) -> Vec<u8> {
+        let mut doc = String::from("<DirectB2SData Version=\"1.3\">\r\n  <Images>\r\n");
+        if let Some(img) = img {
+            let b64 = base64::engine::general_purpose::STANDARD.encode(png(img));
+            let mut wrapped = String::new();
+            for (i, c) in b64.chars().enumerate() {
+                if i > 0 && i % 76 == 0 {
+                    wrapped.push_str("&#xD;&#xA;");
+                }
+                wrapped.push(c);
+            }
+            doc.push_str(&format!("    <DMDImage Value=\"{wrapped}\" />\r\n"));
+        }
+        doc.push_str("  </Images>\r\n");
+        if displays {
+            doc.push_str(
+                "<Displays><DMD Target=\"Backglass\" X=\"1\" Y=\"2\" W=\"3\" H=\"4\" /></Displays>",
+            );
+        }
+        doc.push_str("</DirectB2SData>");
+        doc.into_bytes()
+    }
+
+    #[test]
+    fn finds_the_hole_of_a_frame() {
+        let img = frame(1012, 309, (35, 37, 938, 234));
+        let rect = find_hole(&img).expect("hole");
+        // fitted to 4:1 inside the hole, which is 938x234 (4.008)
+        assert!((rect.w as i64 - 936).abs() <= 2, "{rect:?}");
+        assert!((rect.h as i64 - 234).abs() <= 1, "{rect:?}");
+        assert!(
+            (rect.x as i64 - 36).abs() <= 2 && (rect.y as i64 - 37).abs() <= 1,
+            "{rect:?}"
+        );
+    }
+
+    #[test]
+    fn a_plain_image_has_no_hole() {
+        let img = image::DynamicImage::ImageRgba8(ImageBuffer::from_pixel(
+            800,
+            300,
+            Rgba([90, 90, 90, 255]),
+        ));
+        assert!(find_hole(&img).is_none());
+    }
+
+    #[test]
+    fn a_small_dark_spot_is_not_a_dmd() {
+        let img = frame(1000, 600, (10, 10, 120, 30));
+        assert!(find_hole(&img).is_none());
+    }
+
+    #[test]
+    fn a_see_through_hole_counts() {
+        let img = ImageBuffer::from_fn(800, 300, |x, y| {
+            if (40..760).contains(&x) && (50..230).contains(&y) {
+                Rgba([200, 200, 200, 0])
+            } else {
+                Rgba([100, 100, 100, 255])
+            }
+        });
+        let rect = find_hole(&image::DynamicImage::ImageRgba8(img)).expect("hole");
+        assert!(rect.w >= 700 && rect.h >= 170);
+    }
+
+    #[test]
+    fn analyze_reads_the_escaped_base64() {
+        let img = frame(1012, 309, (35, 37, 938, 234));
+        match analyze(&document(Some(&img), false)).unwrap() {
+            Analysis::Missing(r) => assert!(r.w > 900),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn an_existing_displays_element_is_left_alone() {
+        let img = frame(1012, 309, (35, 37, 938, 234));
+        assert_eq!(
+            analyze(&document(Some(&img), true)).unwrap(),
+            Analysis::HasDisplays
+        );
+    }
+
+    #[test]
+    fn no_frame_image_no_change() {
+        assert_eq!(
+            analyze(&document(None, false)).unwrap(),
+            Analysis::NoDmdImage
+        );
+    }
+
+    #[test]
+    fn the_element_goes_before_the_closing_tag_and_nothing_else_changes() {
+        let img = frame(1012, 309, (35, 37, 938, 234));
+        let doc = document(Some(&img), false);
+        let rect = DmdRect {
+            x: 35,
+            y: 37,
+            w: 938,
+            h: 234,
+        };
+        let fixed = insert_element(&doc, &rect).unwrap();
+        let element = rect.element().into_bytes();
+        let at = fixed.len() - b"</DirectB2SData>".len() - element.len();
+        assert_eq!(&fixed[at..at + element.len()], &element[..]);
+        let mut back = fixed.clone();
+        back.drain(at..at + element.len());
+        assert_eq!(back, doc);
+    }
+
+    #[test]
+    fn fix_file_keeps_the_original_and_is_idempotent() {
+        let dir = tempfile::tempdir().unwrap();
+        let backups = tempfile::tempdir().unwrap();
+        let file = dir.path().join("Table (Maker 1990).directb2s");
+        let img = frame(1012, 309, (35, 37, 938, 234));
+        let original = document(Some(&img), false);
+        std::fs::write(&file, &original).unwrap();
+
+        assert_eq!(fix_file(&file, backups.path()).unwrap(), status::APPLIED);
+        let fixed = std::fs::read(&file).unwrap();
+        assert!(find(&fixed, b"<Displays><DMD Target=\"ScoreView\"", 0).is_some());
+        assert_eq!(
+            std::fs::read(backup_path(backups.path(), &file)).unwrap(),
+            original
+        );
+        assert!(
+            !dir.path()
+                .join("Table (Maker 1990).directb2s.pinready-tmp")
+                .exists()
+        );
+
+        // a second pass finds the element and does nothing
+        assert_eq!(fix_file(&file, backups.path()).unwrap(), status::NOT_NEEDED);
+        assert_eq!(std::fs::read(&file).unwrap(), fixed);
+        assert_eq!(
+            std::fs::read(backup_path(backups.path(), &file)).unwrap(),
+            original
+        );
+    }
+
+    #[test]
+    fn a_file_with_no_hole_is_not_touched() {
+        let dir = tempfile::tempdir().unwrap();
+        let backups = tempfile::tempdir().unwrap();
+        let file = dir.path().join("x.directb2s");
+        let img = image::DynamicImage::ImageRgba8(ImageBuffer::from_pixel(
+            600,
+            200,
+            Rgba([90, 90, 90, 255]),
+        ));
+        let original = document(Some(&img), false);
+        std::fs::write(&file, &original).unwrap();
+        assert_eq!(fix_file(&file, backups.path()).unwrap(), status::NO_HOLE);
+        assert_eq!(std::fs::read(&file).unwrap(), original);
+        assert!(!backup_path(backups.path(), &file).exists());
+    }
+
+    #[test]
+    fn backups_of_same_named_files_do_not_collide() {
+        let root = Path::new("/b");
+        let a = backup_path(root, Path::new("/t/one/x.directb2s"));
+        let b = backup_path(root, Path::new("/t/two/x.directb2s"));
+        assert_ne!(a, b);
+        assert_eq!(a.file_name(), b.file_name());
+    }
+
+    /// Development aid: `B2S_DMD_FILES=a.directb2s:b.directb2s cargo test --profile=fast real_files -- --ignored --nocapture`
+    /// prints what the check finds in real files.
+    #[test]
+    #[ignore]
+    fn real_files() {
+        for file in std::env::var("B2S_DMD_FILES")
+            .unwrap_or_default()
+            .split(':')
+            .filter(|f| !f.is_empty())
+        {
+            let doc = std::fs::read(file).unwrap();
+            println!("{file}: {:?}", analyze(&doc));
+        }
+    }
+}

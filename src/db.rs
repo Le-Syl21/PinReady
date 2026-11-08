@@ -250,6 +250,17 @@ impl Database {
                 last_checked_mtime INTEGER NOT NULL DEFAULT 0
             );
 
+            -- Per-table state of the DMD area check of the .directb2s
+            -- (see b2s_dmd.rs). Keyed on `rel_path` like `vbs_patches`.
+            -- `status` is NotNeeded / Applied / NoHole / Failed;
+            -- `last_checked_mtime` is the mtime of the .directb2s after the
+            -- check, so the file is read again only when it changes.
+            CREATE TABLE IF NOT EXISTS b2s_dmd (
+                rel_path           TEXT    PRIMARY KEY,
+                status             TEXT    NOT NULL,
+                last_checked_mtime INTEGER NOT NULL DEFAULT 0
+            );
+
             -- Catalog enrichment from Virtual Pinball Spreadsheet
             -- (`vps-db`) + VPinMediaDB. Keyed on the same `rel_path` as
             -- `backglass`/`vbs_patches` so the three caches age together.
@@ -432,6 +443,41 @@ impl Database {
         Ok(())
     }
 
+    // --- b2s_dmd (per-table DMD area check) ---
+
+    /// `(status, last_checked_mtime)` recorded for a table's .directb2s.
+    pub fn get_b2s_dmd(&self, rel_path: &str) -> Option<(String, i64)> {
+        self.conn
+            .query_row(
+                "SELECT status, last_checked_mtime FROM b2s_dmd WHERE rel_path = ?1",
+                [rel_path],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .ok()
+    }
+
+    pub fn set_b2s_dmd(&self, rel_path: &str, status: &str, mtime: i64) -> Result<()> {
+        self.conn
+            .execute(
+                "INSERT INTO b2s_dmd (rel_path, status, last_checked_mtime)
+                 VALUES (?1, ?2, ?3)
+                 ON CONFLICT(rel_path) DO UPDATE SET
+                     status = excluded.status,
+                     last_checked_mtime = excluded.last_checked_mtime",
+                rusqlite::params![rel_path, status, mtime],
+            )
+            .context("Failed to upsert b2s_dmd row")?;
+        Ok(())
+    }
+
+    /// Forget every check, so the next scan reads each .directb2s again.
+    pub fn clear_b2s_dmd(&self) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM b2s_dmd", [])
+            .context("Failed to clear b2s_dmd")?;
+        Ok(())
+    }
+
     // --- vbs_patches (per-table state) ---
 
     /// Lookup the recorded VBS-patch state for a table. Returns
@@ -568,6 +614,17 @@ impl Database {
             "jsm174_patching_enabled",
             if enabled { "true" } else { "false" },
         )
+    }
+
+    /// Add the DMD area to the `.directb2s` files that lack it (see
+    /// `b2s_dmd.rs`). **On by default**: without it the DMD of those tables
+    /// stays black in the backglass frame. The original file is kept.
+    pub fn b2s_dmd_enabled(&self) -> bool {
+        !matches!(self.get_config("b2s_dmd_enabled").as_deref(), Some("false"))
+    }
+
+    pub fn set_b2s_dmd_enabled(&self, enabled: bool) -> Result<()> {
+        self.set_config("b2s_dmd_enabled", if enabled { "true" } else { "false" })
     }
 
     /// Catalog enrichment: VPSDB sync + VPinMediaDB media fetch at
@@ -915,6 +972,23 @@ mod tests {
         assert_eq!(side, Some("sc".to_string()));
         assert_eq!(status, "Applied");
         assert_eq!(mtime, 200);
+    }
+
+    #[test]
+    fn b2s_dmd_is_on_by_default_and_roundtrips() {
+        let db = Database::open(None).unwrap();
+        assert!(db.b2s_dmd_enabled());
+        db.set_b2s_dmd_enabled(false).unwrap();
+        assert!(!db.b2s_dmd_enabled());
+        db.set_b2s_dmd_enabled(true).unwrap();
+        assert!(db.b2s_dmd_enabled());
+
+        assert!(db.get_b2s_dmd("t/t.vpx").is_none());
+        db.set_b2s_dmd("t/t.vpx", "Applied", 10).unwrap();
+        db.set_b2s_dmd("t/t.vpx", "NotNeeded", 20).unwrap();
+        assert_eq!(db.get_b2s_dmd("t/t.vpx"), Some(("NotNeeded".into(), 20)));
+        db.clear_b2s_dmd().unwrap();
+        assert!(db.get_b2s_dmd("t/t.vpx").is_none());
     }
 
     #[test]

@@ -182,12 +182,12 @@ impl TiltConfig {
         // is a division — aimed at 90 % of full scale, since a threshold
         // sitting exactly on the rim needs a perfect shove to reach.
         let strength_to_reach_pct = (tilt > full_scale && tilt.is_finite())
-            .then(|| self.nudge_scale_pct * tilt / (0.9 * full_scale))
+            .then_some(self.nudge_scale_pct * tilt / (0.9 * full_scale))
             .filter(|pct| *pct <= NUDGE_STRENGTH_MAX_PCT);
         TiltRings {
             tilt,
             intent: (self.nudge_sensor_type == 1)
-                .then(|| crate::nudge_sim::INTENT_THRESHOLD_MS2 / (strength * 4.0 / 3.0)),
+                .then_some(crate::nudge_sim::INTENT_THRESHOLD_MS2 / (strength * 4.0 / 3.0)),
             deadzone: self.deadzone_ms2(),
             full_scale,
             reach,
