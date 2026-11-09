@@ -276,6 +276,15 @@ impl Database {
                 run_time    INTEGER NOT NULL DEFAULT 0
             );
 
+            -- Community ratings downloaded from VPinPlay, by VPS id: average
+            -- (1 to 5) and number of ratings. Replaced as a whole at each
+            -- refresh.
+            CREATE TABLE IF NOT EXISTS community_rating (
+                vps_id TEXT PRIMARY KEY,
+                avg    REAL    NOT NULL,
+                count  INTEGER NOT NULL
+            );
+
             -- jsm174/vpx-standalone-scripts catalog cache. Single-row
             -- table (keyed on last_commit_sha). At startup we hit
             -- api.github.com to read the master branch's latest commit
@@ -528,6 +537,56 @@ impl Database {
         Ok(())
     }
 
+    /// The community ratings kept from the last VPinPlay download.
+    pub fn get_community_ratings(
+        &self,
+    ) -> std::collections::HashMap<String, crate::vpinplay::CommunityRating> {
+        let mut out = std::collections::HashMap::new();
+        let Ok(mut stmt) = self
+            .conn
+            .prepare("SELECT vps_id, avg, count FROM community_rating")
+        else {
+            return out;
+        };
+        let rows = stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                crate::vpinplay::CommunityRating {
+                    avg: r.get::<_, f64>(1)? as f32,
+                    count: r.get::<_, i64>(2)?.max(0) as u32,
+                },
+            ))
+        });
+        if let Ok(rows) = rows {
+            out.extend(rows.flatten());
+        }
+        out
+    }
+
+    /// Replace the kept community ratings (`fetched_at` in Unix seconds).
+    pub fn replace_community_ratings(
+        &self,
+        ratings: &std::collections::HashMap<String, crate::vpinplay::CommunityRating>,
+        fetched_at: i64,
+    ) -> Result<()> {
+        let tx = self.conn.unchecked_transaction()?;
+        tx.execute("DELETE FROM community_rating", [])?;
+        {
+            let mut stmt = tx
+                .prepare("INSERT INTO community_rating (vps_id, avg, count) VALUES (?1, ?2, ?3)")?;
+            for (id, r) in ratings {
+                stmt.execute(rusqlite::params![id, r.avg as f64, r.count as i64])?;
+            }
+        }
+        tx.execute(
+            "INSERT INTO config (key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            rusqlite::params![crate::vpinplay::KEY_RATINGS_AT, fetched_at.to_string()],
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
     /// The whole backglass cache index in one query, without touching the
     /// pictures: `rel_path -> BackglassMeta`.
     pub fn get_backglass_meta(&self) -> std::collections::HashMap<String, BackglassMeta> {
@@ -696,19 +755,24 @@ impl Database {
     }
 
     /// VPS link of every table in one query: `rel_path -> (vps_id,
-    /// update_available)`.
-    pub fn get_vps_overview(&self) -> std::collections::HashMap<String, (String, bool)> {
+    /// update_available, reliable)`; `reliable` is false for a low-confidence
+    /// match, which must not be shared with anyone.
+    pub fn get_vps_overview(&self) -> std::collections::HashMap<String, (String, bool, bool)> {
         let mut out = std::collections::HashMap::new();
         let Ok(mut stmt) = self
             .conn
-            .prepare("SELECT rel_path, vps_id, update_available FROM vps_link")
+            .prepare("SELECT rel_path, vps_id, update_available, confidence FROM vps_link")
         else {
             return out;
         };
         let rows = stmt.query_map([], |r| {
             Ok((
                 r.get::<_, String>(0)?,
-                (r.get::<_, String>(1)?, r.get::<_, i64>(2)? != 0),
+                (
+                    r.get::<_, String>(1)?,
+                    r.get::<_, i64>(2)? != 0,
+                    !r.get::<_, String>(3)?.eq_ignore_ascii_case("low"),
+                ),
             ))
         });
         if let Ok(rows) = rows {
@@ -1331,6 +1395,27 @@ mod tests {
         let a = &db.get_user_tables()["A/a.vpx"];
         assert!(!a.favorite && a.rating_tenths == 0 && a.start_count == 2);
         assert_eq!(a.rated_at, Some(210));
+    }
+
+    #[test]
+    fn community_ratings_are_replaced_as_a_whole() {
+        use crate::vpinplay::CommunityRating;
+        let db = temp_db();
+        let mut first = std::collections::HashMap::new();
+        first.insert("a".to_string(), CommunityRating { avg: 4.5, count: 3 });
+        first.insert("b".to_string(), CommunityRating { avg: 2.0, count: 1 });
+        db.replace_community_ratings(&first, 100).unwrap();
+        assert_eq!(db.get_community_ratings().len(), 2);
+        let mut second = std::collections::HashMap::new();
+        second.insert("c".to_string(), CommunityRating { avg: 3.0, count: 9 });
+        db.replace_community_ratings(&second, 200).unwrap();
+        let all = db.get_community_ratings();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all["c"], CommunityRating { avg: 3.0, count: 9 });
+        assert_eq!(
+            db.get_config(crate::vpinplay::KEY_RATINGS_AT).as_deref(),
+            Some("200")
+        );
     }
 
     #[test]

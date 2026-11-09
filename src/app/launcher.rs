@@ -436,6 +436,7 @@ pub(super) enum SortMode {
     Alpha,
     FavoritesFirst,
     MyRating,
+    Community,
     LastPlayed,
     MostPlayed,
 }
@@ -447,6 +448,7 @@ impl SortMode {
             Self::Alpha => "alpha",
             Self::FavoritesFirst => "favorites",
             Self::MyRating => "rating",
+            Self::Community => "community",
             Self::LastPlayed => "last_played",
             Self::MostPlayed => "most_played",
         }
@@ -457,6 +459,7 @@ impl SortMode {
             Self::Alpha,
             Self::FavoritesFirst,
             Self::MyRating,
+            Self::Community,
             Self::LastPlayed,
             Self::MostPlayed,
         ]
@@ -469,7 +472,8 @@ impl SortMode {
         match self {
             Self::Alpha => Self::FavoritesFirst,
             Self::FavoritesFirst => Self::MyRating,
-            Self::MyRating => Self::LastPlayed,
+            Self::MyRating => Self::Community,
+            Self::Community => Self::LastPlayed,
             Self::LastPlayed => Self::MostPlayed,
             Self::MostPlayed => Self::Alpha,
         }
@@ -480,6 +484,7 @@ impl SortMode {
             Self::Alpha => t!("sort_alpha"),
             Self::FavoritesFirst => t!("sort_favorites"),
             Self::MyRating => t!("sort_rating"),
+            Self::Community => t!("sort_community"),
             Self::LastPlayed => t!("sort_last_played"),
             Self::MostPlayed => t!("sort_most_played"),
         }
@@ -488,13 +493,27 @@ impl SortMode {
 
     /// Sort `order` (indices into the alphabetical table list) in place.
     /// Stable, so tables that compare equal stay alphabetical.
-    pub(super) fn sort(self, order: &mut [usize], tables: &[TableEntry]) {
+    pub(super) fn sort(
+        self,
+        order: &mut [usize],
+        tables: &[TableEntry],
+        community: &std::collections::HashMap<String, crate::vpinplay::CommunityRating>,
+    ) {
         match self {
             Self::Alpha => {}
             Self::FavoritesFirst => order.sort_by_key(|&i| !tables[i].user.favorite),
             Self::MyRating => {
                 order.sort_by_key(|&i| std::cmp::Reverse(tables[i].user.rating_tenths))
             }
+            Self::Community => order.sort_by_key(|&i| {
+                std::cmp::Reverse(
+                    tables[i]
+                        .vps_id
+                        .as_ref()
+                        .and_then(|id| community.get(id))
+                        .map(|r| (r.avg * 100.0) as i32),
+                )
+            }),
             Self::LastPlayed => order.sort_by_key(|&i| std::cmp::Reverse(tables[i].user.last_run)),
             Self::MostPlayed => {
                 order.sort_by_key(|&i| std::cmp::Reverse(tables[i].user.start_count))
@@ -503,7 +522,7 @@ impl SortMode {
     }
 }
 
-fn unix_now() -> i64 {
+pub(super) fn unix_now() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs() as i64)
@@ -516,6 +535,8 @@ pub(super) struct IndexEntry {
     idx: usize,
     update_available: bool,
     vps_id: Option<String>,
+    /// The VPS match is reliable enough to share (not low confidence).
+    vps_shareable: bool,
     /// A cached picture (or a thumbnail to make) exists.
     has_bg: bool,
     /// The cached grid thumbnail, to be decoded and uploaded.
@@ -554,7 +575,7 @@ fn worker_count() -> usize {
         .clamp(2, 8)
 }
 
-fn rel_to(dir_path: &std::path::Path, path: &std::path::Path) -> String {
+pub(super) fn rel_to(dir_path: &std::path::Path, path: &std::path::Path) -> String {
     path.strip_prefix(dir_path)
         .map(|p| p.to_string_lossy().into_owned())
         .unwrap_or_else(|_| path.to_string_lossy().into_owned())
@@ -590,15 +611,16 @@ fn build_index(
         let Some(&idx) = positions.get(vpx_path.as_path()) else {
             continue;
         };
-        let (vps_id, update_available) = match vps.get(&rel_path) {
-            Some((id, update)) => (Some(id.clone()), *update),
-            None => (None, false),
+        let (vps_id, update_available, vps_shareable) = match vps.get(&rel_path) {
+            Some((id, update, reliable)) => (Some(id.clone()), *update, *reliable),
+            None => (None, false, false),
         };
         let mut entry = IndexEntry {
             user: user.remove(&rel_path).unwrap_or_default(),
             idx,
             update_available,
             vps_id,
+            vps_shareable,
             has_bg: false,
             thumb: None,
         };
@@ -828,6 +850,7 @@ impl App {
                 .replace('_', " ");
             self.tables.push(TableEntry {
                 user: Default::default(),
+                vps_shareable: false,
                 path: vpx_path.clone(),
                 name,
                 has_bg: false,
@@ -895,6 +918,7 @@ impl App {
                 table.user = entry.user;
                 table.update_available = entry.update_available;
                 table.vps_id = entry.vps_id;
+                table.vps_shareable = entry.vps_shareable;
                 if entry.has_bg {
                     table.has_bg = true;
                 }
@@ -1038,6 +1062,7 @@ impl App {
         if !result.b2s.is_empty() {
             self.start_b2s_dmd(result.b2s);
         }
+        self.start_ratings_refresh_if_stale();
         phase.done();
     }
 
@@ -2007,7 +2032,8 @@ impl App {
                 .filter(|&i| self.tables[i].name.to_lowercase().contains(f))
                 .collect()
         };
-        self.sort_mode.sort(&mut order, &self.tables);
+        self.sort_mode
+            .sort(&mut order, &self.tables, &self.community);
         order
     }
 
@@ -2093,6 +2119,8 @@ impl App {
         {
             t.user.run_time = t.user.run_time.saturating_add(seconds);
         }
+        // Share the new numbers when the player asked for it.
+        self.push_after_session(&rel);
     }
 
     /// Dispatch a launcher action. Navigation actions loop over the

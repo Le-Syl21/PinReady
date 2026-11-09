@@ -40,6 +40,9 @@ impl App {
             }
         });
 
+        // ---- VPinPlay: community ratings, and sharing the table usage.
+        self.render_vpinplay_section(ui);
+
         // ---- Self-hosted mirror (VBS catalog + VPin media DB). Empty
         // = direct GitHub fetch (the default). When set, all index URLs
         // and per-asset URLs route through the mirror; the server is

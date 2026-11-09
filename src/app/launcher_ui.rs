@@ -33,6 +33,7 @@ impl App {
         self.render_about_window(ui.ctx());
 
         self.process_index();
+        self.process_vpinplay();
         self.process_bg_extraction();
         self.process_vbs_extraction();
         self.process_b2s_dmd();
@@ -48,6 +49,7 @@ impl App {
         // Only repaint when needed: bg extraction in progress, VPX running, joystick connected, or update in progress
         if self.bg_rx.is_some()
             || self.index_rx.is_some()
+            || self.vpinplay_rx.is_some()
             || self.vpx_running.load(Ordering::Relaxed)
             || self.joystick_rx.is_some()
             || self.update_downloading
@@ -840,6 +842,32 @@ impl App {
                                 };
                                 rate_set = Some((idx, new));
                             }
+                        }
+
+                        // Community rating from VPinPlay (top-left): a small
+                        // star and the average, when the table has one.
+                        if let Some(rating) =
+                            table.vps_id.as_ref().and_then(|id| self.community.get(id))
+                        {
+                            let text = format!("{:.1}", rating.avg);
+                            let pill = egui::Rect::from_min_size(
+                                egui::pos2(img_area.min.x + 6.0, img_area.min.y + 6.0),
+                                egui::vec2(58.0, 24.0),
+                            );
+                            painter.rect_filled(pill, 12.0, egui::Color32::from_black_alpha(190));
+                            paint_star(
+                                &painter,
+                                egui::pos2(pill.min.x + 14.0, pill.center().y),
+                                8.5,
+                                STAR_GOLD,
+                            );
+                            painter.text(
+                                egui::pos2(pill.min.x + 26.0, pill.center().y),
+                                egui::Align2::LEFT_CENTER,
+                                text,
+                                egui::FontId::new(15.0, egui::FontFamily::Proportional),
+                                egui::Color32::WHITE,
+                            );
                         }
 
                         // Update-available badge: small "↑" disk in the

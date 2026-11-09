@@ -41,6 +41,7 @@ mod system_info;
 mod tilt;
 mod updater;
 mod vbs_patches;
+mod vpinplay;
 mod vpsdb;
 mod vpx_display;
 mod vpx_ini_rewrite;

@@ -497,6 +497,33 @@ Default suggestion: scan common locations (`~/Documents`, `~/tables`, `~/Okay`, 
 - Display: scrollable grid with backglass thumbnail or placeholder
 - On table select → launch: `VPinballX_BGFX -play <table.vpx>`
 
+Start-up and what the launcher remembers (v0.27):
+
+- The window opens first. `scan_tables` only lists the tables; an index
+  thread (`build_index`, `launcher.rs`) reads the database and collects the
+  jobs, `process_index` folds the result in. Nothing slow (database, network,
+  `.vpx` reads) may run on the UI thread before the first frame — the
+  `startup:` lines of the log give the phase timings.
+- `backglass_meta` is the small start-up table of the backglass cache (path,
+  mtime, thumbnail, `no_image`). Never read a column that follows
+  `backglass.image` at start-up: SQLite walks the blob's overflow pages.
+  `no_image = 1` is the negative cache: the table was scanned and has no
+  backglass, skipped until a source file changes. "Rebuild" clears it.
+- Favourites, ratings and play statistics live in `table_user`. The rating is
+  in tenths of a star (0 to 50, `3.2` stars = 32). Keys: the ball-launch
+  button (`LaunchBall`) or the star on the card toggles the favourite, Start
+  launches, `ExtraBall` or the header button changes the sort order, the
+  staged flippers and `+`/`-` (search empty) step the rating by half a star.
+  **No letter is a hot key**: letters belong to the type-anywhere search.
+- Sort orders only change the display order (`visible_indices`); `tables`
+  stays alphabetical because the pictures are numbered by position.
+- VPinPlay (`vpinplay.rs`, `app/vpinplay_link.rs`) is opt-in, off by default,
+  on the last configuration page. It downloads the community ratings
+  (read-only) and, once the player chose a name, sends their ratings and
+  play statistics. VPinPlay has no authentication and its data is public:
+  say so before enabling, never enable it for the user, never test the
+  push against the live service (use a local mock server, see the tests).
+
 ---
 
 ## VPinballX 10.8.1 — Folder-per-table layout

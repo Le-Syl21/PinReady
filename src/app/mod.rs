@@ -195,6 +195,8 @@ pub struct TableEntry {
     pub name: String,
     /// Favourite flag, rating and play statistics (see `db::UserTable`).
     pub user: crate::db::UserTable,
+    /// The VPS match is reliable enough to share with VPinPlay.
+    pub vps_shareable: bool,
     /// `true` once the table has a backglass thumbnail (from the SQLite
     /// cache on scan, or just made by a worker); `false` while extraction
     /// is pending or when nothing could be found, in which case the grid
@@ -415,6 +417,11 @@ pub struct App {
     selected_table: usize,
     /// How the launcher orders the tables (persisted in the config).
     sort_mode: launcher::SortMode,
+    /// VPinPlay: settings, community ratings by VPS id, background results.
+    vpinplay: crate::vpinplay::Settings,
+    community: std::collections::HashMap<String, crate::vpinplay::CommunityRating>,
+    vpinplay_rx: Option<crossbeam_channel::Receiver<crate::vpinplay::Event>>,
+    vpinplay_status: String,
     /// The running Visual Pinball session: start time and table path
     /// relative to the tables directory, to add its length to the stats.
     vpx_session: Option<(std::time::Instant, String)>,
@@ -799,6 +806,8 @@ impl App {
 
         let (tilt_rings, tilt_rings_key) = (tilt.rings(), tilt.rings_key());
         let db_sort_key = db.get_config("launcher_sort");
+        let vpinplay_settings = crate::vpinplay::Settings::load(&db);
+        let vpinplay_community = db.get_community_ratings();
         let mut s = Self {
             mode: if start_in_wizard {
                 AppMode::Wizard
@@ -865,6 +874,10 @@ impl App {
             selected_table: 0,
             sort_mode: launcher::SortMode::from_key(db_sort_key.as_deref().unwrap_or_default()),
             vpx_session: None,
+            vpinplay: vpinplay_settings,
+            community: vpinplay_community,
+            vpinplay_rx: None,
+            vpinplay_status: String::new(),
             scroll_to_selected: false,
             last_scroll_target: None,
             launcher_cols: 1,
@@ -1947,6 +1960,7 @@ pub mod theme;
 mod threed;
 mod threed_page;
 mod tilt_page;
+mod vpinplay_link;
 
 pub(crate) use help::help_marker;
 

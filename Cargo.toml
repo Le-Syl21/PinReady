@@ -65,6 +65,7 @@ symphonia = { version = "0.6", default-features = false, features = ["ogg", "vor
 
 # HTTP (GitHub API + release download)
 ureq = "3"
+getrandom = "0.3"
 
 # Archive extraction (release downloads)
 zip = "9"
