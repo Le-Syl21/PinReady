@@ -800,14 +800,28 @@ impl App {
                         if fav_resp.clicked() {
                             fav_toggle = Some(idx);
                         }
-                        if table.user.rating_tenths > 0 || is_selected {
+                        // The community rating (VPinPlay), when there is one.
+                        let community = table
+                            .vps_id
+                            .as_ref()
+                            .and_then(|id| self.community.get(id))
+                            .map(|r| r.avg);
+                        if table.user.rating_tenths > 0 || is_selected || community.is_some() {
                             const STEP: f32 = 22.0;
                             let row = egui::Rect::from_min_size(
                                 egui::pos2(img_area.min.x + 6.0, img_area.max.y - 32.0),
                                 egui::vec2(10.0 + 5.0 * STEP, 26.0),
                             );
                             painter.rect_filled(row, 13.0, egui::Color32::from_black_alpha(190));
-                            let rating = table.user.rating_tenths as f32 / 10.0;
+                            // Gold: the player's own rating. Blue: the community's,
+                            // shown while the player has not rated the table.
+                            let (rating, fill) = if table.user.rating_tenths > 0 {
+                                (table.user.rating_tenths as f32 / 10.0, STAR_GOLD)
+                            } else if let Some(avg) = community {
+                                (avg, STAR_COMMUNITY)
+                            } else {
+                                (0.0, STAR_GOLD)
+                            };
                             for k in 0..5 {
                                 let c = egui::pos2(
                                     row.min.x + 5.0 + STEP / 2.0 + k as f32 * STEP,
@@ -818,6 +832,7 @@ impl App {
                                     c,
                                     9.5,
                                     (rating - k as f32).clamp(0.0, 1.0),
+                                    fill,
                                 );
                             }
                             let rating_resp = ui.interact(
@@ -859,7 +874,7 @@ impl App {
                                 &painter,
                                 egui::pos2(pill.min.x + 14.0, pill.center().y),
                                 8.5,
-                                STAR_GOLD,
+                                STAR_COMMUNITY,
                             );
                             painter.text(
                                 egui::pos2(pill.min.x + 26.0, pill.center().y),
@@ -1618,6 +1633,8 @@ fn save_error_log(log: &str) -> Option<Result<String, String>> {
 
 const STAR_GOLD: egui::Color32 = egui::Color32::from_rgb(255, 200, 40);
 const STAR_BRIGHT: egui::Color32 = egui::Color32::from_rgb(255, 222, 70);
+/// The community's rating, to tell it from the player's own (gold).
+const STAR_COMMUNITY: egui::Color32 = egui::Color32::from_rgb(90, 175, 255);
 
 /// The ten corners of a five-pointed star (outer, inner, outer...).
 fn star_points(center: egui::Pos2, radius: f32) -> Vec<egui::Pos2> {
@@ -1655,7 +1672,13 @@ fn paint_star(painter: &egui::Painter, center: egui::Pos2, radius: f32, color: e
 
 /// A rating star: black, outlined so it shows on a dark ground, with the
 /// left `fraction` (0 to 1) of its width filled in gold.
-fn paint_rating_star(painter: &egui::Painter, center: egui::Pos2, radius: f32, fraction: f32) {
+fn paint_rating_star(
+    painter: &egui::Painter,
+    center: egui::Pos2,
+    radius: f32,
+    fraction: f32,
+    fill: egui::Color32,
+) {
     paint_star(painter, center, radius, egui::Color32::BLACK);
     painter.add(egui::Shape::closed_line(
         star_points(center, radius),
@@ -1671,7 +1694,7 @@ fn paint_rating_star(painter: &egui::Painter, center: egui::Pos2, radius: f32, f
                 center.y + radius + 1.0,
             ),
         );
-        paint_star(&painter.with_clip_rect(clip), center, radius, STAR_GOLD);
+        paint_star(&painter.with_clip_rect(clip), center, radius, fill);
     }
 }
 
