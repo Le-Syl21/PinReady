@@ -13,6 +13,11 @@
 //! with the DMD's 4:1 shape), and writes the missing element just before
 //! `</DirectB2SData>`, after keeping the original file. Files that already
 //! have a `<Displays>` element, or no frame image, are left alone.
+//!
+//! Games with a video screen instead of a dot matrix (Mr. Game, Bally Vidpin,
+//! Gottlieb Caveman) have a nearly square frame. When no 4:1 hole exists, a
+//! nearly square one gets a display that names the CRT/LCD screen as its
+//! source, which stays black on a game that has none.
 
 use anyhow::{Context, Result, bail};
 use base64::Engine;
@@ -50,6 +55,17 @@ impl DmdRect {
     }
 }
 
+impl DmdRect {
+    /// The element for a game whose screen is a CRT or LCD, not a dot matrix:
+    /// without a source the display only looks for a dot matrix.
+    fn video_element(&self) -> String {
+        format!(
+            "<Displays><DMD Target=\"ScoreView\" Source=\"ctrl://default/display?dmd_only=0\" X=\"{}\" Y=\"{}\" W=\"{}\" H=\"{}\" /></Displays>",
+            self.x, self.y, self.w, self.h
+        )
+    }
+}
+
 /// What a check of a file found.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Analysis {
@@ -61,12 +77,18 @@ pub enum Analysis {
     NoHole,
     /// The element is missing and this is where the DMD goes.
     Missing(DmdRect),
+    /// The element is missing and the hole is for a video (CRT/LCD) screen.
+    MissingVideo(DmdRect),
 }
 
 /// DMD shape: 128x32.
 const DMD_ASPECT: f32 = 4.0;
 /// The hole may be this much narrower than the exact aspect.
 const ASPECT_TOLERANCE: f32 = 0.25;
+/// Shape of a video screen's frame, nearly square (Mr. Game 256x248, Vidpin 256x240).
+const VIDEO_ASPECT: f32 = 1.0;
+const VIDEO_ASPECT_MIN: f32 = 0.8;
+const VIDEO_ASPECT_MAX: f32 = 1.5;
 /// Luminance below which a pixel is part of the hole.
 const DARK_THRESHOLD: u8 = 16;
 /// A hole smaller than this share of the image is not a DMD frame.
@@ -114,12 +136,43 @@ fn dmd_image_bytes(doc: &[u8]) -> Result<Option<Vec<u8>>> {
     Ok(Some(bytes))
 }
 
-/// The largest all-dark rectangle at least `aspect * (1 - tol)` wide for its
-/// height (histogram and stack method), as `(area, x, y, w, h)`.
+/// What a hole is looked for as.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Shape {
+    /// The DMD's 4:1.
+    Dmd,
+    /// A nearly square video screen.
+    Video,
+}
+
+impl Shape {
+    /// The width kept of a dark `w` x `h` rectangle, `None` when its shape is wrong.
+    fn kept_width(self, w: usize, h: usize) -> Option<usize> {
+        let ar = w as f32 / h as f32;
+        match self {
+            Shape::Dmd => (ar >= DMD_ASPECT * (1.0 - ASPECT_TOLERANCE))
+                .then(|| w.min((h as f32 * DMD_ASPECT * (1.0 + ASPECT_TOLERANCE)) as usize)),
+            Shape::Video => (VIDEO_ASPECT_MIN..=VIDEO_ASPECT_MAX)
+                .contains(&ar)
+                .then_some(w),
+        }
+    }
+
+    fn aspect(self) -> f32 {
+        match self {
+            Shape::Dmd => DMD_ASPECT,
+            Shape::Video => VIDEO_ASPECT,
+        }
+    }
+}
+
+/// The largest all-dark rectangle of the wanted shape (histogram and stack
+/// method), as `(area, x, y, w, h)`.
 fn largest_dark_rect(
     dark: &[bool],
     width: usize,
     height: usize,
+    shape: Shape,
 ) -> (usize, usize, usize, usize, usize) {
     let mut best = (0, 0, 0, 0, 0);
     let mut heights = vec![0usize; width];
@@ -144,15 +197,13 @@ fn largest_dark_rect(
                 }
                 stack.pop();
                 let w = x - sx;
-                if sh >= 20 && w >= 60 {
-                    let ar = w as f32 / sh as f32;
-                    if ar >= DMD_ASPECT * (1.0 - ASPECT_TOLERANCE) {
-                        let fw =
-                            w.min((sh as f32 * DMD_ASPECT * (1.0 + ASPECT_TOLERANCE)) as usize);
-                        let area = fw * sh;
-                        if area > best.0 {
-                            best = (area, sx, y + 1 - sh, fw, sh);
-                        }
+                if sh >= 20
+                    && w >= 60
+                    && let Some(fw) = shape.kept_width(w, sh)
+                {
+                    let area = fw * sh;
+                    if area > best.0 {
+                        best = (area, sx, y + 1 - sh, fw, sh);
                     }
                 }
                 start = sx;
@@ -197,34 +248,50 @@ fn mean_luma(luma: &[u8], width: usize, x: usize, y: usize, w: usize, h: usize) 
 /// How much brighter the ring of pixels around a rectangle is than its inside.
 /// A frame has a border that stands out from the hole; a patch of dark artwork
 /// does not.
+///
+/// A hole that touches the edge of the image is rejected when `strict` (the
+/// artwork may go on past the edge). A video frame often sits flush with the
+/// bottom of its image: then only the sides inside the image make the ring,
+/// and at least half of it has to be there.
 fn edge_contrast(
     luma: &[u8],
     width: usize,
     height: usize,
     rect: (usize, usize, usize, usize),
+    strict: bool,
 ) -> f32 {
     const RING: usize = 6;
     let (x, y, w, h) = rect;
-    if x < RING || y < RING || x + w + RING > width || y + h + RING > height {
+    let touches = x < RING || y < RING || x + w + RING > width || y + h + RING > height;
+    if touches && strict {
         return 0.0; // touches the edge of the image: the artwork goes on
     }
-    let outer = mean_luma(luma, width, x - RING, y - RING, w + 2 * RING, h + 2 * RING);
-    let inner = mean_luma(luma, width, x, y, w, h);
-    // mean of the ring alone
-    let outer_area = ((w + 2 * RING) * (h + 2 * RING)) as f32;
+    // the ring rectangle, cut to the image
+    let ox = x.saturating_sub(RING);
+    let oy = y.saturating_sub(RING);
+    let ow = (x + w + RING).min(width) - ox;
+    let oh = (y + h + RING).min(height) - oy;
+    let outer_area = (ow * oh) as f32;
     let inner_area = (w * h) as f32;
-    (outer * outer_area - inner * inner_area) / (outer_area - inner_area) - inner
+    let ring_area = outer_area - inner_area;
+    let full_ring = ((w + 2 * RING) * (h + 2 * RING) - w * h) as f32;
+    if ring_area < full_ring * 0.5 {
+        return 0.0;
+    }
+    let outer = mean_luma(luma, width, ox, oy, ow, oh);
+    let inner = mean_luma(luma, width, x, y, w, h);
+    (outer * outer_area - inner * inner_area) / ring_area - inner
 }
 
-/// The DMD's shape fitted in the middle of the rectangle `(x, y, w, h)`.
-fn fit_aspect(x: usize, y: usize, w: usize, h: usize) -> DmdRect {
+/// The shape `aspect` fitted in the middle of the rectangle `(x, y, w, h)`.
+fn fit_aspect(x: usize, y: usize, w: usize, h: usize, aspect: f32) -> DmdRect {
     let (mut x, mut y, mut w, mut h) = (x, y, w, h);
-    if w as f32 / h as f32 > DMD_ASPECT {
-        let nw = (h as f32 * DMD_ASPECT) as usize;
+    if w as f32 / h as f32 > aspect {
+        let nw = (h as f32 * aspect) as usize;
         x += (w - nw) / 2;
         w = nw;
     } else {
-        let nh = (w as f32 / DMD_ASPECT) as usize;
+        let nh = (w as f32 / aspect) as usize;
         y += (h - nh) / 2;
         h = nh;
     }
@@ -244,7 +311,30 @@ fn fit_aspect(x: usize, y: usize, w: usize, h: usize) -> DmdRect {
 /// the edge of the image are candidates, and the largest wins: a patch of dark
 /// artwork has no border, and a larger threshold only grows the hole up to its
 /// border.
-fn find_hole(image: &image::DynamicImage) -> Option<DmdRect> {
+#[cfg(test)]
+fn find_hole(image: &image::DynamicImage, shape: Shape) -> Option<DmdRect> {
+    find_hole_area(image, shape).map(|(_, rect)| rect)
+}
+
+/// `find_hole` with the area of the dark rectangle it found, to compare the shapes.
+fn find_hole_area(image: &image::DynamicImage, shape: Shape) -> Option<(usize, DmdRect)> {
+    find_hole_with(image, shape, false)
+}
+
+/// A video frame set in dark artwork has no border that stands out from the
+/// artwork, so the contrast test cannot find it. As a last resort, a large
+/// nearly square dark rectangle in the middle of the image is taken for it.
+fn find_dark_video_area(image: &image::DynamicImage) -> Option<(usize, DmdRect)> {
+    find_hole_with(image, Shape::Video, true)
+}
+
+/// `relaxed` drops the contrast test for a dark rectangle that is centred
+/// (within 8% of the image width) and covers at least a fifth of the image.
+fn find_hole_with(
+    image: &image::DynamicImage,
+    shape: Shape,
+    relaxed: bool,
+) -> Option<(usize, DmdRect)> {
     const THRESHOLDS: [u8; 5] = [DARK_THRESHOLD, 24, 32, 44, 60];
     /// A border at least this much brighter than the inside, in luminance levels.
     const MIN_CONTRAST: f32 = 25.0;
@@ -258,15 +348,25 @@ fn find_hole(image: &image::DynamicImage) -> Option<DmdRect> {
         // The largest dark rectangle may be artwork (a night sky): when it is
         // not a frame hole, blank it out and look at the next one
         for _ in 0..4 {
-            let (area, x, y, w, h) = largest_dark_rect(&dark, width, height);
+            let (area, x, y, w, h) = largest_dark_rect(&dark, width, height, shape);
             if area == 0 {
                 break;
             }
             let big_enough = (w as f32) >= width as f32 * MIN_WIDTH_SHARE
                 && (h as f32) >= height as f32 * MIN_HEIGHT_SHARE;
-            if big_enough && edge_contrast(&luma, width, height, (x, y, w, h)) >= MIN_CONTRAST {
+            let strict = shape == Shape::Dmd;
+            let accepted = if relaxed {
+                let centre = (x * 2 + w) as f32 / 2.0;
+                big_enough
+                    && (centre - width as f32 / 2.0).abs() <= width as f32 * 0.08
+                    && (w * h) as f32 >= (width * height) as f32 * 0.2
+            } else {
+                big_enough
+                    && edge_contrast(&luma, width, height, (x, y, w, h), strict) >= MIN_CONTRAST
+            };
+            if accepted {
                 if best.is_none_or(|(a, _)| area > a) {
-                    best = Some((area, fit_aspect(x, y, w, h)));
+                    best = Some((area, fit_aspect(x, y, w, h, shape.aspect())));
                 }
                 break;
             }
@@ -275,7 +375,7 @@ fn find_hole(image: &image::DynamicImage) -> Option<DmdRect> {
             }
         }
     }
-    best.map(|(_, rect)| rect)
+    best
 }
 
 /// Look at the text of a `.directb2s`.
@@ -287,20 +387,28 @@ pub fn analyze(doc: &[u8]) -> Result<Analysis> {
         return Ok(Analysis::NoDmdImage);
     };
     let image = image::load_from_memory(&bytes).context("DMDImage cannot be decoded")?;
-    Ok(match find_hole(&image) {
-        Some(rect) => Analysis::Missing(rect),
-        None => Analysis::NoHole,
+    // A square hole holds a 4:1 rectangle too, and a 4:1 hole holds a square one:
+    // the shape with the larger area is the real one
+    let dmd = find_hole_area(&image, Shape::Dmd);
+    let video = find_hole_area(&image, Shape::Video);
+    Ok(match (dmd, video) {
+        (Some((a, rect)), Some((b, _))) if a >= b => Analysis::Missing(rect),
+        (Some((_, rect)), None) => Analysis::Missing(rect),
+        (_, Some((_, rect))) => Analysis::MissingVideo(rect),
+        (None, None) => match find_dark_video_area(&image) {
+            Some((_, rect)) => Analysis::MissingVideo(rect),
+            None => Analysis::NoHole,
+        },
     })
 }
 
 /// `doc` with the element before the closing tag of the document.
-fn insert_element(doc: &[u8], rect: &DmdRect) -> Result<Vec<u8>> {
+fn insert_element(doc: &[u8], element: &str) -> Result<Vec<u8>> {
     const CLOSE: &[u8] = b"</DirectB2SData>";
     let at = doc
         .windows(CLOSE.len())
         .rposition(|w| w == CLOSE)
         .context("no </DirectB2SData> in the file")?;
-    let element = rect.element();
     let mut out = Vec::with_capacity(doc.len() + element.len());
     out.extend_from_slice(&doc[..at]);
     out.extend_from_slice(element.as_bytes());
@@ -326,12 +434,13 @@ pub fn backup_path(backup_root: &Path, file: &Path) -> PathBuf {
 /// Returns the status to record.
 pub fn fix_file(file: &Path, backup_root: &Path) -> Result<&'static str> {
     let doc = std::fs::read(file).with_context(|| format!("cannot read {}", file.display()))?;
-    let rect = match analyze(&doc)? {
+    let (rect, element) = match analyze(&doc)? {
         Analysis::HasDisplays | Analysis::NoDmdImage => return Ok(status::NOT_NEEDED),
         Analysis::NoHole => return Ok(status::NO_HOLE),
-        Analysis::Missing(rect) => rect,
+        Analysis::Missing(rect) => (rect, rect.element()),
+        Analysis::MissingVideo(rect) => (rect, rect.video_element()),
     };
-    let fixed = insert_element(&doc, &rect)?;
+    let fixed = insert_element(&doc, &element)?;
 
     let backup = backup_path(backup_root, file);
     if !backup.exists() {
@@ -422,7 +531,7 @@ mod tests {
     #[test]
     fn finds_the_hole_of_a_frame() {
         let img = frame(1012, 309, (35, 37, 938, 234));
-        let rect = find_hole(&img).expect("hole");
+        let rect = find_hole(&img, Shape::Dmd).expect("hole");
         // fitted to 4:1 inside the hole, which is 938x234 (4.008)
         assert!((rect.w as i64 - 936).abs() <= 2, "{rect:?}");
         assert!((rect.h as i64 - 234).abs() <= 1, "{rect:?}");
@@ -446,11 +555,82 @@ mod tests {
                 Rgba([150, 110, 40, 255]) // gold frame
             }
         });
-        let rect = find_hole(&image::DynamicImage::ImageRgba8(img)).expect("hole");
+        let rect = find_hole(&image::DynamicImage::ImageRgba8(img), Shape::Dmd).expect("hole");
         // inside the hole, and most of it
         assert!(rect.x >= 115 && rect.x + rect.w <= 1165, "{rect:?}");
         assert!(rect.y >= 450 && rect.y + rect.h <= 710, "{rect:?}");
         assert!(rect.w >= 1000, "{rect:?}");
+    }
+
+    /// A frame for a video screen: a nearly square hole flush with the bottom of the image.
+    #[test]
+    fn a_nearly_square_hole_is_a_video_screen() {
+        // Motor Show's frame: 2190x698, hole about 750x660 from the bottom edge up
+        let img = frame(2190, 698, (719, 38, 750, 660));
+        let image = image::DynamicImage::ImageRgba8(img.to_rgba8());
+        let doc = document(Some(&image), false);
+        assert!(matches!(analyze(&doc).unwrap(), Analysis::MissingVideo(_)));
+        let rect = find_hole(&image, Shape::Video).expect("video hole");
+        assert!(
+            (rect.w as i64 - rect.h as i64).abs() <= 1,
+            "square: {rect:?}"
+        );
+        assert!(rect.x >= 719 && rect.x + rect.w <= 719 + 750);
+        assert!(rect.y >= 38 && rect.y + rect.h <= 698);
+    }
+
+    #[test]
+    fn a_video_frame_is_written_with_the_screen_as_source() {
+        let img = frame(2190, 698, (719, 38, 750, 660));
+        let doc = document(Some(&img), false);
+        let Analysis::MissingVideo(rect) = analyze(&doc).unwrap() else {
+            panic!("expected a video hole");
+        };
+        let fixed = insert_element(&doc, &rect.video_element()).unwrap();
+        let text = String::from_utf8(fixed).unwrap();
+        assert!(text.contains("Source=\"ctrl://default/display?dmd_only=0\""));
+        assert!(text.contains("Target=\"ScoreView\""));
+        assert_eq!(text.matches("<Displays>").count(), 1);
+    }
+
+    /// A video frame in dark artwork: no border stands out, only the shape and the place tell.
+    fn dark_frame(hole: (u32, u32, u32, u32)) -> image::DynamicImage {
+        let img = ImageBuffer::from_fn(2190, 698, |px, py| {
+            let (x, y, w, h) = hole;
+            if px >= x && px < x + w && py >= y && py < y + h {
+                Rgba([6, 6, 6, 255])
+            } else {
+                Rgba([30, 30, 30, 255])
+            }
+        });
+        image::DynamicImage::ImageRgba8(img)
+    }
+
+    #[test]
+    fn a_centred_video_hole_in_dark_artwork_is_found() {
+        let doc = document(Some(&dark_frame((734, 63, 731, 635))), false);
+        let Analysis::MissingVideo(rect) = analyze(&doc).unwrap() else {
+            panic!("expected a video hole");
+        };
+        assert!(
+            (rect.w as i64 - rect.h as i64).abs() <= 1,
+            "square: {rect:?}"
+        );
+    }
+
+    #[test]
+    fn a_dark_square_off_centre_or_small_is_not_a_video_screen() {
+        let off_centre = document(Some(&dark_frame((100, 63, 731, 635))), false);
+        assert_eq!(analyze(&off_centre).unwrap(), Analysis::NoHole);
+        let small = document(Some(&dark_frame((1000, 200, 200, 200))), false);
+        assert_eq!(analyze(&small).unwrap(), Analysis::NoHole);
+    }
+
+    #[test]
+    fn a_dmd_hole_wins_over_a_video_one() {
+        let img = frame(2000, 600, (400, 250, 1200, 300));
+        let doc = document(Some(&img), false);
+        assert!(matches!(analyze(&doc).unwrap(), Analysis::Missing(_)));
     }
 
     #[test]
@@ -460,13 +640,13 @@ mod tests {
             300,
             Rgba([90, 90, 90, 255]),
         ));
-        assert!(find_hole(&img).is_none());
+        assert!(find_hole(&img, Shape::Dmd).is_none());
     }
 
     #[test]
     fn a_small_dark_spot_is_not_a_dmd() {
         let img = frame(1000, 600, (10, 10, 120, 30));
-        assert!(find_hole(&img).is_none());
+        assert!(find_hole(&img, Shape::Dmd).is_none());
     }
 
     #[test]
@@ -478,7 +658,7 @@ mod tests {
                 Rgba([100, 100, 100, 255])
             }
         });
-        let rect = find_hole(&image::DynamicImage::ImageRgba8(img)).expect("hole");
+        let rect = find_hole(&image::DynamicImage::ImageRgba8(img), Shape::Dmd).expect("hole");
         assert!(rect.w >= 700 && rect.h >= 170);
     }
 
@@ -518,7 +698,7 @@ mod tests {
             w: 938,
             h: 234,
         };
-        let fixed = insert_element(&doc, &rect).unwrap();
+        let fixed = insert_element(&doc, &rect.element()).unwrap();
         let element = rect.element().into_bytes();
         let at = fixed.len() - b"</DirectB2SData>".len() - element.len();
         assert_eq!(&fixed[at..at + element.len()], &element[..]);
