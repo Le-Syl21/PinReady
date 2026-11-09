@@ -193,6 +193,8 @@ pub type VbsPatchRecord = (String, String, Option<String>, String, i64);
 pub struct TableEntry {
     pub path: std::path::PathBuf,
     pub name: String,
+    /// Favourite flag, rating and play statistics (see `db::UserTable`).
+    pub user: crate::db::UserTable,
     /// `true` once the table has a backglass thumbnail (from the SQLite
     /// cache on scan, or just made by a worker); `false` while extraction
     /// is pending or when nothing could be found, in which case the grid
@@ -411,6 +413,11 @@ pub struct App {
     table_filter: String,
     table_filter_lower: String, // cached lowercase version of table_filter
     selected_table: usize,
+    /// How the launcher orders the tables (persisted in the config).
+    sort_mode: launcher::SortMode,
+    /// The running Visual Pinball session: start time and table path
+    /// relative to the tables directory, to add its length to the stats.
+    vpx_session: Option<(std::time::Instant, String)>,
     scroll_to_selected: bool, // set by joystick navigation to trigger scroll
     last_scroll_target: Option<f32>, // last forced vertical scroll offset — skip reset when the target hasn't moved
     launcher_cols: usize,            // number of columns in the grid (computed in render)
@@ -791,6 +798,7 @@ impl App {
         let mirror_base_url = db.mirror_base_url().unwrap_or_default();
 
         let (tilt_rings, tilt_rings_key) = (tilt.rings(), tilt.rings_key());
+        let db_sort_key = db.get_config("launcher_sort");
         let mut s = Self {
             mode: if start_in_wizard {
                 AppMode::Wizard
@@ -855,6 +863,8 @@ impl App {
             table_filter: String::new(),
             table_filter_lower: String::new(),
             selected_table: 0,
+            sort_mode: launcher::SortMode::from_key(db_sort_key.as_deref().unwrap_or_default()),
+            vpx_session: None,
             scroll_to_selected: false,
             last_scroll_target: None,
             launcher_cols: 1,

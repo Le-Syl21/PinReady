@@ -69,7 +69,9 @@ impl App {
                 // closes — which is the bug this window exists to prevent.
                 ui.input_mut(|i| i.events.clear());
             } else if !self.tables.is_empty() {
-                for action in launcher_input::collect_actions(ui, self.rotation) {
+                for action in
+                    launcher_input::collect_actions(ui, self.rotation, self.table_filter.is_empty())
+                {
                     self.apply_launcher_action(action, ui.ctx());
                 }
             }
@@ -142,6 +144,14 @@ impl App {
             }
             self.tables.iter_mut().for_each(|t| t.has_bg = false);
             self.scan_tables();
+        }
+
+        // Sort order: one button that goes through the choices (the S key
+        // does the same). Favourites are toggled with F or the ball-launch
+        // button, ratings 0 to 5 with the number keys.
+        let sort_label = format!("{}: {}", t!("launcher_sort"), self.sort_mode.label());
+        if left.add(header_button(sort_label)).clicked() {
+            self.cycle_sort();
         }
 
         // Update counter — surfaces tables flagged `update_available` by the
@@ -281,7 +291,12 @@ impl App {
                     .collect::<Vec<_>>()
                     .join("")
             });
-            let appended: String = typed.chars().filter(|c| !c.is_control()).collect();
+            let mut appended: String = typed.chars().filter(|c| !c.is_control()).collect();
+            // F, + and - are hot keys while the search is empty (favourite,
+            // rating): they must not start a search.
+            if self.table_filter.is_empty() && launcher_input::is_hotkey_text(&appended) {
+                appended.clear();
+            }
             if !appended.is_empty() {
                 self.table_filter.push_str(&appended);
                 self.table_filter_lower = self.table_filter.to_lowercase();
@@ -497,6 +512,8 @@ impl App {
 
         // Table grid with backglass images
         let mut launch_idx: Option<usize> = None;
+        let mut fav_toggle: Option<usize> = None;
+        let mut rate_set: Option<(usize, u8)> = None;
         let card_width = 400.0;
         let card_height = 520.0;
         let img_height = 400.0;
@@ -738,6 +755,93 @@ impl App {
                             if is_selected { p.accent_text } else { p.text },
                         );
 
+                        // Favourite star (right, big and bright when set) and
+                        // rating (bottom-left, five stars with the empty ones in
+                        // black so the scale is visible; a fraction of a star is
+                        // a fraction of its surface: 3.2 stars). Painted shapes
+                        // (no font needed), both clickable and allocated after
+                        // the card so a click on them is not a click on the
+                        // card (which launches the table).
+                        let fav_center = egui::pos2(img_area.max.x - 30.0, img_area.max.y - 34.0);
+                        let fav_resp = ui.interact(
+                            egui::Rect::from_center_size(fav_center, egui::vec2(52.0, 52.0)),
+                            ui.scope_id().with(("favorite", idx)),
+                            egui::Sense::click(),
+                        );
+                        if table.user.favorite {
+                            // A glow, then a big bright star with a pale heart.
+                            painter.circle_filled(fav_center, 30.0, STAR_GOLD.gamma_multiply(0.22));
+                            painter.circle_filled(fav_center, 24.0, STAR_GOLD.gamma_multiply(0.38));
+                            paint_star(&painter, fav_center, 21.0, STAR_BRIGHT);
+                            paint_star(
+                                &painter,
+                                fav_center,
+                                9.0,
+                                egui::Color32::from_rgb(255, 248, 200),
+                            );
+                        } else if is_selected || fav_resp.hovered() {
+                            painter.circle_filled(
+                                fav_center,
+                                17.0,
+                                egui::Color32::from_black_alpha(160),
+                            );
+                            let color = if fav_resp.hovered() {
+                                STAR_GOLD.gamma_multiply(0.8)
+                            } else {
+                                egui::Color32::from_gray(110)
+                            };
+                            paint_star(&painter, fav_center, 13.0, color);
+                        }
+                        if fav_resp.hovered() {
+                            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                        }
+                        if fav_resp.clicked() {
+                            fav_toggle = Some(idx);
+                        }
+                        if table.user.rating_tenths > 0 || is_selected {
+                            const STEP: f32 = 22.0;
+                            let row = egui::Rect::from_min_size(
+                                egui::pos2(img_area.min.x + 6.0, img_area.max.y - 32.0),
+                                egui::vec2(10.0 + 5.0 * STEP, 26.0),
+                            );
+                            painter.rect_filled(row, 13.0, egui::Color32::from_black_alpha(190));
+                            let rating = table.user.rating_tenths as f32 / 10.0;
+                            for k in 0..5 {
+                                let c = egui::pos2(
+                                    row.min.x + 5.0 + STEP / 2.0 + k as f32 * STEP,
+                                    row.center().y,
+                                );
+                                paint_rating_star(
+                                    &painter,
+                                    c,
+                                    9.5,
+                                    (rating - k as f32).clamp(0.0, 1.0),
+                                );
+                            }
+                            let rating_resp = ui.interact(
+                                row,
+                                ui.scope_id().with(("rating", idx)),
+                                egui::Sense::click(),
+                            );
+                            if rating_resp.hovered() {
+                                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                            }
+                            if rating_resp.clicked()
+                                && let Some(pos) = rating_resp.interact_pointer_pos()
+                            {
+                                // Where in the row was the click: 0 to 5 stars, to a
+                                // tenth. Clicking the current value clears it.
+                                let stars = (pos.x - (row.min.x + 5.0)) / STEP;
+                                let tenths = (stars * 10.0).round().clamp(0.0, 50.0) as u8;
+                                let new = if tenths == table.user.rating_tenths {
+                                    0
+                                } else {
+                                    tenths
+                                };
+                                rate_set = Some((idx, new));
+                            }
+                        }
+
                         // Update-available badge: small "↑" disk in the
                         // top-right corner of the image area. Set by the
                         // catalog worker when the live VPSDB Game.updated_at
@@ -845,6 +949,16 @@ impl App {
             self.bg_cache.update(ui.ctx(), &on_screen, &near, &rel);
         }
 
+        if let Some(idx) = fav_toggle {
+            self.selected_table = idx;
+            self.toggle_favorite_selected();
+            self.scroll_to_selected = false;
+        }
+        if let Some((idx, rating)) = rate_set {
+            self.selected_table = idx;
+            self.rate_selected(rating);
+            self.scroll_to_selected = false;
+        }
         if let Some(idx) = launch_idx {
             self.selected_table = idx;
             let path = self.tables[idx].path.clone();
@@ -1472,6 +1586,65 @@ fn save_error_log(log: &str) -> Option<Result<String, String>> {
             Err(e.to_string())
         }
     })
+}
+
+const STAR_GOLD: egui::Color32 = egui::Color32::from_rgb(255, 200, 40);
+const STAR_BRIGHT: egui::Color32 = egui::Color32::from_rgb(255, 222, 70);
+
+/// The ten corners of a five-pointed star (outer, inner, outer...).
+fn star_points(center: egui::Pos2, radius: f32) -> Vec<egui::Pos2> {
+    (0..10)
+        .map(|k| {
+            let angle = -std::f32::consts::FRAC_PI_2 + k as f32 * std::f32::consts::PI / 5.0;
+            let r = if k % 2 == 0 { radius } else { radius * 0.45 };
+            center + egui::vec2(angle.cos() * r, angle.sin() * r)
+        })
+        .collect()
+}
+
+/// A five-pointed star, drawn as a triangle fan (egui's convex polygons
+/// do not cover a star).
+fn paint_star(painter: &egui::Painter, center: egui::Pos2, radius: f32, color: egui::Color32) {
+    use egui::epaint::{Vertex, WHITE_UV};
+    let mut mesh = egui::Mesh::default();
+    mesh.vertices.push(Vertex {
+        pos: center,
+        uv: WHITE_UV,
+        color,
+    });
+    for pos in star_points(center, radius) {
+        mesh.vertices.push(Vertex {
+            pos,
+            uv: WHITE_UV,
+            color,
+        });
+    }
+    for k in 0..10u32 {
+        mesh.indices.extend([0, 1 + k, 1 + (k + 1) % 10]);
+    }
+    painter.add(egui::Shape::mesh(mesh));
+}
+
+/// A rating star: black, outlined so it shows on a dark ground, with the
+/// left `fraction` (0 to 1) of its width filled in gold.
+fn paint_rating_star(painter: &egui::Painter, center: egui::Pos2, radius: f32, fraction: f32) {
+    paint_star(painter, center, radius, egui::Color32::BLACK);
+    painter.add(egui::Shape::closed_line(
+        star_points(center, radius),
+        egui::Stroke::new(1.0, egui::Color32::from_gray(150)),
+    ));
+    if fraction > 0.0 {
+        let clip = egui::Rect::from_min_max(
+            egui::pos2(center.x - radius - 1.0, center.y - radius - 1.0),
+            egui::pos2(
+                center.x - radius
+                    + 2.0 * radius * fraction.min(1.0)
+                    + if fraction >= 1.0 { 1.0 } else { 0.0 },
+                center.y + radius + 1.0,
+            ),
+        );
+        paint_star(&painter.with_clip_rect(clip), center, radius, STAR_GOLD);
+    }
 }
 
 #[cfg(test)]

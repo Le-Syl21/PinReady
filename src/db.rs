@@ -17,6 +17,20 @@ pub struct Database {
     conn: Connection,
 }
 
+/// What the player recorded about one table (`table_user`).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct UserTable {
+    pub favorite: bool,
+    pub favorite_at: Option<i64>,
+    /// Tenths of a star: 0 = unrated, 50 = five stars (3.2 stars is 32).
+    pub rating_tenths: u8,
+    pub rated_at: Option<i64>,
+    pub last_run: Option<i64>,
+    pub start_count: u32,
+    /// Total play time in seconds.
+    pub run_time: u32,
+}
+
 /// One row of `backglass_meta` (see the table's comment).
 #[derive(Debug, Clone)]
 pub struct BackglassMeta {
@@ -245,6 +259,23 @@ impl Database {
                 no_image        INTEGER NOT NULL DEFAULT 0
             );
 
+            -- What the player says about a table, kept per `.vpx` path like
+            -- the other caches. `rating` is in tenths of a star: 0 (unrated)
+            -- to 50 (five stars), so 3.2 stars is 32; VPinFE / VPinPlay use
+            -- whole stars 0 to 5, which is this value rounded. The dates are
+            -- Unix seconds. `last_run`, `start_count` and
+            -- `run_time` (seconds) are filled by the launcher itself.
+            CREATE TABLE IF NOT EXISTS table_user (
+                rel_path    TEXT    PRIMARY KEY,
+                favorite    INTEGER NOT NULL DEFAULT 0,
+                favorite_at INTEGER,
+                rating      INTEGER NOT NULL DEFAULT 0,
+                rated_at    INTEGER,
+                last_run    INTEGER,
+                start_count INTEGER NOT NULL DEFAULT 0,
+                run_time    INTEGER NOT NULL DEFAULT 0
+            );
+
             -- jsm174/vpx-standalone-scripts catalog cache. Single-row
             -- table (keyed on last_commit_sha). At startup we hit
             -- api.github.com to read the master branch's latest commit
@@ -413,6 +444,87 @@ impl Database {
         )
         .context("Failed to record a table without backglass")?;
         tx.commit()?;
+        Ok(())
+    }
+
+    /// What the player recorded about every table, in one query.
+    pub fn get_user_tables(&self) -> std::collections::HashMap<String, UserTable> {
+        let mut out = std::collections::HashMap::new();
+        let Ok(mut stmt) = self.conn.prepare(
+            "SELECT rel_path, favorite, favorite_at, rating, rated_at, last_run,
+                    start_count, run_time FROM table_user",
+        ) else {
+            return out;
+        };
+        let rows = stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                UserTable {
+                    favorite: r.get::<_, i64>(1)? != 0,
+                    favorite_at: r.get(2)?,
+                    rating_tenths: r.get::<_, i64>(3)?.clamp(0, 50) as u8,
+                    rated_at: r.get(4)?,
+                    last_run: r.get(5)?,
+                    start_count: r.get::<_, i64>(6)?.max(0) as u32,
+                    run_time: r.get::<_, i64>(7)?.max(0) as u32,
+                },
+            ))
+        });
+        if let Ok(rows) = rows {
+            out.extend(rows.flatten());
+        }
+        out
+    }
+
+    /// Mark or unmark a table as a favourite (`now` is Unix seconds).
+    pub fn set_favorite(&self, rel_path: &str, favorite: bool, now: i64) -> Result<()> {
+        self.conn
+            .execute(
+                "INSERT INTO table_user (rel_path, favorite, favorite_at) VALUES (?1, ?2, ?3)
+                 ON CONFLICT(rel_path) DO UPDATE
+                 SET favorite = excluded.favorite, favorite_at = excluded.favorite_at",
+                rusqlite::params![rel_path, favorite as i64, now],
+            )
+            .context("Failed to store the favourite flag")?;
+        Ok(())
+    }
+
+    /// Rate a table in tenths of a star, 0 (clear) to 50 (`now` is Unix
+    /// seconds).
+    pub fn set_rating(&self, rel_path: &str, tenths: u8, now: i64) -> Result<()> {
+        self.conn
+            .execute(
+                "INSERT INTO table_user (rel_path, rating, rated_at) VALUES (?1, ?2, ?3)
+                 ON CONFLICT(rel_path) DO UPDATE
+                 SET rating = excluded.rating, rated_at = excluded.rated_at",
+                rusqlite::params![rel_path, tenths.min(50) as i64, now],
+            )
+            .context("Failed to store the rating")?;
+        Ok(())
+    }
+
+    /// A table was started: count it and remember when.
+    pub fn record_start(&self, rel_path: &str, now: i64) -> Result<()> {
+        self.conn
+            .execute(
+                "INSERT INTO table_user (rel_path, last_run, start_count) VALUES (?1, ?2, 1)
+                 ON CONFLICT(rel_path) DO UPDATE
+                 SET last_run = excluded.last_run, start_count = start_count + 1",
+                rusqlite::params![rel_path, now],
+            )
+            .context("Failed to record the start")?;
+        Ok(())
+    }
+
+    /// Add the length of a finished session (seconds).
+    pub fn add_run_time(&self, rel_path: &str, seconds: u32) -> Result<()> {
+        self.conn
+            .execute(
+                "INSERT INTO table_user (rel_path, run_time) VALUES (?1, ?2)
+                 ON CONFLICT(rel_path) DO UPDATE SET run_time = run_time + excluded.run_time",
+                rusqlite::params![rel_path, seconds as i64],
+            )
+            .context("Failed to record the play time")?;
         Ok(())
     }
 
@@ -1186,6 +1298,39 @@ mod tests {
         db.set_backglass("A/a.vpx", b"full-a2", Some(b"thumb-a2"), 30)
             .unwrap();
         assert_eq!(db.get_all_thumbs()["A/a.vpx"], (b"thumb-a2".to_vec(), 30));
+    }
+
+    #[test]
+    fn favourites_ratings_and_play_stats_are_kept_per_table() {
+        let db = temp_db();
+        assert!(db.get_user_tables().is_empty());
+        db.set_favorite("A/a.vpx", true, 100).unwrap();
+        db.set_rating("A/a.vpx", 32, 110).unwrap();
+        db.record_start("A/a.vpx", 120).unwrap();
+        db.record_start("A/a.vpx", 130).unwrap();
+        db.add_run_time("A/a.vpx", 600).unwrap();
+        db.set_rating("B/b.vpx", 90, 140).unwrap(); // capped at 5 stars
+        let all = db.get_user_tables();
+        assert_eq!(
+            all["A/a.vpx"],
+            UserTable {
+                favorite: true,
+                favorite_at: Some(100),
+                rating_tenths: 32,
+                rated_at: Some(110),
+                last_run: Some(130),
+                start_count: 2,
+                run_time: 600,
+            }
+        );
+        assert_eq!(all["B/b.vpx"].rating_tenths, 50);
+        assert!(!all["B/b.vpx"].favorite);
+        // Un-favouriting and clearing keep the rest.
+        db.set_favorite("A/a.vpx", false, 200).unwrap();
+        db.set_rating("A/a.vpx", 0, 210).unwrap();
+        let a = &db.get_user_tables()["A/a.vpx"];
+        assert!(!a.favorite && a.rating_tenths == 0 && a.start_count == 2);
+        assert_eq!(a.rated_at, Some(210));
     }
 
     #[test]

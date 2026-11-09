@@ -427,8 +427,92 @@ fn parse_progress_pct(msg: &str) -> Option<f32> {
     Some((pct / 100.0).clamp(0.0, 1.0))
 }
 
+/// How the launcher orders the tables. The list itself stays in
+/// alphabetical order (the pictures are numbered by position); this only
+/// changes the order in which the tables are shown and navigated.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(super) enum SortMode {
+    #[default]
+    Alpha,
+    FavoritesFirst,
+    MyRating,
+    LastPlayed,
+    MostPlayed,
+}
+
+impl SortMode {
+    /// Value stored in the config.
+    pub(super) fn key(self) -> &'static str {
+        match self {
+            Self::Alpha => "alpha",
+            Self::FavoritesFirst => "favorites",
+            Self::MyRating => "rating",
+            Self::LastPlayed => "last_played",
+            Self::MostPlayed => "most_played",
+        }
+    }
+
+    pub(super) fn from_key(key: &str) -> Self {
+        [
+            Self::Alpha,
+            Self::FavoritesFirst,
+            Self::MyRating,
+            Self::LastPlayed,
+            Self::MostPlayed,
+        ]
+        .into_iter()
+        .find(|m| m.key() == key)
+        .unwrap_or_default()
+    }
+
+    pub(super) fn next(self) -> Self {
+        match self {
+            Self::Alpha => Self::FavoritesFirst,
+            Self::FavoritesFirst => Self::MyRating,
+            Self::MyRating => Self::LastPlayed,
+            Self::LastPlayed => Self::MostPlayed,
+            Self::MostPlayed => Self::Alpha,
+        }
+    }
+
+    pub(super) fn label(self) -> String {
+        match self {
+            Self::Alpha => t!("sort_alpha"),
+            Self::FavoritesFirst => t!("sort_favorites"),
+            Self::MyRating => t!("sort_rating"),
+            Self::LastPlayed => t!("sort_last_played"),
+            Self::MostPlayed => t!("sort_most_played"),
+        }
+        .to_string()
+    }
+
+    /// Sort `order` (indices into the alphabetical table list) in place.
+    /// Stable, so tables that compare equal stay alphabetical.
+    pub(super) fn sort(self, order: &mut [usize], tables: &[TableEntry]) {
+        match self {
+            Self::Alpha => {}
+            Self::FavoritesFirst => order.sort_by_key(|&i| !tables[i].user.favorite),
+            Self::MyRating => {
+                order.sort_by_key(|&i| std::cmp::Reverse(tables[i].user.rating_tenths))
+            }
+            Self::LastPlayed => order.sort_by_key(|&i| std::cmp::Reverse(tables[i].user.last_run)),
+            Self::MostPlayed => {
+                order.sort_by_key(|&i| std::cmp::Reverse(tables[i].user.start_count))
+            }
+        }
+    }
+}
+
+fn unix_now() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
+
 /// What the index thread learned about one table.
 pub(super) struct IndexEntry {
+    user: crate::db::UserTable,
     idx: usize,
     update_available: bool,
     vps_id: Option<String>,
@@ -498,6 +582,7 @@ fn build_index(
         .collect();
     let mut meta = db.get_backglass_meta();
     let vps = db.get_vps_overview();
+    let mut user = db.get_user_tables();
     let mut entries = Vec::with_capacity(found.len());
     let mut backfill = Vec::new();
     let mut jobs = Vec::new();
@@ -510,6 +595,7 @@ fn build_index(
             None => (None, false),
         };
         let mut entry = IndexEntry {
+            user: user.remove(&rel_path).unwrap_or_default(),
             idx,
             update_available,
             vps_id,
@@ -741,6 +827,7 @@ impl App {
                 .to_string_lossy()
                 .replace('_', " ");
             self.tables.push(TableEntry {
+                user: Default::default(),
                 path: vpx_path.clone(),
                 name,
                 has_bg: false,
@@ -805,6 +892,7 @@ impl App {
         let dir_path: &std::path::Path = &dir_path_buf;
         for entry in result.entries {
             if let Some(table) = self.tables.get_mut(entry.idx) {
+                table.user = entry.user;
                 table.update_available = entry.update_available;
                 table.vps_id = entry.vps_id;
                 if entry.has_bg {
@@ -1216,6 +1304,7 @@ impl App {
             log::error!("Visual Pinball executable not found: {}", self.vpx_exe_path);
             return;
         }
+        self.record_table_start(table_path);
         // Release every SDL3 subsystem PinReady is holding (audio
         // device + open joystick handles + their respective subsystem
         // counters) so VPX can claim them cleanly. They'll be re-spawned
@@ -1910,13 +1999,100 @@ impl App {
     /// every table; non-empty → tables whose name contains the
     /// lowercased filter.
     pub(super) fn visible_indices(&self) -> Vec<usize> {
-        if self.table_filter_lower.is_empty() {
-            return (0..self.tables.len()).collect();
+        let mut order: Vec<usize> = if self.table_filter_lower.is_empty() {
+            (0..self.tables.len()).collect()
+        } else {
+            let f = self.table_filter_lower.as_str();
+            (0..self.tables.len())
+                .filter(|&i| self.tables[i].name.to_lowercase().contains(f))
+                .collect()
+        };
+        self.sort_mode.sort(&mut order, &self.tables);
+        order
+    }
+
+    fn rel_path_of(&self, idx: usize) -> String {
+        rel_to(
+            std::path::Path::new(&self.tables_dir),
+            &self.tables[idx].path,
+        )
+    }
+
+    /// Favourite or un-favourite the selected table.
+    pub(super) fn toggle_favorite_selected(&mut self) {
+        let idx = self.selected_table;
+        if idx >= self.tables.len() {
+            return;
         }
-        let f = self.table_filter_lower.as_str();
-        (0..self.tables.len())
-            .filter(|&i| self.tables[i].name.to_lowercase().contains(f))
-            .collect()
+        let rel = self.rel_path_of(idx);
+        let now = unix_now();
+        let on = !self.tables[idx].user.favorite;
+        self.tables[idx].user.favorite = on;
+        self.tables[idx].user.favorite_at = Some(now);
+        if let Err(e) = self.db.set_favorite(&rel, on, now) {
+            log::error!("could not store the favourite flag of {rel}: {e}");
+        }
+        self.scroll_to_selected = true;
+    }
+
+    /// Rate the selected table in tenths of a star, 0 clears the rating.
+    pub(super) fn rate_selected(&mut self, tenths: u8) {
+        let idx = self.selected_table;
+        if idx >= self.tables.len() {
+            return;
+        }
+        let rel = self.rel_path_of(idx);
+        let now = unix_now();
+        self.tables[idx].user.rating_tenths = tenths.min(50);
+        self.tables[idx].user.rated_at = Some(now);
+        if let Err(e) = self.db.set_rating(&rel, tenths, now) {
+            log::error!("could not store the rating of {rel}: {e}");
+        }
+        self.scroll_to_selected = true;
+    }
+
+    /// Switch to the next sort order and remember it.
+    pub(super) fn cycle_sort(&mut self) {
+        self.sort_mode = self.sort_mode.next();
+        if let Err(e) = self.db.set_config("launcher_sort", self.sort_mode.key()) {
+            log::error!("could not store the sort order: {e}");
+        }
+        self.scroll_to_selected = true;
+    }
+
+    /// A table is about to start: count it and note when.
+    fn record_table_start(&mut self, table_path: &std::path::Path) {
+        let Some(idx) = self.tables.iter().position(|t| t.path == table_path) else {
+            return;
+        };
+        let rel = self.rel_path_of(idx);
+        let now = unix_now();
+        let user = &mut self.tables[idx].user;
+        user.last_run = Some(now);
+        user.start_count += 1;
+        if let Err(e) = self.db.record_start(&rel, now) {
+            log::error!("could not record the start of {rel}: {e}");
+        }
+        self.vpx_session = Some((std::time::Instant::now(), rel));
+    }
+
+    /// Visual Pinball exited: add the length of the session to the stats.
+    fn finish_vpx_session(&mut self) {
+        let Some((started, rel)) = self.vpx_session.take() else {
+            return;
+        };
+        let seconds = started.elapsed().as_secs().min(u32::MAX as u64) as u32;
+        if let Err(e) = self.db.add_run_time(&rel, seconds) {
+            log::error!("could not record the play time of {rel}: {e}");
+        }
+        let dir = std::path::PathBuf::from(&self.tables_dir);
+        if let Some(t) = self
+            .tables
+            .iter_mut()
+            .find(|t| rel_to(&dir, &t.path) == rel)
+        {
+            t.user.run_time = t.user.run_time.saturating_add(seconds);
+        }
     }
 
     /// Dispatch a launcher action. Navigation actions loop over the
@@ -1979,6 +2155,22 @@ impl App {
                     let path = self.tables[self.selected_table].path.clone();
                     self.begin_table_launch(path, ctx);
                 }
+                false
+            }
+            LauncherAction::ToggleFavorite => {
+                self.toggle_favorite_selected();
+                false
+            }
+            LauncherAction::AdjustRating(delta) => {
+                let current = self
+                    .tables
+                    .get(self.selected_table)
+                    .map_or(0, |t| t.user.rating_tenths as i16);
+                self.rate_selected((current + delta as i16).clamp(0, 50) as u8);
+                false
+            }
+            LauncherAction::CycleSort => {
+                self.cycle_sort();
                 false
             }
             LauncherAction::Cancel => {
@@ -2128,6 +2320,7 @@ impl App {
                         ctx.send_viewport_cmd(egui::ViewportCommand::CursorVisible(true));
                     }
                     VpxStatus::ExitOk => {
+                        self.finish_vpx_session();
                         self.vpx_loading_msg.clear();
                         self.vpx_loading_pct = None;
                         self.vpx_hide_covers = false;
@@ -2138,6 +2331,7 @@ impl App {
                         return;
                     }
                     VpxStatus::ExitError(log) => {
+                        self.finish_vpx_session();
                         self.vpx_loading_msg.clear();
                         self.vpx_hide_covers = false;
                         self.vpx_error_log = Some(log);

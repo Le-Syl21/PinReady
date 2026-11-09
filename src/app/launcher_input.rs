@@ -27,6 +27,12 @@ pub enum LauncherAction {
     Launch,
     /// Clear the search filter if non-empty, otherwise quit the launcher.
     Cancel,
+    /// Add the selected table to the favourites, or remove it.
+    ToggleFavorite,
+    /// Raise or lower the rating of the selected table, in tenths of a star.
+    AdjustRating(i8),
+    /// Switch to the next way of sorting the tables.
+    CycleSort,
 }
 
 impl LauncherAction {
@@ -40,7 +46,15 @@ impl LauncherAction {
             "RightFlipper" => Some(Self::NextCard),
             "LeftMagna" => Some(Self::PrevRow),
             "RightMagna" => Some(Self::NextRow),
-            "Start" | "LaunchBall" => Some(Self::Launch),
+            "Start" => Some(Self::Launch),
+            // The ball-launch button of a cabinet is free in the launcher:
+            // it marks the selected table as a favourite.
+            "LaunchBall" => Some(Self::ToggleFavorite),
+            // The extra-ball button changes the sort order; the staged
+            // flippers (when the cabinet has them) rate the selected table.
+            "ExtraBall" => Some(Self::CycleSort),
+            "LeftStagedFlipper" => Some(Self::AdjustRating(-5)),
+            "RightStagedFlipper" => Some(Self::AdjustRating(5)),
             "ExitGame" => Some(Self::Cancel),
             _ => None,
         }
@@ -54,6 +68,12 @@ impl LauncherAction {
             Self::PrevCard | Self::NextCard | Self::PrevRow | Self::NextRow
         )
     }
+}
+
+/// The text a hot key types: the launcher's type-anywhere search must not
+/// pick it up while the hot keys are active (search empty, no text edit).
+pub fn is_hotkey_text(text: &str) -> bool {
+    matches!(text, "+" | "=" | "-")
 }
 
 /// Inverse of `egui_rotate::Rotation::transform_vec`. egui-rotate
@@ -78,9 +98,14 @@ fn unrotate_vec(rotation: Rotation, v: Vec2) -> Vec2 {
 /// into navigation. Enter is left to a focused button (reached with Tab):
 /// egui clicks it on Enter, and launching the table as well made Quit
 /// start the selected table while the launcher closed.
-pub fn collect_actions(ui: &egui::Ui, rotation: Rotation) -> Vec<LauncherAction> {
+pub fn collect_actions(
+    ui: &egui::Ui,
+    rotation: Rotation,
+    search_empty: bool,
+) -> Vec<LauncherAction> {
     let cabinet_mode = !rotation.is_none();
     let text_focused = ui.ctx().text_edit_focused();
+    let hotkeys = search_empty && !text_focused;
     let button_focused = !text_focused && ui.ctx().memory(|m| m.focused().is_some());
     ui.input(|i| {
         i.events
@@ -102,6 +127,13 @@ pub fn collect_actions(ui: &egui::Ui, rotation: Rotation) -> Vec<LauncherAction>
                     Key::ControlRight if !text_focused => Some(LauncherAction::NextRow),
                     Key::Enter if !button_focused => Some(LauncherAction::Launch),
                     Key::Escape => Some(LauncherAction::Cancel),
+                    // Rating hot keys. They only act while the search is empty
+                    // and not being edited (the launcher's type-anywhere search
+                    // would otherwise take the character); see `is_hotkey_text`.
+                    // Letters are never hot keys: they belong to the search.
+                    // Favourites: the ball-launch button or the star on the card.
+                    Key::Plus | Key::Equals if hotkeys => Some(LauncherAction::AdjustRating(5)),
+                    Key::Minus if hotkeys => Some(LauncherAction::AdjustRating(-5)),
                     _ => None,
                 },
                 Event::MouseWheel { delta, .. } if cabinet_mode => {
@@ -140,7 +172,7 @@ mod tests {
         );
         assert_eq!(
             LauncherAction::from_vpx_action("LaunchBall"),
-            Some(LauncherAction::Launch)
+            Some(LauncherAction::ToggleFavorite)
         );
         assert_eq!(
             LauncherAction::from_vpx_action("ExitGame"),
