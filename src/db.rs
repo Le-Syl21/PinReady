@@ -17,6 +17,17 @@ pub struct Database {
     conn: Connection,
 }
 
+/// One row of `backglass_meta` (see the table's comment).
+#[derive(Debug, Clone)]
+pub struct BackglassMeta {
+    /// Source mtime (Unix seconds) the row was made for.
+    pub mtime: i64,
+    /// Grid thumbnail, `None` for rows cached before thumbnails existed.
+    pub thumb: Option<Vec<u8>>,
+    /// The table was scanned and has no backglass.
+    pub no_image: bool,
+}
+
 impl Database {
     pub fn open(path: Option<&Path>) -> Result<Self> {
         let path = path.map(PathBuf::from).unwrap_or_else(default_db_path);
@@ -218,6 +229,22 @@ impl Database {
                 thumb           BLOB
             );
 
+            -- Small side table of the backglass cache: everything the
+            -- launcher needs at start-up WITHOUT touching `backglass.image`.
+            -- SQLite stores a row's columns in order, so reading any column
+            -- that follows the (1-2 MB) `image` blob walks all of its
+            -- overflow pages: on a 3.5 GB cache that made the start-up
+            -- queries read most of the file. `no_image = 1` records that
+            -- the table was scanned and has no backglass at all (negative
+            -- cache), valid while `cached_at_mtime` is not older than the
+            -- table's sources.
+            CREATE TABLE IF NOT EXISTS backglass_meta (
+                rel_path        TEXT    PRIMARY KEY,
+                cached_at_mtime INTEGER NOT NULL DEFAULT 0,
+                thumb           BLOB,
+                no_image        INTEGER NOT NULL DEFAULT 0
+            );
+
             -- jsm174/vpx-standalone-scripts catalog cache. Single-row
             -- table (keyed on last_commit_sha). At startup we hit
             -- api.github.com to read the master branch's latest commit
@@ -291,6 +318,29 @@ impl Database {
             );",
             )
             .context("Failed to initialize database schema")?;
+        // v5 → v6: fill the side table once from the existing cache (one
+        // pass over the big table, a few seconds on a large collection).
+        let meta_empty: bool = self
+            .conn
+            .query_row(
+                "SELECT NOT EXISTS (SELECT 1 FROM backglass_meta)",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap_or(false);
+        if meta_empty {
+            let n = self
+                .conn
+                .execute(
+                    "INSERT OR IGNORE INTO backglass_meta (rel_path, cached_at_mtime, thumb)
+                     SELECT rel_path, cached_at_mtime, thumb FROM backglass",
+                    [],
+                )
+                .context("Failed to fill backglass_meta")?;
+            if n > 0 {
+                log::info!("backglass_meta filled from the cache ({n} rows)");
+            }
+        }
         Ok(())
     }
 
@@ -320,18 +370,76 @@ impl Database {
         thumb: Option<&[u8]>,
         source_mtime: i64,
     ) -> Result<()> {
-        self.conn
-            .execute(
-                "INSERT INTO backglass (rel_path, image, cached_at_mtime, thumb)
-                 VALUES (?1, ?2, ?3, ?4)
-                 ON CONFLICT(rel_path) DO UPDATE
-                 SET image = excluded.image,
-                     cached_at_mtime = excluded.cached_at_mtime,
-                     thumb = excluded.thumb",
-                rusqlite::params![rel_path, image, source_mtime, thumb],
-            )
-            .context("Failed to insert backglass row")?;
+        // `thumb` lives in `backglass_meta` only (see its comment); the
+        // legacy `backglass.thumb` column is left alone.
+        let tx = self.conn.unchecked_transaction()?;
+        tx.execute(
+            "INSERT INTO backglass (rel_path, image, cached_at_mtime)
+             VALUES (?1, ?2, ?3)
+             ON CONFLICT(rel_path) DO UPDATE
+             SET image = excluded.image,
+                 cached_at_mtime = excluded.cached_at_mtime",
+            rusqlite::params![rel_path, image, source_mtime],
+        )
+        .context("Failed to insert backglass row")?;
+        tx.execute(
+            "INSERT INTO backglass_meta (rel_path, cached_at_mtime, thumb, no_image)
+             VALUES (?1, ?2, ?3, 0)
+             ON CONFLICT(rel_path) DO UPDATE
+             SET cached_at_mtime = excluded.cached_at_mtime,
+                 thumb = excluded.thumb,
+                 no_image = 0",
+            rusqlite::params![rel_path, source_mtime, thumb],
+        )
+        .context("Failed to insert backglass_meta row")?;
+        tx.commit()?;
         Ok(())
+    }
+
+    /// Record that a table was scanned and has no backglass at all, as of
+    /// `source_mtime`. Drops any stale cached picture for it. The scanner
+    /// skips the table until one of its source files changes.
+    pub fn set_no_backglass(&self, rel_path: &str, source_mtime: i64) -> Result<()> {
+        let tx = self.conn.unchecked_transaction()?;
+        tx.execute("DELETE FROM backglass WHERE rel_path = ?1", [rel_path])?;
+        tx.execute(
+            "INSERT INTO backglass_meta (rel_path, cached_at_mtime, thumb, no_image)
+             VALUES (?1, ?2, NULL, 1)
+             ON CONFLICT(rel_path) DO UPDATE
+             SET cached_at_mtime = excluded.cached_at_mtime,
+                 thumb = NULL,
+                 no_image = 1",
+            rusqlite::params![rel_path, source_mtime],
+        )
+        .context("Failed to record a table without backglass")?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// The whole backglass cache index in one query, without touching the
+    /// pictures: `rel_path -> BackglassMeta`.
+    pub fn get_backglass_meta(&self) -> std::collections::HashMap<String, BackglassMeta> {
+        let mut out = std::collections::HashMap::new();
+        let Ok(mut stmt) = self
+            .conn
+            .prepare("SELECT rel_path, cached_at_mtime, thumb, no_image FROM backglass_meta")
+        else {
+            return out;
+        };
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                BackglassMeta {
+                    mtime: row.get::<_, i64>(1)?,
+                    thumb: row.get::<_, Option<Vec<u8>>>(2)?,
+                    no_image: row.get::<_, i64>(3)? != 0,
+                },
+            ))
+        });
+        if let Ok(rows) = rows {
+            out.extend(rows.flatten());
+        }
+        out
     }
 
     /// Every cached grid thumbnail: `rel_path -> (thumb bytes,
@@ -340,7 +448,7 @@ impl Database {
     pub fn get_all_thumbs(&self) -> std::collections::HashMap<String, (Vec<u8>, i64)> {
         let mut out = std::collections::HashMap::new();
         let Ok(mut stmt) = self.conn.prepare(
-            "SELECT rel_path, thumb, cached_at_mtime FROM backglass WHERE thumb IS NOT NULL",
+            "SELECT rel_path, thumb, cached_at_mtime FROM backglass_meta WHERE thumb IS NOT NULL",
         ) else {
             return out;
         };
@@ -362,11 +470,12 @@ impl Database {
     /// Rows cached before the `thumb` column existed: `(rel_path,
     /// cached_at_mtime)`. The launcher makes their thumbnails in the
     /// background from the stored full image.
+    #[cfg(test)]
     pub fn list_without_thumb(&self) -> Vec<(String, i64)> {
-        let Ok(mut stmt) = self
-            .conn
-            .prepare("SELECT rel_path, cached_at_mtime FROM backglass WHERE thumb IS NULL")
-        else {
+        let Ok(mut stmt) = self.conn.prepare(
+            "SELECT rel_path, cached_at_mtime FROM backglass_meta
+                 WHERE thumb IS NULL AND no_image = 0",
+        ) else {
             return Vec::new();
         };
         stmt.query_map([], |row| {
@@ -380,7 +489,7 @@ impl Database {
     pub fn set_thumb(&self, rel_path: &str, thumb: &[u8]) -> Result<()> {
         self.conn
             .execute(
-                "UPDATE backglass SET thumb = ?2 WHERE rel_path = ?1",
+                "UPDATE backglass_meta SET thumb = ?2 WHERE rel_path = ?1",
                 rusqlite::params![rel_path, thumb],
             )
             .context("Failed to store backglass thumbnail")?;
@@ -398,6 +507,9 @@ impl Database {
         self.conn
             .execute("DELETE FROM backglass WHERE rel_path = ?1", [rel_path])
             .context("Failed to delete backglass row")?;
+        self.conn
+            .execute("DELETE FROM backglass_meta WHERE rel_path = ?1", [rel_path])
+            .context("Failed to delete backglass_meta row")?;
         Ok(())
     }
 
@@ -405,6 +517,9 @@ impl Database {
         self.conn
             .execute("DELETE FROM backglass", [])
             .context("Failed to clear backglass cache")?;
+        self.conn
+            .execute("DELETE FROM backglass_meta", [])
+            .context("Failed to clear backglass_meta")?;
         Ok(())
     }
 
@@ -446,6 +561,51 @@ impl Database {
     // --- b2s_dmd (per-table DMD area check) ---
 
     /// `(status, last_checked_mtime)` recorded for a table's .directb2s.
+    /// Every b2s_dmd record in one query: `rel_path -> last_checked_mtime`.
+    pub fn get_b2s_dmd_mtimes(&self) -> std::collections::HashMap<String, i64> {
+        self.two_column_map("SELECT rel_path, last_checked_mtime FROM b2s_dmd")
+    }
+
+    /// Every VBS-patch record in one query: `rel_path -> last_checked_mtime`.
+    pub fn get_vbs_patch_mtimes(&self) -> std::collections::HashMap<String, i64> {
+        self.two_column_map("SELECT rel_path, last_checked_mtime FROM vbs_patches")
+    }
+
+    fn two_column_map(&self, sql: &str) -> std::collections::HashMap<String, i64> {
+        let mut out = std::collections::HashMap::new();
+        let Ok(mut stmt) = self.conn.prepare(sql) else {
+            return out;
+        };
+        if let Ok(rows) = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))
+        {
+            out.extend(rows.flatten());
+        }
+        out
+    }
+
+    /// VPS link of every table in one query: `rel_path -> (vps_id,
+    /// update_available)`.
+    pub fn get_vps_overview(&self) -> std::collections::HashMap<String, (String, bool)> {
+        let mut out = std::collections::HashMap::new();
+        let Ok(mut stmt) = self
+            .conn
+            .prepare("SELECT rel_path, vps_id, update_available FROM vps_link")
+        else {
+            return out;
+        };
+        let rows = stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                (r.get::<_, String>(1)?, r.get::<_, i64>(2)? != 0),
+            ))
+        });
+        if let Ok(rows) = rows {
+            out.extend(rows.flatten());
+        }
+        out
+    }
+
+    #[cfg(test)]
     pub fn get_b2s_dmd(&self, rel_path: &str) -> Option<(String, i64)> {
         self.conn
             .query_row(
@@ -483,6 +643,7 @@ impl Database {
     /// Lookup the recorded VBS-patch state for a table. Returns
     /// `(embedded_sha, sidecar_sha, status, last_checked_mtime)`.
     /// `None` if no entry exists (never classified).
+    #[cfg(test)]
     pub fn get_vbs_patch(&self, rel_path: &str) -> Option<(String, Option<String>, String, i64)> {
         self.conn
             .query_row(
@@ -816,19 +977,6 @@ impl Database {
         Ok(())
     }
 
-    /// Read the `update_available` flag for one rel_path. Returns `false`
-    /// if no link exists or the column wasn't populated yet.
-    pub fn get_update_available(&self, rel_path: &str) -> bool {
-        self.conn
-            .query_row(
-                "SELECT update_available FROM vps_link WHERE rel_path = ?1",
-                [rel_path],
-                |row| row.get::<_, i64>(0),
-            )
-            .map(|v| v != 0)
-            .unwrap_or(false)
-    }
-
     /// Get the tables root directory.
     pub fn get_tables_dir(&self) -> Option<String> {
         self.get_config("tables_dir")
@@ -1041,6 +1189,44 @@ mod tests {
     }
 
     #[test]
+    fn a_table_without_backglass_is_remembered() {
+        let db = temp_db();
+        db.set_no_backglass("N/n.vpx", 7).unwrap();
+        let meta = db.get_backglass_meta();
+        let n = &meta["N/n.vpx"];
+        assert!(n.no_image && n.thumb.is_none() && n.mtime == 7);
+        // It is not a legacy row waiting for a thumbnail.
+        assert!(db.list_without_thumb().is_empty());
+        assert!(db.get_all_thumbs().is_empty());
+        // A picture found later replaces the record.
+        db.set_backglass("N/n.vpx", b"full", Some(b"t"), 9).unwrap();
+        let meta = db.get_backglass_meta();
+        assert!(!meta["N/n.vpx"].no_image);
+        assert_eq!(meta["N/n.vpx"].thumb.as_deref(), Some(&b"t"[..]));
+        // And going back to "none" drops the stale picture.
+        db.set_no_backglass("N/n.vpx", 11).unwrap();
+        assert_eq!(db.get_backglass("N/n.vpx"), None);
+    }
+
+    #[test]
+    fn the_meta_table_is_filled_from_an_existing_cache() {
+        let db = temp_db();
+        db.conn.execute("DELETE FROM backglass_meta", []).unwrap();
+        db.conn
+            .execute(
+                "INSERT INTO backglass (rel_path, image, cached_at_mtime, thumb) VALUES ('o.vpx', x'0102', 3, x'09')",
+                [],
+            )
+            .unwrap();
+        db.migrate().unwrap();
+        db.init_schema().unwrap();
+        let meta = db.get_backglass_meta();
+        assert_eq!(meta["o.vpx"].mtime, 3);
+        assert_eq!(meta["o.vpx"].thumb.as_deref(), Some(&[9u8][..]));
+        assert!(!meta["o.vpx"].no_image);
+    }
+
+    #[test]
     fn old_backglass_table_gains_the_thumb_column() {
         let db = temp_db();
         // Rebuild the v4 shape (no `thumb`), with a row, then migrate again.
@@ -1062,6 +1248,7 @@ mod tests {
             )
             .unwrap();
         db.migrate().unwrap();
+        db.init_schema().unwrap();
         assert_eq!(db.list_without_thumb(), vec![("x.vpx".to_string(), 5)]);
     }
 }

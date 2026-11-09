@@ -32,6 +32,7 @@ impl App {
         // About window: painted on top of everything when open.
         self.render_about_window(ui.ctx());
 
+        self.process_index();
         self.process_bg_extraction();
         self.process_vbs_extraction();
         self.process_b2s_dmd();
@@ -46,6 +47,7 @@ impl App {
         self.process_pinready_update_check(ui.ctx());
         // Only repaint when needed: bg extraction in progress, VPX running, joystick connected, or update in progress
         if self.bg_rx.is_some()
+            || self.index_rx.is_some()
             || self.vpx_running.load(Ordering::Relaxed)
             || self.joystick_rx.is_some()
             || self.update_downloading

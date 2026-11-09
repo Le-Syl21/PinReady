@@ -427,6 +427,208 @@ fn parse_progress_pct(msg: &str) -> Option<f32> {
     Some((pct / 100.0).clamp(0.0, 1.0))
 }
 
+/// What the index thread learned about one table.
+pub(super) struct IndexEntry {
+    idx: usize,
+    update_available: bool,
+    vps_id: Option<String>,
+    /// A cached picture (or a thumbnail to make) exists.
+    has_bg: bool,
+    /// The cached grid thumbnail, to be decoded and uploaded.
+    thumb: Option<std::sync::Arc<[u8]>>,
+}
+
+/// Everything `scan_tables` used to look up in the database on the UI
+/// thread, found out on a background thread instead so the window opens
+/// first and the tiles follow.
+pub(super) struct IndexResult {
+    generation: u64,
+    entries: Vec<IndexEntry>,
+    /// Cached pictures with no thumbnail yet: `(idx, rel_path, mtime)`.
+    backfill: Vec<(usize, String, i64)>,
+    /// Tables with no (fresh) record: `(idx, table_dir, vpx_path, mtime)`.
+    jobs: Vec<(usize, std::path::PathBuf, std::path::PathBuf, i64)>,
+    vbs: Option<VbsJobs>,
+    b2s: Vec<(std::path::PathBuf, String)>,
+}
+
+/// The jsm174 catalog and the tables to classify: `(vpx_path, rel_path, mtime)`.
+type VbsJobs = (
+    Vec<crate::vbs_patches::CatalogEntry>,
+    Vec<(std::path::PathBuf, String, i64)>,
+);
+
+/// `(table_dir, vpx_path, rel_path, source_mtime)` of a table found on disk.
+type FoundTable = (std::path::PathBuf, std::path::PathBuf, String, i64);
+
+/// Threads for the per-table analyses: they are I/O bound (each reads a
+/// whole `.vpx` or `.directb2s`), so a few are enough.
+fn worker_count() -> usize {
+    std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(2)
+        .clamp(2, 8)
+}
+
+fn rel_to(dir_path: &std::path::Path, path: &std::path::Path) -> String {
+    path.strip_prefix(dir_path)
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| path.to_string_lossy().into_owned())
+}
+
+fn build_index(
+    generation: u64,
+    dir_path: &std::path::Path,
+    found: Vec<FoundTable>,
+    table_paths: &[std::path::PathBuf],
+) -> Option<IndexResult> {
+    use crate::startup_timing::Phase;
+    let phase = Phase::start("index thread: database lookups");
+    let db = match crate::db::Database::open(None) {
+        Ok(db) => db,
+        Err(e) => {
+            log::error!("index thread: cannot open the database: {e}");
+            return None;
+        }
+    };
+    let positions: std::collections::HashMap<&std::path::Path, usize> = table_paths
+        .iter()
+        .enumerate()
+        .map(|(i, p)| (p.as_path(), i))
+        .collect();
+    let mut meta = db.get_backglass_meta();
+    let vps = db.get_vps_overview();
+    let mut entries = Vec::with_capacity(found.len());
+    let mut backfill = Vec::new();
+    let mut jobs = Vec::new();
+    for (table_dir, vpx_path, rel_path, source_mtime) in found {
+        let Some(&idx) = positions.get(vpx_path.as_path()) else {
+            continue;
+        };
+        let (vps_id, update_available) = match vps.get(&rel_path) {
+            Some((id, update)) => (Some(id.clone()), *update),
+            None => (None, false),
+        };
+        let mut entry = IndexEntry {
+            idx,
+            update_available,
+            vps_id,
+            has_bg: false,
+            thumb: None,
+        };
+        match meta.remove(&rel_path) {
+            Some(m) if m.mtime >= source_mtime => match m.thumb {
+                Some(bytes) => {
+                    entry.has_bg = true;
+                    entry.thumb = Some(std::sync::Arc::from(bytes));
+                }
+                // Scanned before and found nothing: nothing to redo until
+                // one of its source files changes.
+                None if m.no_image => {}
+                // Cached before thumbnails existed: its full picture is
+                // good, only the thumbnail is missing.
+                None => {
+                    backfill.push((idx, rel_path.clone(), m.mtime));
+                    entry.has_bg = true;
+                }
+            },
+            _ => jobs.push((idx, table_dir, vpx_path, source_mtime)),
+        }
+        entries.push(entry);
+    }
+    phase.done();
+
+    let b2s = collect_b2s_jobs(&db, table_paths, dir_path);
+    let vbs = collect_vbs_jobs(&db, table_paths, dir_path);
+    Some(IndexResult {
+        generation,
+        entries,
+        backfill,
+        jobs,
+        vbs,
+        b2s,
+    })
+}
+
+/// The `.directb2s` files that changed since their DMD area was last
+/// checked (see `b2s_dmd.rs`).
+fn collect_b2s_jobs(
+    db: &crate::db::Database,
+    tables: &[std::path::PathBuf],
+    dir_path: &std::path::Path,
+) -> Vec<(std::path::PathBuf, String)> {
+    if !db.b2s_dmd_enabled() {
+        log::debug!("b2s_dmd: disabled — skipping");
+        return Vec::new();
+    }
+    let cached = db.get_b2s_dmd_mtimes();
+    let mut jobs = Vec::new();
+    for table in tables {
+        let b2s = table.with_extension("directb2s");
+        let Some(mtime) = file_mtime(&b2s) else {
+            continue; // no backglass file for this table
+        };
+        let rel_path = rel_to(dir_path, table);
+        match cached.get(&rel_path) {
+            Some(checked) if *checked >= mtime => {}
+            _ => jobs.push((b2s, rel_path)),
+        }
+    }
+    jobs
+}
+
+/// The jsm174 catalog and the tables whose VBS state is stale or unknown.
+/// Refreshing the catalog is a network call: it must not run on the UI
+/// thread.
+fn collect_vbs_jobs(
+    db: &crate::db::Database,
+    tables: &[std::path::PathBuf],
+    dir_path: &std::path::Path,
+) -> Option<VbsJobs> {
+    // Opt-in: user has to enable auto-patching explicitly from the
+    // Tables wizard page. Default is off because the jsm174 catalog
+    // occasionally ships patches with regressions (e.g. Apollo 13
+    // needs an additional `vpmInit Me` fix on top of their patch —
+    // see vpinball/vpinball#1536, #1650).
+    if !db.jsm174_patching_enabled() {
+        log::debug!("vbs_patches: jsm174 auto-patching is disabled — skipping");
+        return None;
+    }
+
+    // Refresh the jsm174 catalog if upstream master has moved.
+    // Non-fatal on network error — falls back to cached catalog.
+    let refresh_phase = crate::startup_timing::Phase::start("vbs catalog refresh (network)");
+    if let Err(e) = crate::vbs_patches::refresh_catalog_if_stale(db) {
+        log::warn!("vbs_patches: catalog refresh failed: {e}");
+    }
+    refresh_phase.done();
+    let catalog: Vec<crate::vbs_patches::CatalogEntry> = db
+        .get_vbs_catalog()
+        .and_then(|(_, json)| crate::vbs_patches::parse_catalog(&json).ok())
+        .unwrap_or_default();
+    if catalog.is_empty() {
+        log::info!("vbs_patches: no catalog available yet (first boot offline?). Skipping.");
+        return None;
+    }
+
+    // Collect jobs for stale / unclassified tables.
+    let cached = db.get_vbs_patch_mtimes();
+    let mut jobs = Vec::new();
+    for table in tables {
+        let rel_path = rel_to(dir_path, table);
+        let vbs_mtime = max_vbs_mtime(table);
+        match cached.get(&rel_path) {
+            // Fresh classification — nothing to do.
+            Some(checked) if *checked >= vbs_mtime => {}
+            _ => jobs.push((table.clone(), rel_path, vbs_mtime)),
+        }
+    }
+    if jobs.is_empty() {
+        return None;
+    }
+    Some((catalog, jobs))
+}
+
 impl App {
     pub(super) fn finalize_wizard(&mut self, _ctx: &egui::Context) {
         // Save ALL pages
@@ -486,6 +688,7 @@ impl App {
         // becomes a no-op (channel closed) — a small CPU optimisation
         // on top of the gen-check belt-and-suspenders above.
         self.bg_rx = None;
+        self.index_rx = None;
         self.tables.clear();
         if self.tables_dir.is_empty() {
             return;
@@ -501,6 +704,7 @@ impl App {
         let dir_path = dir_path.as_path();
         // Scan for .vpx files (folder-per-table layout: each subfolder has a .vpx).
         // Phase 1: collect raw (table_dir, vpx_path, rel_path, source_mtime).
+        let listing_phase = crate::startup_timing::Phase::start("table listing (read_dir + stat)");
         let mut found: Vec<(std::path::PathBuf, std::path::PathBuf, String, i64)> = Vec::new();
         if let Ok(entries) = std::fs::read_dir(dir_path) {
             for entry in entries.flatten() {
@@ -525,9 +729,11 @@ impl App {
             }
         }
 
-        // Phase 2: build TableEntry list + extraction jobs in a single
-        // pass. The jobs reference the final (post-sort) indices so the
-        // extraction thread can write to the right row.
+        listing_phase.done();
+        // The list of tables comes first and needs no database: the rows
+        // are made here, the rest (cached pictures, VPS links, jobs for
+        // what changed) is found out by the index thread below and folded
+        // in by `process_index` once the window is up.
         for (table_dir, vpx_path, _, _) in &found {
             let name = table_dir
                 .file_name()
@@ -546,39 +752,7 @@ impl App {
         // Fresh numbering for the pictures: textures and in-flight decodes
         // of the previous scan go away with the old generation.
         self.bg_cache.reset(self.scan_generation, self.tables.len());
-
-        let mut jobs: Vec<(usize, std::path::PathBuf, std::path::PathBuf, i64)> = Vec::new();
-        // Thumbnails are small: all of them in one query. Rows from before
-        // the column existed are listed apart and filled in the background.
-        let thumbs = self.db.get_all_thumbs();
-        let legacy: std::collections::HashMap<String, i64> =
-            self.db.list_without_thumb().into_iter().collect();
-        let mut backfill: Vec<(usize, String, i64)> = Vec::new();
-        for (table_dir, vpx_path, rel_path, source_mtime) in found {
-            let idx = match self.tables.iter().position(|t| t.path == vpx_path) {
-                Some(i) => i,
-                None => continue,
-            };
-            self.tables[idx].update_available = self.db.get_update_available(&rel_path);
-            self.tables[idx].vps_id = self.db.get_vps_link(&rel_path).map(|l| l.0);
-            match thumbs.get(&rel_path) {
-                Some((bytes, cached_mtime)) if *cached_mtime >= source_mtime => {
-                    self.tables[idx].has_bg = true;
-                    self.bg_cache
-                        .queue_thumb(idx, std::sync::Arc::from(bytes.as_slice()));
-                }
-                _ => match legacy.get(&rel_path) {
-                    // Cached before thumbnails existed: its full picture is
-                    // good, only the thumbnail is missing.
-                    Some(cached_mtime) if *cached_mtime >= source_mtime => {
-                        backfill.push((idx, rel_path.clone(), *cached_mtime));
-                        self.tables[idx].has_bg = true;
-                    }
-                    _ => jobs.push((idx, table_dir, vpx_path, source_mtime)),
-                },
-            }
-        }
-        log::info!("Scanned {} tables in {}", self.tables.len(), dir);
+        log::info!("Listed {} tables in {}", self.tables.len(), dir);
 
         // Cancel any prior scan so the new pool is the only one writing
         // to `medias/` and the DB.
@@ -586,7 +760,61 @@ impl App {
             prev.store(true, std::sync::atomic::Ordering::SeqCst);
         }
         let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-        self.catalog_cancel_token = Some(cancel.clone());
+        self.catalog_cancel_token = Some(cancel);
+
+        let generation = self.scan_generation;
+        let dir_owned = dir_path.to_path_buf();
+        let table_paths: Vec<std::path::PathBuf> =
+            self.tables.iter().map(|t| t.path.clone()).collect();
+        let (tx, rx) = crossbeam_channel::unbounded();
+        self.index_rx = Some(rx);
+        std::thread::Builder::new()
+            .name(format!("pinready-index-{generation}"))
+            .spawn(move || {
+                if let Some(result) = build_index(generation, &dir_owned, found, &table_paths) {
+                    let _ = tx.send(result);
+                }
+            })
+            .ok();
+    }
+
+    /// Fold the index thread's findings into the table list and start the
+    /// background work. Called every frame; cheap until the result is in.
+    pub(super) fn process_index(&mut self) {
+        let Some(rx) = &self.index_rx else {
+            return;
+        };
+        match rx.try_recv() {
+            Ok(result) => {
+                self.index_rx = None;
+                if result.generation == self.scan_generation {
+                    self.apply_index(result);
+                }
+            }
+            Err(crossbeam_channel::TryRecvError::Disconnected) => self.index_rx = None,
+            Err(crossbeam_channel::TryRecvError::Empty) => {}
+        }
+    }
+
+    fn apply_index(&mut self, result: IndexResult) {
+        let phase = crate::startup_timing::Phase::start("apply index (UI thread)");
+        let Some(cancel) = self.catalog_cancel_token.clone() else {
+            return;
+        };
+        let dir_path_buf = std::path::PathBuf::from(&self.tables_dir);
+        let dir_path: &std::path::Path = &dir_path_buf;
+        for entry in result.entries {
+            if let Some(table) = self.tables.get_mut(entry.idx) {
+                table.update_available = entry.update_available;
+                table.vps_id = entry.vps_id;
+                if entry.has_bg {
+                    table.has_bg = true;
+                }
+            }
+            if let Some(thumb) = entry.thumb {
+                self.bg_cache.queue_thumb(entry.idx, thumb);
+            }
+        }
 
         // Build the per-table scan jobs. Each job is a self-contained
         // pipeline: VPSDB match → media install → backglass extract →
@@ -594,7 +822,8 @@ impl App {
         // within each job — so the same worker that may have just
         // installed `medias/bg.png` is the one that reads it back in
         // the priority chain. No cross-thread file race.
-        let scan_jobs: Vec<crate::scan_worker::ScanJob> = jobs
+        let scan_jobs: Vec<crate::scan_worker::ScanJob> = result
+            .jobs
             .into_iter()
             .map(|(idx, table_dir, vpx_path, source_mtime)| {
                 let rel_path = vpx_path
@@ -619,137 +848,117 @@ impl App {
         let (tx, rx) = crossbeam_channel::unbounded();
         self.bg_rx = Some(rx);
         crate::scan_worker::spawn_thumb_backfill(
-            backfill,
+            result.backfill,
             tx.clone(),
             cancel.clone(),
             self.scan_generation,
         );
 
-        if scan_jobs.is_empty() {
-            return;
+        if !scan_jobs.is_empty() {
+            let tables_root = dir_path.to_path_buf();
+            let generation = self.scan_generation;
+            let enrichment_on = self.db.catalog_enrichment_enabled();
+
+            // Sync VPSDB + MediaDb on a small bootstrap thread so we don't
+            // block the UI; once both indices are loaded we hand them
+            // (Arc-shared) to the worker pool.
+            std::thread::Builder::new()
+                .name(format!("pinready-scan-bootstrap-{generation}"))
+                .spawn(move || {
+                    use crate::vpsdb;
+                    use std::sync::Arc;
+
+                    let db = match crate::db::Database::open(None) {
+                        Ok(db) => db,
+                        Err(e) => {
+                            log::error!("scan bootstrap: cannot open DB: {e}");
+                            return;
+                        }
+                    };
+                    let mirror = db.mirror_base_url();
+
+                    let games: Arc<Vec<vpsdb::models::Game>> = if enrichment_on {
+                        let cache = vpsdb::fetch::VpsDbCache::new(vpsdb::fetch::VpsDbCache::default_dir());
+                        match vpsdb::fetch::sync_if_stale(&cache) {
+                            Ok((games, _outcome)) => Arc::new(games),
+                            Err(e) => {
+                                log::warn!("scan bootstrap: VPSDB sync failed ({e}) — match-only");
+                                Arc::new(Vec::new())
+                            }
+                        }
+                    } else {
+                        Arc::new(Vec::new())
+                    };
+
+                    let media_db: Option<Arc<crate::mediadb::MediaDb>> = if enrichment_on {
+                        match crate::mediadb::MediaDb::sync(
+                            crate::mediadb::MediaDb::default_cache_dir(),
+                            mirror.as_deref(),
+                        ) {
+                            Ok(m) => Some(Arc::new(m)),
+                            Err(e) => {
+                                log::warn!("scan bootstrap: MediaDb sync failed ({e}) — match-only");
+                                None
+                            }
+                        }
+                    } else {
+                        None
+                    };
+
+                    // matcher_version upgrade: bumped when the matcher chain
+                    // changes (new strategy / confidence shift). Forces a
+                    // one-shot full re-evaluation of every link this run.
+                    let stored_matcher_version: i64 = db
+                        .get_config("matcher_version")
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or(0);
+                    let force_full_rematch = stored_matcher_version < crate::scan_worker::MATCHER_VERSION;
+                    if force_full_rematch {
+                        log::info!(
+                            "Matcher upgraded ({stored_matcher_version} → {}); re-evaluating every vps_link this run",
+                            crate::scan_worker::MATCHER_VERSION
+                        );
+                    }
+
+                    crate::scan_worker::spawn_pool(
+                        scan_jobs,
+                        games,
+                        media_db,
+                        tx,
+                        cancel,
+                        tables_root,
+                        generation,
+                        force_full_rematch,
+                    );
+
+                    if force_full_rematch {
+                        let _ = db.set_config(
+                            "matcher_version",
+                            &crate::scan_worker::MATCHER_VERSION.to_string(),
+                        );
+                    }
+                })
+                .ok();
         }
 
-        let tables_root = dir_path.to_path_buf();
-        let generation = self.scan_generation;
-        let enrichment_on = self.db.catalog_enrichment_enabled();
-
-        // Sync VPSDB + MediaDb on a small bootstrap thread so we don't
-        // block the UI; once both indices are loaded we hand them
-        // (Arc-shared) to the worker pool.
-        std::thread::Builder::new()
-            .name(format!("pinready-scan-bootstrap-{generation}"))
-            .spawn(move || {
-                use crate::vpsdb;
-                use std::sync::Arc;
-
-                let db = match crate::db::Database::open(None) {
-                    Ok(db) => db,
-                    Err(e) => {
-                        log::error!("scan bootstrap: cannot open DB: {e}");
-                        return;
-                    }
-                };
-                let mirror = db.mirror_base_url();
-
-                let games: Arc<Vec<vpsdb::models::Game>> = if enrichment_on {
-                    let cache = vpsdb::fetch::VpsDbCache::new(vpsdb::fetch::VpsDbCache::default_dir());
-                    match vpsdb::fetch::sync_if_stale(&cache) {
-                        Ok((games, _outcome)) => Arc::new(games),
-                        Err(e) => {
-                            log::warn!("scan bootstrap: VPSDB sync failed ({e}) — match-only");
-                            Arc::new(Vec::new())
-                        }
-                    }
-                } else {
-                    Arc::new(Vec::new())
-                };
-
-                let media_db: Option<Arc<crate::mediadb::MediaDb>> = if enrichment_on {
-                    match crate::mediadb::MediaDb::sync(
-                        crate::mediadb::MediaDb::default_cache_dir(),
-                        mirror.as_deref(),
-                    ) {
-                        Ok(m) => Some(Arc::new(m)),
-                        Err(e) => {
-                            log::warn!("scan bootstrap: MediaDb sync failed ({e}) — match-only");
-                            None
-                        }
-                    }
-                } else {
-                    None
-                };
-
-                // matcher_version upgrade: bumped when the matcher chain
-                // changes (new strategy / confidence shift). Forces a
-                // one-shot full re-evaluation of every link this run.
-                let stored_matcher_version: i64 = db
-                    .get_config("matcher_version")
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or(0);
-                let force_full_rematch = stored_matcher_version < crate::scan_worker::MATCHER_VERSION;
-                if force_full_rematch {
-                    log::info!(
-                        "Matcher upgraded ({stored_matcher_version} → {}); re-evaluating every vps_link this run",
-                        crate::scan_worker::MATCHER_VERSION
-                    );
-                }
-
-                crate::scan_worker::spawn_pool(
-                    scan_jobs,
-                    games,
-                    media_db,
-                    tx,
-                    cancel,
-                    tables_root,
-                    generation,
-                    force_full_rematch,
-                );
-
-                if force_full_rematch {
-                    let _ = db.set_config(
-                        "matcher_version",
-                        &crate::scan_worker::MATCHER_VERSION.to_string(),
-                    );
-                }
-            })
-            .ok();
-
-        // VBS patch pipeline runs independently — separate mtime
-        // tracking (sidecar + .vpx only), separate DB table.
-        self.scan_vbs_patches(dir_path);
-
-        // The DMD area of the backglass files: its own mtime tracking too
-        self.scan_b2s_dmd(dir_path);
+        // The VBS patches and the DMD area of the backglass files have
+        // their own mtime tracking; they run whether or not any backglass
+        // had to be extracted.
+        if let Some((catalog, jobs)) = result.vbs {
+            self.start_vbs_patches(catalog, jobs);
+        }
+        if !result.b2s.is_empty() {
+            self.start_b2s_dmd(result.b2s);
+        }
+        phase.done();
     }
 
     /// Give the `.directb2s` of each table the DMD area VPX's B2S plugin
-    /// needs, when it is missing (see `b2s_dmd.rs`). Reads and rewrites files
-    /// on a background thread, only those that changed since the last check;
-    /// the result of each is recorded by `process_b2s_dmd`.
-    fn scan_b2s_dmd(&mut self, dir_path: &std::path::Path) {
-        if !self.db.b2s_dmd_enabled() {
-            log::debug!("b2s_dmd: disabled — skipping");
-            return;
-        }
-        let mut jobs: Vec<(std::path::PathBuf, String)> = Vec::new();
-        for table in &self.tables {
-            let b2s = table.path.with_extension("directb2s");
-            let Some(mtime) = file_mtime(&b2s) else {
-                continue; // no backglass file for this table
-            };
-            let rel_path = table
-                .path
-                .strip_prefix(dir_path)
-                .map(|p| p.to_string_lossy().into_owned())
-                .unwrap_or_else(|_| table.path.to_string_lossy().into_owned());
-            match self.db.get_b2s_dmd(&rel_path) {
-                Some((_, cached)) if cached >= mtime => {}
-                _ => jobs.push((b2s, rel_path)),
-            }
-        }
-        if jobs.is_empty() {
-            return;
-        }
+    /// needs, when it is missing (see `b2s_dmd.rs`). Reads and rewrites the
+    /// files on background threads, only those that changed since the last
+    /// check (`collect_b2s_jobs`); the result of each is recorded by
+    /// `process_b2s_dmd`.
+    fn start_b2s_dmd(&mut self, jobs: Vec<(std::path::PathBuf, String)>) {
         log::info!(
             "b2s_dmd: checking {} backglass files in background...",
             jobs.len()
@@ -759,27 +968,48 @@ impl App {
             .map(|p| p.join("b2s-backup"))
             .unwrap_or_else(|| std::path::PathBuf::from("b2s-backup"));
         let (tx, rx) = crossbeam_channel::unbounded();
-        std::thread::spawn(move || {
-            for (b2s, rel_path) in jobs {
-                let status = match crate::b2s_dmd::fix_file(&b2s, &backup_root) {
-                    Ok(status) => status.to_string(),
-                    Err(e) => {
-                        log::warn!("b2s_dmd: {rel_path}: {e:#}");
-                        crate::b2s_dmd::status::FAILED.to_string()
+        let workers = worker_count().min(jobs.len());
+        let (job_tx, job_rx) = crossbeam_channel::unbounded();
+        for job in jobs {
+            let _ = job_tx.send(job);
+        }
+        drop(job_tx);
+        let remaining = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(workers));
+        for w in 0..workers {
+            let job_rx: crossbeam_channel::Receiver<(std::path::PathBuf, String)> = job_rx.clone();
+            let tx = tx.clone();
+            let backup_root = backup_root.clone();
+            let remaining = remaining.clone();
+            std::thread::Builder::new()
+                .name(format!("pinready-b2s-{w}"))
+                .spawn(move || {
+                    for (b2s, rel_path) in job_rx.iter() {
+                        let status = match crate::b2s_dmd::fix_file(&b2s, &backup_root) {
+                            Ok(status) => status.to_string(),
+                            Err(e) => {
+                                log::warn!("b2s_dmd: {rel_path}: {e:#}");
+                                crate::b2s_dmd::status::FAILED.to_string()
+                            }
+                        };
+                        // The mtime after the check: a file we just rewrote is not
+                        // "changed" for the next scan
+                        let mtime = file_mtime(&b2s).unwrap_or(0);
+                        log::info!("b2s_dmd: {rel_path} → {status}");
+                        let _ = tx.send((rel_path, status, mtime));
                     }
-                };
-                // The mtime after the check: a file we just rewrote is not
-                // "changed" for the next scan
-                let mtime = file_mtime(&b2s).unwrap_or(0);
-                log::info!("b2s_dmd: {rel_path} → {status}");
-                let _ = tx.send((rel_path, status, mtime));
-            }
-            log::info!("b2s_dmd: check complete");
-        });
+                    if remaining.fetch_sub(1, Ordering::SeqCst) == 1 {
+                        log::info!("b2s_dmd: check complete");
+                    }
+                })
+                .ok();
+        }
+        // Only the workers hold a sender now: the receiver disconnects
+        // once the last of them is done.
+        drop(tx);
         self.b2s_dmd_rx = Some(rx);
     }
 
-    /// Record the results of `scan_b2s_dmd`. Silent by design, like the VBS patches.
+    /// Record the results of `start_b2s_dmd`. Silent by design, like the VBS patches.
     pub(super) fn process_b2s_dmd(&mut self) {
         if let Some(rx) = &self.b2s_dmd_rx {
             let drained: Vec<_> = std::iter::from_fn(|| rx.try_recv().ok()).collect();
@@ -798,104 +1028,87 @@ impl App {
         }
     }
 
-    /// Classify each table's VBS state and apply patches from the
-    /// jsm174 catalog when appropriate. Runs the network fetch +
-    /// classification + file ops on a background thread; the UI gets
-    /// results via `vbs_rx` and folds them into the `vbs_patches`
-    /// table in `process_vbs_extraction`.
-    fn scan_vbs_patches(&mut self, dir_path: &std::path::Path) {
-        // Opt-in: user has to enable auto-patching explicitly from the
-        // Tables wizard page. Default is off because the jsm174 catalog
-        // occasionally ships patches with regressions (e.g. Apollo 13
-        // needs an additional `vpmInit Me` fix on top of their patch —
-        // see vpinball/vpinball#1536, #1650).
-        if !self.db.jsm174_patching_enabled() {
-            log::debug!("vbs_patches: jsm174 auto-patching is disabled — skipping");
-            return;
-        }
-
-        // Refresh the jsm174 catalog if upstream master has moved.
-        // Non-fatal on network error — falls back to cached catalog.
-        if let Err(e) = crate::vbs_patches::refresh_catalog_if_stale(&self.db) {
-            log::warn!("vbs_patches: catalog refresh failed: {e}");
-        }
-        let catalog: Vec<crate::vbs_patches::CatalogEntry> = self
-            .db
-            .get_vbs_catalog()
-            .and_then(|(_, json)| crate::vbs_patches::parse_catalog(&json).ok())
-            .unwrap_or_default();
-        if catalog.is_empty() {
-            log::info!("vbs_patches: no catalog available yet (first boot offline?). Skipping.");
-            return;
-        }
-
-        // Collect jobs for stale / unclassified tables.
-        let mut jobs: Vec<(std::path::PathBuf, String, i64)> = Vec::new();
-        for table in &self.tables {
-            let rel_path = table
-                .path
-                .strip_prefix(dir_path)
-                .map(|p| p.to_string_lossy().into_owned())
-                .unwrap_or_else(|_| table.path.to_string_lossy().into_owned());
-            let vbs_mtime = max_vbs_mtime(&table.path);
-            match self.db.get_vbs_patch(&rel_path) {
-                Some((_, _, _, cached_mtime)) if cached_mtime >= vbs_mtime => {
-                    // Fresh classification — nothing to do.
-                }
-                _ => jobs.push((table.path.clone(), rel_path, vbs_mtime)),
-            }
-        }
-        if jobs.is_empty() {
-            return;
-        }
+    /// Classify each table's VBS state and apply patches from the jsm174
+    /// catalog when appropriate: the classification + file operations run
+    /// on a small pool of background threads (one `.vpx` script read and
+    /// hash per job, independent of each other); the UI gets results via
+    /// `vbs_rx` and folds them into the `vbs_patches` table.
+    fn start_vbs_patches(
+        &mut self,
+        catalog: Vec<crate::vbs_patches::CatalogEntry>,
+        jobs: Vec<(std::path::PathBuf, String, i64)>,
+    ) {
         log::info!(
             "vbs_patches: classifying {} tables in background...",
             jobs.len()
         );
-
+        let catalog = std::sync::Arc::new(catalog);
         let (tx, rx) = crossbeam_channel::unbounded();
-        std::thread::spawn(move || {
-            for (vpx_path, rel_path, mtime) in jobs {
-                match crate::vbs_patches::classify(&vpx_path, &catalog) {
-                    Ok(classification) => {
-                        let decision_status =
-                            crate::vbs_patches::decision_status(&classification.decision);
-                        // Apply side-effects (download + install). A
-                        // failure here flips the recorded status to
-                        // Failed so the next scan will retry.
-                        let status = match crate::vbs_patches::apply_patch(
-                            &vpx_path,
-                            &classification.decision,
-                        ) {
-                            Ok(()) => decision_status.to_string(),
-                            Err(e) => {
-                                log::warn!("vbs_patches: apply failed for {}: {e}", rel_path);
-                                crate::vbs_patches::status::FAILED.to_string()
+        let workers = worker_count().min(jobs.len());
+        let (job_tx, job_rx) = crossbeam_channel::unbounded();
+        for job in jobs {
+            let _ = job_tx.send(job);
+        }
+        drop(job_tx);
+        let remaining = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(workers));
+        for w in 0..workers {
+            let job_rx: crossbeam_channel::Receiver<(std::path::PathBuf, String, i64)> =
+                job_rx.clone();
+            let tx = tx.clone();
+            let catalog = catalog.clone();
+            let remaining = remaining.clone();
+            std::thread::Builder::new()
+                .name(format!("pinready-vbs-{w}"))
+                .spawn(move || {
+                    for (vpx_path, rel_path, mtime) in job_rx.iter() {
+                        match crate::vbs_patches::classify(&vpx_path, &catalog) {
+                            Ok(classification) => {
+                                let decision_status =
+                                    crate::vbs_patches::decision_status(&classification.decision);
+                                // Apply side-effects (download + install). A
+                                // failure here flips the recorded status to
+                                // Failed so the next scan will retry.
+                                let status = match crate::vbs_patches::apply_patch(
+                                    &vpx_path,
+                                    &classification.decision,
+                                ) {
+                                    Ok(()) => decision_status.to_string(),
+                                    Err(e) => {
+                                        log::warn!(
+                                            "vbs_patches: apply failed for {}: {e}",
+                                            rel_path
+                                        );
+                                        crate::vbs_patches::status::FAILED.to_string()
+                                    }
+                                };
+                                log::info!("vbs_patches: {} → {}", rel_path, status);
+                                let _ = tx.send((
+                                    rel_path,
+                                    classification.embedded_sha,
+                                    classification.sidecar_sha,
+                                    status,
+                                    mtime,
+                                ));
                             }
-                        };
-                        log::info!("vbs_patches: {} → {}", rel_path, status);
-                        let _ = tx.send((
-                            rel_path,
-                            classification.embedded_sha,
-                            classification.sidecar_sha,
-                            status,
-                            mtime,
-                        ));
+                            Err(e) => {
+                                log::warn!("vbs_patches: classify failed for {}: {e}", rel_path);
+                                let _ = tx.send((
+                                    rel_path,
+                                    String::new(),
+                                    None,
+                                    crate::vbs_patches::status::FAILED.to_string(),
+                                    mtime,
+                                ));
+                            }
+                        }
                     }
-                    Err(e) => {
-                        log::warn!("vbs_patches: classify failed for {}: {e}", rel_path);
-                        let _ = tx.send((
-                            rel_path,
-                            String::new(),
-                            None,
-                            crate::vbs_patches::status::FAILED.to_string(),
-                            mtime,
-                        ));
+                    if remaining.fetch_sub(1, Ordering::SeqCst) == 1 {
+                        log::info!("vbs_patches: classification run complete");
                     }
-                }
-            }
-            log::info!("vbs_patches: classification run complete");
-        });
+                })
+                .ok();
+        }
+        drop(tx);
         self.vbs_rx = Some(rx);
     }
 

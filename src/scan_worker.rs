@@ -277,12 +277,12 @@ fn process_table(
     // shows; the full picture only goes to the database (and from there to
     // the GPU when its tile is on screen, see `app::bgcache`). The write
     // is done here, on the worker's own connection, not on the UI thread.
+    let rel_path = job
+        .vpx_path
+        .strip_prefix(tables_root)
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| job.vpx_path.to_string_lossy().into_owned());
     if let Some(bytes) = bytes {
-        let rel_path = job
-            .vpx_path
-            .strip_prefix(tables_root)
-            .map(|p| p.to_string_lossy().into_owned())
-            .unwrap_or_else(|_| job.vpx_path.to_string_lossy().into_owned());
         let thumb = crate::assets::make_thumbnail(&bytes);
         if let Err(e) = db.set_backglass(&rel_path, &bytes, thumb.as_deref(), job.source_mtime) {
             log::error!("Failed to cache backglass for {rel_path}: {e}");
@@ -290,6 +290,11 @@ fn process_table(
         if let Some(thumb) = thumb {
             let _ = bg_tx.send((generation, job.idx, rel_path, thumb, job.source_mtime));
         }
+    } else if let Err(e) = db.set_no_backglass(&rel_path, job.source_mtime) {
+        // Remember that this table has no backglass so the next launch
+        // does not read its .vpx again; it is scanned again when one of
+        // its source files changes.
+        log::error!("Failed to record the missing backglass of {rel_path}: {e}");
     }
     Ok(())
 }

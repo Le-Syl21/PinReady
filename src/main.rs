@@ -36,6 +36,7 @@ mod plumb;
 mod scan_worker;
 mod screens;
 mod session;
+mod startup_timing;
 mod system_info;
 mod tilt;
 mod updater;
@@ -147,6 +148,7 @@ fn attach_windows_console() {
 }
 
 fn main() -> Result<()> {
+    startup_timing::init();
     // Align both SDL3 (used by screens.rs / audio.rs / inputs.rs) and
     // winit/eframe with the session's native display server. winit's
     // Linux auto-detection picks X11 in mixed-backend sessions even when
@@ -825,7 +827,9 @@ fn run_eframe_for_mode(mode: app::AppMode) -> Result<()> {
 
     let (viewport, want_kiosk_cursor, rotation) = build_viewport(&displays, mode, &vpx_config, &db);
     let start_in_wizard = matches!(mode, app::AppMode::Wizard);
+    let app_phase = startup_timing::Phase::start("App::new (table scan included)");
     let mut app = app::App::new(vpx_config, db, start_in_wizard, displays);
+    app_phase.done();
     app.set_rotation(rotation);
     if want_kiosk_cursor {
         app.enable_kiosk_cursor();

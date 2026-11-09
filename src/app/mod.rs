@@ -508,6 +508,8 @@ pub struct App {
     // stores the bytes in the SQLite cache, and updates the TableEntry +
     // egui image cache.
     bg_rx: Option<crossbeam_channel::Receiver<BgExtraction>>,
+    /// Result of the index thread started by `scan_tables`.
+    index_rx: Option<crossbeam_channel::Receiver<launcher::IndexResult>>,
 
     // Scan generation counter. Bumped at every `scan_tables()`; carried
     // verbatim by every BgExtraction message so the UI can drop stale
@@ -884,6 +886,7 @@ impl App {
             pinscape_cfg_rx: Some(crate::pinscape_config::spawn_read()),
             nav_held: None,
             bg_rx: None,
+            index_rx: None,
             scan_generation: 0,
             vbs_rx: None,
             b2s_dmd_rx: None,
@@ -1970,6 +1973,13 @@ impl eframe::App for App {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        static FIRST_FRAME: std::sync::Once = std::sync::Once::new();
+        FIRST_FRAME.call_once(|| {
+            log::info!(
+                "startup: first frame at +{} ms",
+                crate::startup_timing::since_start_ms()
+            )
+        });
         self.sync_zoom(ui.ctx());
         if self.mode == AppMode::Wizard && !self.wizard_size_checked {
             self.fit_wizard_window(ui.ctx());
