@@ -523,6 +523,10 @@ Start-up and what the launcher remembers (v0.27):
   play statistics. VPinPlay has no authentication and its data is public:
   say so before enabling, never enable it for the user, never test the
   push against the live service (use a local mock server, see the tests).
+  A table must always be sent with the same facts (`VpxMeta`: file hash,
+  script hash, ROM, version, dates, detections, computed like VPinFE does):
+  the server keeps one rating per user and per `vpxFile` object, so changing
+  them later would count a rating twice.
 
 ---
 

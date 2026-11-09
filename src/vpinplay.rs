@@ -247,6 +247,9 @@ pub fn user_available(endpoint: &str, user_id: &str) -> Result<bool> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PushTable {
     pub vps_id: String,
+    /// The `.vpx`: read when sending, for the facts VPinPlay wants about the
+    /// file itself (see [`VpxMeta`]).
+    pub vpx_path: std::path::PathBuf,
     /// File name of the `.vpx` (not its path).
     pub filename: String,
     /// Rating in tenths of a star; 0 = not rated.
@@ -254,6 +257,186 @@ pub struct PushTable {
     pub last_run: Option<i64>,
     pub start_count: u32,
     pub run_time_secs: u32,
+}
+
+/// Facts about a script that VPinPlay records, the way VPinFE computes them.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Detect {
+    pub nfozzy: bool,
+    pub fleep: bool,
+    pub ssf: bool,
+    pub lut: bool,
+    pub scorebit: bool,
+    pub fastflips: bool,
+    pub flex: bool,
+}
+
+/// What VPinPlay wants to know about the `.vpx` file itself. Everything is
+/// optional on the wire (an empty string passes), but the server keeps one
+/// rating per user and per `vpxFile` object, so a table must always be sent
+/// with the same facts or its rating would be counted twice.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct VpxMeta {
+    /// SHA-256 of the whole file.
+    pub filehash: String,
+    pub version: String,
+    pub release_date: String,
+    pub save_date: String,
+    pub save_rev: String,
+    pub manufacturer: String,
+    pub year: String,
+    pub table_type: String,
+    /// SHA-256 of the script (the `.vbs` next to the table when there is
+    /// one, else the embedded one), with CRLF line ends.
+    pub vbs_hash: String,
+    pub rom: String,
+    pub detect: Detect,
+}
+
+fn sha256_file(path: &std::path::Path) -> std::io::Result<String> {
+    use sha2::{Digest, Sha256};
+    use std::io::Read;
+    let mut file = std::fs::File::open(path)?;
+    let mut hasher = Sha256::new();
+    let mut buf = vec![0u8; 1 << 20];
+    loop {
+        let n = file.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+    }
+    Ok(hex(&hasher.finalize()))
+}
+
+fn hex(bytes: &[u8]) -> String {
+    use std::fmt::Write;
+    bytes
+        .iter()
+        .fold(String::with_capacity(bytes.len() * 2), |mut s, b| {
+            let _ = write!(s, "{b:02x}");
+            s
+        })
+}
+
+/// A script's comments removed (a `'` outside a string starts one), as
+/// VPinFE does before looking for the ROM name.
+fn strip_vbs_comments(script: &str) -> String {
+    script
+        .lines()
+        .map(|line| {
+            let chars: Vec<char> = line.chars().collect();
+            let mut code = String::new();
+            let mut in_string = false;
+            let mut i = 0;
+            while i < chars.len() {
+                let c = chars[i];
+                if c == '"' {
+                    code.push(c);
+                    if in_string && i + 1 < chars.len() && chars[i + 1] == '"' {
+                        code.push(chars[i + 1]);
+                        i += 2;
+                        continue;
+                    }
+                    in_string = !in_string;
+                } else if c == '\'' && !in_string {
+                    break;
+                } else {
+                    code.push(c);
+                }
+                i += 1;
+            }
+            code
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Every line end as CRLF, whatever it was.
+fn to_crlf(text: &str) -> String {
+    text.replace("\r\n", "\n").replace('\n', "\r\n")
+}
+
+/// The ROM name a script uses, as VPinFE finds it: `cGameName = "..."`, else
+/// `cOptRom = "..."`.
+fn rom_of(script: &str) -> String {
+    use regex::Regex;
+    static GAME: OnceLock<Regex> = OnceLock::new();
+    static OPT: OnceLock<Regex> = OnceLock::new();
+    let game = GAME.get_or_init(|| Regex::new(r#"(?i)c?gamename\s*=\s*"([^"]+)""#).unwrap());
+    let opt = OPT.get_or_init(|| Regex::new(r#"(?i)c?OptRom\s*=\s*"([^\s]+)""#).unwrap());
+    let code = strip_vbs_comments(script);
+    game.captures(&code)
+        .or_else(|| opt.captures(&code))
+        .map(|c| c[1].to_string())
+        .unwrap_or_default()
+}
+
+fn detect_in(script: &str) -> Detect {
+    let s = script.to_lowercase();
+    Detect {
+        nfozzy: s.contains("class flipperpolarity"),
+        fleep: s.contains("rubberstrongsoundfactor"),
+        ssf: s.contains("playsoundat"),
+        lut: s.contains("lut"),
+        scorebit: s.contains("scorebit"),
+        fastflips: s.contains("fastflips"),
+        flex: s.contains("flexdmd"),
+    }
+}
+
+impl VpxMeta {
+    /// The facts of a script: its hash, ROM name and what it uses.
+    pub fn from_script(script: &str) -> Self {
+        let script = to_crlf(script);
+        Self {
+            vbs_hash: crate::vbs_patches::sha256_hex(script.as_bytes()),
+            rom: rom_of(&script),
+            detect: detect_in(&script),
+            ..Self::default()
+        }
+    }
+
+    /// Read what can be read from the `.vpx`; whatever fails stays empty.
+    pub fn read(vpx_path: &std::path::Path) -> Self {
+        let sidecar = vpx_path.with_extension("vbs");
+        let script = match std::fs::read(&sidecar) {
+            Ok(bytes) => {
+                let bytes = bytes
+                    .strip_prefix(&[0xEF, 0xBB, 0xBF][..])
+                    .unwrap_or(&bytes);
+                Some(String::from_utf8_lossy(bytes).into_owned())
+            }
+            Err(_) => crate::vbs_patches::extract_embedded_vbs(vpx_path)
+                .map_err(|e| log::warn!("VPinPlay: no script for {}: {e:#}", vpx_path.display()))
+                .ok(),
+        };
+        let mut meta = script.as_deref().map(Self::from_script).unwrap_or_default();
+        match sha256_file(vpx_path) {
+            Ok(h) => meta.filehash = h,
+            Err(e) => log::warn!("VPinPlay: cannot hash {}: {e}", vpx_path.display()),
+        }
+        match vpin::vpx::open(vpx_path).and_then(|mut v| v.read_tableinfo()) {
+            Ok(info) => {
+                let prop = |name: &str| {
+                    info.properties
+                        .iter()
+                        .find(|(k, _)| k.eq_ignore_ascii_case(name))
+                        .map(|(_, v)| v.trim_matches('\0').to_string())
+                        .unwrap_or_default()
+                };
+                meta.version = info.table_version.unwrap_or_default();
+                meta.release_date = info.release_date.unwrap_or_default();
+                meta.save_date = info.table_save_date.unwrap_or_default();
+                meta.save_rev = info.table_save_rev.unwrap_or_default();
+                meta.manufacturer = prop("CompanyName");
+                meta.year = prop("CompanyYear");
+                meta.table_type = prop("TableType");
+            }
+            Err(e) => log::warn!("VPinPlay: no table info in {}: {e}", vpx_path.display()),
+        }
+        meta
+    }
 }
 
 fn iso(unix: i64) -> String {
@@ -267,29 +450,40 @@ fn iso(unix: i64) -> String {
 /// The JSON body of a sync request (pure, so it can be tested). VPinPlay
 /// wants whole stars (the rating is rounded; unrated tables carry none) and
 /// run time in minutes, as VPinFE sends it.
-pub fn build_payload(settings: &Settings, tables: &[PushTable], now: i64) -> Value {
+pub fn build_payload(settings: &Settings, tables: &[(&PushTable, VpxMeta)], now: i64) -> Value {
     let tables: Vec<Value> = tables
         .iter()
-        .map(|t| {
-            let mut user = serde_json::Map::new();
+        .map(|(t, m)| {
             let stars = ((t.rating_tenths as f32) / 10.0).round() as u8;
-            if stars > 0 {
-                user.insert("rating".into(), json!(stars.min(5)));
-            }
-            if let Some(last) = t.last_run {
-                user.insert("lastRun".into(), json!(iso(last)));
-            }
-            user.insert("startCount".into(), json!(t.start_count));
-            user.insert("runTime".into(), json!(t.run_time_secs / 60));
             json!({
-                "info": { "vpsId": t.vps_id },
-                "user": Value::Object(user),
+                "info": { "vpsId": t.vps_id, "rom": m.rom },
+                // Like VPinFE: 0 = unrated, no date yet = null.
+                "user": {
+                    "rating": stars.min(5),
+                    "lastRun": t.last_run.map(iso),
+                    "startCount": t.start_count,
+                    "runTime": t.run_time_secs / 60,
+                    "score": Value::Null,
+                },
                 "vpxFile": {
                     "filename": t.filename,
-                    "filehash": "",
-                    "version": "",
-                    "vbsHash": "",
-                    "rom": "",
+                    "filehash": m.filehash,
+                    "version": m.version,
+                    "releaseDate": m.release_date,
+                    "saveDate": m.save_date,
+                    "saveRev": m.save_rev,
+                    "manufacturer": m.manufacturer,
+                    "year": m.year,
+                    "type": m.table_type,
+                    "vbsHash": m.vbs_hash,
+                    "rom": m.rom,
+                    "detectNfozzy": m.detect.nfozzy,
+                    "detectFleep": m.detect.fleep,
+                    "detectSSF": m.detect.ssf,
+                    "detectLUT": m.detect.lut,
+                    "detectScorebit": m.detect.scorebit,
+                    "detectFastflips": m.detect.fastflips,
+                    "detectFlex": m.detect.flex,
                 },
                 "vpinfe": { "alttitle": "", "altvpsid": "" },
             })
@@ -317,7 +511,12 @@ pub fn push(settings: &Settings, tables: &[PushTable], now: i64) -> Result<usize
     let url = format!("{}/api/v1/sync", settings.endpoint);
     let mut sent = 0;
     for chunk in tables.chunks(PUSH_CHUNK) {
-        let payload = build_payload(settings, chunk, now);
+        // Reading the files (hash, script, table info) is the slow part.
+        let items: Vec<(&PushTable, VpxMeta)> = chunk
+            .iter()
+            .map(|t| (t, VpxMeta::read(&t.vpx_path)))
+            .collect();
+        let payload = build_payload(settings, &items, now);
         let body = agent()
             .post(&url)
             .header("User-Agent", "PinReady")
@@ -423,6 +622,7 @@ mod tests {
     fn the_payload_matches_what_vpinplay_expects() {
         let t = PushTable {
             vps_id: "lkSumsrF".into(),
+            vpx_path: "/nonexistent/x.vpx".into(),
             filename: "x.vpx".into(),
             rating_tenths: 34, // 3.4 stars -> 3
             last_run: Some(1_700_000_000),
@@ -431,29 +631,129 @@ mod tests {
         };
         let unrated = PushTable {
             vps_id: "abc".into(),
+            vpx_path: "/nonexistent/y.vpx".into(),
             filename: "y.vpx".into(),
             rating_tenths: 0,
             last_run: None,
             start_count: 1,
             run_time_secs: 30,
         };
-        let v = build_payload(&settings("http://x"), &[t, unrated], 1_700_000_100);
+        let meta = VpxMeta {
+            filehash: "ab".repeat(32),
+            version: "1.2".into(),
+            release_date: "2022-05-01".into(),
+            save_date: "Mon May 02 2022".into(),
+            save_rev: "77".into(),
+            manufacturer: "Bally".into(),
+            year: "1995".into(),
+            table_type: "Solid State".into(),
+            vbs_hash: "cd".repeat(32),
+            rom: "afm_113b".into(),
+            detect: Detect {
+                nfozzy: true,
+                flex: true,
+                ..Detect::default()
+            },
+        };
+        let v = build_payload(
+            &settings("http://x"),
+            &[(&t, meta), (&unrated, VpxMeta::default())],
+            1_700_000_100,
+        );
         assert_eq!(v["source"]["program"], "PinReady");
         assert_eq!(v["client"]["userId"], "cab-test");
         assert_eq!(v["client"]["machineId"].as_str().unwrap().len(), 64);
         assert_eq!(v["sentAt"], "2023-11-14T22:15:00Z");
         let t0 = &v["tables"][0];
         assert_eq!(t0["info"]["vpsId"], "lkSumsrF");
+        assert_eq!(t0["info"]["rom"], "afm_113b");
         assert_eq!(t0["user"]["rating"], 3);
         assert_eq!(t0["user"]["lastRun"], "2023-11-14T22:13:20Z");
         assert_eq!(t0["user"]["startCount"], 12);
         assert_eq!(t0["user"]["runTime"], 61);
-        assert_eq!(t0["vpxFile"]["filename"], "x.vpx");
-        assert_eq!(t0["vpxFile"]["filehash"], "");
-        // No rating key for an unrated table, no lastRun without a date.
+        assert!(t0["user"]["score"].is_null());
+        let f = &t0["vpxFile"];
+        assert_eq!(f["filename"], "x.vpx");
+        assert_eq!(f["filehash"].as_str().unwrap().len(), 64);
+        assert_eq!(f["version"], "1.2");
+        assert_eq!(f["releaseDate"], "2022-05-01");
+        assert_eq!(f["saveRev"], "77");
+        assert_eq!(f["manufacturer"], "Bally");
+        assert_eq!(f["year"], "1995");
+        assert_eq!(f["type"], "Solid State");
+        assert_eq!(f["vbsHash"].as_str().unwrap().len(), 64);
+        assert_eq!(f["rom"], "afm_113b");
+        assert_eq!(f["detectNfozzy"], true);
+        assert_eq!(f["detectFlex"], true);
+        assert_eq!(f["detectSSF"], false);
+        // Unrated: 0 and no date, like VPinFE.
         let t1 = &v["tables"][1];
-        assert!(t1["user"].get("rating").is_none());
-        assert!(t1["user"].get("lastRun").is_none());
+        assert_eq!(t1["user"]["rating"], 0);
+        assert!(t1["user"]["lastRun"].is_null());
+    }
+
+    #[test]
+    fn a_script_gives_its_hash_rom_and_features() {
+        let script = "' cGameName = \"commented\"\nConst cGameName = \"afm_113b\" ' the rom\nDim x\nClass FlipperPolarity\nEnd Class\nx = \"it's not a comment\"\n";
+        let m = VpxMeta::from_script(script);
+        assert_eq!(m.rom, "afm_113b");
+        assert!(m.detect.nfozzy && !m.detect.flex && !m.detect.fleep);
+        // The hash is over the CRLF form, whatever the line ends were.
+        let crlf = "Dim x\r\nx = 1\r\n";
+        assert_eq!(
+            VpxMeta::from_script("Dim x\nx = 1\n").vbs_hash,
+            VpxMeta::from_script(crlf).vbs_hash
+        );
+        assert_eq!(
+            VpxMeta::from_script(crlf).vbs_hash,
+            crate::vbs_patches::sha256_hex(crlf.as_bytes())
+        );
+        // OptRom is the fallback.
+        assert_eq!(rom_of("cOptRom = \"tz_94h\""), "tz_94h");
+        assert_eq!(rom_of("nothing here"), "");
+        assert_eq!(
+            strip_vbs_comments("a = \"x'y\" ' c\nb = 1"),
+            "a = \"x'y\" \nb = 1"
+        );
+    }
+
+    /// Reads a real table: `VPP_REAL_VPX=/path/t.vpx cargo test reads_a_real -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn reads_a_real_vpx() {
+        let Ok(path) = std::env::var("VPP_REAL_VPX") else {
+            return;
+        };
+        let m = VpxMeta::read(std::path::Path::new(&path));
+        println!("{m:#?}");
+        if let Ok(mut v) = vpin::vpx::open(std::path::Path::new(&path))
+            && let Ok(info) = v.read_tableinfo()
+        {
+            println!(
+                "table info properties: {:?}",
+                info.properties.keys().collect::<Vec<_>>()
+            );
+        }
+        assert_eq!(m.filehash.len(), 64);
+        assert_eq!(m.vbs_hash.len(), 64);
+    }
+
+    #[test]
+    fn a_file_is_hashed_in_full() {
+        let dir = std::env::temp_dir().join(format!("pinready-vpp-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("t.vpx");
+        std::fs::write(&file, b"abc").unwrap();
+        assert_eq!(
+            sha256_file(&file).unwrap(),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        // A file that cannot be read still gives a (partly empty) meta.
+        std::fs::write(dir.join("t.vbs"), b"\xEF\xBB\xBFcGameName = \"abc_1\"\r\n").unwrap();
+        let m = VpxMeta::read(&file);
+        assert_eq!(m.rom, "abc_1");
+        assert_eq!(m.filehash.len(), 64);
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
@@ -483,6 +783,7 @@ mod tests {
         let s = settings(&url);
         let t = PushTable {
             vps_id: "a".into(),
+            vpx_path: "/nonexistent/a.vpx".into(),
             filename: "a.vpx".into(),
             rating_tenths: 40,
             last_run: None,

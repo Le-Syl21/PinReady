@@ -24,6 +24,7 @@ impl App {
                     rel_to(&dir, &t.path),
                     PushTable {
                         vps_id,
+                        vpx_path: t.path.clone(),
                         filename: t
                             .path
                             .file_name()
