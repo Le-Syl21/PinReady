@@ -79,7 +79,8 @@ impl App {
         if !has_dmd {
             self.config.set_i32("ScoreView", "ScoreViewOutput", 0);
             if !b2s_legacy {
-                // Nothing to set: the B2S plugin places the DMD itself
+                // Nothing to set: the plugin reads the DMD area from the backglass
+                // file's <Displays> element, which the DMD fix (b2s_dmd) writes
             } else if self.external_dmd {
                 // External DMD device (ZeDMD, PinDMD...) — no overlay needed,
                 // VPX auto-detects the device at runtime

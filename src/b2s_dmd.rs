@@ -283,6 +283,70 @@ fn edge_contrast(
     (outer * outer_area - inner * inner_area) / ring_area - inner
 }
 
+/// A hole that fills the image edge to edge: a frame drawn as one flat panel
+/// (a grey or black rectangle with a thin outline) leaves no ring on most sides,
+/// so `edge_contrast` cannot judge it. It is still a hole when it touches the
+/// edge of the image, its inside (the outline left out) is one flat neutral
+/// colour (artwork never is: gradients, colours, texture) and the side that has
+/// a ring stands out from it.
+fn flush_flat_hole(
+    rgba: &image::RgbaImage,
+    luma: &[u8],
+    width: usize,
+    height: usize,
+    rect: (usize, usize, usize, usize),
+    outline: usize,
+) -> bool {
+    const RING: usize = 6;
+    /// How far each channel may stray from the panel's colour.
+    const FLAT: i32 = 4;
+    /// How far apart the three channels of the panel's colour may be (grey).
+    const NEUTRAL: i32 = 8;
+    let (x, y, w, h) = rect;
+    let touches = x < RING || y < RING || x + w + RING > width || y + h + RING > height;
+    // frames for a full DMD are big pictures: a small image is a logo, whose
+    // black margin is not a hole
+    if !touches || width < 1000 || w <= 2 * outline || h <= 2 * outline {
+        return false;
+    }
+    let (ix, iy, iw, ih) = (x + outline, y + outline, w - 2 * outline, h - 2 * outline);
+    let centre = rgba.get_pixel((ix + iw / 2) as u32, (iy + ih / 2) as u32).0;
+    let (cmax, cmin) = (
+        i32::from(centre[0].max(centre[1]).max(centre[2])),
+        i32::from(centre[0].min(centre[1]).min(centre[2])),
+    );
+    if cmax - cmin > NEUTRAL || centre[3] < 255 {
+        return false;
+    }
+    for row in iy..iy + ih {
+        for col in ix..ix + iw {
+            let p = rgba.get_pixel(col as u32, row as u32).0;
+            if (0..3).any(|c| (i32::from(p[c]) - i32::from(centre[c])).abs() > FLAT) {
+                return false;
+            }
+        }
+    }
+    // the sides of the ring that are inside the image: above and below
+    let inner = f32::from(
+        ((u32::from(centre[0]) * 299 + u32::from(centre[1]) * 587 + u32::from(centre[2]) * 114)
+            / 1000) as u8,
+    );
+    let mut ring = 0f32;
+    let mut count = 0usize;
+    if y >= RING {
+        ring += mean_luma(luma, width, x, y - RING, w, RING) * (w * RING) as f32;
+        count += w * RING;
+    }
+    if y + h + RING <= height {
+        ring += mean_luma(luma, width, x, y + h, w, RING) * (w * RING) as f32;
+        count += w * RING;
+    }
+    if count == 0 {
+        return false;
+    }
+    ((ring / count as f32) - inner).abs() >= 25.0
+}
+
 /// The shape `aspect` fitted in the middle of the rectangle `(x, y, w, h)`.
 fn fit_aspect(x: usize, y: usize, w: usize, h: usize, aspect: f32) -> DmdRect {
     let (mut x, mut y, mut w, mut h) = (x, y, w, h);
@@ -336,12 +400,15 @@ fn find_hole_with(
     relaxed: bool,
 ) -> Option<(usize, DmdRect)> {
     const THRESHOLDS: [u8; 5] = [DARK_THRESHOLD, 24, 32, 44, 60];
+    /// Width of the outline of a flat panel, left out of the DMD.
+    const OUTLINE: usize = 10;
     /// A border at least this much brighter than the inside, in luminance levels.
     const MIN_CONTRAST: f32 = 25.0;
     let (luma, width, height) = luminance(image);
     if width < 64 || height < 24 {
         return None;
     }
+    let rgba = image.to_rgba8();
     let mut best: Option<(usize, DmdRect)> = None;
     for threshold in THRESHOLDS {
         let mut dark: Vec<bool> = luma.iter().map(|&v| v < threshold).collect();
@@ -364,9 +431,21 @@ fn find_hole_with(
                 big_enough
                     && edge_contrast(&luma, width, height, (x, y, w, h), strict) >= MIN_CONTRAST
             };
-            if accepted {
+            // a panel that fills the image edge to edge, outline included: the
+            // DMD goes inside the outline
+            let flush = !accepted
+                && !relaxed
+                && strict
+                && big_enough
+                && flush_flat_hole(&rgba, &luma, width, height, (x, y, w, h), OUTLINE);
+            if accepted || flush {
                 if best.is_none_or(|(a, _)| area > a) {
-                    best = Some((area, fit_aspect(x, y, w, h, shape.aspect())));
+                    let (ix, iy, iw, ih) = if flush {
+                        (x + OUTLINE, y + OUTLINE, w - 2 * OUTLINE, h - 2 * OUTLINE)
+                    } else {
+                        (x, y, w, h)
+                    };
+                    best = Some((area, fit_aspect(ix, iy, iw, ih, shape.aspect())));
                 }
                 break;
             }
@@ -762,6 +841,122 @@ mod tests {
         let b = backup_path(root, Path::new("/t/two/x.directb2s"));
         assert_ne!(a, b);
         assert_eq!(a.file_name(), b.file_name());
+    }
+
+    /// Port of the VPX B2S plugin's `Renderer::SearchDmdSubFrame` (plugins/b2s/DMDOverlay),
+    /// to see what its own detection finds in a frame image. Returns (x, y, w, h).
+    fn plugin_search(rgba: &image::RgbaImage, ar: f32) -> (i32, i32, i32, i32) {
+        let (tw, th) = (rgba.width() as i32, rgba.height() as i32);
+        let lum: Vec<f32> = rgba
+            .pixels()
+            .map(|p| 0.299 * f32::from(p[0]) + 0.587 * f32::from(p[1]) + 0.114 * f32::from(p[2]))
+            .collect();
+        let heuristic = |f: (i32, i32, i32, i32)| {
+            f.2 as f32 / tw as f32 - (0.5 - (f.0 + f.2 / 2) as f32 / tw as f32).abs()
+        };
+        let padding = (2 * tw) / 1920;
+        let (mut lum_min, mut lum_max) = (0f32, 256f32);
+        let mut search = (0, 0, tw, th);
+        let mut best = (0, 0, 0, 0);
+        for _ in 0..7 {
+            let limit = (lum_min + lum_max) * 0.5;
+            let mut sub = (0, 0, 0, 0);
+            let mut search_sub = (0, 0, 0, 0);
+            let mut st: Vec<i32> = Vec::new();
+            let mut heights = vec![0i32; tw as usize];
+            for y in search.1..search.1 + search.3 {
+                for x in search.0..search.0 + search.2 {
+                    if lum[(y * tw + x) as usize] < limit {
+                        heights[x as usize] += 1;
+                    } else {
+                        heights[x as usize] = 0;
+                    }
+                }
+                for x in search.0..=search.0 + search.2 {
+                    while let Some(&top) = st.last() {
+                        if !(x == search.0 + search.2
+                            || heights[top as usize] > heights[x as usize])
+                        {
+                            break;
+                        }
+                        let height = heights[top as usize];
+                        st.pop();
+                        let width = match st.last() {
+                            None => x - search.0,
+                            Some(&t) => x - t - 1,
+                        };
+                        if width > 6 * padding && height > 3 * padding {
+                            let ux = st.last().map_or(search.0, |&t| t + 1);
+                            let unpadded = (ux, y - height + 1, width, height);
+                            if search_sub.2 == 0 {
+                                search_sub = unpadded;
+                            } else {
+                                let nx = search_sub.0.min(unpadded.0);
+                                let ny = search_sub.1.min(unpadded.1);
+                                let nz =
+                                    (search_sub.0 + search_sub.2).max(unpadded.0 + unpadded.2) - nx;
+                                let nw =
+                                    (search_sub.1 + search_sub.3).max(unpadded.1 + unpadded.3) - ny;
+                                search_sub = (nx, ny, nz, nw);
+                            }
+                            let mut f = (
+                                unpadded.0 + padding,
+                                unpadded.1 + padding,
+                                unpadded.2 - 2 * padding,
+                                unpadded.3 - 2 * padding,
+                            );
+                            if f.3 > 0 && f.2 as f32 / f.3 as f32 > ar {
+                                let w = (f.3 as f32 * ar) as i32;
+                                f.0 += (f.2 - w) / 2;
+                                f.2 = w;
+                            } else if f.3 > 0 {
+                                let h = (f.2 as f32 / ar) as i32;
+                                f.1 += (f.3 - h) / 2;
+                                f.3 = h;
+                            }
+                            if 3 * f.2 >= tw && heuristic(f) > heuristic(sub) {
+                                sub = f;
+                            }
+                        }
+                    }
+                    if x < search.0 + search.2 {
+                        st.push(x);
+                    }
+                }
+            }
+            if sub.3 > 0 {
+                lum_max = limit;
+                best = sub;
+                search = search_sub;
+            } else {
+                lum_min = limit;
+            }
+        }
+        best
+    }
+
+    /// `B2S_DMD_FILES=a:b cargo test --profile=fast plugin_detect -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    fn plugin_detect() {
+        for file in std::env::var("B2S_DMD_FILES")
+            .unwrap_or_default()
+            .split(':')
+            .filter(|f| !f.is_empty())
+        {
+            let doc = std::fs::read(file).unwrap();
+            let Some(bytes) = dmd_image_bytes(&doc).unwrap() else {
+                println!("{file}: NOIMAGE");
+                continue;
+            };
+            let img = image::load_from_memory(&bytes).unwrap().to_rgba8();
+            println!(
+                "{file}: PLUGIN {:?} img={}x{}",
+                plugin_search(&img, 4.0),
+                img.width(),
+                img.height()
+            );
+        }
     }
 
     /// Development aid: `B2S_DMD_FILES=a.directb2s:b.directb2s cargo test --profile=fast real_files -- --ignored --nocapture`
