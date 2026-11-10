@@ -100,5 +100,26 @@ impl App {
                 }
             },
         );
+
+        // ---- The author's other cabinet projects: name = clickable link,
+        // then a one-line description.
+        theme::section(ui, &t!("system_projects_title"), None, |ui| {
+            for (name, url, desc) in [
+                (
+                    "rom2altsound",
+                    "https://github.com/Le-Syl21/rom2altsound",
+                    t!("system_projects_rom2altsound"),
+                ),
+                (
+                    "headtracking",
+                    "https://github.com/Le-Syl21/headtracking",
+                    t!("system_projects_headtracking"),
+                ),
+            ] {
+                ui.hyperlink_to(name, url);
+                ui.label(desc);
+                ui.add_space(6.0);
+            }
+        });
     }
 }

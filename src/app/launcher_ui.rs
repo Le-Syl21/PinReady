@@ -559,8 +559,6 @@ impl App {
             }
         }
 
-        let filter = &self.table_filter_lower;
-
         // Boost line-based mouse wheel input so stronger wheel flicks scroll farther.
         // Keep trackpad behavior untouched (trackpads usually report point deltas).
         let line_wheel_strength: f32 = ui.input(|i| {
@@ -587,11 +585,9 @@ impl App {
         // `selected_row = self.selected_table / cols` would index into
         // the unfiltered grid and scroll to the wrong y-offset when a
         // search is active.
-        let filtered: Vec<usize> = (0..self.tables.len())
-            .filter(|&i| {
-                filter.is_empty() || self.tables[i].name.to_lowercase().contains(filter.as_str())
-            })
-            .collect();
+        // `visible_indices` also applies the sort order, so the cards follow
+        // the sort button and the joystick navigation sees the same order.
+        let filtered: Vec<usize> = self.visible_indices();
 
         // Auto-scroll to selected table when navigating with joystick.
         // Keep the selected row centered in the viewport; clamp at start/end
