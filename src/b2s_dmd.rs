@@ -118,6 +118,9 @@ pub enum Analysis {
     Missing(DmdRect),
     /// The element is missing and the hole is for a video (CRT/LCD) screen.
     MissingVideo(DmdRect),
+    /// No frame image at all, for a game that has a screen: a plain frame is
+    /// added to the file, with the display in it (`true` for a video screen).
+    NoFrame(DmdRect, bool),
 }
 
 /// DMD shape: 128x32.
@@ -750,7 +753,17 @@ pub fn analyze(doc: &[u8], screen: Screen) -> Result<Analysis> {
         return Ok(Analysis::NoScreen);
     }
     let Some(bytes) = dmd_image_bytes(doc)? else {
-        return Ok(Analysis::NoDmdImage);
+        // A game with a screen needs a frame to show it in: without a
+        // `<DMDImage>` the ScoreView window stays empty
+        return Ok(match screen {
+            Screen::Dmd { .. } => {
+                Analysis::NoFrame(frame_rect(screen.aspect().unwrap_or(DMD_ASPECT)), false)
+            }
+            Screen::Video { .. } => {
+                Analysis::NoFrame(frame_rect(screen.aspect().unwrap_or(VIDEO_ASPECT)), true)
+            }
+            _ => Analysis::NoDmdImage,
+        });
     };
     let image = image::load_from_memory(&bytes).context("DMDImage cannot be decoded")?;
     let dmd_shape = match screen {
@@ -806,6 +819,74 @@ pub fn analyze(doc: &[u8], screen: Screen) -> Result<Analysis> {
     Ok(Analysis::NoHole)
 }
 
+/// Size of the frame image written for a file that has none (the usual size of
+/// a FullDMD frame).
+const FRAME_SIZE: (u32, u32) = (1920, 1080);
+/// Marks the `<DMDImage>` this module wrote, so that it can be told from an
+/// authored one.
+const FRAME_MARK: &str = "Generated=\"PinReady\"";
+
+/// Where the display goes in the generated frame: the shape `aspect`, centred,
+/// with a margin of 5% around it.
+fn frame_rect(aspect: f32) -> DmdRect {
+    let (fw, fh) = (FRAME_SIZE.0 as f32, FRAME_SIZE.1 as f32);
+    let mut w = fw * 0.9;
+    let mut h = w / aspect;
+    if h > fh * 0.9 {
+        h = fh * 0.9;
+        w = h * aspect;
+    }
+    DmdRect {
+        x: ((fw - w) / 2.0) as u32,
+        y: ((fh - h) / 2.0) as u32,
+        w: w as u32,
+        h: h as u32,
+    }
+}
+
+/// The generated frame: near black, with a dark grey bezel around the display.
+fn frame_png(rect: DmdRect) -> Result<Vec<u8>> {
+    const BEZEL: u32 = 14;
+    let img = image::RgbaImage::from_fn(FRAME_SIZE.0, FRAME_SIZE.1, |x, y| {
+        let inside = x + BEZEL >= rect.x
+            && x < rect.x + rect.w + BEZEL
+            && y + BEZEL >= rect.y
+            && y < rect.y + rect.h + BEZEL;
+        let hole = x >= rect.x && x < rect.x + rect.w && y >= rect.y && y < rect.y + rect.h;
+        if hole {
+            image::Rgba([0, 0, 0, 255])
+        } else if inside {
+            image::Rgba([46, 46, 50, 255])
+        } else {
+            image::Rgba([8, 8, 10, 255])
+        }
+    });
+    let mut out = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::ImageRgba8(img)
+        .write_to(&mut out, image::ImageFormat::Png)
+        .context("cannot encode the frame image")?;
+    Ok(out.into_inner())
+}
+
+/// `doc` with a `<DMDImage>` frame added at the start of its `<Images>`
+/// element (the element is created when the file has none).
+fn insert_frame(doc: &[u8], png: &[u8]) -> Result<Vec<u8>> {
+    let image = format!(
+        "<DMDImage {FRAME_MARK} Value=\"{}\" />",
+        base64::engine::general_purpose::STANDARD.encode(png)
+    );
+    if let Some(at) = find(doc, b"<Images>", 0) {
+        let at = at + b"<Images>".len();
+        let mut out = Vec::with_capacity(doc.len() + image.len());
+        out.extend_from_slice(&doc[..at]);
+        out.extend_from_slice(image.as_bytes());
+        out.extend_from_slice(&doc[at..]);
+        Ok(out)
+    } else {
+        insert_element(doc, &format!("<Images>{image}</Images>"))
+    }
+}
+
 /// `doc` with the element before the closing tag of the document.
 fn insert_element(doc: &[u8], element: &str) -> Result<Vec<u8>> {
     const CLOSE: &[u8] = b"</DirectB2SData>";
@@ -845,7 +926,34 @@ fn own_original(doc: &[u8], backup: &Path) -> Option<Vec<u8>> {
     let mut stripped = Vec::with_capacity(doc.len());
     stripped.extend_from_slice(&doc[..at]);
     stripped.extend_from_slice(&doc[end..]);
+    // the frame written for a file that had none goes too
+    let mark = format!("<DMDImage {FRAME_MARK} Value=\"");
+    if let Some(start) = find(&stripped, mark.as_bytes(), 0)
+        && let Some(close) = find(&stripped, b"/>", start)
+    {
+        let mut without = Vec::with_capacity(stripped.len());
+        without.extend_from_slice(&stripped[..start]);
+        without.extend_from_slice(&stripped[close + 2..]);
+        // the `<Images>` element created for it, when it was the whole of it
+        let created = b"<Images></Images>";
+        if let Some(i) = find(&without, created, 0) {
+            without.drain(i..i + created.len());
+        }
+        stripped = without;
+    }
     (stripped == orig).then_some(orig)
+}
+
+/// The rectangle of the frame to generate for `doc`, when it has no `<DMDImage>`
+/// and the game has a screen.
+fn analysis_frame(doc: &[u8], screen: Screen) -> Result<Option<DmdRect>> {
+    if find(doc, b"<DMDImage", 0).is_some() {
+        return Ok(None);
+    }
+    Ok(match analyze(doc, screen)? {
+        Analysis::NoFrame(rect, _) => Some(rect),
+        _ => None,
+    })
 }
 
 /// Replace `file` with `bytes` in one rename, keeping its permissions.
@@ -894,8 +1002,20 @@ pub fn fix_file(file: &Path, backup_root: &Path, screen: Screen) -> Result<&'sta
         }
         Analysis::Missing(rect) => (rect, rect.element()),
         Analysis::MissingVideo(rect) => (rect, rect.video_element()),
+        Analysis::NoFrame(rect, video) => {
+            let element = if video {
+                rect.video_element()
+            } else {
+                rect.element()
+            };
+            (rect, element)
+        }
     };
-    let fixed = insert_element(base, &element)?;
+    let framed = match analysis_frame(base, screen)? {
+        Some(rect) => insert_frame(base, &frame_png(rect)?)?,
+        None => base.to_vec(),
+    };
+    let fixed = insert_element(&framed, &element)?;
     if earlier.is_some() && fixed == doc {
         return Ok(status::APPLIED); // the same place as before
     }
@@ -1551,5 +1671,52 @@ mod tests {
                 });
             }
         });
+    }
+
+    #[test]
+    fn a_file_with_no_frame_gets_one_for_a_game_with_a_dmd() {
+        let dir = tempfile::tempdir().unwrap();
+        let backups = tempfile::tempdir().unwrap();
+        let file = dir.path().join("t.directb2s");
+        let original = document(None, false);
+        std::fs::write(&file, &original).unwrap();
+        let dmd = Screen::Dmd {
+            width: 128,
+            height: 32,
+        };
+        // no DMD in the game: nothing to add
+        assert_eq!(
+            fix_file(&file, backups.path(), Screen::Unknown).unwrap(),
+            status::NOT_NEEDED
+        );
+        assert_eq!(std::fs::read(&file).unwrap(), original);
+        // a DMD game: a frame and the display in it
+        assert_eq!(
+            fix_file(&file, backups.path(), dmd).unwrap(),
+            status::APPLIED
+        );
+        let fixed = std::fs::read(&file).unwrap();
+        let text = String::from_utf8_lossy(&fixed);
+        assert!(text.contains("<DMDImage Generated=\"PinReady\""));
+        assert_eq!(text.matches("<Displays>").count(), 1);
+        let image = dmd_image_bytes(&fixed).unwrap().expect("a frame");
+        let img = image::load_from_memory(&image).unwrap();
+        assert_eq!((img.width(), img.height()), FRAME_SIZE);
+        // the display is a 4:1 rectangle inside the frame
+        let rect = frame_rect(4.0);
+        assert!(rect.x + rect.w <= FRAME_SIZE.0 && rect.y + rect.h <= FRAME_SIZE.1);
+        assert!(text.contains(&format!("W=\"{}\" H=\"{}\"", rect.w, rect.h)));
+        // again: the same file
+        assert_eq!(
+            fix_file(&file, backups.path(), dmd).unwrap(),
+            status::APPLIED
+        );
+        assert_eq!(std::fs::read(&file).unwrap(), fixed);
+        // the game has no DMD after all: the original, frame and display gone
+        assert_eq!(
+            fix_file(&file, backups.path(), Screen::Segments).unwrap(),
+            status::NOT_NEEDED
+        );
+        assert_eq!(std::fs::read(&file).unwrap(), original);
     }
 }
