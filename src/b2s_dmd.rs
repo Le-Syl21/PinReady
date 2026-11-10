@@ -826,10 +826,15 @@ const FRAME_SIZE: (u32, u32) = (1920, 1080);
 /// authored one.
 const FRAME_MARK: &str = "Generated=\"PinReady\"";
 
-/// Where the display goes in the generated frame: the shape `aspect`, centred,
-/// with a margin of 5% around it.
+/// Height of the band at the top of the generated frame that carries its note.
+const NOTE_BAND: u32 = 120;
+/// The note written in that band.
+const NOTE: &str = "NO DMD IMAGE";
+
+/// Where the display goes in the generated frame: the shape `aspect`, centred
+/// below the note band, with a margin of 5% around it.
 fn frame_rect(aspect: f32) -> DmdRect {
-    let (fw, fh) = (FRAME_SIZE.0 as f32, FRAME_SIZE.1 as f32);
+    let (fw, fh) = (FRAME_SIZE.0 as f32, (FRAME_SIZE.1 - NOTE_BAND) as f32);
     let mut w = fw * 0.9;
     let mut h = w / aspect;
     if h > fh * 0.9 {
@@ -838,13 +843,47 @@ fn frame_rect(aspect: f32) -> DmdRect {
     }
     DmdRect {
         x: ((fw - w) / 2.0) as u32,
-        y: ((fh - h) / 2.0) as u32,
+        y: NOTE_BAND + ((fh - h) / 2.0) as u32,
         w: w as u32,
         h: h as u32,
     }
 }
 
-/// The generated frame: near black, with a dark grey bezel around the display.
+/// 5x7 glyphs of the letters of [`NOTE`], one row per byte (bit 4 = left).
+fn glyph(c: char) -> [u8; 7] {
+    match c {
+        'N' => [0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11],
+        'O' => [0x0E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E],
+        'D' => [0x1E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1E],
+        'M' => [0x11, 0x1B, 0x15, 0x15, 0x11, 0x11, 0x11],
+        'I' => [0x0E, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0E],
+        'A' => [0x0E, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11],
+        'G' => [0x0E, 0x11, 0x10, 0x17, 0x11, 0x11, 0x0F],
+        'E' => [0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x1F],
+        _ => [0; 7],
+    }
+}
+
+/// Whether pixel (`x`, `y`) of the generated frame is part of the note.
+fn in_note(x: u32, y: u32) -> bool {
+    const SCALE: u32 = 6;
+    const ADVANCE: u32 = 6 * SCALE;
+    let width = NOTE.len() as u32 * ADVANCE;
+    let (left, top) = ((FRAME_SIZE.0 - width) / 2, (NOTE_BAND - 7 * SCALE) / 2);
+    if x < left || x >= left + width || y < top || y >= top + 7 * SCALE {
+        return false;
+    }
+    let (cx, cy) = (x - left, y - top);
+    let col = (cx % ADVANCE) / SCALE;
+    if col >= 5 {
+        return false;
+    }
+    let c = NOTE.as_bytes()[(cx / ADVANCE) as usize] as char;
+    glyph(c)[(cy / SCALE) as usize] >> (4 - col) & 1 == 1
+}
+
+/// The generated frame: near black, with a short note at the top and a dark
+/// grey bezel around the display.
 fn frame_png(rect: DmdRect) -> Result<Vec<u8>> {
     const BEZEL: u32 = 14;
     let img = image::RgbaImage::from_fn(FRAME_SIZE.0, FRAME_SIZE.1, |x, y| {
@@ -857,6 +896,8 @@ fn frame_png(rect: DmdRect) -> Result<Vec<u8>> {
             image::Rgba([0, 0, 0, 255])
         } else if inside {
             image::Rgba([46, 46, 50, 255])
+        } else if in_note(x, y) {
+            image::Rgba([96, 96, 104, 255])
         } else {
             image::Rgba([8, 8, 10, 255])
         }
