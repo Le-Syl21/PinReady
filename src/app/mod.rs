@@ -540,6 +540,9 @@ pub struct App {
     vbs_rx: Option<crossbeam_channel::Receiver<VbsPatchRecord>>,
     // DMD area check of the .directb2s files — (rel_path, status, mtime)
     b2s_dmd_rx: Option<crossbeam_channel::Receiver<(String, String, i64)>>,
+    // Rebuild: the old caches are being wiped on a background thread (the
+    // picture cache is gigabytes), the scan starts when it is done
+    rebuild_clear_rx: Option<crossbeam_channel::Receiver<()>>,
 
     // VPX process running — disables launcher while true
     vpx_running: Arc<AtomicBool>,
@@ -913,6 +916,7 @@ impl App {
             scan_generation: 0,
             vbs_rx: None,
             b2s_dmd_rx: None,
+            rebuild_clear_rx: None,
             vpx_running: Arc::new(AtomicBool::new(false)),
             vpx_status_rx: None,
             vpx_loading_msg: String::new(),

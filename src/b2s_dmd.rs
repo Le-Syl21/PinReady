@@ -389,6 +389,74 @@ fn flush_flat_hole(
     ((ring / count as f32) - inner).abs() >= 25.0
 }
 
+/// Grow a rectangle found inside a hole out to the frame around it.
+///
+/// The search finds the largest uniform rectangle, which can be smaller than the
+/// hole when the hole is not quite uniform (noise, a gradient, a dim logo). From
+/// that seed, each side moves outwards while the next line of pixels is, nearly
+/// all of it, the colour of the seed: a few stray pixels do not stop it, the
+/// outline of the frame does. A growth that makes the shape wrong, or that runs
+/// away, is dropped.
+fn grow_to_frame(
+    luma: &[u8],
+    width: usize,
+    height: usize,
+    seed: (usize, usize, usize, usize),
+    aspect: f32,
+) -> (usize, usize, usize, usize) {
+    /// How far a pixel may be from the colour of the seed, in luminance levels.
+    const TOLERANCE: f32 = 28.0;
+    /// Share of a line that has to be of the seed's colour.
+    const SHARE: usize = 88;
+    /// The grown rectangle may cover at most this many times the seed's area.
+    const MAX_GROWTH: usize = 5;
+    let (x, y, w, h) = seed;
+    let reference = mean_luma(luma, width, x, y, w, h);
+    let similar = |v: u8| (f32::from(v) - reference).abs() <= TOLERANCE;
+    let column_ok = |col: usize, y0: usize, y1: usize| {
+        let n = (y0..y1)
+            .filter(|&row| similar(luma[row * width + col]))
+            .count();
+        n * 100 >= (y1 - y0) * SHARE
+    };
+    let row_ok = |row: usize, x0: usize, x1: usize| {
+        let n = luma[row * width + x0..row * width + x1]
+            .iter()
+            .filter(|&&v| similar(v))
+            .count();
+        n * 100 >= (x1 - x0) * SHARE
+    };
+    let (mut x0, mut y0, mut x1, mut y1) = (x, y, x + w, y + h);
+    loop {
+        let mut moved = false;
+        if x0 > 0 && column_ok(x0 - 1, y0, y1) {
+            x0 -= 1;
+            moved = true;
+        }
+        if x1 < width && column_ok(x1, y0, y1) {
+            x1 += 1;
+            moved = true;
+        }
+        if y0 > 0 && row_ok(y0 - 1, x0, x1) {
+            y0 -= 1;
+            moved = true;
+        }
+        if y1 < height && row_ok(y1, x0, x1) {
+            y1 += 1;
+            moved = true;
+        }
+        if !moved || (x1 - x0) * (y1 - y0) > MAX_GROWTH * w * h {
+            break;
+        }
+    }
+    let (gw, gh) = (x1 - x0, y1 - y0);
+    let ratio = gw as f32 / gh as f32;
+    if (x1 - x0) * (y1 - y0) > MAX_GROWTH * w * h || ratio < aspect * 0.6 || ratio > aspect * 1.6 {
+        return seed;
+    }
+    (x0, y0, gw, gh)
+}
+
 /// The shape `aspect` fitted in the middle of the rectangle `(x, y, w, h)`.
 fn fit_aspect(x: usize, y: usize, w: usize, h: usize, aspect: f32) -> DmdRect {
     let (mut x, mut y, mut w, mut h) = (x, y, w, h);
@@ -485,7 +553,7 @@ fn find_hole_with(
                     let (ix, iy, iw, ih) = if flush {
                         (x + OUTLINE, y + OUTLINE, w - 2 * OUTLINE, h - 2 * OUTLINE)
                     } else {
-                        (x, y, w, h)
+                        grow_to_frame(&luma, width, height, (x, y, w, h), shape.aspect())
                     };
                     best = Some((area, fit_aspect(ix, iy, iw, ih, shape.aspect())));
                 }
@@ -624,6 +692,7 @@ fn find_flat_panel(
     if width < 64 || height < 24 {
         return None;
     }
+    let (luma, _, _) = luminance(image);
     let mut best: Option<(usize, DmdRect)> = None;
     for threshold in THRESHOLDS {
         let mut flat = flat_mask(&rgba, threshold);
@@ -645,13 +714,15 @@ fn find_flat_panel(
                 && area * 100 >= width * height * 8;
             if big_enough && (low_band || stands_out(&rgba, (x, y, w, h), min_contrast)) {
                 if best.is_none_or(|(a, _)| area > a) {
+                    let (gx, gy, gw, gh) =
+                        grow_to_frame(&luma, width, height, (x, y, w, h), shape.aspect());
                     best = Some((
                         area,
                         fit_aspect(
-                            x + INSET,
-                            y + INSET,
-                            w - 2 * INSET,
-                            h - 2 * INSET,
+                            gx + INSET,
+                            gy + INSET,
+                            gw - 2 * INSET,
+                            gh - 2 * INSET,
                             shape.aspect(),
                         ),
                     ));

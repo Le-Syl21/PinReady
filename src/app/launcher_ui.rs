@@ -37,6 +37,7 @@ impl App {
         self.process_bg_extraction();
         self.process_vbs_extraction();
         self.process_b2s_dmd();
+        self.process_rebuild_clear();
         self.process_preview_audio(ui.ctx());
         // Process VPX status before the joystick handler so the post-exit
         // input grace window (armed in `process_vpx_status`) is already set
@@ -135,17 +136,7 @@ impl App {
         let label = t!("launcher_rebuild").to_string();
         if left.add(header_button(label)).clicked() {
             log::info!("Rebuild: flushing backglass + vbs_patches caches, full re-scan");
-            if let Err(e) = self.db.clear_backglass() {
-                log::error!("clear_backglass failed: {e}");
-            }
-            if let Err(e) = self.db.clear_vbs_patches() {
-                log::error!("clear_vbs_patches failed: {e}");
-            }
-            if let Err(e) = self.db.clear_b2s_dmd() {
-                log::error!("clear_b2s_dmd failed: {e}");
-            }
-            self.tables.iter_mut().for_each(|t| t.has_bg = false);
-            self.scan_tables();
+            self.start_rebuild();
         }
 
         // Sort order: one button that goes through the choices (the S key
@@ -1222,7 +1213,8 @@ impl App {
         // Tiles being (re)built: the pictures come in table by table
         let tiles_total = self.tables.len();
         let tiles_done = self.tables.iter().filter(|t| t.has_bg).count();
-        let has_tiles = self.bg_rx.is_some() && tiles_done < tiles_total;
+        let clearing = self.rebuild_clear_rx.is_some();
+        let has_tiles = clearing || (self.bg_rx.is_some() && tiles_done < tiles_total);
         if !has_vpx && !has_pinready && !has_ht && !has_tiles {
             return;
         }
@@ -1245,19 +1237,22 @@ impl App {
         };
 
         if has_tiles {
-            ui.add(
-                egui::ProgressBar::new(tiles_done as f32 / tiles_total.max(1) as f32)
-                    .desired_width(full_w)
-                    .desired_height(bar_h)
-                    .text(
-                        egui::RichText::new(
-                            t!("tiles_progress", done = tiles_done, total = tiles_total)
-                                .to_string(),
-                        )
-                        .size(text_size)
-                        .strong(),
-                    ),
-            );
+            let (fraction, text) = if clearing {
+                (0.0, t!("tiles_clearing").to_string())
+            } else {
+                (
+                    tiles_done as f32 / tiles_total.max(1) as f32,
+                    t!("tiles_progress", done = tiles_done, total = tiles_total).to_string(),
+                )
+            };
+            let mut bar = egui::ProgressBar::new(fraction)
+                .desired_width(full_w)
+                .desired_height(bar_h)
+                .text(egui::RichText::new(text).size(text_size).strong());
+            if clearing {
+                bar = bar.animate(true);
+            }
+            ui.add(bar);
             // The bar moves without any input: keep repainting while it is up
             ui.ctx()
                 .request_repaint_after(std::time::Duration::from_millis(250));

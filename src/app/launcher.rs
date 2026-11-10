@@ -1123,6 +1123,62 @@ impl App {
         self.b2s_dmd_rx = Some(rx);
     }
 
+    /// Rebuild: forget the pictures and what was learnt about the backglass and
+    /// the scripts, then scan again. Wiping the picture cache means walking
+    /// gigabytes of pages, so it runs on its own thread (its own connection)
+    /// and the scan starts when it is done.
+    pub(super) fn start_rebuild(&mut self) {
+        if self.rebuild_clear_rx.is_some() {
+            return; // already wiping
+        }
+        // Stop the scan that may be running: it would write into the tables
+        // being emptied
+        self.scan_generation = self.scan_generation.wrapping_add(1);
+        self.bg_rx = None;
+        if let Some(token) = self.catalog_cancel_token.take() {
+            token.store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+        self.tables.iter_mut().for_each(|t| t.has_bg = false);
+        let (tx, rx) = crossbeam_channel::bounded(1);
+        std::thread::Builder::new()
+            .name("pinready-rebuild-clear".into())
+            .spawn(move || {
+                match crate::db::Database::open(None) {
+                    Ok(db) => {
+                        let started = std::time::Instant::now();
+                        if let Err(e) = db.clear_backglass() {
+                            log::error!("clear_backglass failed: {e}");
+                        }
+                        if let Err(e) = db.clear_vbs_patches() {
+                            log::error!("clear_vbs_patches failed: {e}");
+                        }
+                        if let Err(e) = db.clear_b2s_dmd() {
+                            log::error!("clear_b2s_dmd failed: {e}");
+                        }
+                        log::info!("Rebuild: caches wiped in {:?}", started.elapsed());
+                    }
+                    Err(e) => log::error!("Rebuild: cannot open the database: {e}"),
+                }
+                let _ = tx.send(());
+            })
+            .ok();
+        self.rebuild_clear_rx = Some(rx);
+    }
+
+    /// Start the scan once the caches of a Rebuild are wiped.
+    pub(super) fn process_rebuild_clear(&mut self) {
+        let Some(rx) = &self.rebuild_clear_rx else {
+            return;
+        };
+        match rx.try_recv() {
+            Ok(()) | Err(crossbeam_channel::TryRecvError::Disconnected) => {
+                self.rebuild_clear_rx = None;
+                self.scan_tables();
+            }
+            Err(crossbeam_channel::TryRecvError::Empty) => {}
+        }
+    }
+
     /// Record the results of `start_b2s_dmd`. Silent by design, like the VBS patches.
     pub(super) fn process_b2s_dmd(&mut self) {
         if let Some(rx) = &self.b2s_dmd_rx {
