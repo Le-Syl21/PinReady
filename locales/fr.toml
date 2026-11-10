@@ -56,6 +56,7 @@ launcher_close = "Fermer"
 # Mise à jour
 update_progress = "Mise à jour... %{mb}/%{total} Mo (%{pct}%)"
 update_extracting = "Extraction..."
+tiles_progress = "Création des tuiles... %{done}/%{total}"
 update_button = "Mise à jour VPX %{tag}"
 update_error = "Erreur : %{msg}"
 update_install_denied = "PinReady n'utilise pas d'élévation de privilèges : il ne peut pas écrire dans « %{dir} ». Utilisez un dossier où vous avez les droits d'écriture ; nous recommandons le dossier proposé par défaut."

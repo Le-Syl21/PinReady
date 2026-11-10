@@ -639,8 +639,14 @@ impl App {
                             egui::vec2(card_width, card_height),
                             egui::Sense::click(),
                         );
+                        // Off-screen cards are not painted: with thousands of tables
+                        // the text of every placeholder tile used to be laid out and
+                        // tessellated on each frame, which froze the whole interface
+                        // while the pictures were being rebuilt.
                         if ui.is_rect_visible(rect) {
                             visible_pos.push(fi);
+                        } else {
+                            continue;
                         }
 
                         // Only let hover drive selection when the cursor is actively
@@ -1213,7 +1219,11 @@ impl App {
         // Head tracking decides for itself further down — it has to poll its
         // worker and its version check first, and both can turn the bar on.
         let has_ht = self.ht_banner_wanted();
-        if !has_vpx && !has_pinready && !has_ht {
+        // Tiles being (re)built: the pictures come in table by table
+        let tiles_total = self.tables.len();
+        let tiles_done = self.tables.iter().filter(|t| t.has_bg).count();
+        let has_tiles = self.bg_rx.is_some() && tiles_done < tiles_total;
+        if !has_vpx && !has_pinready && !has_ht && !has_tiles {
             return;
         }
 
@@ -1233,6 +1243,25 @@ impl App {
                 ),
             );
         };
+
+        if has_tiles {
+            ui.add(
+                egui::ProgressBar::new(tiles_done as f32 / tiles_total.max(1) as f32)
+                    .desired_width(full_w)
+                    .desired_height(bar_h)
+                    .text(
+                        egui::RichText::new(
+                            t!("tiles_progress", done = tiles_done, total = tiles_total)
+                                .to_string(),
+                        )
+                        .size(text_size)
+                        .strong(),
+                    ),
+            );
+            // The bar moves without any input: keep repainting while it is up
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_millis(250));
+        }
 
         if has_vpx {
             if self.update_downloading {

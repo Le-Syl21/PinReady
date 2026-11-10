@@ -56,6 +56,7 @@ launcher_close = "Close"
 # Update
 update_progress = "Updating... %{mb}/%{total} MB (%{pct}%)"
 update_extracting = "Extracting..."
+tiles_progress = "Building the tiles... %{done}/%{total}"
 update_button = "Update VPX %{tag}"
 update_error = "Error: %{msg}"
 update_install_denied = "PinReady doesn't use elevated privileges, so it can't write to “%{dir}”. Use a folder you have write access to; we recommend the default folder."
