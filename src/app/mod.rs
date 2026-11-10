@@ -31,6 +31,48 @@ pub enum AppMode {
 /// that survives the Drop.
 static NEXT_ACTION: Mutex<Option<AppMode>> = Mutex::new(None);
 
+/// Set when the process is asked to stop (SIGTERM, SIGINT, SIGHUP); `ui()`
+/// then closes the window the way the Quit button does.
+static QUIT_SIGNAL: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// The context of the running eframe session, to wake it when a signal comes.
+static SIGNAL_CTX: Mutex<Option<egui::Context>> = Mutex::new(None);
+
+/// Make SIGTERM, SIGINT and SIGHUP close PinReady like the Quit button.
+/// Called once per eframe session (the app restarts on a mode switch); the
+/// listener thread starts the first time only. A second signal while the
+/// first is still being handled ends the process at once, so that a stuck
+/// window can still be stopped with a plain `kill`.
+#[cfg(unix)]
+pub fn install_quit_signal(ctx: &egui::Context) {
+    use std::sync::atomic::Ordering;
+    *SIGNAL_CTX.lock().unwrap() = Some(ctx.clone());
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        use signal_hook::consts::{SIGHUP, SIGINT, SIGTERM};
+        match signal_hook::iterator::Signals::new([SIGTERM, SIGINT, SIGHUP]) {
+            Ok(mut signals) => {
+                let _ = std::thread::Builder::new()
+                    .name("pinready-signals".into())
+                    .spawn(move || {
+                        for sig in signals.forever() {
+                            log::info!("Signal {sig} received, closing");
+                            if QUIT_SIGNAL.swap(true, Ordering::SeqCst) {
+                                std::process::exit(128 + sig);
+                            }
+                            if let Some(ctx) = SIGNAL_CTX.lock().unwrap().as_ref() {
+                                ctx.request_repaint();
+                            }
+                        }
+                    });
+            }
+            Err(e) => log::warn!("Cannot listen for termination signals: {e}"),
+        }
+    });
+}
+
+#[cfg(not(unix))]
+pub fn install_quit_signal(_ctx: &egui::Context) {}
+
 /// Request a mode switch after the current eframe session closes. Call
 /// this, then send `ViewportCommand::Close` to trigger the transition.
 pub fn request_mode_switch(mode: AppMode) {
@@ -2008,6 +2050,9 @@ impl eframe::App for App {
                 crate::startup_timing::since_start_ms()
             )
         });
+        if QUIT_SIGNAL.swap(false, std::sync::atomic::Ordering::SeqCst) {
+            self.quit_launcher(ui.ctx());
+        }
         self.sync_zoom(ui.ctx());
         if self.mode == AppMode::Wizard && !self.wizard_size_checked {
             self.fit_wizard_window(ui.ctx());

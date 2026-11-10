@@ -851,6 +851,7 @@ fn run_eframe_for_mode(mode: app::AppMode) -> Result<()> {
         "PinReady",
         options,
         Box::new(move |cc| {
+            app::install_quit_signal(&cc.egui_ctx);
             // Load Noto fonts for non-Latin scripts (Arabic, CJK, Devanagari, Thai, etc.)
             let noto_fonts = noto_fonts_dl::load_fonts();
             if !noto_fonts.is_empty() {
