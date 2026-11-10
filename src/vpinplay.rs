@@ -359,7 +359,7 @@ fn to_crlf(text: &str) -> String {
 
 /// The ROM name a script uses, as VPinFE finds it: `cGameName = "..."`, else
 /// `cOptRom = "..."`.
-fn rom_of(script: &str) -> String {
+pub(crate) fn rom_of(script: &str) -> String {
     use regex::Regex;
     static GAME: OnceLock<Regex> = OnceLock::new();
     static OPT: OnceLock<Regex> = OnceLock::new();
@@ -385,6 +385,23 @@ fn detect_in(script: &str) -> Detect {
     }
 }
 
+/// The script of a table: the `.vbs` next to it when there is one, else the
+/// one embedded in the `.vpx`.
+pub(crate) fn read_script(vpx_path: &std::path::Path) -> Option<String> {
+    let sidecar = vpx_path.with_extension("vbs");
+    match std::fs::read(&sidecar) {
+        Ok(bytes) => {
+            let bytes = bytes
+                .strip_prefix(&[0xEF, 0xBB, 0xBF][..])
+                .unwrap_or(&bytes);
+            Some(String::from_utf8_lossy(bytes).into_owned())
+        }
+        Err(_) => crate::vbs_patches::extract_embedded_vbs(vpx_path)
+            .map_err(|e| log::warn!("VPinPlay: no script for {}: {e:#}", vpx_path.display()))
+            .ok(),
+    }
+}
+
 impl VpxMeta {
     /// The facts of a script: its hash, ROM name and what it uses.
     pub fn from_script(script: &str) -> Self {
@@ -399,18 +416,7 @@ impl VpxMeta {
 
     /// Read what can be read from the `.vpx`; whatever fails stays empty.
     pub fn read(vpx_path: &std::path::Path) -> Self {
-        let sidecar = vpx_path.with_extension("vbs");
-        let script = match std::fs::read(&sidecar) {
-            Ok(bytes) => {
-                let bytes = bytes
-                    .strip_prefix(&[0xEF, 0xBB, 0xBF][..])
-                    .unwrap_or(&bytes);
-                Some(String::from_utf8_lossy(bytes).into_owned())
-            }
-            Err(_) => crate::vbs_patches::extract_embedded_vbs(vpx_path)
-                .map_err(|e| log::warn!("VPinPlay: no script for {}: {e:#}", vpx_path.display()))
-                .ok(),
-        };
+        let script = read_script(vpx_path);
         let mut meta = script.as_deref().map(Self::from_script).unwrap_or_default();
         match sha256_file(vpx_path) {
             Ok(h) => meta.filehash = h,

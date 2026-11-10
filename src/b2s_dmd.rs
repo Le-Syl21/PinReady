@@ -22,7 +22,44 @@
 use anyhow::{Context, Result, bail};
 use base64::Engine;
 use sha2::{Digest, Sha256};
+
+use crate::rom_displays::Screen;
 use std::path::{Path, PathBuf};
+
+/// The year in a table folder name written the usual way, "Name (Maker 1991)".
+fn year_of(name: &str) -> Option<u32> {
+    let inner = name.trim_end().strip_suffix(')')?;
+    let inner = &inner[inner.rfind('(')? + 1..];
+    let year = inner.rsplit(' ').next()?;
+    (year.len() == 4).then(|| year.parse().ok()).flatten()
+}
+
+/// The screen the game of a table draws its scores on, from the ROM its script
+/// names (see `rom_displays.rs`). Without a known ROM, a table made before 1990
+/// has no dot matrix; a newer or original one has one when its script talks
+/// about a DMD.
+pub fn screen_for_table(vpx: &Path) -> Screen {
+    let Some(script) = crate::vpinplay::read_script(vpx) else {
+        return Screen::Unknown;
+    };
+    let rom = crate::vpinplay::rom_of(&script);
+    if !rom.is_empty() {
+        let known = crate::rom_displays::screen_of(&rom);
+        if known != Screen::Unknown {
+            return known;
+        }
+    }
+    let name = vpx
+        .file_stem()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let old_table = !name.contains("Original") && year_of(&name).is_some_and(|y| y < 1990);
+    if old_table || !script.to_ascii_lowercase().contains("dmd") {
+        Screen::Segments
+    } else {
+        Screen::Unknown
+    }
+}
 
 /// Persisted outcome of a check, in the `b2s_dmd` table.
 pub mod status {
@@ -73,6 +110,8 @@ pub enum Analysis {
     HasDisplays,
     /// No `<DMDImage>`: no DMD frame to put a DMD in.
     NoDmdImage,
+    /// The game has no dot matrix and no video screen (segment displays only).
+    NoScreen,
     /// The frame image has no dark hole of the right shape.
     NoHole,
     /// The element is missing and this is where the DMD goes.
@@ -136,13 +175,13 @@ fn dmd_image_bytes(doc: &[u8]) -> Result<Option<Vec<u8>>> {
     Ok(Some(bytes))
 }
 
-/// What a hole is looked for as.
-#[derive(Clone, Copy, PartialEq, Eq)]
+/// What a hole is looked for as, with the width over height of the screen.
+#[derive(Clone, Copy, PartialEq)]
 enum Shape {
-    /// The DMD's 4:1.
-    Dmd,
-    /// A nearly square video screen.
-    Video,
+    /// A dot matrix (4:1 for 128x32, 8:1 for 128x16, 3:1 for 192x64).
+    Dmd(f32),
+    /// A video screen (nearly square for Mr. Game's rotated CRT).
+    Video(f32),
 }
 
 impl Shape {
@@ -150,9 +189,9 @@ impl Shape {
     fn kept_width(self, w: usize, h: usize) -> Option<usize> {
         let ar = w as f32 / h as f32;
         match self {
-            Shape::Dmd => (ar >= DMD_ASPECT * (1.0 - ASPECT_TOLERANCE))
-                .then(|| w.min((h as f32 * DMD_ASPECT * (1.0 + ASPECT_TOLERANCE)) as usize)),
-            Shape::Video => (VIDEO_ASPECT_MIN..=VIDEO_ASPECT_MAX)
+            Shape::Dmd(a) => (ar >= a * (1.0 - ASPECT_TOLERANCE))
+                .then(|| w.min((h as f32 * a * (1.0 + ASPECT_TOLERANCE)) as usize)),
+            Shape::Video(a) => (a * VIDEO_ASPECT_MIN..=a * VIDEO_ASPECT_MAX)
                 .contains(&ar)
                 .then_some(w),
         }
@@ -160,9 +199,12 @@ impl Shape {
 
     fn aspect(self) -> f32 {
         match self {
-            Shape::Dmd => DMD_ASPECT,
-            Shape::Video => VIDEO_ASPECT,
+            Shape::Dmd(a) | Shape::Video(a) => a,
         }
+    }
+
+    fn is_dmd(self) -> bool {
+        matches!(self, Shape::Dmd(_))
     }
 }
 
@@ -388,8 +430,8 @@ fn find_hole_area(image: &image::DynamicImage, shape: Shape) -> Option<(usize, D
 /// A video frame set in dark artwork has no border that stands out from the
 /// artwork, so the contrast test cannot find it. As a last resort, a large
 /// nearly square dark rectangle in the middle of the image is taken for it.
-fn find_dark_video_area(image: &image::DynamicImage) -> Option<(usize, DmdRect)> {
-    find_hole_with(image, Shape::Video, true)
+fn find_dark_video_area(image: &image::DynamicImage, aspect: f32) -> Option<(usize, DmdRect)> {
+    find_hole_with(image, Shape::Video(aspect), true)
 }
 
 /// `relaxed` drops the contrast test for a dark rectangle that is centred
@@ -421,7 +463,7 @@ fn find_hole_with(
             }
             let big_enough = (w as f32) >= width as f32 * MIN_WIDTH_SHARE
                 && (h as f32) >= height as f32 * MIN_HEIGHT_SHARE;
-            let strict = shape == Shape::Dmd;
+            let strict = shape.is_dmd();
             let accepted = if relaxed {
                 let centre = (x * 2 + w) as f32 / 2.0;
                 big_enough
@@ -457,28 +499,240 @@ fn find_hole_with(
     best
 }
 
-/// Look at the text of a `.directb2s`.
-pub fn analyze(doc: &[u8]) -> Result<Analysis> {
+/// The pixels that belong to a flat area, with sparse noise tolerated.
+///
+/// A pixel is flat when it differs from its right and lower neighbours by at
+/// most `threshold` in every channel; the mask is then smoothed: a pixel stays
+/// flat when nearly all of its 5x5 neighbourhood is, so a few dark specks in a panel
+/// do not cut it in pieces (a thin outline between two flat areas, one line
+/// of pixels, is still a boundary). See-through pixels count as black.
+fn flat_mask(rgba: &image::RgbaImage, threshold: i32) -> Vec<bool> {
+    let (width, height) = (rgba.width() as usize, rgba.height() as usize);
+    let px = |x: usize, y: usize| -> [i32; 3] {
+        let p = rgba.get_pixel(x as u32, y as u32).0;
+        if p[3] < 32 {
+            [0, 0, 0]
+        } else {
+            [i32::from(p[0]), i32::from(p[1]), i32::from(p[2])]
+        }
+    };
+    let mut raw = vec![0u8; width * height];
+    for y in 0..height {
+        for x in 0..width {
+            let a = px(x, y);
+            let mut flat = true;
+            for (nx, ny) in [(x + 1, y), (x, y + 1)] {
+                if nx < width && ny < height {
+                    let b = px(nx, ny);
+                    if (0..3).any(|c| (a[c] - b[c]).abs() > threshold) {
+                        flat = false;
+                        break;
+                    }
+                }
+            }
+            raw[y * width + x] = u8::from(flat);
+        }
+    }
+    // integral image of the raw mask, then the share of flat pixels in 5x5
+    let stride = width + 1;
+    let mut integral = vec![0u32; stride * (height + 1)];
+    for y in 0..height {
+        let mut row = 0u32;
+        for x in 0..width {
+            row += u32::from(raw[y * width + x]);
+            integral[(y + 1) * stride + x + 1] = integral[y * stride + x + 1] + row;
+        }
+    }
+    const R: usize = 2;
+    let mut out = vec![false; width * height];
+    for y in 0..height {
+        let (y0, y1) = (y.saturating_sub(R), (y + R + 1).min(height));
+        for x in 0..width {
+            let (x0, x1) = (x.saturating_sub(R), (x + R + 1).min(width));
+            let sum = integral[y1 * stride + x1] + integral[y0 * stride + x0]
+                - integral[y0 * stride + x1]
+                - integral[y1 * stride + x0];
+            let area = ((x1 - x0) * (y1 - y0)) as u32;
+            out[y * width + x] = sum * 100 >= area * 85;
+        }
+    }
+    out
+}
+
+/// How much the colour of a rectangle differs from the ring of pixels around
+/// it (mean absolute difference of the channels). A panel set in artwork
+/// stands out whatever its colour; a patch of flat background does not.
+fn colour_contrast(
+    rgba: &image::RgbaImage,
+    rect: (usize, usize, usize, usize),
+    ring: usize,
+) -> f32 {
+    let (width, height) = (rgba.width() as usize, rgba.height() as usize);
+    let (x, y, w, h) = rect;
+    let ox = x.saturating_sub(ring);
+    let oy = y.saturating_sub(ring);
+    let ow = (x + w + ring).min(width) - ox;
+    let oh = (y + h + ring).min(height) - oy;
+    let full_ring = ((w + 2 * ring) * (h + 2 * ring) - w * h) as f64;
+    let ring_area = (ow * oh - w * h) as f64;
+    if ring_area < full_ring * 0.25 {
+        return 0.0;
+    }
+    let sum = |rx: usize, ry: usize, rw: usize, rh: usize| -> [f64; 3] {
+        let mut t = [0f64; 3];
+        for row in ry..ry + rh {
+            for col in rx..rx + rw {
+                let p = rgba.get_pixel(col as u32, row as u32).0;
+                for c in 0..3 {
+                    t[c] += f64::from(p[c]);
+                }
+            }
+        }
+        t
+    };
+    let outer = sum(ox, oy, ow, oh);
+    let inner = sum(x, y, w, h);
+    let inner_area = (w * h) as f64;
+    (0..3)
+        .map(|c| ((outer[c] - inner[c]) / ring_area - inner[c] / inner_area).abs())
+        .sum::<f64>() as f32
+        / 3.0
+}
+
+/// Whether a panel stands out from its surroundings: a flat panel is often set
+/// in a bezel that is nearly its own colour, so the ring close around it is
+/// compared first, then a wider one that reaches the artwork past the bezel.
+fn stands_out(rgba: &image::RgbaImage, rect: (usize, usize, usize, usize), min: f32) -> bool {
+    let wide = (rgba.width() as usize / 60).max(24);
+    colour_contrast(rgba, rect, 6) >= min || colour_contrast(rgba, rect, wide) >= min
+}
+
+/// A hole that is not dark: a flat panel (light grey, white, a plain colour)
+/// of the screen's shape, set in artwork that stands out from it. This is the
+/// last resort, after the search for dark holes found nothing.
+fn find_flat_panel(
+    image: &image::DynamicImage,
+    shape: Shape,
+    min_contrast: f32,
+    lenient: bool,
+) -> Option<(usize, DmdRect)> {
+    const THRESHOLDS: [i32; 3] = [4, 8, 14];
+    /// Inset from the border of the panel, so the DMD sits inside its frame.
+    const INSET: usize = 4;
+    let rgba = image.to_rgba8();
+    let (width, height) = (rgba.width() as usize, rgba.height() as usize);
+    if width < 64 || height < 24 {
+        return None;
+    }
+    let mut best: Option<(usize, DmdRect)> = None;
+    for threshold in THRESHOLDS {
+        let mut flat = flat_mask(&rgba, threshold);
+        for _ in 0..12 {
+            let (area, x, y, w, h) = largest_dark_rect(&flat, width, height, shape);
+            if area == 0 {
+                break;
+            }
+            let big_enough = (w as f32) >= width as f32 * MIN_WIDTH_SHARE
+                && (h as f32) >= height as f32 * MIN_HEIGHT_SHARE
+                && w > 2 * INSET + 8
+                && h > 2 * INSET + 8;
+            // With nothing to tell it from the artwork (a black band under a dark
+            // title), the lowest large plain panel of a game that has a dot
+            // matrix is the best there is
+            let low_band = lenient
+                && y + h >= height * 6 / 10
+                && w * 100 >= width * 40
+                && area * 100 >= width * height * 8;
+            if big_enough && (low_band || stands_out(&rgba, (x, y, w, h), min_contrast)) {
+                if best.is_none_or(|(a, _)| area > a) {
+                    best = Some((
+                        area,
+                        fit_aspect(
+                            x + INSET,
+                            y + INSET,
+                            w - 2 * INSET,
+                            h - 2 * INSET,
+                            shape.aspect(),
+                        ),
+                    ));
+                }
+                break;
+            }
+            for row in y..y + h {
+                flat[row * width + x..row * width + x + w].fill(false);
+            }
+        }
+    }
+    best
+}
+
+/// Look at the text of a `.directb2s` of a game with the given `screen`.
+///
+/// The screen decides what is looked for: nothing for a game with segment
+/// displays only, a hole of the screen's own shape for a dot matrix or a video
+/// screen (a rotated CRT is nearly square), either shape for an unknown ROM.
+pub fn analyze(doc: &[u8], screen: Screen) -> Result<Analysis> {
     if find(doc, b"<Displays", 0).is_some() {
         return Ok(Analysis::HasDisplays);
+    }
+    if screen == Screen::Segments {
+        return Ok(Analysis::NoScreen);
     }
     let Some(bytes) = dmd_image_bytes(doc)? else {
         return Ok(Analysis::NoDmdImage);
     };
     let image = image::load_from_memory(&bytes).context("DMDImage cannot be decoded")?;
-    // A square hole holds a 4:1 rectangle too, and a 4:1 hole holds a square one:
-    // the shape with the larger area is the real one
-    let dmd = find_hole_area(&image, Shape::Dmd);
-    let video = find_hole_area(&image, Shape::Video);
-    Ok(match (dmd, video) {
-        (Some((a, rect)), Some((b, _))) if a >= b => Analysis::Missing(rect),
-        (Some((_, rect)), None) => Analysis::Missing(rect),
-        (_, Some((_, rect))) => Analysis::MissingVideo(rect),
-        (None, None) => match find_dark_video_area(&image) {
-            Some((_, rect)) => Analysis::MissingVideo(rect),
-            None => Analysis::NoHole,
-        },
-    })
+    let dmd_shape = match screen {
+        Screen::Dmd { .. } => Some(Shape::Dmd(screen.aspect().unwrap_or(DMD_ASPECT))),
+        Screen::Unknown => Some(Shape::Dmd(DMD_ASPECT)),
+        _ => None,
+    };
+    let video_shape = match screen {
+        Screen::Video { .. } => Some(Shape::Video(screen.aspect().unwrap_or(VIDEO_ASPECT))),
+        _ => None,
+    };
+    let (width, height) = (image.width() as usize, image.height() as usize);
+    // A game known to have a screen has it in the frame, so a weak outline will
+    // do; for a game the list does not know, the panel has to stand out
+    let min_contrast = if matches!(screen, Screen::Unknown) {
+        20.0
+    } else {
+        6.0
+    };
+    let lenient = matches!(screen, Screen::Dmd { .. });
+    // A dot matrix first: a game that is not known to have a video screen has a
+    // dot matrix, whatever the frame's biggest dark square may be. The dark
+    // hole and the light panel compete, the larger wins (a small dark patch
+    // of artwork must not hide the real panel)
+    if let Some(shape) = dmd_shape {
+        let dark = find_hole_area(&image, shape);
+        let big = dark.is_some_and(|(a, _)| a * 100 >= width * height * 12);
+        let flat = if big {
+            None
+        } else {
+            find_flat_panel(&image, shape, min_contrast, lenient)
+        };
+        let best = match (dark, flat) {
+            (Some((a, d)), Some((b, f))) => Some(if b > a { f } else { d }),
+            (Some((_, d)), None) => Some(d),
+            (None, Some((_, f))) => Some(f),
+            (None, None) => None,
+        };
+        if let Some(rect) = best {
+            return Ok(Analysis::Missing(rect));
+        }
+    }
+    if let Some(shape) = video_shape {
+        let dark =
+            find_hole_area(&image, shape).or_else(|| find_dark_video_area(&image, shape.aspect()));
+        if let Some((_, rect)) = dark {
+            return Ok(Analysis::MissingVideo(rect));
+        }
+        if let Some((_, rect)) = find_flat_panel(&image, shape, min_contrast, lenient) {
+            return Ok(Analysis::MissingVideo(rect));
+        }
+    }
+    Ok(Analysis::NoHole)
 }
 
 /// `doc` with the element before the closing tag of the document.
@@ -507,21 +761,74 @@ pub fn backup_path(backup_root: &Path, file: &Path) -> PathBuf {
     backup_root.join(folder).join(format!("{name}.orig"))
 }
 
+/// The original of `doc`, when `doc` is that original plus the one `<Displays>`
+/// element this module wrote and nothing else: the file is still ours to
+/// redo (a better search, a game recognised as having no DMD). A file that
+/// anyone else touched since is not.
+fn own_original(doc: &[u8], backup: &Path) -> Option<Vec<u8>> {
+    let orig = std::fs::read(backup).ok().filter(|o| !o.is_empty())?;
+    let at = doc
+        .windows(b"<Displays>".len())
+        .rposition(|w| w == b"<Displays>")?;
+    let end = find(doc, b"</Displays>", at)? + b"</Displays>".len();
+    let mut stripped = Vec::with_capacity(doc.len());
+    stripped.extend_from_slice(&doc[..at]);
+    stripped.extend_from_slice(&doc[end..]);
+    (stripped == orig).then_some(orig)
+}
+
+/// Replace `file` with `bytes` in one rename, keeping its permissions.
+fn replace_file(file: &Path, bytes: &[u8]) -> Result<()> {
+    let mut tmp_name = file.as_os_str().to_owned();
+    tmp_name.push(".pinready-tmp");
+    let tmp = PathBuf::from(tmp_name);
+    std::fs::write(&tmp, bytes).with_context(|| format!("cannot write {}", tmp.display()))?;
+    if let Ok(meta) = std::fs::metadata(file) {
+        let _ = std::fs::set_permissions(&tmp, meta.permissions());
+    }
+    if let Err(e) = std::fs::rename(&tmp, file) {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(e).with_context(|| format!("cannot replace {}", file.display()));
+    }
+    Ok(())
+}
+
 /// Check `file` and add the DMD element when it is missing and the frame image
-/// shows where it goes. The original is copied to `backup_root` first (never
-/// overwritten once it exists), and the new file replaces it in one rename.
-/// Returns the status to record.
-pub fn fix_file(file: &Path, backup_root: &Path) -> Result<&'static str> {
+/// shows where it goes, for a game with the given `screen`. The original is
+/// copied to `backup_root` first (never overwritten once it exists), and the
+/// new file replaces it in one rename. A file this module fixed earlier is
+/// checked again from its original: the element is replaced when the search
+/// now finds it elsewhere, and taken out when the game turns out to have no
+/// dot matrix. Returns the status to record.
+pub fn fix_file(file: &Path, backup_root: &Path, screen: Screen) -> Result<&'static str> {
     let doc = std::fs::read(file).with_context(|| format!("cannot read {}", file.display()))?;
-    let (rect, element) = match analyze(&doc)? {
+    let backup = backup_path(backup_root, file);
+    let earlier = own_original(&doc, &backup);
+    let base: &[u8] = earlier.as_deref().unwrap_or(&doc);
+    let (rect, element) = match analyze(base, screen)? {
         Analysis::HasDisplays | Analysis::NoDmdImage => return Ok(status::NOT_NEEDED),
-        Analysis::NoHole => return Ok(status::NO_HOLE),
+        absent @ (Analysis::NoScreen | Analysis::NoHole) => {
+            if let Some(orig) = &earlier {
+                replace_file(file, orig)?;
+                log::info!(
+                    "b2s_dmd: {} is back to its original: no DMD area for this game",
+                    file.display()
+                );
+            }
+            return Ok(if absent == Analysis::NoScreen {
+                status::NOT_NEEDED
+            } else {
+                status::NO_HOLE
+            });
+        }
         Analysis::Missing(rect) => (rect, rect.element()),
         Analysis::MissingVideo(rect) => (rect, rect.video_element()),
     };
-    let fixed = insert_element(&doc, &element)?;
+    let fixed = insert_element(base, &element)?;
+    if earlier.is_some() && fixed == doc {
+        return Ok(status::APPLIED); // the same place as before
+    }
 
-    let backup = backup_path(backup_root, file);
     if !backup.exists() {
         if let Some(dir) = backup.parent() {
             std::fs::create_dir_all(dir)
@@ -535,17 +842,7 @@ pub fn fix_file(file: &Path, backup_root: &Path) -> Result<&'static str> {
         bail!("the backup {} is empty", backup.display());
     }
 
-    let mut tmp_name = file.as_os_str().to_owned();
-    tmp_name.push(".pinready-tmp");
-    let tmp = PathBuf::from(tmp_name);
-    std::fs::write(&tmp, &fixed).with_context(|| format!("cannot write {}", tmp.display()))?;
-    if let Ok(meta) = std::fs::metadata(file) {
-        let _ = std::fs::set_permissions(&tmp, meta.permissions());
-    }
-    if let Err(e) = std::fs::rename(&tmp, file) {
-        let _ = std::fs::remove_file(&tmp);
-        return Err(e).with_context(|| format!("cannot replace {}", file.display()));
-    }
+    replace_file(file, &fixed)?;
     log::info!(
         "b2s_dmd: {} got its DMD area X={} Y={} W={} H={} (original kept in {})",
         file.display(),
@@ -562,6 +859,12 @@ pub fn fix_file(file: &Path, backup_root: &Path) -> Result<&'static str> {
 mod tests {
     use super::*;
     use image::{ImageBuffer, Rgba};
+
+    /// Mr. Game's rotated CRT: 256x248.
+    const MR_GAME: Screen = Screen::Video {
+        width: 256,
+        height: 248,
+    };
 
     /// A frame image: grey artwork with a black 4:1 hole at (x, y, w, h).
     fn frame(width: u32, height: u32, hole: (u32, u32, u32, u32)) -> image::DynamicImage {
@@ -610,7 +913,7 @@ mod tests {
     #[test]
     fn finds_the_hole_of_a_frame() {
         let img = frame(1012, 309, (35, 37, 938, 234));
-        let rect = find_hole(&img, Shape::Dmd).expect("hole");
+        let rect = find_hole(&img, Shape::Dmd(DMD_ASPECT)).expect("hole");
         // fitted to 4:1 inside the hole, which is 938x234 (4.008)
         assert!((rect.w as i64 - 936).abs() <= 2, "{rect:?}");
         assert!((rect.h as i64 - 234).abs() <= 1, "{rect:?}");
@@ -634,7 +937,11 @@ mod tests {
                 Rgba([150, 110, 40, 255]) // gold frame
             }
         });
-        let rect = find_hole(&image::DynamicImage::ImageRgba8(img), Shape::Dmd).expect("hole");
+        let rect = find_hole(
+            &image::DynamicImage::ImageRgba8(img),
+            Shape::Dmd(DMD_ASPECT),
+        )
+        .expect("hole");
         // inside the hole, and most of it
         assert!(rect.x >= 115 && rect.x + rect.w <= 1165, "{rect:?}");
         assert!(rect.y >= 450 && rect.y + rect.h <= 710, "{rect:?}");
@@ -648,8 +955,11 @@ mod tests {
         let img = frame(2190, 698, (719, 38, 750, 660));
         let image = image::DynamicImage::ImageRgba8(img.to_rgba8());
         let doc = document(Some(&image), false);
-        assert!(matches!(analyze(&doc).unwrap(), Analysis::MissingVideo(_)));
-        let rect = find_hole(&image, Shape::Video).expect("video hole");
+        assert!(matches!(
+            analyze(&doc, MR_GAME).unwrap(),
+            Analysis::MissingVideo(_)
+        ));
+        let rect = find_hole(&image, Shape::Video(VIDEO_ASPECT)).expect("video hole");
         assert!(
             (rect.w as i64 - rect.h as i64).abs() <= 1,
             "square: {rect:?}"
@@ -662,7 +972,7 @@ mod tests {
     fn a_video_frame_is_written_with_the_screen_as_source() {
         let img = frame(2190, 698, (719, 38, 750, 660));
         let doc = document(Some(&img), false);
-        let Analysis::MissingVideo(rect) = analyze(&doc).unwrap() else {
+        let Analysis::MissingVideo(rect) = analyze(&doc, MR_GAME).unwrap() else {
             panic!("expected a video hole");
         };
         let fixed = insert_element(&doc, &rect.video_element()).unwrap();
@@ -688,28 +998,35 @@ mod tests {
     #[test]
     fn a_centred_video_hole_in_dark_artwork_is_found() {
         let doc = document(Some(&dark_frame((734, 63, 731, 635))), false);
-        let Analysis::MissingVideo(rect) = analyze(&doc).unwrap() else {
+        let Analysis::MissingVideo(rect) = analyze(&doc, MR_GAME).unwrap() else {
             panic!("expected a video hole");
         };
+        // the shape of Mr. Game's screen, 256x248
         assert!(
-            (rect.w as i64 - rect.h as i64).abs() <= 1,
-            "square: {rect:?}"
+            (rect.w as f32 / rect.h as f32 - 256.0 / 248.0).abs() < 0.02,
+            "shape: {rect:?}"
         );
     }
 
     #[test]
     fn a_dark_square_off_centre_or_small_is_not_a_video_screen() {
         let off_centre = document(Some(&dark_frame((100, 63, 731, 635))), false);
-        assert_eq!(analyze(&off_centre).unwrap(), Analysis::NoHole);
+        assert_eq!(
+            analyze(&off_centre, Screen::Unknown).unwrap(),
+            Analysis::NoHole
+        );
         let small = document(Some(&dark_frame((1000, 200, 200, 200))), false);
-        assert_eq!(analyze(&small).unwrap(), Analysis::NoHole);
+        assert_eq!(analyze(&small, Screen::Unknown).unwrap(), Analysis::NoHole);
     }
 
     #[test]
     fn a_dmd_hole_wins_over_a_video_one() {
         let img = frame(2000, 600, (400, 250, 1200, 300));
         let doc = document(Some(&img), false);
-        assert!(matches!(analyze(&doc).unwrap(), Analysis::Missing(_)));
+        assert!(matches!(
+            analyze(&doc, Screen::Unknown).unwrap(),
+            Analysis::Missing(_)
+        ));
     }
 
     #[test]
@@ -719,13 +1036,13 @@ mod tests {
             300,
             Rgba([90, 90, 90, 255]),
         ));
-        assert!(find_hole(&img, Shape::Dmd).is_none());
+        assert!(find_hole(&img, Shape::Dmd(DMD_ASPECT)).is_none());
     }
 
     #[test]
     fn a_small_dark_spot_is_not_a_dmd() {
         let img = frame(1000, 600, (10, 10, 120, 30));
-        assert!(find_hole(&img, Shape::Dmd).is_none());
+        assert!(find_hole(&img, Shape::Dmd(DMD_ASPECT)).is_none());
     }
 
     #[test]
@@ -737,14 +1054,18 @@ mod tests {
                 Rgba([100, 100, 100, 255])
             }
         });
-        let rect = find_hole(&image::DynamicImage::ImageRgba8(img), Shape::Dmd).expect("hole");
+        let rect = find_hole(
+            &image::DynamicImage::ImageRgba8(img),
+            Shape::Dmd(DMD_ASPECT),
+        )
+        .expect("hole");
         assert!(rect.w >= 700 && rect.h >= 170);
     }
 
     #[test]
     fn analyze_reads_the_escaped_base64() {
         let img = frame(1012, 309, (35, 37, 938, 234));
-        match analyze(&document(Some(&img), false)).unwrap() {
+        match analyze(&document(Some(&img), false), Screen::Unknown).unwrap() {
             Analysis::Missing(r) => assert!(r.w > 900),
             other => panic!("{other:?}"),
         }
@@ -754,7 +1075,7 @@ mod tests {
     fn an_existing_displays_element_is_left_alone() {
         let img = frame(1012, 309, (35, 37, 938, 234));
         assert_eq!(
-            analyze(&document(Some(&img), true)).unwrap(),
+            analyze(&document(Some(&img), true), Screen::Unknown).unwrap(),
             Analysis::HasDisplays
         );
     }
@@ -762,7 +1083,7 @@ mod tests {
     #[test]
     fn no_frame_image_no_change() {
         assert_eq!(
-            analyze(&document(None, false)).unwrap(),
+            analyze(&document(None, false), Screen::Unknown).unwrap(),
             Analysis::NoDmdImage
         );
     }
@@ -795,7 +1116,10 @@ mod tests {
         let original = document(Some(&img), false);
         std::fs::write(&file, &original).unwrap();
 
-        assert_eq!(fix_file(&file, backups.path()).unwrap(), status::APPLIED);
+        assert_eq!(
+            fix_file(&file, backups.path(), Screen::Unknown).unwrap(),
+            status::APPLIED
+        );
         let fixed = std::fs::read(&file).unwrap();
         assert!(find(&fixed, b"<Displays><DMD Target=\"ScoreView\"", 0).is_some());
         assert_eq!(
@@ -808,8 +1132,11 @@ mod tests {
                 .exists()
         );
 
-        // a second pass finds the element and does nothing
-        assert_eq!(fix_file(&file, backups.path()).unwrap(), status::NOT_NEEDED);
+        // a second pass finds its own element in the same place and does nothing
+        assert_eq!(
+            fix_file(&file, backups.path(), Screen::Unknown).unwrap(),
+            status::APPLIED
+        );
         assert_eq!(std::fs::read(&file).unwrap(), fixed);
         assert_eq!(
             std::fs::read(backup_path(backups.path(), &file)).unwrap(),
@@ -829,7 +1156,10 @@ mod tests {
         ));
         let original = document(Some(&img), false);
         std::fs::write(&file, &original).unwrap();
-        assert_eq!(fix_file(&file, backups.path()).unwrap(), status::NO_HOLE);
+        assert_eq!(
+            fix_file(&file, backups.path(), Screen::Unknown).unwrap(),
+            status::NO_HOLE
+        );
         assert_eq!(std::fs::read(&file).unwrap(), original);
         assert!(!backup_path(backups.path(), &file).exists());
     }
@@ -970,7 +1300,185 @@ mod tests {
             .filter(|f| !f.is_empty())
         {
             let doc = std::fs::read(file).unwrap();
-            println!("{file}: {:?}", analyze(&doc));
+            println!("{file}: {:?}", analyze(&doc, Screen::Unknown));
         }
+    }
+
+    /// A frame image: dark artwork with a flat panel of `colour` at (x, y, w, h),
+    /// and some black specks on the panel.
+    fn light_panel(colour: [u8; 3], noisy: bool) -> image::DynamicImage {
+        let img = ImageBuffer::from_fn(1200, 700, |px, py| {
+            let (x, y, w, h) = (30u32, 400u32, 1100u32, 260u32);
+            if px >= x && px < x + w && py >= y && py < y + h {
+                if noisy && (px * 7 + py * 13) % 61 == 0 {
+                    Rgba([10, 10, 10, 255])
+                } else {
+                    Rgba([colour[0], colour[1], colour[2], 255])
+                }
+            } else {
+                // textured artwork: never flat
+                let v = ((px * 131 + py * 71 + px * py) % 97) as u8 * 2 + 20;
+                Rgba([v, 60, 255 - v, 255])
+            }
+        });
+        image::DynamicImage::ImageRgba8(img)
+    }
+
+    #[test]
+    fn a_light_panel_is_found_when_there_is_no_dark_hole() {
+        let doc = document(Some(&light_panel([225, 235, 233], false)), false);
+        let Analysis::Missing(rect) = analyze(&doc, Screen::Unknown).unwrap() else {
+            panic!("no DMD area");
+        };
+        // inside the panel, 4:1
+        assert!(rect.x >= 30 && rect.x + rect.w <= 1130, "{rect:?}");
+        assert!(rect.y >= 400 && rect.y + rect.h <= 660, "{rect:?}");
+        assert!(
+            ((rect.w as f32 / rect.h as f32) - 4.0).abs() < 0.2,
+            "{rect:?}"
+        );
+    }
+
+    #[test]
+    fn a_few_dark_specks_do_not_break_the_panel() {
+        let doc = document(Some(&light_panel([225, 235, 233], true)), false);
+        assert!(matches!(
+            analyze(&doc, Screen::Unknown).unwrap(),
+            Analysis::Missing(_)
+        ));
+    }
+
+    #[test]
+    fn plain_artwork_has_no_light_panel() {
+        let img = ImageBuffer::from_fn(1200, 700, |px, py| {
+            let v = ((px * 131 + py * 71 + px * py) % 97) as u8 * 2 + 20;
+            Rgba([v, 60, 255 - v, 255])
+        });
+        let doc = document(Some(&image::DynamicImage::ImageRgba8(img)), false);
+        assert_eq!(analyze(&doc, Screen::Unknown).unwrap(), Analysis::NoHole);
+    }
+
+    #[test]
+    fn the_year_of_a_table_folder_name() {
+        assert_eq!(year_of("Expressway (Bally 1971)"), Some(1971));
+        assert_eq!(year_of("The Crow (Original 2025)"), Some(2025));
+        assert_eq!(year_of("No year here"), None);
+        assert_eq!(year_of("Odd (Maker) (Original 25)"), None);
+    }
+
+    #[test]
+    fn a_game_with_segment_displays_only_is_left_alone() {
+        let doc = document(Some(&frame(1000, 600, (100, 400, 800, 200))), false);
+        assert_eq!(analyze(&doc, Screen::Segments).unwrap(), Analysis::NoScreen);
+    }
+
+    #[test]
+    fn the_hole_has_the_shape_of_the_screen_of_the_game() {
+        // a 8:1 hole (128x16) in the middle of a 4:1 one's reach
+        let doc = document(Some(&frame(1200, 600, (100, 400, 1000, 125))), false);
+        let Analysis::Missing(rect) = analyze(
+            &doc,
+            Screen::Dmd {
+                width: 128,
+                height: 16,
+            },
+        )
+        .unwrap() else {
+            panic!("no DMD area");
+        };
+        assert!(
+            ((rect.w as f32 / rect.h as f32) - 8.0).abs() < 0.2,
+            "{rect:?}"
+        );
+    }
+
+    #[test]
+    fn a_fix_of_an_earlier_version_is_redone_and_undone() {
+        let dir = tempfile::tempdir().unwrap();
+        let backups = tempfile::tempdir().unwrap();
+        let file = dir.path().join("t.directb2s");
+        let original = document(Some(&frame(1000, 600, (100, 400, 800, 200))), false);
+        std::fs::write(&file, &original).unwrap();
+        assert_eq!(
+            fix_file(&file, backups.path(), Screen::Unknown).unwrap(),
+            status::APPLIED
+        );
+        let first = std::fs::read(&file).unwrap();
+        // the same game again: unchanged
+        assert_eq!(
+            fix_file(&file, backups.path(), Screen::Unknown).unwrap(),
+            status::APPLIED
+        );
+        assert_eq!(std::fs::read(&file).unwrap(), first);
+        // the game turns out to have no dot matrix: back to the original
+        assert_eq!(
+            fix_file(&file, backups.path(), Screen::Segments).unwrap(),
+            status::NOT_NEEDED
+        );
+        assert_eq!(std::fs::read(&file).unwrap(), original);
+        // an element somebody else wrote is never touched
+        // (written by the in-game editor, which rewrites the whole file)
+        let mut authored = String::from_utf8(original.clone())
+            .unwrap()
+            .replace("Version=\"1.3\"", "Version=\"1.4\"")
+            .into_bytes();
+        authored = insert_element(
+            &authored,
+            "<Displays><DMD Target=\"ScoreView\" X=\"1\" Y=\"2\" W=\"3\" H=\"4\" /></Displays>",
+        )
+        .unwrap();
+        std::fs::write(&file, &authored).unwrap();
+        assert_eq!(
+            fix_file(&file, backups.path(), Screen::Segments).unwrap(),
+            status::NOT_NEEDED
+        );
+        assert_eq!(std::fs::read(&file).unwrap(), authored);
+    }
+
+    /// Development aid: what the fix would do to every table of a folder, with the
+    /// screen of its ROM. `B2S_DMD_TABLES=/path/to/Tables cargo test --profile=fast
+    /// sweep -- --ignored --nocapture`; nothing is written.
+    #[test]
+    #[ignore]
+    fn sweep() {
+        let root = std::env::var("B2S_DMD_TABLES").unwrap_or_default();
+        let mut tables: Vec<PathBuf> = std::fs::read_dir(&root)
+            .unwrap()
+            .flatten()
+            .filter_map(|d| {
+                let dir = d.path();
+                let name = dir.file_name()?.to_string_lossy().into_owned();
+                let vpx = dir.join(format!("{name}.vpx"));
+                dir.join(format!("{name}.directb2s"))
+                    .exists()
+                    .then_some(vpx)
+            })
+            .collect();
+        tables.sort();
+        let next = std::sync::atomic::AtomicUsize::new(0);
+        std::thread::scope(|scope| {
+            for _ in 0..8 {
+                scope.spawn(|| {
+                    loop {
+                        let i = next.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                        let Some(vpx) = tables.get(i) else { break };
+                        let screen = screen_for_table(vpx);
+                        let doc = std::fs::read(vpx.with_extension("directb2s")).unwrap();
+                        let result = match analyze(&doc, screen) {
+                            Ok(Analysis::Missing(r)) => {
+                                format!("DMD {} {} {} {}", r.x, r.y, r.w, r.h)
+                            }
+                            Ok(Analysis::MissingVideo(r)) => {
+                                format!("VIDEO {} {} {} {}", r.x, r.y, r.w, r.h)
+                            }
+                            Ok(other) => format!("{other:?}"),
+                            Err(e) => format!("ERROR {e}"),
+                        };
+                        let name = vpx.file_stem().unwrap().to_string_lossy();
+                        println!("SWEEP|{name}|{screen:?}|{result}");
+                    }
+                });
+            }
+        });
     }
 }

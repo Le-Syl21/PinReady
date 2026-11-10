@@ -33,6 +33,7 @@ mod outputs_pinone;
 mod pidlock;
 mod pinscape_config;
 mod plumb;
+mod rom_displays;
 mod scan_worker;
 mod screens;
 mod session;

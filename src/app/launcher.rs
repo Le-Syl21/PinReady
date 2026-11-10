@@ -1097,7 +1097,8 @@ impl App {
                 .name(format!("pinready-b2s-{w}"))
                 .spawn(move || {
                     for (b2s, rel_path) in job_rx.iter() {
-                        let status = match crate::b2s_dmd::fix_file(&b2s, &backup_root) {
+                        let screen = crate::b2s_dmd::screen_for_table(&b2s.with_extension("vpx"));
+                        let status = match crate::b2s_dmd::fix_file(&b2s, &backup_root, screen) {
                             Ok(status) => status.to_string(),
                             Err(e) => {
                                 log::warn!("b2s_dmd: {rel_path}: {e:#}");
