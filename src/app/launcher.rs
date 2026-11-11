@@ -1067,20 +1067,26 @@ impl App {
         phase.done();
     }
 
-    /// Size of the ScoreView window from `VPinballX.ini`, for the images made
-    /// for backglass files that have none; a default when the ini says nothing
-    /// usable.
-    fn scoreview_size(&self) -> (u32, u32) {
-        let get = |key: &str| {
-            self.config
-                .get_i32("ScoreView", key)
-                .filter(|v| (320..=8192).contains(v))
-                .map(|v| v as u32)
+    /// Sizes of the ScoreView and Backglass windows from `VPinballX.ini`, for the
+    /// images made for backglass files that have none; a default for the one
+    /// the ini says nothing usable about.
+    fn window_sizes(&self) -> ((u32, u32), (u32, u32)) {
+        let size = |section: &str, name: &str| {
+            let get = |key: String| {
+                self.config
+                    .get_i32(section, &key)
+                    .filter(|v| (320..=8192).contains(v))
+                    .map(|v| v as u32)
+            };
+            match (get(format!("{name}Width")), get(format!("{name}Height"))) {
+                (Some(w), Some(h)) => (w, h),
+                _ => crate::b2s_dmd::DEFAULT_SIZE,
+            }
         };
-        match (get("ScoreViewWidth"), get("ScoreViewHeight")) {
-            (Some(w), Some(h)) => (w, h),
-            _ => crate::b2s_dmd::DEFAULT_SIZE,
-        }
+        (
+            size("ScoreView", "ScoreView"),
+            size("Backglass", "Backglass"),
+        )
     }
 
     /// Give the `.directb2s` of each table the DMD area VPX's B2S plugin
@@ -1103,7 +1109,7 @@ impl App {
         // language of the interface
         let note: std::sync::Arc<str> = t!("b2s_no_dmd_image").to_string().into();
         // and the size of the ScoreView window, which they are made to fill
-        let size = self.scoreview_size();
+        let (size, bg_size) = self.window_sizes();
         let (job_tx, job_rx) = crossbeam_channel::unbounded();
         for job in jobs {
             let _ = job_tx.send(job);
@@ -1125,7 +1131,11 @@ impl App {
                             &b2s,
                             &backup_root,
                             screen,
-                            crate::b2s_dmd::Generated { note: &note, size },
+                            crate::b2s_dmd::Generated {
+                                note: &note,
+                                size,
+                                bg_size,
+                            },
                         ) {
                             Ok(status) => status.to_string(),
                             Err(e) => {
