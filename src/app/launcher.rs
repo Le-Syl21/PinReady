@@ -1082,6 +1082,9 @@ impl App {
             .unwrap_or_else(|| std::path::PathBuf::from("b2s-backup"));
         let (tx, rx) = crossbeam_channel::unbounded();
         let workers = worker_count().min(jobs.len());
+        // the note drawn in the frames made for games with no DMD image, in the
+        // language of the interface
+        let note: std::sync::Arc<str> = t!("b2s_no_dmd_image").to_string().into();
         let (job_tx, job_rx) = crossbeam_channel::unbounded();
         for job in jobs {
             let _ = job_tx.send(job);
@@ -1092,19 +1095,21 @@ impl App {
             let job_rx: crossbeam_channel::Receiver<(std::path::PathBuf, String)> = job_rx.clone();
             let tx = tx.clone();
             let backup_root = backup_root.clone();
+            let note = note.clone();
             let remaining = remaining.clone();
             std::thread::Builder::new()
                 .name(format!("pinready-b2s-{w}"))
                 .spawn(move || {
                     for (b2s, rel_path) in job_rx.iter() {
                         let screen = crate::b2s_dmd::screen_for_table(&b2s.with_extension("vpx"));
-                        let status = match crate::b2s_dmd::fix_file(&b2s, &backup_root, screen) {
-                            Ok(status) => status.to_string(),
-                            Err(e) => {
-                                log::warn!("b2s_dmd: {rel_path}: {e:#}");
-                                crate::b2s_dmd::status::FAILED.to_string()
-                            }
-                        };
+                        let status =
+                            match crate::b2s_dmd::fix_file(&b2s, &backup_root, screen, &note) {
+                                Ok(status) => status.to_string(),
+                                Err(e) => {
+                                    log::warn!("b2s_dmd: {rel_path}: {e:#}");
+                                    crate::b2s_dmd::status::FAILED.to_string()
+                                }
+                            };
                         // The mtime after the check: a file we just rewrote is not
                         // "changed" for the next scan
                         let mtime = file_mtime(&b2s).unwrap_or(0);

@@ -112,6 +112,9 @@ pub enum Analysis {
     NoDmdImage,
     /// The game has no dot matrix and no video screen (segment displays only).
     NoScreen,
+    /// Same game, and the file has no `<DMDImage>` either: a black one is added,
+    /// so that the ScoreView window is black instead of showing the desktop.
+    Blank,
     /// The frame image has no dark hole of the right shape.
     NoHole,
     /// The element is missing and this is where the DMD goes.
@@ -750,7 +753,11 @@ pub fn analyze(doc: &[u8], screen: Screen) -> Result<Analysis> {
         return Ok(Analysis::HasDisplays);
     }
     if screen == Screen::Segments {
-        return Ok(Analysis::NoScreen);
+        return Ok(if find(doc, b"<DMDImage", 0).is_none() {
+            Analysis::Blank
+        } else {
+            Analysis::NoScreen
+        });
     }
     let Some(bytes) = dmd_image_bytes(doc)? else {
         // A game with a screen needs a frame to show it in: without a
@@ -828,8 +835,6 @@ const FRAME_MARK: &str = "Generated=\"PinReady\"";
 
 /// Height of the band at the top of the generated frame that carries its note.
 const NOTE_BAND: u32 = 120;
-/// The note written in that band.
-const NOTE: &str = "NO DMD IMAGE";
 
 /// Where the display goes in the generated frame: the shape `aspect`, centred
 /// below the note band, with a margin of 5% around it.
@@ -849,43 +854,97 @@ fn frame_rect(aspect: f32) -> DmdRect {
     }
 }
 
-/// 5x7 glyphs of the letters of [`NOTE`], one row per byte (bit 4 = left).
+/// 5x7 glyph of a character of the note, one row per byte (bit 4 = left).
 fn glyph(c: char) -> [u8; 7] {
     match c {
-        'N' => [0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11],
-        'O' => [0x0E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E],
-        'D' => [0x1E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1E],
-        'M' => [0x11, 0x1B, 0x15, 0x15, 0x11, 0x11, 0x11],
-        'I' => [0x0E, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0E],
         'A' => [0x0E, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11],
-        'G' => [0x0E, 0x11, 0x10, 0x17, 0x11, 0x11, 0x0F],
+        'B' => [0x1E, 0x11, 0x11, 0x1E, 0x11, 0x11, 0x1E],
+        'C' => [0x0E, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0E],
+        'D' => [0x1E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1E],
         'E' => [0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x1F],
+        'F' => [0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x10],
+        'G' => [0x0E, 0x11, 0x10, 0x17, 0x11, 0x11, 0x0F],
+        'H' => [0x11, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11],
+        'I' => [0x0E, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0E],
+        'J' => [0x07, 0x02, 0x02, 0x02, 0x02, 0x12, 0x0C],
+        'K' => [0x11, 0x12, 0x14, 0x18, 0x14, 0x12, 0x11],
+        'L' => [0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1F],
+        'M' => [0x11, 0x1B, 0x15, 0x15, 0x11, 0x11, 0x11],
+        'N' => [0x11, 0x11, 0x19, 0x15, 0x13, 0x11, 0x11],
+        'O' => [0x0E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E],
+        'P' => [0x1E, 0x11, 0x11, 0x1E, 0x10, 0x10, 0x10],
+        'Q' => [0x0E, 0x11, 0x11, 0x11, 0x15, 0x12, 0x0D],
+        'R' => [0x1E, 0x11, 0x11, 0x1E, 0x14, 0x12, 0x11],
+        'S' => [0x0F, 0x10, 0x10, 0x0E, 0x01, 0x01, 0x1E],
+        'T' => [0x1F, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04],
+        'U' => [0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E],
+        'V' => [0x11, 0x11, 0x11, 0x11, 0x11, 0x0A, 0x04],
+        'W' => [0x11, 0x11, 0x11, 0x15, 0x15, 0x15, 0x0A],
+        'X' => [0x11, 0x11, 0x0A, 0x04, 0x0A, 0x11, 0x11],
+        'Y' => [0x11, 0x11, 0x0A, 0x04, 0x04, 0x04, 0x04],
+        'Z' => [0x1F, 0x01, 0x02, 0x04, 0x08, 0x10, 0x1F],
+        '\'' => [0x04, 0x04, 0x08, 0x00, 0x00, 0x00, 0x00],
+        '-' => [0x00, 0x00, 0x00, 0x1F, 0x00, 0x00, 0x00],
+        '.' => [0x00, 0x00, 0x00, 0x00, 0x00, 0x0C, 0x0C],
         _ => [0; 7],
     }
 }
 
+/// The note as the glyphs can draw it: capitals, accents dropped, anything
+/// else a space.
+fn note_chars(note: &str) -> Vec<char> {
+    note.chars()
+        .map(|c| match c.to_uppercase().next().unwrap_or(' ') {
+            'À' | 'Á' | 'Â' | 'Ã' | 'Ä' | 'Å' | 'Ą' => 'A',
+            'Ç' | 'Ć' | 'Č' => 'C',
+            'Ď' => 'D',
+            'È' | 'É' | 'Ê' | 'Ë' | 'Ę' | 'Ě' => 'E',
+            'Ì' | 'Í' | 'Î' | 'Ï' | 'İ' => 'I',
+            'Ł' | 'Ĺ' | 'Ľ' => 'L',
+            'Ñ' | 'Ń' | 'Ň' => 'N',
+            'Ò' | 'Ó' | 'Ô' | 'Õ' | 'Ö' | 'Ø' => 'O',
+            'Ř' | 'Ŕ' => 'R',
+            'Ś' | 'Š' | 'Ş' | 'ẞ' => 'S',
+            'Ť' => 'T',
+            'Ù' | 'Ú' | 'Û' | 'Ü' | 'Ů' => 'U',
+            'Ý' | 'Ÿ' => 'Y',
+            'Ź' | 'Ż' | 'Ž' => 'Z',
+            '’' => '\'',
+            c if c.is_ascii_uppercase() || matches!(c, '\'' | '-' | '.') => c,
+            _ => ' ',
+        })
+        .collect()
+}
+
 /// Whether pixel (`x`, `y`) of the generated frame is part of the note.
-fn in_note(x: u32, y: u32) -> bool {
-    const SCALE: u32 = 6;
-    const ADVANCE: u32 = 6 * SCALE;
-    let width = NOTE.len() as u32 * ADVANCE;
-    let (left, top) = ((FRAME_SIZE.0 - width) / 2, (NOTE_BAND - 7 * SCALE) / 2);
-    if x < left || x >= left + width || y < top || y >= top + 7 * SCALE {
+fn in_note(chars: &[char], x: u32, y: u32) -> bool {
+    if chars.is_empty() {
+        return false;
+    }
+    // 6 columns per glyph; smaller when the text would not fit
+    let scale = (1800 / (6 * chars.len() as u32)).clamp(1, 6);
+    let advance = 6 * scale;
+    let width = chars.len() as u32 * advance;
+    let (left, top) = (
+        (FRAME_SIZE.0.saturating_sub(width)) / 2,
+        (NOTE_BAND.saturating_sub(7 * scale)) / 2,
+    );
+    if x < left || x >= left + width || y < top || y >= top + 7 * scale {
         return false;
     }
     let (cx, cy) = (x - left, y - top);
-    let col = (cx % ADVANCE) / SCALE;
+    let col = (cx % advance) / scale;
     if col >= 5 {
         return false;
     }
-    let c = NOTE.as_bytes()[(cx / ADVANCE) as usize] as char;
-    glyph(c)[(cy / SCALE) as usize] >> (4 - col) & 1 == 1
+    glyph(chars[(cx / advance) as usize])[(cy / scale) as usize] >> (4 - col) & 1 == 1
 }
 
 /// The generated frame: near black, with a short note at the top and a dark
 /// grey bezel around the display.
-fn frame_png(rect: DmdRect) -> Result<Vec<u8>> {
+fn frame_png(rect: DmdRect, note: &str) -> Result<Vec<u8>> {
     const BEZEL: u32 = 14;
+    let note = note_chars(note);
     let img = image::RgbaImage::from_fn(FRAME_SIZE.0, FRAME_SIZE.1, |x, y| {
         let inside = x + BEZEL >= rect.x
             && x < rect.x + rect.w + BEZEL
@@ -896,7 +955,7 @@ fn frame_png(rect: DmdRect) -> Result<Vec<u8>> {
             image::Rgba([0, 0, 0, 255])
         } else if inside {
             image::Rgba([46, 46, 50, 255])
-        } else if in_note(x, y) {
+        } else if in_note(&note, x, y) {
             image::Rgba([96, 96, 104, 255])
         } else {
             image::Rgba([8, 8, 10, 255])
@@ -906,6 +965,19 @@ fn frame_png(rect: DmdRect) -> Result<Vec<u8>> {
     image::DynamicImage::ImageRgba8(img)
         .write_to(&mut out, image::ImageFormat::Png)
         .context("cannot encode the frame image")?;
+    Ok(out.into_inner())
+}
+
+/// A black image: the ScoreView window of a game with no screen to show.
+fn blank_png() -> Result<Vec<u8>> {
+    let mut out = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::ImageRgba8(image::RgbaImage::from_pixel(
+        1,
+        1,
+        image::Rgba([0, 0, 0, 255]),
+    ))
+    .write_to(&mut out, image::ImageFormat::Png)
+    .context("cannot encode the blank image")?;
     Ok(out.into_inner())
 }
 
@@ -960,13 +1032,19 @@ pub fn backup_path(backup_root: &Path, file: &Path) -> PathBuf {
 /// anyone else touched since is not.
 fn own_original(doc: &[u8], backup: &Path) -> Option<Vec<u8>> {
     let orig = std::fs::read(backup).ok().filter(|o| !o.is_empty())?;
-    let at = doc
-        .windows(b"<Displays>".len())
-        .rposition(|w| w == b"<Displays>")?;
-    let end = find(doc, b"</Displays>", at)? + b"</Displays>".len();
+    // no `<Displays>` for a game written a black image only
     let mut stripped = Vec::with_capacity(doc.len());
-    stripped.extend_from_slice(&doc[..at]);
-    stripped.extend_from_slice(&doc[end..]);
+    match doc
+        .windows(b"<Displays>".len())
+        .rposition(|w| w == b"<Displays>")
+    {
+        Some(at) => {
+            let end = find(doc, b"</Displays>", at)? + b"</Displays>".len();
+            stripped.extend_from_slice(&doc[..at]);
+            stripped.extend_from_slice(&doc[end..]);
+        }
+        None => stripped.extend_from_slice(doc),
+    }
     // the frame written for a file that had none goes too
     let mark = format!("<DMDImage {FRAME_MARK} Value=\"");
     if let Some(start) = find(&stripped, mark.as_bytes(), 0)
@@ -1020,7 +1098,12 @@ fn replace_file(file: &Path, bytes: &[u8]) -> Result<()> {
 /// checked again from its original: the element is replaced when the search
 /// now finds it elsewhere, and taken out when the game turns out to have no
 /// dot matrix. Returns the status to record.
-pub fn fix_file(file: &Path, backup_root: &Path, screen: Screen) -> Result<&'static str> {
+pub fn fix_file(
+    file: &Path,
+    backup_root: &Path,
+    screen: Screen,
+    note: &str,
+) -> Result<&'static str> {
     let doc = std::fs::read(file).with_context(|| format!("cannot read {}", file.display()))?;
     let backup = backup_path(backup_root, file);
     let earlier = own_original(&doc, &backup);
@@ -1041,6 +1124,15 @@ pub fn fix_file(file: &Path, backup_root: &Path, screen: Screen) -> Result<&'sta
                 status::NO_HOLE
             });
         }
+        Analysis::Blank => (
+            DmdRect {
+                x: 0,
+                y: 0,
+                w: 0,
+                h: 0,
+            },
+            String::new(),
+        ),
         Analysis::Missing(rect) => (rect, rect.element()),
         Analysis::MissingVideo(rect) => (rect, rect.video_element()),
         Analysis::NoFrame(rect, video) => {
@@ -1052,11 +1144,20 @@ pub fn fix_file(file: &Path, backup_root: &Path, screen: Screen) -> Result<&'sta
             (rect, element)
         }
     };
-    let framed = match analysis_frame(base, screen)? {
-        Some(rect) => insert_frame(base, &frame_png(rect)?)?,
-        None => base.to_vec(),
+    let blank = element.is_empty();
+    let framed = if blank {
+        insert_frame(base, &blank_png()?)?
+    } else {
+        match analysis_frame(base, screen)? {
+            Some(rect) => insert_frame(base, &frame_png(rect, note)?)?,
+            None => base.to_vec(),
+        }
     };
-    let fixed = insert_element(&framed, &element)?;
+    let fixed = if blank {
+        framed
+    } else {
+        insert_element(&framed, &element)?
+    };
     if earlier.is_some() && fixed == doc {
         return Ok(status::APPLIED); // the same place as before
     }
@@ -1075,6 +1176,14 @@ pub fn fix_file(file: &Path, backup_root: &Path, screen: Screen) -> Result<&'sta
     }
 
     replace_file(file, &fixed)?;
+    if blank {
+        log::info!(
+            "b2s_dmd: {} got a black ScoreView image: no screen for this game (original kept in {})",
+            file.display(),
+            backup.display()
+        );
+        return Ok(status::APPLIED);
+    }
     log::info!(
         "b2s_dmd: {} got its DMD area X={} Y={} W={} H={} (original kept in {})",
         file.display(),
@@ -1349,7 +1458,7 @@ mod tests {
         std::fs::write(&file, &original).unwrap();
 
         assert_eq!(
-            fix_file(&file, backups.path(), Screen::Unknown).unwrap(),
+            fix_file(&file, backups.path(), Screen::Unknown, "NO DMD IMAGE").unwrap(),
             status::APPLIED
         );
         let fixed = std::fs::read(&file).unwrap();
@@ -1366,7 +1475,7 @@ mod tests {
 
         // a second pass finds its own element in the same place and does nothing
         assert_eq!(
-            fix_file(&file, backups.path(), Screen::Unknown).unwrap(),
+            fix_file(&file, backups.path(), Screen::Unknown, "NO DMD IMAGE").unwrap(),
             status::APPLIED
         );
         assert_eq!(std::fs::read(&file).unwrap(), fixed);
@@ -1389,7 +1498,7 @@ mod tests {
         let original = document(Some(&img), false);
         std::fs::write(&file, &original).unwrap();
         assert_eq!(
-            fix_file(&file, backups.path(), Screen::Unknown).unwrap(),
+            fix_file(&file, backups.path(), Screen::Unknown, "NO DMD IMAGE").unwrap(),
             status::NO_HOLE
         );
         assert_eq!(std::fs::read(&file).unwrap(), original);
@@ -1632,19 +1741,19 @@ mod tests {
         let original = document(Some(&frame(1000, 600, (100, 400, 800, 200))), false);
         std::fs::write(&file, &original).unwrap();
         assert_eq!(
-            fix_file(&file, backups.path(), Screen::Unknown).unwrap(),
+            fix_file(&file, backups.path(), Screen::Unknown, "NO DMD IMAGE").unwrap(),
             status::APPLIED
         );
         let first = std::fs::read(&file).unwrap();
         // the same game again: unchanged
         assert_eq!(
-            fix_file(&file, backups.path(), Screen::Unknown).unwrap(),
+            fix_file(&file, backups.path(), Screen::Unknown, "NO DMD IMAGE").unwrap(),
             status::APPLIED
         );
         assert_eq!(std::fs::read(&file).unwrap(), first);
         // the game turns out to have no dot matrix: back to the original
         assert_eq!(
-            fix_file(&file, backups.path(), Screen::Segments).unwrap(),
+            fix_file(&file, backups.path(), Screen::Segments, "NO DMD IMAGE").unwrap(),
             status::NOT_NEEDED
         );
         assert_eq!(std::fs::read(&file).unwrap(), original);
@@ -1661,7 +1770,7 @@ mod tests {
         .unwrap();
         std::fs::write(&file, &authored).unwrap();
         assert_eq!(
-            fix_file(&file, backups.path(), Screen::Segments).unwrap(),
+            fix_file(&file, backups.path(), Screen::Segments, "NO DMD IMAGE").unwrap(),
             status::NOT_NEEDED
         );
         assert_eq!(std::fs::read(&file).unwrap(), authored);
@@ -1727,13 +1836,13 @@ mod tests {
         };
         // no DMD in the game: nothing to add
         assert_eq!(
-            fix_file(&file, backups.path(), Screen::Unknown).unwrap(),
+            fix_file(&file, backups.path(), Screen::Unknown, "NO DMD IMAGE").unwrap(),
             status::NOT_NEEDED
         );
         assert_eq!(std::fs::read(&file).unwrap(), original);
         // a DMD game: a frame and the display in it
         assert_eq!(
-            fix_file(&file, backups.path(), dmd).unwrap(),
+            fix_file(&file, backups.path(), dmd, "NO DMD IMAGE").unwrap(),
             status::APPLIED
         );
         let fixed = std::fs::read(&file).unwrap();
@@ -1749,15 +1858,63 @@ mod tests {
         assert!(text.contains(&format!("W=\"{}\" H=\"{}\"", rect.w, rect.h)));
         // again: the same file
         assert_eq!(
-            fix_file(&file, backups.path(), dmd).unwrap(),
+            fix_file(&file, backups.path(), dmd, "NO DMD IMAGE").unwrap(),
             status::APPLIED
         );
         assert_eq!(std::fs::read(&file).unwrap(), fixed);
-        // the game has no DMD after all: the original, frame and display gone
+        // no screen after all: the frame and the display go, a black image takes
+        // their place
         assert_eq!(
-            fix_file(&file, backups.path(), Screen::Segments).unwrap(),
-            status::NOT_NEEDED
+            fix_file(&file, backups.path(), Screen::Segments, "NO DMD IMAGE").unwrap(),
+            status::APPLIED
         );
-        assert_eq!(std::fs::read(&file).unwrap(), original);
+        let blank = std::fs::read(&file).unwrap();
+        let text = String::from_utf8_lossy(&blank);
+        assert!(!text.contains("<Displays"));
+        let image = dmd_image_bytes(&blank).unwrap().expect("a black image");
+        let img = image::load_from_memory(&image).unwrap().to_rgba8();
+        assert!(img.pixels().all(|p| p.0 == [0, 0, 0, 255]));
+        // again: the same file
+        assert_eq!(
+            fix_file(&file, backups.path(), Screen::Segments, "NO DMD IMAGE").unwrap(),
+            status::APPLIED
+        );
+        assert_eq!(std::fs::read(&file).unwrap(), blank);
+        // and a DMD game after all: the frame again, from the original
+        assert_eq!(
+            fix_file(&file, backups.path(), dmd, "NO DMD IMAGE").unwrap(),
+            status::APPLIED
+        );
+        assert_eq!(std::fs::read(&file).unwrap(), fixed);
+    }
+
+    #[test]
+    fn the_note_is_drawn_in_the_language_of_the_interface() {
+        // a longer text is drawn smaller to fit, an accent is dropped, nothing panics
+        for note in [
+            "NO DMD IMAGE",
+            "PAS D'IMAGE DMD",
+            "ŽÁDNÝ OBRAZ DMD",
+            "",
+            "日本語",
+        ] {
+            let png = frame_png(frame_rect(4.0), note).unwrap();
+            let img = image::load_from_memory(&png).unwrap().to_rgba8();
+            assert_eq!((img.width(), img.height()), FRAME_SIZE);
+        }
+        assert_eq!(
+            note_chars("Žádný obraz"),
+            "ZADNY OBRAZ".chars().collect::<Vec<_>>()
+        );
+        let drawn = |note: &str| {
+            let chars = note_chars(note);
+            (0..NOTE_BAND)
+                .flat_map(|y| (0..FRAME_SIZE.0).map(move |x| (x, y)))
+                .filter(|&(x, y)| in_note(&chars, x, y))
+                .count()
+        };
+        assert!(drawn("NO DMD IMAGE") > 0);
+        assert!(drawn("PAS D'IMAGE DMD") > 0);
+        assert_eq!(drawn(""), 0);
     }
 }
