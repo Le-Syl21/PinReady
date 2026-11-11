@@ -1148,7 +1148,7 @@ impl App {
             .find(|d| d.role == DisplayRole::Dmd)
             .map(|d| d.monitor_index)
         {
-            Self::show_logo_viewport(ui, DMD_VIEWPORT, "PinReady — DMD", dmd_idx);
+            Self::show_logo_viewport(ui, DMD_VIEWPORT, "PinReady — DMD", dmd_idx, false);
         }
 
         // Topper cover
@@ -1158,13 +1158,23 @@ impl App {
             .find(|d| d.role == DisplayRole::Topper)
             .map(|d| d.monitor_index)
         {
-            Self::show_logo_viewport(ui, TOPPER_VIEWPORT, "PinReady — Topper", tp_idx);
+            // While a table plays the topper is black: nothing but a PUP pack
+            // draws there (above this cover), and without one the desktop or a
+            // grey logo would show
+            let playing = self.vpx_running.load(std::sync::atomic::Ordering::Relaxed);
+            Self::show_logo_viewport(ui, TOPPER_VIEWPORT, "PinReady — Topper", tp_idx, playing);
         }
     }
 
-    /// Show a viewport with the VPX logo on a grey background, placed
-    /// borderless fullscreen on the given monitor index.
-    fn show_logo_viewport(ui: &mut egui::Ui, id: &'static str, title: &str, monitor_idx: usize) {
+    /// Show a viewport with the VPX logo on a grey background (plain black
+    /// when `black`), placed borderless fullscreen on the given monitor index.
+    fn show_logo_viewport(
+        ui: &mut egui::Ui,
+        id: &'static str,
+        title: &str,
+        monitor_idx: usize,
+        black: bool,
+    ) {
         let viewport_id = egui::ViewportId::from_hash_of(id);
         ui.ctx().show_viewport_deferred(
             viewport_id,
@@ -1180,9 +1190,17 @@ impl App {
                 Self::diag_cover_focus(&ctx, id);
                 egui_extras::install_image_loaders(&ctx);
                 ctx.include_bytes("bytes://vpx_logo", VPX_LOGO);
+                let fill = if black {
+                    egui::Color32::BLACK
+                } else {
+                    egui::Color32::from_rgb(80, 80, 85)
+                };
                 egui::CentralPanel::default()
-                    .frame(egui::Frame::NONE.fill(egui::Color32::from_rgb(80, 80, 85)))
+                    .frame(egui::Frame::NONE.fill(fill))
                     .show(ui, |ui| {
+                        if black {
+                            return;
+                        }
                         ui.centered_and_justified(|ui| {
                             let img = egui::Image::new("bytes://vpx_logo")
                                 .max_size(egui::vec2(512.0, 512.0))
