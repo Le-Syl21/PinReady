@@ -673,9 +673,10 @@ fn collect_b2s_jobs(
     let mut jobs = Vec::new();
     for table in tables {
         let b2s = table.with_extension("directb2s");
-        let Some(mtime) = file_mtime(&b2s) else {
-            continue; // no backglass file for this table
-        };
+        // A table with no backglass file is checked too (one is made for it
+        // when its game has a screen); its mtime is 0, so it is not looked at
+        // again until a backglass file appears or the caches are rebuilt.
+        let mtime = file_mtime(&b2s).unwrap_or(0);
         let rel_path = rel_to(dir_path, table);
         match cached.get(&rel_path) {
             Some(checked) if *checked >= mtime => {}
@@ -1066,6 +1067,22 @@ impl App {
         phase.done();
     }
 
+    /// Size of the ScoreView window from `VPinballX.ini`, for the images made
+    /// for backglass files that have none; a default when the ini says nothing
+    /// usable.
+    fn scoreview_size(&self) -> (u32, u32) {
+        let get = |key: &str| {
+            self.config
+                .get_i32("ScoreView", key)
+                .filter(|v| (320..=8192).contains(v))
+                .map(|v| v as u32)
+        };
+        match (get("ScoreViewWidth"), get("ScoreViewHeight")) {
+            (Some(w), Some(h)) => (w, h),
+            _ => crate::b2s_dmd::DEFAULT_SIZE,
+        }
+    }
+
     /// Give the `.directb2s` of each table the DMD area VPX's B2S plugin
     /// needs, when it is missing (see `b2s_dmd.rs`). Reads and rewrites the
     /// files on background threads, only those that changed since the last
@@ -1085,6 +1102,8 @@ impl App {
         // the note drawn in the frames made for games with no DMD image, in the
         // language of the interface
         let note: std::sync::Arc<str> = t!("b2s_no_dmd_image").to_string().into();
+        // and the size of the ScoreView window, which they are made to fill
+        let size = self.scoreview_size();
         let (job_tx, job_rx) = crossbeam_channel::unbounded();
         for job in jobs {
             let _ = job_tx.send(job);
@@ -1102,14 +1121,18 @@ impl App {
                 .spawn(move || {
                     for (b2s, rel_path) in job_rx.iter() {
                         let screen = crate::b2s_dmd::screen_for_table(&b2s.with_extension("vpx"));
-                        let status =
-                            match crate::b2s_dmd::fix_file(&b2s, &backup_root, screen, &note) {
-                                Ok(status) => status.to_string(),
-                                Err(e) => {
-                                    log::warn!("b2s_dmd: {rel_path}: {e:#}");
-                                    crate::b2s_dmd::status::FAILED.to_string()
-                                }
-                            };
+                        let status = match crate::b2s_dmd::fix_file(
+                            &b2s,
+                            &backup_root,
+                            screen,
+                            crate::b2s_dmd::Generated { note: &note, size },
+                        ) {
+                            Ok(status) => status.to_string(),
+                            Err(e) => {
+                                log::warn!("b2s_dmd: {rel_path}: {e:#}");
+                                crate::b2s_dmd::status::FAILED.to_string()
+                            }
+                        };
                         // The mtime after the check: a file we just rewrote is not
                         // "changed" for the next scan
                         let mtime = file_mtime(&b2s).unwrap_or(0);
