@@ -2269,4 +2269,30 @@ mod tests {
         assert!(!made_by_pinready(&other));
         assert!(!made_by_pinready(&dir.path().join("missing.directb2s")));
     }
+
+    /// Development aid: make the backglass file of one table that has none, as
+    /// the scan would, into `B2S_OUT` (a file path), for the screen `B2S_KIND`
+    /// (`dmd`, `video` or `segments`) and the window sizes of the cabinet.
+    /// `B2S_OUT=/out/x.directb2s B2S_KIND=dmd cargo test --profile=fast make_one -- --ignored`
+    #[test]
+    #[ignore]
+    fn make_one() {
+        let out = PathBuf::from(std::env::var("B2S_OUT").unwrap());
+        let screen = match std::env::var("B2S_KIND").unwrap().as_str() {
+            "dmd" => Screen::Dmd {
+                width: 128,
+                height: 32,
+            },
+            "video" => MR_GAME,
+            _ => Screen::Segments,
+        };
+        let backups = tempfile::tempdir().unwrap();
+        let made = Generated {
+            note: "NO DMD IMAGE",
+            size: (1280, 800),
+            bg_size: (2560, 1440),
+        };
+        fix_file(&out, backups.path(), screen, made).unwrap();
+        println!("made {}", out.display());
+    }
 }
