@@ -585,6 +585,14 @@ pub struct App {
     // Rebuild: the old caches are being wiped on a background thread (the
     // picture cache is gigabytes), the scan starts when it is done
     rebuild_clear_rx: Option<crossbeam_channel::Receiver<()>>,
+    // What the cover windows say about the selected table: read on a worker
+    // thread (`launcher::process_cover_info`), kept by `.vpx` path
+    cover_info: std::collections::HashMap<std::path::PathBuf, Arc<crate::table_info::TableInfo>>,
+    cover_info_asked: std::collections::HashSet<std::path::PathBuf>,
+    cover_info_tx:
+        crossbeam_channel::Sender<(std::path::PathBuf, String, crate::table_info::Labels)>,
+    cover_info_rx:
+        crossbeam_channel::Receiver<(std::path::PathBuf, Arc<crate::table_info::TableInfo>)>,
 
     // VPX process running — disables launcher while true
     vpx_running: Arc<AtomicBool>,
@@ -850,6 +858,28 @@ impl App {
         let mirror_base_url = db.mirror_base_url().unwrap_or_default();
 
         let (tilt_rings, tilt_rings_key) = (tilt.rings(), tilt.rings_key());
+        // The worker that reads what a table says about itself, for the covers
+        let (info_req_tx, info_req_rx) = crossbeam_channel::unbounded::<(
+            std::path::PathBuf,
+            String,
+            crate::table_info::Labels,
+        )>();
+        let (info_res_tx, info_res_rx) = crossbeam_channel::unbounded();
+        let _ = std::thread::Builder::new()
+            .name("pinready-cover-info".into())
+            .spawn(move || {
+                while let Ok(mut req) = info_req_rx.recv() {
+                    // The selection moves fast: only the latest request counts
+                    while let Ok(newer) = info_req_rx.try_recv() {
+                        req = newer;
+                    }
+                    let (path, name, labels) = req;
+                    let info = Arc::new(crate::table_info::read(&path, &name, &labels));
+                    if info_res_tx.send((path, info)).is_err() {
+                        break;
+                    }
+                }
+            });
         let db_sort_key = db.get_config("launcher_sort");
         let vpinplay_settings = crate::vpinplay::Settings::load(&db);
         let vpinplay_community = db.get_community_ratings();
@@ -959,6 +989,10 @@ impl App {
             vbs_rx: None,
             b2s_dmd_rx: None,
             rebuild_clear_rx: None,
+            cover_info: std::collections::HashMap::new(),
+            cover_info_asked: std::collections::HashSet::new(),
+            cover_info_tx: info_req_tx,
+            cover_info_rx: info_res_rx,
             vpx_running: Arc::new(AtomicBool::new(false)),
             vpx_status_rx: None,
             vpx_loading_msg: String::new(),

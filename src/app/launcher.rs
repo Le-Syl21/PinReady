@@ -1203,6 +1203,39 @@ impl App {
         self.rebuild_clear_rx = Some(rx);
     }
 
+    /// What the covers say about the selected table: take what the worker has
+    /// read, and ask for the table if it is not known yet.
+    pub(super) fn process_cover_info(&mut self) {
+        while let Ok((path, info)) = self.cover_info_rx.try_recv() {
+            self.cover_info.insert(path, info);
+        }
+        let Some(table) = self.tables.get(self.selected_table) else {
+            return;
+        };
+        if self.cover_info.contains_key(&table.path) || self.cover_info_asked.contains(&table.path)
+        {
+            return;
+        }
+        let labels = crate::table_info::Labels {
+            author: t!("info_author").to_string(),
+            version: t!("info_version").to_string(),
+            saved: t!("info_saved").to_string(),
+            released: t!("info_released").to_string(),
+            played: t!("info_played").to_string(),
+            last_played: t!("info_last_played").to_string(),
+        };
+        self.cover_info_asked.insert(table.path.clone());
+        let _ = self
+            .cover_info_tx
+            .send((table.path.clone(), table.name.clone(), labels));
+    }
+
+    /// The facts of the selected table, when they have been read.
+    pub(super) fn selected_cover_info(&self) -> Option<Arc<crate::table_info::TableInfo>> {
+        let table = self.tables.get(self.selected_table)?;
+        self.cover_info.get(&table.path).cloned()
+    }
+
     /// Start the scan once the caches of a Rebuild are wiped.
     pub(super) fn process_rebuild_clear(&mut self) {
         let Some(rx) = &self.rebuild_clear_rx else {

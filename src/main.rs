@@ -39,6 +39,7 @@ mod screens;
 mod session;
 mod startup_timing;
 mod system_info;
+mod table_info;
 mod tilt;
 mod updater;
 mod vbs_patches;

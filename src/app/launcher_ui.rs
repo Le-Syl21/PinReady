@@ -38,6 +38,7 @@ impl App {
         self.process_vbs_extraction();
         self.process_b2s_dmd();
         self.process_rebuild_clear();
+        self.process_cover_info();
         self.process_preview_audio(ui.ctx());
         // Process VPX status before the joystick handler so the post-exit
         // input grace window (armed in `process_vpx_status`) is already set
@@ -1053,13 +1054,94 @@ impl App {
         }
     }
 
-    /// Body of the backglass cover: the selected table's picture, or its name
-    /// while the picture is not there yet.
+    /// What the table says about itself, centred on the cover: its name large,
+    /// then maker and year, then one fact per line. Coloured letters with a
+    /// black outline, so that it reads on any picture; a line wider than the
+    /// cover is made smaller to fit.
+    fn paint_cover_info(ui: &egui::Ui, info: &crate::table_info::TableInfo) {
+        use egui::{Color32, FontId, Pos2};
+        let rect = ui.max_rect();
+        let width = rect.width();
+        let base = (width * 0.04).clamp(14.0, 64.0);
+        let mut lines: Vec<(&str, f32, Color32)> = vec![(
+            info.title.as_str(),
+            base * 1.7,
+            Color32::from_rgb(255, 214, 64),
+        )];
+        if !info.subtitle.is_empty() {
+            lines.push((
+                info.subtitle.as_str(),
+                base * 1.1,
+                Color32::from_rgb(255, 150, 70),
+            ));
+        }
+        for l in &info.lines {
+            lines.push((l.as_str(), base * 0.9, Color32::from_rgb(130, 230, 255)));
+        }
+        let painter = ui.painter();
+        let max_w = width * 0.9;
+        // Each line laid out once to know its size, smaller when too wide
+        let laid: Vec<(f32, Color32, std::sync::Arc<egui::Galley>)> = lines
+            .iter()
+            .map(|(text, size, color)| {
+                let mut size = *size;
+                let mut g =
+                    painter.layout_no_wrap((*text).to_string(), FontId::proportional(size), *color);
+                if g.size().x > max_w {
+                    size *= max_w / g.size().x;
+                    g = painter.layout_no_wrap(
+                        (*text).to_string(),
+                        FontId::proportional(size),
+                        *color,
+                    );
+                }
+                (size, *color, g)
+            })
+            .collect();
+        let gap = base * 0.35;
+        let total: f32 = laid.iter().map(|(_, _, g)| g.size().y).sum::<f32>()
+            + gap * laid.len().saturating_sub(1) as f32;
+        let mut y = rect.center().y - total / 2.0;
+        for ((size, color, galley), (text, _, _)) in laid.iter().zip(lines.iter()) {
+            let x = rect.center().x - galley.size().x / 2.0;
+            let outline = (size * 0.07).clamp(1.5, 5.0);
+            let black = painter.layout_no_wrap(
+                (*text).to_string(),
+                FontId::proportional(*size),
+                Color32::BLACK,
+            );
+            for (dx, dy) in [
+                (-1.0, -1.0),
+                (0.0, -1.0),
+                (1.0, -1.0),
+                (-1.0, 0.0),
+                (1.0, 0.0),
+                (-1.0, 1.0),
+                (0.0, 1.0),
+                (1.0, 1.0),
+            ] {
+                painter.galley(
+                    Pos2::new(x + dx * outline, y + dy * outline),
+                    black.clone(),
+                    Color32::BLACK,
+                );
+            }
+            // drawn twice, a hair apart, for a heavier stroke
+            painter.galley(Pos2::new(x, y), galley.clone(), *color);
+            painter.galley(Pos2::new(x + 0.8, y), galley.clone(), *color);
+            y += galley.size().y + gap;
+        }
+    }
+
+    /// Body of the backglass cover: the selected table's picture, with what the
+    /// table says about itself over it, or its name while the picture is not
+    /// there yet.
     fn paint_backglass_cover(
         ui: &mut egui::Ui,
         uri: &str,
         table_name: &str,
         bg: Option<&egui::TextureHandle>,
+        info: Option<&crate::table_info::TableInfo>,
     ) {
         let ctx = ui.ctx().clone();
         Self::diag_cover_focus(&ctx, "backglass");
@@ -1077,13 +1159,16 @@ impl App {
                             .shrink_to_fit(),
                         );
                     });
-                } else {
+                } else if info.is_none() {
                     ui.centered_and_justified(|ui| {
                         ui.colored_label(
                             egui::Color32::WHITE,
                             egui::RichText::new(table_name).size(32.0),
                         );
                     });
+                }
+                if let Some(info) = info {
+                    Self::paint_cover_info(ui, info);
                 }
             });
     }
@@ -1111,6 +1196,7 @@ impl App {
             // The full picture if the page's pictures are in the GPU, else
             // its thumbnail, else nothing yet (the cover shows the name).
             let bg_tex = self.bg_cache.best(selected);
+            let info = self.selected_cover_info();
             let uri = format!("table {}/{selected}", self.scan_generation);
 
             let bg_viewport_id = egui::ViewportId::from_hash_of(BG_VIEWPORT);
@@ -1130,13 +1216,25 @@ impl App {
             if BACKGLASS_COVER_IMMEDIATE {
                 ui.ctx()
                     .show_viewport_immediate(bg_viewport_id, builder, move |ui, _class| {
-                        Self::paint_backglass_cover(ui, &uri, &table_name, bg_tex.as_ref());
+                        Self::paint_backglass_cover(
+                            ui,
+                            &uri,
+                            &table_name,
+                            bg_tex.as_ref(),
+                            info.as_deref(),
+                        );
                     });
             } else {
                 ui.ctx().request_repaint_of(bg_viewport_id);
                 ui.ctx()
                     .show_viewport_deferred(bg_viewport_id, builder, move |ui, _class| {
-                        Self::paint_backglass_cover(ui, &uri, &table_name, bg_tex.as_ref());
+                        Self::paint_backglass_cover(
+                            ui,
+                            &uri,
+                            &table_name,
+                            bg_tex.as_ref(),
+                            info.as_deref(),
+                        );
                     });
             }
         }
@@ -1148,7 +1246,14 @@ impl App {
             .find(|d| d.role == DisplayRole::Dmd)
             .map(|d| d.monitor_index)
         {
-            Self::show_logo_viewport(ui, DMD_VIEWPORT, "PinReady — DMD", dmd_idx, false);
+            Self::show_logo_viewport(
+                ui,
+                DMD_VIEWPORT,
+                "PinReady — DMD",
+                dmd_idx,
+                false,
+                self.selected_cover_info(),
+            );
         }
 
         // Topper cover
@@ -1162,7 +1267,14 @@ impl App {
             // draws there (above this cover), and without one the desktop or a
             // grey logo would show
             let playing = self.vpx_running.load(std::sync::atomic::Ordering::Relaxed);
-            Self::show_logo_viewport(ui, TOPPER_VIEWPORT, "PinReady — Topper", tp_idx, playing);
+            Self::show_logo_viewport(
+                ui,
+                TOPPER_VIEWPORT,
+                "PinReady — Topper",
+                tp_idx,
+                playing,
+                self.selected_cover_info(),
+            );
         }
     }
 
@@ -1174,6 +1286,7 @@ impl App {
         title: &str,
         monitor_idx: usize,
         black: bool,
+        info: Option<std::sync::Arc<crate::table_info::TableInfo>>,
     ) {
         let viewport_id = egui::ViewportId::from_hash_of(id);
         ui.ctx().show_viewport_deferred(
@@ -1199,6 +1312,11 @@ impl App {
                     .frame(egui::Frame::NONE.fill(fill))
                     .show(ui, |ui| {
                         if black {
+                            return;
+                        }
+                        if let Some(info) = &info {
+                            // the table's own facts take the place of the logo
+                            Self::paint_cover_info(ui, info);
                             return;
                         }
                         ui.centered_and_justified(|ui| {
