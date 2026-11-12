@@ -30,14 +30,45 @@ pub struct Labels {
     pub last_played: String,
 }
 
-/// The date part of an ISO timestamp (`2026-11-12T05:05:39Z` becomes
-/// `2026-11-12`); anything else as it is.
+/// A date as `2025-02-09`, whichever way Visual Pinball wrote it: an ISO
+/// timestamp (`2026-11-12T05:05:39Z`), a C-style date (`Sun Feb  9 22:54:51
+/// 2025`), or `MM/DD/YYYY` when the day cannot be mistaken for a month.
+/// Anything else is kept as it is.
 fn day(text: &str) -> String {
+    use regex::Regex;
+    use std::sync::OnceLock;
+    static C_STYLE: OnceLock<Regex> = OnceLock::new();
+    static SLASHES: OnceLock<Regex> = OnceLock::new();
     let t = text.trim();
-    match t.split_once('T') {
-        Some((d, _)) if d.len() == 10 => d.to_string(),
-        _ => t.to_string(),
+    if let Some((d, _)) = t.split_once('T')
+        && d.len() == 10
+    {
+        return d.to_string();
     }
+    let c_style = C_STYLE.get_or_init(|| {
+        Regex::new(r"^[A-Za-z]{3} ([A-Za-z]{3}) +(\d{1,2}) \d\d:\d\d:\d\d (\d{4})$").unwrap()
+    });
+    if let Some(c) = c_style.captures(t) {
+        const MONTHS: [&str; 12] = [
+            "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+        ];
+        if let Some(m) = MONTHS.iter().position(|m| m.eq_ignore_ascii_case(&c[1])) {
+            let d: u32 = c[2].parse().unwrap_or(0);
+            return format!("{}-{:02}-{:02}", &c[3], m + 1, d);
+        }
+    }
+    let slashes = SLASHES.get_or_init(|| Regex::new(r"^(\d{1,2})/(\d{1,2})/(\d{4})$").unwrap());
+    if let Some(c) = slashes.captures(t) {
+        let (a, b): (u32, u32) = (c[1].parse().unwrap_or(0), c[2].parse().unwrap_or(0));
+        // only when one of the two cannot be a month is the order certain
+        if (1..=12).contains(&a) && b > 12 && b <= 31 {
+            return format!("{}-{:02}-{:02}", &c[3], a, b);
+        }
+        if (1..=12).contains(&b) && a > 12 && a <= 31 {
+            return format!("{}-{:02}-{:02}", &c[3], b, a);
+        }
+    }
+    t.to_string()
 }
 
 /// `value` unless it is empty or only a placeholder.
@@ -125,6 +156,11 @@ mod tests {
     fn a_timestamp_is_cut_to_its_day() {
         assert_eq!(day("2026-11-12T05:05:39Z"), "2026-11-12");
         assert_eq!(day(" 2022-03-17 "), "2022-03-17");
+        // as Visual Pinball writes the dates of a table
+        assert_eq!(day("Sun Feb  9 22:54:51 2025"), "2025-02-09");
+        assert_eq!(day("02/26/2021"), "2021-02-26");
+        // a date that could be read both ways is left alone
+        assert_eq!(day("03/04/2021"), "03/04/2021");
         assert_eq!(day("Thu Mar 17 2022"), "Thu Mar 17 2022");
     }
 
