@@ -1062,6 +1062,7 @@ impl App {
         ui: &egui::Ui,
         info: &crate::table_info::TableInfo,
         extra: &[(String, egui::Color32)],
+        hints: &[String],
     ) {
         use egui::{Color32, FontId, Pos2};
         let rect = ui.max_rect();
@@ -1085,6 +1086,10 @@ impl App {
         // favourite and ratings, in the colours of the grid
         for (text, color) in extra {
             lines.push((text.as_str(), base * 1.0, *color));
+        }
+        // a word about what is missing and how to fill it, small and pale
+        for hint in hints {
+            lines.push((hint.as_str(), base * 0.8, Color32::from_rgb(200, 200, 210)));
         }
         let painter = ui.painter();
         let max_w = width * 0.9;
@@ -1179,7 +1184,12 @@ impl App {
                 if bg.is_none()
                     && let Some((info, extra)) = info
                 {
-                    Self::paint_cover_info(ui, info, extra);
+                    // no picture here: say so, and how a picture can be added
+                    let hints = [
+                        t!("info_no_backglass").to_string(),
+                        t!("launcher_missing_hint_launcher").to_string(),
+                    ];
+                    Self::paint_cover_info(ui, info, extra, &hints);
                 }
             });
     }
@@ -1304,6 +1314,9 @@ impl App {
         extra: Vec<(String, egui::Color32)>,
     ) {
         let viewport_id = egui::ViewportId::from_hash_of(id);
+        // The window repaints only when asked: without this it keeps the facts
+        // of the table that was selected when it last drew
+        ui.ctx().request_repaint_of(viewport_id);
         ui.ctx().show_viewport_deferred(
             viewport_id,
             egui::ViewportBuilder::default()
@@ -1331,7 +1344,7 @@ impl App {
                         }
                         if let Some(info) = &info {
                             // the table's own facts take the place of the logo
-                            Self::paint_cover_info(ui, info, &extra);
+                            Self::paint_cover_info(ui, info, &extra, &[]);
                             return;
                         }
                         ui.centered_and_justified(|ui| {

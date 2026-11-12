@@ -170,6 +170,7 @@ mod tests {
             "info_my_rating",
             "info_community",
             "info_votes",
+            "info_no_backglass",
             "sort_favorites",
             "sort_rating",
             "sort_community",
