@@ -1155,6 +1155,20 @@ fn stem_of(file: &Path) -> String {
         .unwrap_or_default()
 }
 
+/// Whether the `.directb2s` at `file` is one this module made from nothing (see
+/// [`created_by_us`]): decided from its first bytes, so a large file is not read.
+pub fn made_by_pinready(file: &Path) -> bool {
+    use std::io::Read;
+    let Ok(mut f) = std::fs::File::open(file) else {
+        return false;
+    };
+    let head = created_head(&stem_of(file));
+    let mut buf = vec![0u8; head.len() + b"<Images><DMDImage Generated=\"PinReady\"".len()];
+    f.read_exact(&mut buf).is_ok()
+        && buf.starts_with(head.as_bytes())
+        && buf[head.len()..].starts_with(b"<Images><DMDImage Generated=\"PinReady\"")
+}
+
 /// Whether `doc` is a file this module made from nothing, byte for byte the
 /// start of one (an editor's rewrite, or anything written by hand, is not).
 fn created_by_us(doc: &[u8], file: &Path) -> bool {
@@ -2237,5 +2251,22 @@ mod tests {
         let edited =
             String::from_utf8_lossy(&copied).replace("<Displays><DMD ", "<Displays>\n <DMD ");
         assert!(recover_original(edited.as_bytes()).is_none());
+    }
+
+    #[test]
+    fn the_black_backglass_made_for_a_table_is_not_its_tile() {
+        let dir = tempfile::tempdir().unwrap();
+        let backups = tempfile::tempdir().unwrap();
+        let file = dir.path().join("Some Table (Original 2025).directb2s");
+        fix_file(&file, backups.path(), Screen::Segments, GEN).unwrap();
+        assert!(file.exists());
+        assert!(made_by_pinready(&file));
+        // the tile does not come from it
+        assert!(crate::assets::extract_backglass_from_b2s(&file).is_none());
+        // a file that is not ours is left to the extraction
+        let other = dir.path().join("Other (Original 2025).directb2s");
+        std::fs::write(&other, document(None, false)).unwrap();
+        assert!(!made_by_pinready(&other));
+        assert!(!made_by_pinready(&dir.path().join("missing.directb2s")));
     }
 }

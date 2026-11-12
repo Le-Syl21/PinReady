@@ -286,6 +286,15 @@ pub fn extract_backglass_from_vpinmediadb(table_dir: &Path) -> Option<Vec<u8>> {
 ///   4. Normalize brightness to median luminosity of 75
 ///   5. Resize to DISPLAY_WIDTH×DISPLAY_HEIGHT and encode as JPEG 85
 pub fn extract_backglass_from_b2s(directb2s_path: &Path) -> Option<Vec<u8>> {
+    // A file made by PinReady for a table that had none carries a black image
+    // only to keep the backglass screen dark: it is not this table's picture.
+    if crate::b2s_dmd::made_by_pinready(directb2s_path) {
+        log::info!(
+            "Backglass of {} is the black one PinReady made: not used for the tile",
+            directb2s_path.display()
+        );
+        return None;
+    }
     log::info!(
         "Extracting backglass from .directb2s: {}",
         directb2s_path.display()
