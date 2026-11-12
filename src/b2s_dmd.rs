@@ -34,6 +34,18 @@ fn year_of(name: &str) -> Option<u32> {
     (year.len() == 4).then(|| year.parse().ok()).flatten()
 }
 
+/// The ROM an alias stands for, from the table's `pinmame/alias.txt`
+/// (`alias,rom` per line, as VPinMAME reads it). A script may name the alias
+/// (`startrp2sc`) while the game is `startrp2`.
+fn rom_alias(vpx: &Path, name: &str) -> Option<String> {
+    let text = std::fs::read_to_string(vpx.parent()?.join("pinmame").join("alias.txt")).ok()?;
+    text.lines()
+        .filter_map(|l| l.split_once(','))
+        .find(|(alias, _)| alias.trim().eq_ignore_ascii_case(name.trim()))
+        .map(|(_, rom)| rom.trim().to_string())
+        .filter(|r| !r.is_empty())
+}
+
 /// The screen the game of a table draws its scores on, from the ROM its script
 /// names (see `rom_displays.rs`). Without a known ROM, a table made before 1990
 /// has no dot matrix; a newer or original one has one when its script talks
@@ -44,7 +56,12 @@ pub fn screen_for_table(vpx: &Path) -> Screen {
     };
     let rom = crate::vpinplay::rom_of(&script);
     if !rom.is_empty() {
-        let known = crate::rom_displays::screen_of(&rom);
+        let mut known = crate::rom_displays::screen_of(&rom);
+        if known == Screen::Unknown
+            && let Some(real) = rom_alias(vpx, &rom)
+        {
+            known = crate::rom_displays::screen_of(&real);
+        }
         if known != Screen::Unknown {
             return known;
         }
@@ -1723,6 +1740,25 @@ mod tests {
         );
         assert_eq!(std::fs::read(&file).unwrap(), original);
         assert!(!backup_path(backups.path(), &file).exists());
+    }
+
+    #[test]
+    fn a_rom_alias_is_resolved_from_the_tables_alias_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let vpx = dir.path().join("T.vpx");
+        std::fs::create_dir(dir.path().join("pinmame")).unwrap();
+        std::fs::write(
+            dir.path().join("pinmame").join("alias.txt"),
+            "startrp2sc,startrp2\r\nother, mm_109c \r\n",
+        )
+        .unwrap();
+        assert_eq!(rom_alias(&vpx, "StartRP2SC").as_deref(), Some("startrp2"));
+        assert_eq!(rom_alias(&vpx, "other").as_deref(), Some("mm_109c"));
+        assert_eq!(rom_alias(&vpx, "nothing"), None);
+        assert_eq!(
+            rom_alias(&dir.path().join("x").join("T.vpx"), "other"),
+            None
+        );
     }
 
     #[test]
