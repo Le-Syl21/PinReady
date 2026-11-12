@@ -2432,6 +2432,13 @@ impl App {
                         self.vpx_loading_msg = "Startup done".to_string();
                         self.vpx_loading_pct = None;
                         self.vpx_hide_covers = true;
+                        // Close the cover windows now rather than leave it to the
+                        // next frame: with the launcher idle behind Visual
+                        // Pinball no frame may come, and a cover stays on the
+                        // DMD screen for the whole game (106 of 2247 tables in
+                        // a full run).
+                        Self::close_cover_viewports(ctx);
+                        ctx.request_repaint();
                         // The covers are hidden now: the last picture can go too.
                         self.bg_cache.release(None);
                         // Release the cursor capture so VPX gets the mouse —
