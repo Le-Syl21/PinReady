@@ -1058,7 +1058,11 @@ impl App {
     /// then maker and year, then one fact per line. Coloured letters with a
     /// black outline, so that it reads on any picture; a line wider than the
     /// cover is made smaller to fit.
-    fn paint_cover_info(ui: &egui::Ui, info: &crate::table_info::TableInfo) {
+    fn paint_cover_info(
+        ui: &egui::Ui,
+        info: &crate::table_info::TableInfo,
+        extra: &[(String, egui::Color32)],
+    ) {
         use egui::{Color32, FontId, Pos2};
         let rect = ui.max_rect();
         let width = rect.width();
@@ -1077,6 +1081,10 @@ impl App {
         }
         for l in &info.lines {
             lines.push((l.as_str(), base * 0.9, Color32::from_rgb(130, 230, 255)));
+        }
+        // favourite and ratings, in the colours of the grid
+        for (text, color) in extra {
+            lines.push((text.as_str(), base * 1.0, *color));
         }
         let painter = ui.painter();
         let max_w = width * 0.9;
@@ -1141,7 +1149,7 @@ impl App {
         uri: &str,
         table_name: &str,
         bg: Option<&egui::TextureHandle>,
-        info: Option<&crate::table_info::TableInfo>,
+        info: Option<(&crate::table_info::TableInfo, &[(String, egui::Color32)])>,
     ) {
         let ctx = ui.ctx().clone();
         Self::diag_cover_focus(&ctx, "backglass");
@@ -1167,8 +1175,11 @@ impl App {
                         );
                     });
                 }
-                if let Some(info) = info {
-                    Self::paint_cover_info(ui, info);
+                // Only on the black ground: never over the game's own picture
+                if bg.is_none()
+                    && let Some((info, extra)) = info
+                {
+                    Self::paint_cover_info(ui, info, extra);
                 }
             });
     }
@@ -1197,6 +1208,7 @@ impl App {
             // its thumbnail, else nothing yet (the cover shows the name).
             let bg_tex = self.bg_cache.best(selected);
             let info = self.selected_cover_info();
+            let extra = self.cover_extra();
             let uri = format!("table {}/{selected}", self.scan_generation);
 
             let bg_viewport_id = egui::ViewportId::from_hash_of(BG_VIEWPORT);
@@ -1221,7 +1233,7 @@ impl App {
                             &uri,
                             &table_name,
                             bg_tex.as_ref(),
-                            info.as_deref(),
+                            info.as_deref().map(|i| (i, extra.as_slice())),
                         );
                     });
             } else {
@@ -1233,7 +1245,7 @@ impl App {
                             &uri,
                             &table_name,
                             bg_tex.as_ref(),
-                            info.as_deref(),
+                            info.as_deref().map(|i| (i, extra.as_slice())),
                         );
                     });
             }
@@ -1253,6 +1265,7 @@ impl App {
                 dmd_idx,
                 false,
                 self.selected_cover_info(),
+                self.cover_extra(),
             );
         }
 
@@ -1274,6 +1287,7 @@ impl App {
                 tp_idx,
                 playing,
                 self.selected_cover_info(),
+                self.cover_extra(),
             );
         }
     }
@@ -1287,6 +1301,7 @@ impl App {
         monitor_idx: usize,
         black: bool,
         info: Option<std::sync::Arc<crate::table_info::TableInfo>>,
+        extra: Vec<(String, egui::Color32)>,
     ) {
         let viewport_id = egui::ViewportId::from_hash_of(id);
         ui.ctx().show_viewport_deferred(
@@ -1316,7 +1331,7 @@ impl App {
                         }
                         if let Some(info) = &info {
                             // the table's own facts take the place of the logo
-                            Self::paint_cover_info(ui, info);
+                            Self::paint_cover_info(ui, info, &extra);
                             return;
                         }
                         ui.centered_and_justified(|ui| {

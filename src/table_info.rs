@@ -153,4 +153,45 @@ mod tests {
         assert!(info.lines.contains(&"Played: 11".to_string()));
         assert!(info.lines.contains(&"Last played: 2026-11-12".to_string()));
     }
+
+    #[test]
+    fn every_language_has_the_labels_of_the_covers_and_the_sort() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("locales");
+        let keys = [
+            "tiles_progress",
+            "tiles_clearing",
+            "info_author",
+            "info_version",
+            "info_saved",
+            "info_released",
+            "info_played",
+            "info_last_played",
+            "info_favorite",
+            "info_my_rating",
+            "info_community",
+            "info_votes",
+            "sort_favorites",
+            "sort_rating",
+            "sort_community",
+            "sort_last_played",
+            "sort_most_played",
+        ];
+        let mut files = 0;
+        for entry in std::fs::read_dir(&dir).unwrap().flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("toml") {
+                continue;
+            }
+            files += 1;
+            let text = std::fs::read_to_string(&path).unwrap();
+            for key in keys {
+                assert!(
+                    text.lines().any(|l| l.starts_with(&format!("{key} = \""))),
+                    "{} lacks {key}",
+                    path.display()
+                );
+            }
+        }
+        assert!(files >= 26, "{files} language files");
+    }
 }

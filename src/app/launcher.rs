@@ -1230,6 +1230,46 @@ impl App {
             .send((table.path.clone(), table.name.clone(), labels));
     }
 
+    /// Favourite flag and ratings of the selected table, for the covers: the
+    /// player's own rating and, when the VPinPlay option is on, the
+    /// community's. In the colours of the grid (gold for the player, blue for
+    /// the community).
+    pub(super) fn cover_extra(&self) -> Vec<(String, egui::Color32)> {
+        let mut out = Vec::new();
+        let Some(table) = self.tables.get(self.selected_table) else {
+            return out;
+        };
+        let gold = egui::Color32::from_rgb(255, 200, 0);
+        if table.user.favorite {
+            out.push((format!("★ {}", t!("info_favorite")), gold));
+        }
+        if table.user.rating_tenths > 0 {
+            out.push((
+                format!(
+                    "{}: {:.1} / 5",
+                    t!("info_my_rating"),
+                    f32::from(table.user.rating_tenths) / 10.0
+                ),
+                gold,
+            ));
+        }
+        if self.vpinplay.enabled
+            && let Some(c) = table.vps_id.as_ref().and_then(|id| self.community.get(id))
+        {
+            out.push((
+                format!(
+                    "{}: {:.1} / 5 ({} {})",
+                    t!("info_community"),
+                    c.avg,
+                    c.count,
+                    t!("info_votes")
+                ),
+                egui::Color32::from_rgb(110, 170, 255),
+            ));
+        }
+        out
+    }
+
     /// The facts of the selected table, when they have been read.
     pub(super) fn selected_cover_info(&self) -> Option<Arc<crate::table_info::TableInfo>> {
         let table = self.tables.get(self.selected_table)?;
