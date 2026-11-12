@@ -2505,12 +2505,9 @@ impl App {
                         self.vpx_loading_msg = "Startup done".to_string();
                         self.vpx_loading_pct = None;
                         self.vpx_hide_covers = true;
-                        // Close the cover windows now rather than leave it to the
-                        // next frame: with the launcher idle behind Visual
-                        // Pinball no frame may come, and a cover stays on the
-                        // DMD screen for the whole game (106 of 2247 tables in
-                        // a full run).
-                        Self::close_cover_viewports(ctx);
+                        // The covers turn black (see `render_black_covers`);
+                        // repaint now, the launcher may otherwise sit idle
+                        // behind Visual Pinball and they would stay as they were.
                         ctx.request_repaint();
                         // The covers are hidden now: the last picture can go too.
                         self.bg_cache.release(None);
@@ -2537,6 +2534,8 @@ impl App {
                         self.finish_vpx_session();
                         self.vpx_loading_msg.clear();
                         self.vpx_hide_covers = false;
+                        // the crash report must be reachable: no cover over it
+                        Self::close_cover_viewports(ctx);
                         self.vpx_error_log = Some(log);
                         self.vpx_status_rx = None;
                         self.respawn_sdl_threads();

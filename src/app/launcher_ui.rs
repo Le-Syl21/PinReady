@@ -1008,8 +1008,38 @@ impl App {
         // screen — which strands the arrow on the backglass. Bringing them back
         // at the exact moment the user has to click Copy or Save is how a
         // report ends up unreachable, which is what a field report described.
-        if !self.vpx_hide_covers && self.vpx_error_log.is_none() {
-            self.render_cover_viewports(ui);
+        if self.vpx_error_log.is_none() {
+            if self.vpx_hide_covers {
+                // A table is playing: its own windows are on top. Where it
+                // draws nothing the screen stays black instead of showing the
+                // desktop.
+                self.render_black_covers(ui);
+            } else {
+                self.render_cover_viewports(ui);
+            }
+        }
+    }
+
+    /// While a table plays: a black window on each screen the launcher covers,
+    /// below Visual Pinball's windows, so that a screen the table does not use
+    /// is black rather than the desktop.
+    fn render_black_covers(&self, ui: &mut egui::Ui) {
+        if std::env::var("PINREADY_NO_COVERS").is_ok() {
+            return;
+        }
+        for (role, id, title) in [
+            (DisplayRole::Backglass, BG_VIEWPORT, "PinReady — Backglass"),
+            (DisplayRole::Dmd, DMD_VIEWPORT, "PinReady — DMD"),
+            (DisplayRole::Topper, TOPPER_VIEWPORT, "PinReady — Topper"),
+        ] {
+            if let Some(idx) = self
+                .displays
+                .iter()
+                .find(|d| d.role == role)
+                .map(|d| d.monitor_index)
+            {
+                Self::show_logo_viewport(ui, id, title, idx, true, None, Vec::new());
+            }
         }
     }
 
@@ -1315,8 +1345,15 @@ impl App {
     ) {
         let viewport_id = egui::ViewportId::from_hash_of(id);
         // The window repaints only when asked: without this it keeps the facts
-        // of the table that was selected when it last drew
-        ui.ctx().request_repaint_of(viewport_id);
+        // of the table that was selected when it last drew. A black cover (a
+        // table is playing) is asked once, when it turns black: repainting it
+        // with every frame brings the launcher's window above Visual Pinball's.
+        let key = egui::Id::unique("cover_black").with(id);
+        let was: Option<bool> = ui.ctx().data(|d| d.get_temp(key));
+        if !black || was != Some(black) {
+            ui.ctx().request_repaint_of(viewport_id);
+        }
+        ui.ctx().data_mut(|d| d.insert_temp(key, black));
         ui.ctx().show_viewport_deferred(
             viewport_id,
             egui::ViewportBuilder::default()
