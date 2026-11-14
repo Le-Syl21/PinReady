@@ -74,7 +74,7 @@ impl App {
         let mut update = false;
         egui::CentralPanel::default().show(ui, |ui| {
             ui.vertical_centered(|ui| {
-                ui.add_space((ui.available_height() * 0.25).max(24.0));
+                ui.add_space((ui.available_height() * 0.1).max(16.0));
                 theme::dmd_wordmark(ui, 3.0);
                 ui.add_space(24.0);
                 match step {
@@ -88,14 +88,21 @@ impl App {
                         if let Some(release) = &release {
                             ui.heading(t!("first_run_update_title").to_string());
                             ui.add_space(8.0);
-                            ui.set_max_width(520.0);
-                            ui.label(
-                                t!(
-                                    "first_run_update_text",
-                                    tag = release.tag.as_str(),
-                                    current = updater::CURRENT_PINREADY_VERSION
-                                )
-                                .to_string(),
+                            let text = t!(
+                                "first_run_update_text",
+                                tag = release.tag.as_str(),
+                                current = updater::CURRENT_PINREADY_VERSION
+                            )
+                            .to_string();
+                            // A centred column has no width of its own: give the
+                            // text one, so it wraps instead of running off both sides.
+                            let width = (ui.available_width() - 48.0).clamp(120.0, 520.0);
+                            ui.allocate_ui_with_layout(
+                                egui::vec2(width, 0.0),
+                                egui::Layout::top_down(egui::Align::Center),
+                                |ui| {
+                                    ui.add(egui::Label::new(text).wrap());
+                                },
                             );
                             ui.add_space(16.0);
                             let label = t!("pinready_update_button", tag = release.tag.as_str())
