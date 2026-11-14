@@ -541,11 +541,17 @@ impl App {
             let mut points: Vec<egui::Pos2> = (0..=48)
                 .map(|step| {
                     let angle = std::f32::consts::PI * step as f32 / 48.0;
-                    egui::pos2(center.x + side * angle.cos(), center.y - front * angle.sin())
+                    egui::pos2(
+                        center.x + side * angle.cos(),
+                        center.y - front * angle.sin(),
+                    )
                 })
                 .collect();
             points.push(points[0]);
-            painter.add(egui::Shape::line(points, egui::Stroke::new(2.0, RING_INTENT)));
+            painter.add(egui::Shape::line(
+                points,
+                egui::Stroke::new(2.0, RING_INTENT),
+            ));
         }
 
         // Dead zone, innermost by nature: it gates the raw signal first.
@@ -614,18 +620,19 @@ impl App {
 
         // A legend, because a ring nobody can name is decoration.
         ui.add_space(2.0);
-        let legend = |ui: &mut egui::Ui, color: egui::Color32, text: String, what: Option<String>| {
-            ui.horizontal(|ui| {
-                let (rect, _) =
-                    ui.allocate_exact_size(egui::vec2(12.0, 12.0), egui::Sense::hover());
-                ui.painter()
-                    .circle_stroke(rect.center(), 5.0, egui::Stroke::new(2.0, color));
-                ui.label(egui::RichText::new(text).small());
-            });
-            if let Some(what) = what {
-                ui.label(egui::RichText::new(what).small().weak());
-            }
-        };
+        let legend =
+            |ui: &mut egui::Ui, color: egui::Color32, text: String, what: Option<String>| {
+                ui.horizontal(|ui| {
+                    let (rect, _) =
+                        ui.allocate_exact_size(egui::vec2(12.0, 12.0), egui::Sense::hover());
+                    ui.painter()
+                        .circle_stroke(rect.center(), 5.0, egui::Stroke::new(2.0, color));
+                    ui.label(egui::RichText::new(text).small());
+                });
+                if let Some(what) = what {
+                    ui.label(egui::RichText::new(what).small().weak());
+                }
+            };
         legend(
             ui,
             egui::Color32::GRAY,
@@ -640,7 +647,12 @@ impl App {
         // Only worth a line when it has actually happened: a legend entry for
         // something nobody ever sees is noise.
         if !self.clip_marks.is_empty() {
-            legend(ui, RING_CLIPPED, t!("tilt_legend_clipped").to_string(), None);
+            legend(
+                ui,
+                RING_CLIPPED,
+                t!("tilt_legend_clipped").to_string(),
+                None,
+            );
         }
         legend(
             ui,

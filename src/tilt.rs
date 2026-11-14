@@ -344,7 +344,10 @@ mod tests {
         let desktop = TiltConfig::defaults_for(&config_from_str("[Player]\nBGSet = 0\n"));
         assert_eq!(desktop.visual_nudge_pct, 100.0);
         let tilt = TiltConfig::defaults_for(&config_from_str("[Player]\nBGSet = 1\n"));
-        assert!(tilt.plumb_enabled, "the virtual plumb is the recommended default");
+        assert!(
+            tilt.plumb_enabled,
+            "the virtual plumb is the recommended default"
+        );
         assert_eq!(tilt.visual_nudge_pct, 0.0, "a cabinet moves for real");
         // Round trip through the file, and a blank file keeps both defaults.
         let mut cfg = config_from_str("[Player]\n");
@@ -383,8 +386,16 @@ mod tests {
         );
         // Half way up the slider sits well inside a 1 g board's reach.
         assert!(!rings.tilt_out_of_reach(), "tilt at {}", rings.tilt);
-        assert!(rings.tilt > 0.3 * rings.full_scale, "tilt at {}", rings.tilt);
-        assert!(rings.tilt < 0.7 * rings.full_scale, "tilt at {}", rings.tilt);
+        assert!(
+            rings.tilt > 0.3 * rings.full_scale,
+            "tilt at {}",
+            rings.tilt
+        );
+        assert!(
+            rings.tilt < 0.7 * rings.full_scale,
+            "tilt at {}",
+            rings.tilt
+        );
     }
 
     #[test]
