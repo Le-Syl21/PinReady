@@ -503,6 +503,81 @@ pub fn query_vpx_version(exe_path: &str) -> Option<String> {
 }
 
 // ---------------------------------------------------------------------------
+// A Visual Pinball X the system may refuse to start
+// ---------------------------------------------------------------------------
+
+/// Why the system may refuse to start a Visual Pinball X the user supplied.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LaunchBlock {
+    /// Windows marked the file as coming from the Internet (SmartScreen).
+    WindowsInternetMark,
+    /// macOS quarantined the file (Gatekeeper).
+    MacQuarantine,
+}
+
+/// The paths that can carry the macOS quarantine mark for `exe`: the file
+/// itself and, when it sits inside an app bundle, the bundle (that is where
+/// the browser puts the mark).
+pub fn quarantine_candidates(exe: &Path) -> Vec<PathBuf> {
+    let mut out = vec![exe.to_path_buf()];
+    for ancestor in exe.ancestors().skip(1) {
+        if ancestor.extension().is_some_and(|e| e == "app") {
+            out.push(ancestor.to_path_buf());
+            break;
+        }
+    }
+    out
+}
+
+/// `Some(reason)` when the system is likely to stop `exe` from starting
+/// because it was downloaded with a browser; `None` otherwise, and always on
+/// Linux. A file PinReady downloads itself carries no such mark.
+pub fn launch_block(exe: &Path) -> Option<LaunchBlock> {
+    if cfg!(windows) && has_internet_mark(exe) {
+        return Some(LaunchBlock::WindowsInternetMark);
+    }
+    if cfg!(target_os = "macos")
+        && quarantine_candidates(exe)
+            .iter()
+            .any(|path| has_quarantine_mark(path))
+    {
+        return Some(LaunchBlock::MacQuarantine);
+    }
+    None
+}
+
+/// Windows keeps "this file came from the Internet" in an alternate data
+/// stream named `Zone.Identifier`.
+#[cfg(windows)]
+fn has_internet_mark(exe: &Path) -> bool {
+    let mut stream = exe.as_os_str().to_os_string();
+    stream.push(":Zone.Identifier");
+    std::fs::File::open(PathBuf::from(stream)).is_ok()
+}
+
+#[cfg(not(windows))]
+fn has_internet_mark(_exe: &Path) -> bool {
+    false
+}
+
+/// macOS keeps the quarantine mark in the `com.apple.quarantine` attribute.
+#[cfg(target_os = "macos")]
+fn has_quarantine_mark(path: &Path) -> bool {
+    std::process::Command::new("xattr")
+        .arg("-p")
+        .arg("com.apple.quarantine")
+        .arg(path)
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn has_quarantine_mark(_path: &Path) -> bool {
+    false
+}
+
+// ---------------------------------------------------------------------------
 // PinReady self-update
 // ---------------------------------------------------------------------------
 
@@ -613,7 +688,27 @@ pub fn check_pinready_release() -> Result<ReleaseInfo> {
 /// Returns true if the remote release tag differs from the running version.
 /// Tag format on releases is `v0.6.2`; `CURRENT_PINREADY_VERSION` has no `v` prefix.
 pub fn is_pinready_update_available(release: &ReleaseInfo) -> bool {
-    release.tag.trim_start_matches('v') != CURRENT_PINREADY_VERSION
+    is_newer_version(
+        release.tag.trim_start_matches('v'),
+        CURRENT_PINREADY_VERSION,
+    )
+}
+
+/// Is `remote` a later version than `current`? Numbers are compared as
+/// numbers (`0.27.10` is after `0.27.9`) and a pre-release suffix is ignored.
+/// A version that cannot be read counts as different, so it is offered.
+fn is_newer_version(remote: &str, current: &str) -> bool {
+    fn parts(v: &str) -> Option<Vec<u64>> {
+        v.split(['-', '+'])
+            .next()?
+            .split('.')
+            .map(|n| n.parse().ok())
+            .collect()
+    }
+    match (parts(remote), parts(current)) {
+        (Some(r), Some(c)) => r > c,
+        _ => remote != current,
+    }
 }
 
 /// Download the PinReady release, extract the binary, swap the running
@@ -922,5 +1017,50 @@ mod tests {
         extract_zip(&archive_path, &dest).unwrap();
         let extracted = std::fs::read_to_string(dest.join("test.txt")).unwrap();
         assert_eq!(extracted, "hello vpx");
+    }
+}
+
+#[cfg(test)]
+mod launch_block_tests {
+    use super::*;
+
+    #[test]
+    fn a_mark_on_an_app_bundle_is_looked_for_on_the_bundle() {
+        let exe = Path::new("/Applications/VPinballX_BGFX.app/Contents/MacOS/VPinballX_BGFX");
+        assert_eq!(
+            quarantine_candidates(exe),
+            vec![
+                PathBuf::from(exe),
+                PathBuf::from("/Applications/VPinballX_BGFX.app")
+            ]
+        );
+        // A plain executable has only itself.
+        let plain = Path::new("/opt/vpx/VPinballX_BGFX");
+        assert_eq!(quarantine_candidates(plain), vec![PathBuf::from(plain)]);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_never_reports_a_blocked_vpx() {
+        assert_eq!(launch_block(Path::new("/bin/ls")), None);
+    }
+}
+
+#[cfg(test)]
+mod newer_version_tests {
+    use super::is_newer_version;
+
+    #[test]
+    fn only_a_later_version_is_offered() {
+        assert!(is_newer_version("0.27.8", "0.27.7"));
+        assert!(is_newer_version("0.27.10", "0.27.9"));
+        assert!(is_newer_version("1.0.0", "0.99.99"));
+        // The same version, or an older release than the running build: nothing to offer.
+        assert!(!is_newer_version("0.27.7", "0.27.7"));
+        assert!(!is_newer_version("0.27.7", "0.27.8"));
+        // A pre-release suffix is ignored.
+        assert!(!is_newer_version("0.27.8-rc1", "0.27.8"));
+        // Unreadable: offered, as before.
+        assert!(is_newer_version("nightly", "0.27.8"));
     }
 }

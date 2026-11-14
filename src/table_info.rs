@@ -223,6 +223,13 @@ mod tests {
             "tilt_legend_deadzone_what",
             "tilt_legend_intent_what",
             "tilt_legend_tilt_what",
+            "first_run_update_checking",
+            "first_run_update_title",
+            "first_run_update_text",
+            "first_run_update_later",
+            "vpx_blocked_label",
+            "vpx_blocked_help_windows",
+            "vpx_blocked_help_macos",
         ];
         let mut files = 0;
         for entry in std::fs::read_dir(&dir).unwrap().flatten() {

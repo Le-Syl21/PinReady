@@ -742,6 +742,8 @@ pub struct App {
     pinready_update_check_rx: Option<crossbeam_channel::Receiver<anyhow::Result<ReleaseInfo>>>,
     pinready_update_progress_rx: Option<crossbeam_channel::Receiver<UpdateProgress>>,
     pinready_updating: bool,
+    /// First launch only: the moment the update check started, while the wizard waits for it.
+    first_run_gate: Option<std::time::Instant>,
     pinready_update_progress: (u64, u64),
     pinready_update_error: Option<String>,
 
@@ -818,6 +820,14 @@ impl App {
         let selected_language = Self::detect_language(&db);
 
         let actions = Self::load_input_mappings(&config);
+
+        // First launch: the wizard waits a moment for the update check (see `first_run`).
+        let first_run_gate = (start_in_wizard
+            && first_run::is_first_run(
+                db.get_config("wizard_completed").as_deref() == Some("true"),
+                crate::config::default_ini_path().is_file(),
+            ))
+        .then(std::time::Instant::now);
 
         let mut tilt = TiltConfig::defaults_for(&config);
         tilt.load_from_config(&config);
@@ -1051,6 +1061,7 @@ impl App {
             pinready_update_check_rx: Self::spawn_pinready_update_check(),
             pinready_update_progress_rx: None,
             pinready_updating: false,
+            first_run_gate,
             pinready_update_progress: (0, 0),
             pinready_update_error: None,
             ini_norm_rx: None,
@@ -2024,6 +2035,7 @@ mod autostart;
 mod bgcache;
 mod desktop_integration;
 mod effects;
+mod first_run;
 mod help;
 mod inputs_page;
 mod launcher;
@@ -2382,6 +2394,11 @@ impl eframe::App for App {
         }
 
         // === Wizard mode ===
+
+        // First launch: a newer PinReady is offered before the wizard opens.
+        if self.render_first_run_gate(ui) {
+            return;
+        }
 
         self.render_about_window(ui.ctx());
 

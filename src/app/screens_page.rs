@@ -224,6 +224,25 @@ impl App {
                                 format!("⚠ {}", t!("vpx_file_not_found")),
                             );
                         }
+                        // A VPX downloaded with a browser can be stopped by the
+                        // system (SmartScreen, Gatekeeper); say so, and how to lift it.
+                        if vpx_exists && let Some(block) = updater::launch_block(&resolved) {
+                            let help = match block {
+                                updater::LaunchBlock::WindowsInternetMark => {
+                                    t!("vpx_blocked_help_windows")
+                                }
+                                updater::LaunchBlock::MacQuarantine => {
+                                    t!("vpx_blocked_help_macos")
+                                }
+                            };
+                            ui.horizontal_wrapped(|ui| {
+                                ui.colored_label(
+                                    theme::pal(ui.ctx()).warning,
+                                    format!("⚠ {}", t!("vpx_blocked_label")),
+                                );
+                                help_marker(ui, &help);
+                            });
+                        }
                     });
                 }
 
