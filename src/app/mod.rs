@@ -819,7 +819,7 @@ impl App {
 
         let actions = Self::load_input_mappings(&config);
 
-        let mut tilt = TiltConfig::default();
+        let mut tilt = TiltConfig::defaults_for(&config);
         tilt.load_from_config(&config);
 
         let mut audio = AudioConfig::default();
@@ -1803,7 +1803,7 @@ impl App {
             }
         }
         self.page = WizardPage::Screens;
-        self.tilt = crate::tilt::TiltConfig::default();
+        self.tilt = crate::tilt::TiltConfig::defaults_for(&self.config);
         self.tables_dir.clear();
         self.merge_src_root.clear();
         self.autostart = false;
@@ -1851,7 +1851,7 @@ impl App {
                 self.output_discovery = DiscoveryState::default();
             }
             WizardPage::Tilt => {
-                self.tilt = TiltConfig::default();
+                self.tilt = TiltConfig::defaults_for(&self.config);
             }
             WizardPage::Audio => {
                 self.audio = AudioConfig::default();

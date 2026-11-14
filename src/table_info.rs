@@ -212,6 +212,17 @@ mod tests {
             "sort_community",
             "sort_last_played",
             "sort_most_played",
+            "tilt_plumb_section",
+            "tilt_plumb_intro",
+            "tilt_plumb_toggle",
+            "tilt_plumb_recommended",
+            "tilt_plumb_help",
+            "tilt_plumb_off_warning",
+            "tilt_visual_label",
+            "tilt_visual_help",
+            "tilt_legend_deadzone_what",
+            "tilt_legend_intent_what",
+            "tilt_legend_tilt_what",
         ];
         let mut files = 0;
         for entry in std::fs::read_dir(&dir).unwrap().flatten() {

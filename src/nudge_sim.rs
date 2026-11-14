@@ -25,9 +25,13 @@ const MODEL_MASS_KG: f32 = 113.0;
 /// VPX's default for `Mapping.NudgeN.CabWeight`, used when the ini leaves it
 /// empty — which it does unless someone weighed their cabinet.
 pub const DEFAULT_CAB_WEIGHT_KG: f32 = 113.0;
-/// Oscillator tuning, "calibrated on real cabinets (from CFTBL to King Kong)".
-const OSC_X: (f32, f32) = (9.3, 0.052);
-const OSC_Y: (f32, f32) = (5.8, 0.055);
+/// Oscillator tuning (frequency in Hz, damping ratio), "calibrated on real
+/// cabinets (accelerometer recordings, 2026-09)" — VPX commit d75ba2dd4. The
+/// earlier 9.3 / 5.8 Hz made the plumb about three times too hard to tilt on a
+/// side shove: a cabinet that rocks near the plumb's own 1.6 Hz drives it far
+/// harder than a stiff one.
+const OSC_X: (f32, f32) = (4.5, 0.04);
+const OSC_Y: (f32, f32) = (4.3, 0.055);
 const DT: f32 = 0.001;
 
 /// One axis of the cabinet's springy response to a force.
@@ -83,8 +87,9 @@ const IMPULSE_LENGTH: i32 = 25;
 const IMPULSE_THRESHOLD: f32 = 1.0;
 /// Same value, exposed so the UI can draw where it falls on a sensor gauge.
 pub const INTENT_THRESHOLD_MS2: f32 = IMPULSE_THRESHOLD;
-/// 0.5 g is a firm nudge; at that point no delay is added.
-const NO_DELAY_STRENGTH: f32 = 5.0;
+/// VPX's `StrongNudgeAcceleration` (0.7 g, from real cabinet recordings): a
+/// nudge this firm is sent without delay.
+const NO_DELAY_STRENGTH: f32 = 0.7 * 9.80665;
 /// Sensor acquisition period assumed for the delay, in ms.
 const SENSOR_POLL_MS: f32 = 8.0;
 

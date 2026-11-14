@@ -254,6 +254,38 @@ impl App {
                 });
         });
 
+        // --- Virtual plumb: recommended, and on by default ---
+        theme::section(
+            ui,
+            &t!("tilt_plumb_section"),
+            Some(&t!("tilt_plumb_intro")),
+            |ui| {
+                ui.horizontal(|ui| {
+                    ui.checkbox(&mut self.tilt.plumb_enabled, t!("tilt_plumb_toggle"));
+                    ui.label(
+                        egui::RichText::new(t!("tilt_plumb_recommended"))
+                            .color(egui::Color32::from_rgb(120, 200, 120))
+                            .strong(),
+                    );
+                });
+                ui.label(egui::RichText::new(t!("tilt_plumb_help")).weak());
+                if !self.tilt.plumb_enabled {
+                    ui.add_space(4.0);
+                    ui.colored_label(theme::pal(ui.ctx()).warning, t!("tilt_plumb_off_warning"));
+                }
+                ui.add_space(10.0);
+                ui.horizontal(|ui| {
+                    ui.label(t!("tilt_visual_label"));
+                    help_marker(ui, &t!("tilt_visual_help"));
+                });
+                ui.add_sized(
+                    [ui.available_width(), 24.0],
+                    egui::Slider::new(&mut self.tilt.visual_nudge_pct, 0.0..=200.0)
+                        .custom_formatter(|v, _| format!("{v:.0}%")),
+                );
+            },
+        );
+
         // --- Tilt section ---
         theme::section(
             ui,
@@ -314,10 +346,13 @@ impl App {
         if !self.tilt_rings.tilt_out_of_reach() {
             return;
         }
+        // A range is a fact about the board. When the board has told us its own,
+        // offering a wider one would only make VPX over-read every shake.
+        let board_known = self.pinscape_cfg.and_then(|c| c.accel_range_g).is_some();
         let wider = SENSOR_RANGES_G
             .iter()
             .copied()
-            .find(|r| *r > self.tilt.nudge_range_g && self.reach_covers(*r));
+            .find(|r| !board_known && *r > self.tilt.nudge_range_g && self.reach_covers(*r));
         egui::Frame::group(ui.style())
             .fill(egui::Color32::from_rgb(70, 45, 20))
             .show(ui, |ui| {
@@ -495,14 +530,22 @@ impl App {
             );
         }
 
-        // Intent gate — fixed at 1 m/s², but Strength applies before the
-        // comparison, so raising it moves this ring inwards.
+        // Intent gate — fixed at 1 m/s² on the strength-scaled vector, so
+        // raising Strength moves it inwards. It is not a circle: VPX scales the
+        // side axis by 4/3 (so it reaches 3/4 as far as the front one), and it
+        // keeps only the push on the front axis — a pull is never a nudge. Hence
+        // a half ellipse, closed along the side axis.
         if let Some(intent) = rings.intent {
-            painter.circle_stroke(
-                center,
-                to_radius(intent),
-                egui::Stroke::new(2.0, RING_INTENT),
-            );
+            let side = to_radius(intent);
+            let front = to_radius(intent * 4.0 / 3.0);
+            let mut points: Vec<egui::Pos2> = (0..=48)
+                .map(|step| {
+                    let angle = std::f32::consts::PI * step as f32 / 48.0;
+                    egui::pos2(center.x + side * angle.cos(), center.y - front * angle.sin())
+                })
+                .collect();
+            points.push(points[0]);
+            painter.add(egui::Shape::line(points, egui::Stroke::new(2.0, RING_INTENT)));
         }
 
         // Dead zone, innermost by nature: it gates the raw signal first.
@@ -571,7 +614,7 @@ impl App {
 
         // A legend, because a ring nobody can name is decoration.
         ui.add_space(2.0);
-        let legend = |ui: &mut egui::Ui, color: egui::Color32, text: String| {
+        let legend = |ui: &mut egui::Ui, color: egui::Color32, text: String, what: Option<String>| {
             ui.horizontal(|ui| {
                 let (rect, _) =
                     ui.allocate_exact_size(egui::vec2(12.0, 12.0), egui::Sense::hover());
@@ -579,6 +622,9 @@ impl App {
                     .circle_stroke(rect.center(), 5.0, egui::Stroke::new(2.0, color));
                 ui.label(egui::RichText::new(text).small());
             });
+            if let Some(what) = what {
+                ui.label(egui::RichText::new(what).small().weak());
+            }
         };
         legend(
             ui,
@@ -589,11 +635,12 @@ impl App {
                 range = format!("{:.0}", self.tilt.nudge_range_g)
             )
             .to_string(),
+            None,
         );
         // Only worth a line when it has actually happened: a legend entry for
         // something nobody ever sees is noise.
         if !self.clip_marks.is_empty() {
-            legend(ui, RING_CLIPPED, t!("tilt_legend_clipped").to_string());
+            legend(ui, RING_CLIPPED, t!("tilt_legend_clipped").to_string(), None);
         }
         legend(
             ui,
@@ -613,12 +660,14 @@ impl App {
                 )
                 .to_string()
             },
+            Some(t!("tilt_legend_tilt_what").to_string()),
         );
         if let Some(intent) = rings.intent {
             legend(
                 ui,
                 RING_INTENT,
                 t!("tilt_legend_intent", accel = format!("{intent:.1}")).to_string(),
+                Some(t!("tilt_legend_intent_what").to_string()),
             );
         }
         legend(
@@ -630,6 +679,7 @@ impl App {
                 pct = format!("{:.0}", self.tilt.nudge_deadzone_pct)
             )
             .to_string(),
+            Some(t!("tilt_legend_deadzone_what").to_string()),
         );
 
         // A banner naming what just happened. Rising is instant, falling

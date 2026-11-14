@@ -26,6 +26,14 @@ pub struct TiltConfig {
     /// 2 = Cabinet Sensor. Default 1 (recommended for HID accelerometers like
     /// Pinscape — not high-frequency/noise-free enough for direct Cabinet Sensor).
     pub nudge_sensor_type: i32,
+    /// `Player/SimulatedPlumb`: the virtual plumb bob. On by default and
+    /// recommended: it is the one thing that shows, while playing, whether a
+    /// shove is about to tilt the table, and so whether the settings feel right.
+    pub plumb_enabled: bool,
+    /// `Player/NudgeStrength`, 0–200 %: how much the picture shakes on a nudge.
+    /// Off by default here: a cabinet really moves, and moving the picture on
+    /// top of it is a second shake for one nudge.
+    pub visual_nudge_pct: f32,
 }
 
 pub const TILT_ANGLE_MIN: f32 = 0.15;
@@ -53,18 +61,32 @@ const NUDGE_STRENGTH_MAX_PCT: f32 = 200.0;
 impl Default for TiltConfig {
     fn default() -> Self {
         Self {
-            // Cabinet-tuned defaults, in the order the sliders appear on the
-            // tilt page: nudge 100 % (neutral, VPX's own default for
-            // Strength), deadzone 3 %, tilt 75 % = 1.11°, within reach of a
-            // 1 g board (VPX's own 4° default since rev 6177 is not). VPX
-            // itself sets no deadzone at all; 3 % only swallows the sensor's
-            // own noise.
-            tilt_sensitivity_pct: 75.0,
-            plumb_damping: 1.0,
+            // VPX's own defaults, so a fresh PinReady behaves like a bare
+            // VPX: tilt at 4° (0 % here), plumb damping 0.2, nudge strength
+            // 100 %, no dead zone, plumb on, visual nudge 100 % (see
+            // `defaults_for` for cabinet mode). Sensor range and type are
+            // the only choices made for the cabinet.
+            tilt_sensitivity_pct: 0.0,
+            plumb_damping: 0.2,
             nudge_scale_pct: 100.0,
             nudge_range_g: 1.0,
-            nudge_deadzone_pct: 3.0,
+            nudge_deadzone_pct: 0.0,
             nudge_sensor_type: 1,
+            plumb_enabled: true,
+            visual_nudge_pct: 100.0,
+        }
+    }
+}
+
+impl TiltConfig {
+    /// The defaults for the display mode in `config`: VPX's own, except the
+    /// visual nudge, which is 0 % in cabinet mode (`BGSet` = 1) because the
+    /// cabinet really moves: shaking the picture too would double it.
+    pub fn defaults_for(config: &crate::config::VpxConfig) -> Self {
+        let cabinet = config.get_i32("Player", "BGSet") == Some(1);
+        Self {
+            visual_nudge_pct: if cabinet { 0.0 } else { 100.0 },
+            ..Self::default()
         }
     }
 }
@@ -253,12 +275,20 @@ impl TiltConfig {
         if let Some(v) = config.get_i32("Input", "Mapping.Nudge0.Type") {
             self.nudge_sensor_type = v;
         }
+        if let Some(v) = config.get_i32("Player", "SimulatedPlumb") {
+            self.plumb_enabled = v != 0;
+        }
+        if let Some(v) = config.get_f32("Player", "NudgeStrength") {
+            self.visual_nudge_pct = (v * 100.0).clamp(0.0, NUDGE_STRENGTH_MAX_PCT);
+        }
         if let Some(v) = config.get_f32("Input", "Mapping.Nudge0.Strength") {
             self.nudge_scale_pct = (v / NUDGE_STRENGTH_PER_PCT).clamp(0.0, NUDGE_STRENGTH_MAX_PCT);
         }
     }
 
     pub fn save_to_config(&self, config: &mut crate::config::VpxConfig) {
+        config.set_i32("Player", "SimulatedPlumb", i32::from(self.plumb_enabled));
+        config.set_f32("Player", "NudgeStrength", self.visual_nudge_pct / 100.0);
         config.set_plumb_damping(self.plumb_damping);
         // Inverted mapping: 0% (insensitive) → 4°, 100% (ultra-sensitive) → 0.15°.
         config.set_plumb_threshold_angle(Self::threshold_angle(self.tilt_sensitivity_pct));
@@ -309,8 +339,38 @@ mod tests {
     }
 
     #[test]
+    fn the_plumb_is_on_and_the_picture_still_in_cabinet_mode() {
+        assert_eq!(TiltConfig::default().visual_nudge_pct, 100.0, "VPX default");
+        let desktop = TiltConfig::defaults_for(&config_from_str("[Player]\nBGSet = 0\n"));
+        assert_eq!(desktop.visual_nudge_pct, 100.0);
+        let tilt = TiltConfig::defaults_for(&config_from_str("[Player]\nBGSet = 1\n"));
+        assert!(tilt.plumb_enabled, "the virtual plumb is the recommended default");
+        assert_eq!(tilt.visual_nudge_pct, 0.0, "a cabinet moves for real");
+        // Round trip through the file, and a blank file keeps both defaults.
+        let mut cfg = config_from_str("[Player]\n");
+        tilt.save_to_config(&mut cfg);
+        let mut back = TiltConfig {
+            plumb_enabled: false,
+            visual_nudge_pct: 80.0,
+            ..TiltConfig::default()
+        };
+        back.load_from_config(&cfg);
+        assert!(back.plumb_enabled);
+        assert_eq!(back.visual_nudge_pct, 0.0);
+        let mut blank = tilt.clone();
+        blank.load_from_config(&config_from_str("[Player]\nNudgeStrength = \n"));
+        assert!(blank.plumb_enabled);
+        assert_eq!(blank.visual_nudge_pct, 0.0);
+    }
+
+    #[test]
     fn the_dial_orders_its_rings_the_way_the_filters_apply() {
-        let tilt = TiltConfig::default();
+        // A dead zone of 3 %: VPX's own default has none.
+        let tilt = TiltConfig {
+            nudge_deadzone_pct: 3.0,
+            tilt_sensitivity_pct: 50.0,
+            ..TiltConfig::default()
+        };
         let rings = tilt.rings();
         assert!(rings.deadzone > 0.0);
         assert!(
@@ -321,10 +381,10 @@ mod tests {
             rings.intent.unwrap() < rings.tilt,
             "clearing the nudge threshold must be easier than tilting"
         );
-        // The defaults sit inside a 1 g board's reach, but only just — the
-        // whole reason the page has to say so.
+        // Half way up the slider sits well inside a 1 g board's reach.
         assert!(!rings.tilt_out_of_reach(), "tilt at {}", rings.tilt);
-        assert!(rings.tilt > 0.6 * rings.full_scale);
+        assert!(rings.tilt > 0.3 * rings.full_scale, "tilt at {}", rings.tilt);
+        assert!(rings.tilt < 0.7 * rings.full_scale, "tilt at {}", rings.tilt);
     }
 
     #[test]
@@ -337,19 +397,24 @@ mod tests {
     }
 
     #[test]
-    fn a_wide_tilt_angle_falls_out_of_a_1g_sensor_reach() {
+    fn the_widest_tilt_angle_sits_at_the_edge_of_a_1g_sensor() {
         let tilt = TiltConfig {
             tilt_sensitivity_pct: 0.0, // the widest angle, 4°
             ..Default::default()
         };
         let rings = tilt.rings();
-        assert!(rings.tilt_out_of_reach(), "tilt at {}", rings.tilt);
-        // 4° needs more than twice full scale at 1 g, so no strength within
-        // VPX's 0..2 range brings it back — only a wider sensor range does.
-        assert!(rings.strength_to_reach_pct.is_none());
+        // With VPX's recalibrated cabinet (4.5 / 4.3 Hz) 4° asks for about
+        // 9.5 m/s², a hair under a 1 g board's full scale: it never tilts
+        // in play, which is what a 4° plumb is for.
         assert!(
-            rings.reach[0].1 < 4.0 && rings.reach[2].1 >= 4.0,
-            "a 1 g board should fall short where a 4 g one reaches: {:?}",
+            rings.tilt > 0.85 * rings.full_scale,
+            "tilt at {} of {}",
+            rings.tilt,
+            rings.full_scale
+        );
+        assert!(
+            rings.reach[0].1 >= 3.5,
+            "a 1 g board should reach about 4°: {:?}",
             rings.reach
         );
     }
@@ -358,7 +423,8 @@ mod tests {
     fn strength_is_offered_when_it_would_actually_help() {
         // Just out of reach: a threshold a stronger setting can recover.
         let tilt = TiltConfig {
-            tilt_sensitivity_pct: 62.0,
+            tilt_sensitivity_pct: 20.0,
+            nudge_scale_pct: 50.0,
             ..Default::default()
         };
         let rings = tilt.rings();
@@ -366,7 +432,7 @@ mod tests {
         let pct = rings
             .strength_to_reach_pct
             .expect("a reachable fix should be offered");
-        assert!((100.0..=200.0).contains(&pct), "got {pct}");
+        assert!((50.0..=200.0).contains(&pct), "got {pct}");
         let fixed = TiltConfig {
             nudge_scale_pct: pct,
             ..tilt.clone()
@@ -381,10 +447,13 @@ mod tests {
     fn the_dead_zone_bites_in_proportion_to_the_range() {
         // The one setting whose real effect follows the range, which is why
         // the page prints it in m/s² next to its percentage.
-        let narrow = TiltConfig::default();
+        let narrow = TiltConfig {
+            nudge_deadzone_pct: 3.0,
+            ..Default::default()
+        };
         let wide = TiltConfig {
             nudge_range_g: 8.0,
-            ..Default::default()
+            ..narrow.clone()
         };
         assert!((wide.deadzone_ms2() / narrow.deadzone_ms2() - 8.0).abs() < 0.01);
     }
@@ -394,7 +463,7 @@ mod tests {
         let base = TiltConfig::default();
         for changed in [
             TiltConfig {
-                tilt_sensitivity_pct: 50.0,
+                tilt_sensitivity_pct: 75.0,
                 ..base.clone()
             },
             TiltConfig {
@@ -425,10 +494,10 @@ mod tests {
     #[test]
     fn default_values() {
         let tilt = TiltConfig::default();
-        assert!((tilt.tilt_sensitivity_pct - 75.0).abs() < f32::EPSILON);
-        assert!((tilt.plumb_damping - 1.0).abs() < f32::EPSILON);
+        assert!(tilt.tilt_sensitivity_pct.abs() < f32::EPSILON);
+        assert!((tilt.plumb_damping - 0.2).abs() < f32::EPSILON);
         assert!((tilt.nudge_scale_pct - 100.0).abs() < f32::EPSILON);
-        assert!((tilt.nudge_deadzone_pct - 3.0).abs() < f32::EPSILON);
+        assert!(tilt.nudge_deadzone_pct.abs() < f32::EPSILON);
     }
 
     #[test]
@@ -454,8 +523,8 @@ mod tests {
         let cfg = config_from_str("");
         let mut tilt = TiltConfig::default();
         tilt.load_from_config(&cfg);
-        assert!((tilt.tilt_sensitivity_pct - 75.0).abs() < f32::EPSILON);
-        assert!((tilt.plumb_damping - 1.0).abs() < f32::EPSILON);
+        assert!(tilt.tilt_sensitivity_pct.abs() < f32::EPSILON);
+        assert!((tilt.plumb_damping - 0.2).abs() < f32::EPSILON);
     }
 
     #[test]
