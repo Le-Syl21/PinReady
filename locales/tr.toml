@@ -354,6 +354,12 @@ tilt_state_deadzone = "Ölü bölge — simülasyona hiçbir şey ulaşmıyor"
 tilt_state_nudge = "Nudge"
 tilt_state_tilt = "TILT"
 tilt_visualization = "Kabini sarsın: aşağıdaki her şey sensörün okuduğu haliyle ivme olarak çizilir, böylece nokta ile halkalar doğrudan karşılaştırılabilir. Kırmızı halkayı geçmek TILT demektir."
+tilt_howto_test = "Denemek için makineyi yana doğru art arda sert vuruşlarla sallayın, her biri bir öncekinden biraz daha sert. Mavi noktaya bakın: tilt olması için kırmızı daireye değmeli."
+tilt_rules_title = "VPX bir dürtmeyi nasıl okur"
+tilt_rules_forward = "Ön-arka eksende yalnızca sizden uzaklaşan itme sayılır. Makineyi kendinize çekmek ya da geri gelmesine izin vermek sayılmaz."
+tilt_rules_side = "Yanlara doğru iki yön de sayılır ve öne göre biraz daha fazla (×4/3). Tilt yapmanın en kolay yolu budur."
+tilt_rules_gate = "Bir vuruş yalnızca turuncu dairenin (1 m/s²) üstünde sayılır. VPX bu durumda ölçülen tepe kadar güçlü, 25 ms'lik kısa bir itme oluşturur; sensörün ham değeri bundan sonra kullanılmaz."
+tilt_rules_series = "Güçlü bir vuruştan sonraki 0,3 sn içindeki daha zayıf tepeler yok sayılır (geri sallanan makine). Her vuruş bir öncekinden güçlüyse hepsi sayılır ve sarkaç onları toplar: tilt böyle gelir."
 
 # Audio page
 audio_heading = "Ses"

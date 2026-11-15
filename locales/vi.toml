@@ -353,6 +353,12 @@ tilt_state_deadzone = "Vùng chết — không gì đến được mô phỏng"
 tilt_state_nudge = "Nudge"
 tilt_state_tilt = "TILT"
 tilt_visualization = "Hãy lắc thùng máy: mọi thứ bên dưới đều được vẽ theo gia tốc đúng như cảm biến đọc, nên chấm sáng và các vòng có thể so sánh trực tiếp. Vượt vòng đỏ nghĩa là TILT."
+tilt_howto_test = "Để thử, hãy lắc máy sang hai bên bằng một loạt cú đập mạnh liên tiếp, mỗi cú mạnh hơn cú trước một chút. Quan sát chấm xanh: nó phải chạm vào vòng tròn đỏ thì mới có tilt."
+tilt_rules_title = "VPX đọc một cú hích như thế nào"
+tilt_rules_forward = "Theo hướng trước–sau, chỉ cú đẩy ra xa bạn mới được tính. Kéo máy về phía mình hoặc để nó quay lại thì không tính."
+tilt_rules_side = "Sang hai bên, cả hai chiều đều được tính, và hơi nhiều hơn so với phía trước (×4/3). Đây là cách dễ nhất để gây tilt."
+tilt_rules_gate = "Một cú đập chỉ được tính khi vượt vòng tròn màu cam (1 m/s²). VPX khi đó tạo một cú đẩy ngắn 25 ms mạnh bằng đỉnh đã đo; giá trị thô của cảm biến không còn được dùng."
+tilt_rules_series = "Sau một cú mạnh, các đỉnh yếu hơn trong 0,3 giây sau bị bỏ qua (máy lắc ngược lại). Khi mỗi cú mạnh hơn cú trước, tất cả đều được tính và con lắc cộng dồn chúng: đó là cách tilt xảy ra."
 
 # Audio page
 audio_heading = "Âm thanh"

@@ -354,6 +354,12 @@ tilt_state_deadzone = "Zona morta — nada chega à simulação"
 tilt_state_nudge = "Nudge"
 tilt_state_tilt = "TILT"
 tilt_visualization = "Sacuda o móvel: tudo abaixo é desenhado em aceleração tal como o sensor a lê, por isso o ponto e os anéis comparam-se diretamente. Atravessar o anel vermelho significa TILT."
+tilt_howto_test = "Para experimentar, balance a máquina de lado em uma série de pancadas fortes, uma após a outra e cada uma um pouco mais forte. Veja o ponto azul: ele precisa tocar o círculo vermelho para haver tilt."
+tilt_rules_title = "Como o VPX lê um empurrão"
+tilt_rules_forward = "De frente para trás, só conta um empurrão que se afasta de você. Puxar a máquina para você, ou deixá-la voltar, não conta."
+tilt_rules_side = "De lado, os dois sentidos contam, e um pouco mais do que para a frente (×4/3). É a forma mais fácil de dar tilt."
+tilt_rules_gate = "Uma pancada só conta acima do círculo laranja (1 m/s²). O VPX cria então um empurrão curto de 25 ms, tão forte quanto o pico medido; a leitura bruta do sensor deixa de ser usada."
+tilt_rules_series = "Depois de uma pancada forte, picos mais fracos nos 0,3 s seguintes são ignorados (a máquina voltando). Quando cada pancada é mais forte que a anterior, todas contam e o pêndulo as soma: é assim que vem o tilt."
 
 # Audio page
 audio_heading = "Áudio"

@@ -354,6 +354,12 @@ tilt_state_deadzone = "Dödzon — inget når simuleringen"
 tilt_state_nudge = "Nudge"
 tilt_state_tilt = "TILT"
 tilt_visualization = "Skaka skåpet: allt nedan ritas i acceleration så som sensorn läser den, så punkten och ringarna kan jämföras direkt. Att korsa den röda ringen betyder TILT."
+tilt_howto_test = "För att prova, gunga flipperspelet i sidled med en serie hårda smällar, en efter en och var och en lite hårdare. Titta på den blå pricken: den måste röra den röda cirkeln för att det ska bli tilt."
+tilt_rules_title = "Hur VPX läser en knuff"
+tilt_rules_forward = "Framåt–bakåt räknas bara en knuff bort från dig. Att dra spelet mot dig eller låta det komma tillbaka räknas inte."
+tilt_rules_side = "I sidled räknas båda riktningarna, och lite mer än framåt (×4/3). Det är det enklaste sättet att tilta."
+tilt_rules_gate = "En smäll räknas först över den orange cirkeln (1 m/s²). VPX bygger då en kort knuff på 25 ms, lika hård som den uppmätta toppen; sensorns råa värde används inte efter det."
+tilt_rules_series = "Efter en hård smäll ignoreras svagare toppar inom 0,3 s (spelet som svänger tillbaka). När varje smäll är hårdare än den förra räknas alla, och pendeln summerar dem: så kommer tilten."
 
 # Audio page
 audio_heading = "Ljud"

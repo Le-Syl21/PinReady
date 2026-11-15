@@ -354,6 +354,12 @@ tilt_state_deadzone = "Eneo fu — hakuna kinachofika kwenye uigaji"
 tilt_state_nudge = "Nudge"
 tilt_state_tilt = "TILT"
 tilt_visualization = "Tikisa kabati: kila kitu hapa chini kimechorwa kwa mwendokasi kama vile kihisi kinavyousoma, hivyo nukta na pete zinaweza kulinganishwa moja kwa moja. Kuvuka pete nyekundu ni TILT."
+tilt_howto_test = "Ili kujaribu, tikisa mashine kando kwa mfululizo wa makofi makubwa, moja baada ya jingine na kila moja kwa nguvu kidogo zaidi. Tazama nukta ya samawati: lazima iguse duara jekundu ili tilt itokee."
+tilt_rules_title = "Jinsi VPX inavyosoma msukumo"
+tilt_rules_forward = "Mbele hadi nyuma, ni msukumo unaoondoka kwako tu unaohesabiwa. Kuvuta mashine kuelekea kwako, au kuiacha irudi, hakuhesabiwi."
+tilt_rules_side = "Kando, pande zote mbili zinahesabiwa, na kidogo zaidi ya mbele (×4/3). Hii ndiyo njia rahisi zaidi ya kupata tilt."
+tilt_rules_gate = "Kofi huhesabiwa tu juu ya duara la machungwa (1 m/s²). Kisha VPX hutengeneza msukumo mfupi wa ms 25 wenye nguvu ya kilele kilichopimwa; usomaji ghafi wa kihisi hautumiki tena."
+tilt_rules_series = "Baada ya kofi kali, vilele dhaifu ndani ya sekunde 0.3 hupuuzwa (mashine ikirudi nyuma). Kila kofi likiwa kali kuliko lililotangulia, yote huhesabiwa na pendulumu huyajumlisha: hivyo ndivyo tilt inavyokuja."
 
 # Audio page
 audio_heading = "Sauti"

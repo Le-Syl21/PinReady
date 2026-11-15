@@ -354,6 +354,12 @@ tilt_state_deadzone = "Totzone — nichts erreicht die Simulation"
 tilt_state_nudge = "Nudge"
 tilt_state_tilt = "TILT"
 tilt_visualization = "Rütteln Sie am Gehäuse: alles unten ist in der Beschleunigung gezeichnet, wie der Sensor sie liest, sodass Punkt und Ringe direkt vergleichbar sind. Den roten Ring zu überschreiten bedeutet TILT."
+tilt_howto_test = "Zum Ausprobieren kippen Sie den Flipper seitlich in einer Folge kräftiger Schläge, einen nach dem anderen und jeden etwas härter. Beobachten Sie den blauen Punkt: Er muss den roten Kreis berühren, damit es Tilt gibt."
+tilt_rules_title = "Wie VPX einen Stoß liest"
+tilt_rules_forward = "Von vorn nach hinten zählt nur ein Stoß von Ihnen weg. Den Flipper zu sich zu ziehen oder zurückkommen zu lassen, zählt nicht."
+tilt_rules_side = "Seitlich zählen beide Richtungen, etwas stärker als nach vorn (×4/3). So lässt sich am leichtesten ein Tilt auslösen."
+tilt_rules_gate = "Ein Schlag zählt erst oberhalb des orangefarbenen Kreises (1 m/s²). VPX erzeugt dann einen kurzen 25-ms-Stoß in der Stärke des gemessenen Spitzenwerts; der Rohwert des Sensors wird danach nicht mehr benutzt."
+tilt_rules_series = "Nach einem starken Schlag werden schwächere Spitzen innerhalb von 0,3 s ignoriert (der zurückschwingende Flipper). Wird jeder Schlag härter als der vorige, zählen alle, und das Pendel addiert sie: So kommt der Tilt."
 
 # Audio page
 audio_heading = "Audio"

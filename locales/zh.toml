@@ -353,6 +353,12 @@ tilt_state_deadzone = "死区 — 没有信号进入模拟"
 tilt_state_nudge = "推动"
 tilt_state_tilt = "TILT"
 tilt_visualization = "晃动机柜：下面的一切都按传感器读到的加速度绘制，因此光点与各圆环可以直接比较。越过红环即为 TILT。"
+tilt_howto_test = "想试一试的话,把机台向侧面连续大力拍打摇晃,一下接一下,每一下比前一下略重。观察蓝点:它碰到红圈才会倾斜(Tilt)。"
+tilt_rules_title = "VPX 如何读取推动"
+tilt_rules_forward = "前后方向上,只有朝远离你的方向的推动才算数。把机台拉向自己,或任由它弹回,都不算。"
+tilt_rules_side = "侧向时,两个方向都算数,并且比向前略重(×4/3)。这是最容易触发倾斜的方式。"
+tilt_rules_gate = "撞击只有超过橙色圆圈(1 m/s²)才算数。随后 VPX 会生成一次 25 毫秒的短推,力度等于测得的峰值;传感器的原始读数此后不再使用。"
+tilt_rules_series = "一次强力撞击之后,0.3 秒内更弱的峰值会被忽略(机台弹回的摆动)。当每次撞击都比上一次更重时,全部都算数,摆锤会把它们累加起来:倾斜就是这样产生的。"
 
 # Audio page
 audio_heading = "音频"

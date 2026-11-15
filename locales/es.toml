@@ -354,6 +354,12 @@ tilt_state_deadzone = "Zona muerta — nada llega a la simulación"
 tilt_state_nudge = "Nudge"
 tilt_state_tilt = "TILT"
 tilt_visualization = "Sacuda el mueble: todo lo de abajo se dibuja en aceleración tal como la lee el sensor, así el punto y los anillos se comparan directamente. Cruzar el anillo rojo significa TILT."
+tilt_howto_test = "Para probarlo, balancea la máquina de lado a lado con una serie de golpes fuertes, uno tras otro y cada uno un poco más fuerte, como una serie de empujones. Mira el punto azul: debe tocar el círculo rojo para que haya tilt."
+tilt_rules_title = "Cómo lee VPX un empujón"
+tilt_rules_forward = "De delante hacia atrás, solo cuenta un empujón que se aleja de ti. Tirar de la máquina hacia ti, o dejar que vuelva, no cuenta."
+tilt_rules_side = "De lado, cuentan los dos sentidos y algo más que hacia delante (×4/3). Es la forma más fácil de provocar un tilt."
+tilt_rules_gate = "Un golpe solo cuenta por encima del círculo naranja (1 m/s²). VPX crea entonces un empujón corto de 25 ms, tan fuerte como el pico medido; la lectura bruta del sensor ya no se usa."
+tilt_rules_series = "Tras un golpe fuerte, los picos más débiles en los siguientes 0,3 s se ignoran (la máquina que vuelve). Cuando cada golpe es más fuerte que el anterior, todos cuentan y el péndulo los suma: así llega el tilt."
 
 # Audio page
 audio_heading = "Audio"

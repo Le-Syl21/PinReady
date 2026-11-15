@@ -354,6 +354,12 @@ tilt_state_deadzone = "Martwa strefa — nic nie dociera do symulacji"
 tilt_state_nudge = "Nudge"
 tilt_state_tilt = "TILT"
 tilt_visualization = "Potrząśnij szafką: wszystko poniżej narysowano w przyspieszeniu tak, jak odczytuje je czujnik, więc punkt i pierścienie da się porównać wprost. Przekroczenie czerwonego pierścienia oznacza TILT."
+tilt_howto_test = "Aby to wypróbować, kołysz automatem na boki serią mocnych uderzeń, jedno po drugim i każde odrobinę mocniejsze. Patrz na niebieską kropkę: musi dotknąć czerwonego koła, żeby był tilt."
+tilt_rules_title = "Jak VPX odczytuje szturchnięcie"
+tilt_rules_forward = "W osi przód–tył liczy się tylko pchnięcie od siebie. Przyciąganie automatu do siebie lub pozwolenie mu wrócić się nie liczy."
+tilt_rules_side = "Na boki liczą się oba kierunki, i nieco bardziej niż do przodu (×4/3). To najłatwiejszy sposób na tilt."
+tilt_rules_gate = "Uderzenie liczy się dopiero powyżej pomarańczowego koła (1 m/s²). VPX tworzy wtedy krótkie, 25-milisekundowe pchnięcie o sile zmierzonego szczytu; surowy odczyt czujnika nie jest już używany."
+tilt_rules_series = "Po mocnym uderzeniu słabsze szczyty w ciągu 0,3 s są ignorowane (automat wraca). Gdy każde uderzenie jest mocniejsze od poprzedniego, liczą się wszystkie, a wahadło je sumuje: tak powstaje tilt."
 
 # Audio page
 audio_heading = "Dźwięk"

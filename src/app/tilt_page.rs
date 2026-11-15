@@ -481,6 +481,18 @@ impl App {
     /// setting the sensor can never satisfy.
     fn render_tilt_dial(&mut self, ui: &mut egui::Ui) {
         ui.label(t!("tilt_visualization"));
+        // How to try it, then how VPX reads a knock: the rules that make a
+        // shove from the front count for little and a chain of side slaps a
+        // tilt, so nobody has to find out by shaking the cabinet blindly.
+        ui.label(egui::RichText::new(t!("tilt_howto_test")).strong());
+        egui::CollapsingHeader::new(t!("tilt_rules_title"))
+            .default_open(false)
+            .show(ui, |ui| {
+                ui.label(t!("tilt_rules_forward"));
+                ui.label(t!("tilt_rules_side"));
+                ui.label(t!("tilt_rules_gate"));
+                ui.label(t!("tilt_rules_series"));
+            });
         ui.add_space(4.0);
         let viz_size = egui::vec2(260.0, 260.0);
         let (rect, _response) = ui.allocate_exact_size(viz_size, egui::Sense::hover());

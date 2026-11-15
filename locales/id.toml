@@ -354,6 +354,12 @@ tilt_state_deadzone = "Zona mati — tidak ada yang sampai ke simulasi"
 tilt_state_nudge = "Nudge"
 tilt_state_tilt = "TILT"
 tilt_visualization = "Guncang kabinet: semua di bawah digambar dalam percepatan sebagaimana sensor membacanya, sehingga titik dan cincin dapat dibandingkan langsung. Melewati cincin merah berarti TILT."
+tilt_howto_test = "Untuk mencobanya, goyangkan mesin ke samping dengan rentetan pukulan keras, satu demi satu dan masing-masing sedikit lebih keras. Perhatikan titik biru: ia harus menyentuh lingkaran merah agar terjadi tilt."
+tilt_rules_title = "Cara VPX membaca dorongan"
+tilt_rules_forward = "Dari depan ke belakang, hanya dorongan yang menjauh darimu yang dihitung. Menarik mesin ke arahmu atau membiarkannya kembali tidak dihitung."
+tilt_rules_side = "Ke samping, kedua arah dihitung, dan sedikit lebih kuat daripada ke depan (×4/3). Ini cara termudah untuk membuat tilt."
+tilt_rules_gate = "Sebuah pukulan baru dihitung di atas lingkaran oranye (1 m/s²). VPX lalu membuat dorongan singkat 25 ms sekuat puncak yang terukur; bacaan mentah sensor tidak dipakai lagi."
+tilt_rules_series = "Setelah pukulan keras, puncak yang lebih lemah dalam 0,3 detik diabaikan (mesin yang berayun kembali). Jika setiap pukulan lebih keras dari sebelumnya, semuanya dihitung dan bandul menjumlahkannya: begitulah tilt terjadi."
 
 # Audio page
 audio_heading = "Suara"

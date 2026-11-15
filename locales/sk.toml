@@ -354,6 +354,12 @@ tilt_state_deadzone = "Mŕtva zóna — do simulácie nič nejde"
 tilt_state_nudge = "Nudge"
 tilt_state_tilt = "TILT"
 tilt_visualization = "Zatraste skriňou: všetko nižšie je vykreslené v zrýchlení tak, ako ho číta senzor, takže bod a prstence sa dajú priamo porovnať. Prekročenie červeného prstenca znamená TILT."
+tilt_howto_test = "Na vyskúšanie hojdajte automatom do strán radom silných úderov, jeden za druhým a každý o trochu silnejší. Sledujte modrú bodku: aby došlo k tiltu, musí sa dotknúť červeného kruhu."
+tilt_rules_title = "Ako VPX číta šťuchnutie"
+tilt_rules_forward = "V osi dopredu–dozadu sa počíta len strčenie smerom od vás. Pritiahnutie automatu k sebe alebo jeho návrat sa nepočíta."
+tilt_rules_side = "Do strán sa počítajú oba smery, o niečo viac ako dopredu (×4/3). Je to najjednoduchší spôsob, ako vyvolať tilt."
+tilt_rules_gate = "Úder sa počíta až nad oranžovým kruhom (1 m/s²). VPX potom vytvorí krátky 25 ms impulz so silou nameraného maxima; surová hodnota senzora sa ďalej nepoužíva."
+tilt_rules_series = "Po silnom údere sa slabšie špičky do 0,3 s ignorujú (automat sa vracia). Keď je každý úder silnejší ako predchádzajúci, počítajú sa všetky a kyvadlo ich sčítava: tak vzniká tilt."
 
 # Audio page
 audio_heading = "Zvuk"

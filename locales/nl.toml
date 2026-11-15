@@ -354,6 +354,12 @@ tilt_state_deadzone = "Dode zone — niets bereikt de simulatie"
 tilt_state_nudge = "Nudge"
 tilt_state_tilt = "TILT"
 tilt_visualization = "Schud de kast: alles hieronder is getekend in versnelling zoals de sensor die leest, zodat de stip en de ringen direct vergelijkbaar zijn. De rode ring passeren betekent TILT."
+tilt_howto_test = "Probeer het door de kast zijwaarts te schommelen met een reeks harde klappen, de een na de ander en elk iets harder. Kijk naar de blauwe stip: die moet de rode cirkel raken voor een tilt."
+tilt_rules_title = "Hoe VPX een duw leest"
+tilt_rules_forward = "Van voor naar achter telt alleen een duw van je af. De kast naar je toe trekken of laten terugkomen telt niet."
+tilt_rules_side = "Zijwaarts tellen beide richtingen, iets zwaarder dan naar voren (×4/3). Zo tilt je het gemakkelijkst."
+tilt_rules_gate = "Een klap telt pas boven de oranje cirkel (1 m/s²). VPX maakt dan een korte duw van 25 ms, even sterk als de gemeten piek; de ruwe sensorwaarde wordt daarna niet meer gebruikt."
+tilt_rules_series = "Na een harde klap worden zwakkere pieken binnen 0,3 s genegeerd (de kast die terugzwaait). Als elke klap harder is dan de vorige, tellen ze allemaal mee en telt de slinger ze op: zo komt de tilt."
 
 # Audio page
 audio_heading = "Audio"

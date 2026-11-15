@@ -353,6 +353,12 @@ tilt_state_deadzone = "死區 — 沒有訊號進入模擬"
 tilt_state_nudge = "推動"
 tilt_state_tilt = "TILT"
 tilt_visualization = "晃動機櫃：下面的一切都依感測器讀到的加速度繪製，因此光點與各圓環可以直接比較。越過紅環即為 TILT。"
+tilt_howto_test = "想試試的話,把機台向側面連續大力拍打搖晃,一下接一下,每一下比前一下略重。觀察藍點:它碰到紅圈才會傾斜(Tilt)。"
+tilt_rules_title = "VPX 如何讀取推動"
+tilt_rules_forward = "前後方向上,只有朝遠離你的方向的推動才算數。把機台拉向自己,或任由它彈回,都不算。"
+tilt_rules_side = "側向時,兩個方向都算數,而且比向前略重(×4/3)。這是最容易觸發傾斜的方式。"
+tilt_rules_gate = "撞擊只有超過橘色圓圈(1 m/s²)才算數。隨後 VPX 會產生一次 25 毫秒的短推,力道等於測得的峰值;感測器的原始讀數此後不再使用。"
+tilt_rules_series = "一次強力撞擊之後,0.3 秒內更弱的峰值會被忽略(機台彈回的擺動)。當每次撞擊都比上一次更重時,全部都算數,擺錘會把它們累加起來:傾斜就是這樣產生的。"
 
 # Audio page
 audio_heading = "音訊"
