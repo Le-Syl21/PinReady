@@ -566,6 +566,26 @@ impl App {
                 points,
                 egui::Stroke::new(2.0, RING_INTENT),
             ));
+            // Toward the player there is no edge at all: VPX zeroes whatever
+            // pulls, however hard, so the same width runs on to the rim. The
+            // cabinet coming back after a push lands here and counts for
+            // nothing — draw it, or the empty half reads as a place where a
+            // return could trigger something.
+            let absorbed = egui::Rect::from_min_max(
+                egui::pos2(center.x - side, center.y),
+                egui::pos2(center.x + side, center.y + radius),
+            );
+            painter.rect_filled(
+                absorbed,
+                0.0,
+                egui::Color32::from_rgba_unmultiplied(230, 160, 60, 38),
+            );
+            for x in [absorbed.min.x, absorbed.max.x] {
+                painter.line_segment(
+                    [egui::pos2(x, center.y), egui::pos2(x, absorbed.max.y)],
+                    egui::Stroke::new(1.0, RING_INTENT.gamma_multiply(0.7)),
+                );
+            }
         }
 
         // Dead zone, innermost by nature: it gates the raw signal first.
