@@ -25,6 +25,40 @@ pub struct ClipMark {
 }
 const STRENGTH_RED: egui::Color32 = egui::Color32::from_rgb(235, 90, 90);
 
+/// The nudge chain as VPX computes it, one block per sensor type (see
+/// `NudgeIntentHandler.cpp`, `CabinetNudgeSensor.cpp`, `GamepadNudge.cpp`).
+/// Not translated: the symbols are the ones of the source.
+const MATH_INTENT: &str = "\
+v = ( 4/3 · S · ax ,  min(S · ay, 0) )          S = Strength
+a peak counts if ‖v‖ > 1 m/s², unless it is not above the last
+  peak and comes less than 300 ms after it
+impulse  a(t) = A · ½ · (1 − cos(2π·t / 25 ms)),  A = ‖v‖ at the peak
+         ΔV = A · 12.5 ms
+delay    = 24 ms (soft knock) … 8 ms (A ≥ 6.86 m/s²)";
+
+const MATH_CABINET: &str = "\
+a_cabinet = S · a_sensor (lightly smoothed) · (m_cab / 113 kg)
+            m_cab = CabWeight, 113 kg when left empty
+no threshold, no peak detection: both directions on both axes";
+
+const MATH_GAMEPAD: &str = "\
+a = S · stick · 6.86 m/s²                       stick: −1 … +1 per axis
+v = ( a_x ,  min(a_y, 0) )                      (no 4/3)
+then as the Intent Sensor: a peak counts if ‖v‖ > 1 m/s²
+  (about 15 % of the stick's travel at S = 1)
+the 300 ms rule does not apply; the stick is read every 16 ms,
+delay = 48 ms (soft) … 16 ms (A ≥ 6.86 m/s²)";
+
+const MATH_COMMON: &str = "\
+cabinet (spring + damper, 113 kg):   X 4.5 Hz, ζ 0.04    Y 4.3 Hz, ζ 0.055
+plumb (10 cm rod):  θ'' = −(g/L)·θ − a_cabinet/L − d(θ')
+                    f = √(g/L) / 2π ≈ 1.6 Hz
+                    d = D · (1.25 + 0.75·|θ'|),  D = PlumbDamping (0.2)
+TILT when θ > PlumbThresholdAngle              (4° … 0.15°)
+sustained push:   tan θ = a / g                (4° = 0.69 m/s²)
+one 25 ms knock:  θ_max ≈ ΔV / √(g·L)          (≈ 5.5 m/s² for 4°;
+                  the cabinet's spring raises it to ≈ 9.5 m/s²)";
+
 impl App {
     /// Keep the dial's rings in step with the sliders. Placing them runs the
     /// cabinet physics a few dozen times — cheap, but not per-frame cheap.
@@ -489,9 +523,38 @@ impl App {
             .default_open(false)
             .show(ui, |ui| {
                 ui.label(t!("tilt_rules_forward"));
+                ui.label(t!("tilt_rules_push_pull"));
                 ui.label(t!("tilt_rules_side"));
+                ui.label(t!("tilt_rules_side_why"));
                 ui.label(t!("tilt_rules_gate"));
                 ui.label(t!("tilt_rules_series"));
+            });
+        // The same rules as formulas, one block per sensor type, the selected
+        // one open. The formulas are not translated: they are VPX's own.
+        egui::CollapsingHeader::new(t!("tilt_math_title"))
+            .default_open(false)
+            .show(ui, |ui| {
+                ui.label(egui::RichText::new(t!("tilt_math_caption")).weak());
+                for (mode, name, formulas) in [
+                    (1, "Intent Sensor", MATH_INTENT),
+                    (2, "Cabinet Sensor", MATH_CABINET),
+                    (0, "Game Controller", MATH_GAMEPAD),
+                ] {
+                    let selected = self.tilt.nudge_sensor_type == mode;
+                    egui::CollapsingHeader::new(if selected {
+                        format!("{name}  ●")
+                    } else {
+                        name.to_string()
+                    })
+                    .id_salt(("tilt_math", mode))
+                    .default_open(selected)
+                    .show(ui, |ui| {
+                        ui.add(egui::Label::new(egui::RichText::new(formulas).monospace()).wrap());
+                    });
+                }
+                ui.add_space(4.0);
+                ui.label(egui::RichText::new("→ cabinet model → plumb").strong());
+                ui.add(egui::Label::new(egui::RichText::new(MATH_COMMON).monospace()).wrap());
             });
         ui.add_space(4.0);
         let viz_size = egui::vec2(260.0, 260.0);

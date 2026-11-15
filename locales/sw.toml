@@ -360,6 +360,10 @@ tilt_rules_forward = "Mbele hadi nyuma, ni msukumo unaoondoka kwako tu unaohesab
 tilt_rules_side = "Kando, pande zote mbili zinahesabiwa, na kidogo zaidi ya mbele (×4/3). Hii ndiyo njia rahisi zaidi ya kupata tilt."
 tilt_rules_gate = "Kofi huhesabiwa tu juu ya duara la machungwa (1 m/s²). Kisha VPX hutengeneza msukumo mfupi wa ms 25 wenye nguvu ya kilele kilichopimwa; usomaji ghafi wa kihisi hautumiki tena."
 tilt_rules_series = "Baada ya kofi kali, vilele dhaifu ndani ya sekunde 0.3 hupuuzwa (mashine ikirudi nyuma). Kila kofi likiwa kali kuliko lililotangulia, yote huhesabiwa na pendulumu huyajumlisha: hivyo ndivyo tilt inavyokuja."
+tilt_rules_side_why = "Kando, mtikisiko ule ule huhesabiwa zaidi kuliko mbele-nyuma. VPX huzidisha usomaji wa kando kwa 4/3 (usawa wake wa majaribio kati ya pande mbili), na msukumo wa kando kwa kawaida ni rahisi kutoa kuliko wa mbele. Ndiyo maana mashine hupata tilt kwa urahisi zaidi kutoka upande hadi upande."
+tilt_rules_push_pull = "VPX hutafuta nia ya kusukuma mashine mbali, kamwe kuivuta. Kila kinachokuja kwako huwekwa sifuri, hata kiwe kikali kiasi gani, kwa hiyo mashine inayorudi baada ya msukumo wako kamwe si nudge ya pili: inatulia tu."
+tilt_math_title = "Hesabu iliyo nyuma yake"
+tilt_math_caption = "Fomula ambazo VPX huhesabu, kizuizi kimoja kwa kila aina ya kihisi; aina iliyochaguliwa juu imefunguliwa. Vipimo: m/s² kwa kasi-ongezeko, ms kwa nyakati, ° kwa pembe ya tilt."
 
 # Audio page
 audio_heading = "Sauti"

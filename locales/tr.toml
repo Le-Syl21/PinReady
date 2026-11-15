@@ -360,6 +360,10 @@ tilt_rules_forward = "Ön-arka eksende yalnızca sizden uzaklaşan itme sayılı
 tilt_rules_side = "Yanlara doğru iki yön de sayılır ve öne göre biraz daha fazla (×4/3). Tilt yapmanın en kolay yolu budur."
 tilt_rules_gate = "Bir vuruş yalnızca turuncu dairenin (1 m/s²) üstünde sayılır. VPX bu durumda ölçülen tepe kadar güçlü, 25 ms'lik kısa bir itme oluşturur; sensörün ham değeri bundan sonra kullanılmaz."
 tilt_rules_series = "Güçlü bir vuruştan sonraki 0,3 sn içindeki daha zayıf tepeler yok sayılır (geri sallanan makine). Her vuruş bir öncekinden güçlüyse hepsi sayılır ve sarkaç onları toplar: tilt böyle gelir."
+tilt_rules_side_why = "Yana doğru aynı sarsıntı, ön-arkaya göre daha fazla sayılır. VPX yan okumayı 4/3 ile çarpar (iki yön arasındaki kendi deneysel dengesi) ve yana itmek genellikle öne itmekten kolaydır. Bu yüzden makine yandan yana daha kolay tilt olur."
+tilt_rules_push_pull = "VPX makineyi kendinden uzaklaştırma niyetini arar, onu çekmeyi asla. Size doğru gelen her şey, ne kadar sert olursa olsun sıfırlanır; bu yüzden itmenizden sonra geri gelen makine asla ikinci bir nudge değildir: yalnızca durulur."
+tilt_math_title = "Arkasındaki matematik"
+tilt_math_caption = "VPX'in hesapladığı formüller, sensör türü başına bir blok; yukarıda seçilen tür açıktır. Birimler: ivmeler için m/s², süreler için ms, tilt açısı için °."
 
 # Audio page
 audio_heading = "Ses"

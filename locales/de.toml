@@ -360,6 +360,10 @@ tilt_rules_forward = "Von vorn nach hinten zählt nur ein Stoß von Ihnen weg. D
 tilt_rules_side = "Seitlich zählen beide Richtungen, etwas stärker als nach vorn (×4/3). So lässt sich am leichtesten ein Tilt auslösen."
 tilt_rules_gate = "Ein Schlag zählt erst oberhalb des orangefarbenen Kreises (1 m/s²). VPX erzeugt dann einen kurzen 25-ms-Stoß in der Stärke des gemessenen Spitzenwerts; der Rohwert des Sensors wird danach nicht mehr benutzt."
 tilt_rules_series = "Nach einem starken Schlag werden schwächere Spitzen innerhalb von 0,3 s ignoriert (der zurückschwingende Flipper). Wird jeder Schlag härter als der vorige, zählen alle, und das Pendel addiert sie: So kommt der Tilt."
+tilt_rules_side_why = "Seitlich zählt dasselbe Schütteln mehr als von vorn nach hinten. VPX multipliziert den seitlichen Messwert mit 4/3 (sein eigener empirischer Ausgleich zwischen beiden Richtungen), und ein seitlicher Stoß lässt sich meist leichter geben als ein Stoß nach vorn. Der Flipper kippt daher leichter von links nach rechts."
+tilt_rules_push_pull = "VPX sucht die Absicht, den Flipper wegzuschieben, nie ihn heranzuziehen. Alles, was auf Sie zukommt, wird auf null gesetzt, egal wie stark; der nach Ihrem Stoß zurückschwingende Flipper ist deshalb nie ein zweiter Nudge, er beruhigt sich nur."
+tilt_math_title = "Die Mathematik dahinter"
+tilt_math_caption = "Die Formeln, die VPX berechnet, ein Block pro Sensortyp; der oben gewählte Typ ist geöffnet. Einheiten: m/s² für Beschleunigungen, ms für Zeiten, ° für den Tilt-Winkel."
 
 # Audio page
 audio_heading = "Audio"

@@ -360,6 +360,10 @@ tilt_rules_forward = "V osi dopredu–dozadu sa počíta len strčenie smerom od
 tilt_rules_side = "Do strán sa počítajú oba smery, o niečo viac ako dopredu (×4/3). Je to najjednoduchší spôsob, ako vyvolať tilt."
 tilt_rules_gate = "Úder sa počíta až nad oranžovým kruhom (1 m/s²). VPX potom vytvorí krátky 25 ms impulz so silou nameraného maxima; surová hodnota senzora sa ďalej nepoužíva."
 tilt_rules_series = "Po silnom údere sa slabšie špičky do 0,3 s ignorujú (automat sa vracia). Keď je každý úder silnejší ako predchádzajúci, počítajú sa všetky a kyvadlo ich sčítava: tak vzniká tilt."
+tilt_rules_side_why = "Do strán sa rovnaké zatrasenie počíta viac ako dopredu–dozadu. VPX násobí bočnú hodnotu 4/3 (vlastná empirická rovnováha medzi smermi) a bočné strčenie sa zvyčajne dáva ľahšie ako dopredu. Automat preto ľahšie tiltuje zo strany na stranu."
+tilt_rules_push_pull = "VPX hľadá úmysel automat odstrčiť, nikdy ho pritiahnuť. Všetko, čo smeruje k vám, sa nuluje, nech je to akokoľvek silné, takže automat vracajúci sa po vašom strčení nie je nikdy druhý nudge: iba sa ustáli."
+tilt_math_title = "Matematika za tým"
+tilt_math_caption = "Vzorce, ktoré VPX počíta, jeden blok na typ senzora; typ vybraný vyššie je otvorený. Jednotky: m/s² pre zrýchlenia, ms pre časy, ° pre uhol tiltu."
 
 # Audio page
 audio_heading = "Zvuk"

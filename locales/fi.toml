@@ -360,6 +360,10 @@ tilt_rules_forward = "Edestakaisessa suunnassa vain sinusta poispäin suuntautuv
 tilt_rules_side = "Sivusuunnassa molemmat suunnat lasketaan, hieman enemmän kuin eteenpäin (×4/3). Se on helpoin tapa saada tilt."
 tilt_rules_gate = "Isku lasketaan vasta oranssin ympyrän yläpuolella (1 m/s²). VPX tekee silloin lyhyen 25 ms:n työnnön, joka on yhtä voimakas kuin mitattu huippu; anturin raakalukemaa ei sen jälkeen käytetä."
 tilt_rules_series = "Kovan iskun jälkeen heikommat huiput 0,3 sekunnin sisällä ohitetaan (peli heilahtaa takaisin). Kun jokainen isku on edellistä kovempi, ne kaikki lasketaan ja heiluri summaa ne: näin tilt tulee."
+tilt_rules_side_why = "Sivusuunnassa sama ravistus painaa enemmän kuin edestakaisessa suunnassa. VPX kertoo sivuttaisen lukeman 4/3:lla (oma empiirinen tasapainonsa suuntien välillä), ja sivuttainen työntö on yleensä helpompi antaa kuin eteenpäin. Siksi peli antaa tiltin helpommin sivulta sivulle."
+tilt_rules_push_pull = "VPX etsii aikomusta työntää peliä pois itsestään, ei koskaan vetää sitä. Kaikki sinua kohti tuleva nollataan, kuinka kova tahansa, joten työntösi jälkeen takaisin tuleva peli ei ole koskaan toinen nudge: se vain rauhoittuu."
+tilt_math_title = "Matematiikka taustalla"
+tilt_math_caption = "Kaavat, joita VPX laskee, yksi lohko anturityyppiä kohti; ylhäällä valittu tyyppi on auki. Yksiköt: m/s² kiihtyvyyksille, ms ajoille, ° tilt-kulmalle."
 
 # Audio page
 audio_heading = "Ääni"

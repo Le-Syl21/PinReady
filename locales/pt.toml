@@ -360,6 +360,10 @@ tilt_rules_forward = "De frente para trás, só conta um empurrão que se afasta
 tilt_rules_side = "De lado, os dois sentidos contam, e um pouco mais do que para a frente (×4/3). É a forma mais fácil de dar tilt."
 tilt_rules_gate = "Uma pancada só conta acima do círculo laranja (1 m/s²). O VPX cria então um empurrão curto de 25 ms, tão forte quanto o pico medido; a leitura bruta do sensor deixa de ser usada."
 tilt_rules_series = "Depois de uma pancada forte, picos mais fracos nos 0,3 s seguintes são ignorados (a máquina voltando). Quando cada pancada é mais forte que a anterior, todas contam e o pêndulo as soma: é assim que vem o tilt."
+tilt_rules_side_why = "De lado, a mesma sacudida conta mais do que de frente para trás. O VPX multiplica a leitura lateral por 4/3 (seu próprio equilíbrio empírico entre as duas direções), e um empurrão lateral costuma ser mais fácil de dar do que um para a frente. Por isso a máquina dá tilt com mais facilidade de lado a lado."
+tilt_rules_push_pull = "O VPX procura a intenção de empurrar a máquina para longe, nunca de puxá-la. Tudo o que vem na sua direção é zerado, por mais forte que seja, então a máquina que volta depois do seu empurrão nunca é um segundo nudge: ela apenas se acomoda."
+tilt_math_title = "A matemática por trás"
+tilt_math_caption = "As fórmulas que o VPX calcula, um bloco por tipo de sensor; o tipo escolhido acima está aberto. Unidades: m/s² para acelerações, ms para tempos, ° para o ângulo de tilt."
 
 # Audio page
 audio_heading = "Áudio"

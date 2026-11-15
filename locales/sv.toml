@@ -360,6 +360,10 @@ tilt_rules_forward = "Framåt–bakåt räknas bara en knuff bort från dig. Att
 tilt_rules_side = "I sidled räknas båda riktningarna, och lite mer än framåt (×4/3). Det är det enklaste sättet att tilta."
 tilt_rules_gate = "En smäll räknas först över den orange cirkeln (1 m/s²). VPX bygger då en kort knuff på 25 ms, lika hård som den uppmätta toppen; sensorns råa värde används inte efter det."
 tilt_rules_series = "Efter en hård smäll ignoreras svagare toppar inom 0,3 s (spelet som svänger tillbaka). När varje smäll är hårdare än den förra räknas alla, och pendeln summerar dem: så kommer tilten."
+tilt_rules_side_why = "I sidled räknas samma skakning mer än framåt–bakåt. VPX multiplicerar sidoläsningen med 4/3 (sin egen empiriska balans mellan riktningarna), och en knuff i sidled är oftast lättare att ge än en framåt. Spelet tiltar därför lättare från sida till sida."
+tilt_rules_push_pull = "VPX letar efter avsikten att knuffa spelet ifrån sig, aldrig att dra det till sig. Allt som kommer mot dig sätts till noll, hur hårt det än är, så spelet som svänger tillbaka efter din knuff är aldrig en andra nudge: det lugnar sig bara."
+tilt_math_title = "Matematiken bakom"
+tilt_math_caption = "Formlerna som VPX räknar, ett block per sensortyp; typen som valts ovan är öppen. Enheter: m/s² för accelerationer, ms för tider, ° för tiltvinkeln."
 
 # Audio page
 audio_heading = "Ljud"

@@ -360,6 +360,10 @@ tilt_rules_forward = "Dari depan ke belakang, hanya dorongan yang menjauh darimu
 tilt_rules_side = "Ke samping, kedua arah dihitung, dan sedikit lebih kuat daripada ke depan (×4/3). Ini cara termudah untuk membuat tilt."
 tilt_rules_gate = "Sebuah pukulan baru dihitung di atas lingkaran oranye (1 m/s²). VPX lalu membuat dorongan singkat 25 ms sekuat puncak yang terukur; bacaan mentah sensor tidak dipakai lagi."
 tilt_rules_series = "Setelah pukulan keras, puncak yang lebih lemah dalam 0,3 detik diabaikan (mesin yang berayun kembali). Jika setiap pukulan lebih keras dari sebelumnya, semuanya dihitung dan bandul menjumlahkannya: begitulah tilt terjadi."
+tilt_rules_side_why = "Ke samping, guncangan yang sama dihitung lebih besar daripada depan-belakang. VPX mengalikan bacaan samping dengan 4/3 (keseimbangan empirisnya antara kedua arah), dan dorongan ke samping biasanya lebih mudah diberikan daripada ke depan. Karena itu mesin lebih mudah tilt dari sisi ke sisi."
+tilt_rules_push_pull = "VPX mencari niat mendorong mesin menjauh, tidak pernah menariknya. Semua yang datang ke arahmu dijadikan nol, sekeras apa pun, sehingga mesin yang kembali setelah dorongan tidak pernah menjadi nudge kedua: ia hanya menetap."
+tilt_math_title = "Matematika di baliknya"
+tilt_math_caption = "Rumus yang dihitung VPX, satu blok per jenis sensor; jenis yang dipilih di atas terbuka. Satuan: m/s² untuk percepatan, ms untuk waktu, ° untuk sudut tilt."
 
 # Audio page
 audio_heading = "Suara"

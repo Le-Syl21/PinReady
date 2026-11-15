@@ -359,6 +359,10 @@ tilt_rules_forward = "Theo hướng trước–sau, chỉ cú đẩy ra xa bạn
 tilt_rules_side = "Sang hai bên, cả hai chiều đều được tính, và hơi nhiều hơn so với phía trước (×4/3). Đây là cách dễ nhất để gây tilt."
 tilt_rules_gate = "Một cú đập chỉ được tính khi vượt vòng tròn màu cam (1 m/s²). VPX khi đó tạo một cú đẩy ngắn 25 ms mạnh bằng đỉnh đã đo; giá trị thô của cảm biến không còn được dùng."
 tilt_rules_series = "Sau một cú mạnh, các đỉnh yếu hơn trong 0,3 giây sau bị bỏ qua (máy lắc ngược lại). Khi mỗi cú mạnh hơn cú trước, tất cả đều được tính và con lắc cộng dồn chúng: đó là cách tilt xảy ra."
+tilt_rules_side_why = "Theo chiều ngang, cùng một cú lắc được tính nhiều hơn so với trước–sau. VPX nhân giá trị đọc ngang với 4/3 (cân bằng thực nghiệm của riêng nó giữa hai hướng), và một cú đẩy ngang thường dễ thực hiện hơn cú đẩy về phía trước. Vì vậy máy dễ tilt từ bên này sang bên kia hơn."
+tilt_rules_push_pull = "VPX tìm ý định đẩy máy ra xa, không bao giờ kéo nó về. Mọi thứ hướng về phía bạn đều bị đặt về không, dù mạnh đến đâu, nên chiếc máy quay lại sau cú đẩy không bao giờ là một cú nudge thứ hai: nó chỉ ổn định lại."
+tilt_math_title = "Toán học phía sau"
+tilt_math_caption = "Các công thức VPX tính, mỗi loại cảm biến một khối; loại được chọn ở trên đang mở. Đơn vị: m/s² cho gia tốc, ms cho thời gian, ° cho góc tilt."
 
 # Audio page
 audio_heading = "Âm thanh"

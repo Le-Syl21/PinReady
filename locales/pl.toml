@@ -360,6 +360,10 @@ tilt_rules_forward = "W osi przód–tył liczy się tylko pchnięcie od siebie.
 tilt_rules_side = "Na boki liczą się oba kierunki, i nieco bardziej niż do przodu (×4/3). To najłatwiejszy sposób na tilt."
 tilt_rules_gate = "Uderzenie liczy się dopiero powyżej pomarańczowego koła (1 m/s²). VPX tworzy wtedy krótkie, 25-milisekundowe pchnięcie o sile zmierzonego szczytu; surowy odczyt czujnika nie jest już używany."
 tilt_rules_series = "Po mocnym uderzeniu słabsze szczyty w ciągu 0,3 s są ignorowane (automat wraca). Gdy każde uderzenie jest mocniejsze od poprzedniego, liczą się wszystkie, a wahadło je sumuje: tak powstaje tilt."
+tilt_rules_side_why = "Na boki ten sam wstrząs liczy się bardziej niż w osi przód–tył. VPX mnoży odczyt boczny przez 4/3 (własna empiryczna równowaga między kierunkami), a pchnięcie na bok jest zwykle łatwiejsze do wykonania niż do przodu. Dlatego automat łatwiej daje tilt na boki."
+tilt_rules_push_pull = "VPX szuka zamiaru odepchnięcia automatu od siebie, nigdy przyciągnięcia go. Wszystko, co idzie w twoją stronę, jest zerowane, choćby było mocne, więc automat wracający po twoim pchnięciu nigdy nie jest drugim nudgem: tylko się uspokaja."
+tilt_math_title = "Matematyka za tym"
+tilt_math_caption = "Wzory, które liczy VPX, jeden blok na typ czujnika; wybrany wyżej typ jest otwarty. Jednostki: m/s² dla przyspieszeń, ms dla czasów, ° dla kąta tiltu."
 
 # Audio page
 audio_heading = "Dźwięk"
