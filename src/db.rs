@@ -886,11 +886,21 @@ impl Database {
         self.set_config("wizard_completed", "true")
     }
 
-    /// Settings a reset keeps, because they describe the room rather than the
-    /// configuration: the screen is still lying flat after a reset, and being
-    /// made to straighten the wizard again every time is the opposite of what
-    /// remembering the rotation was for.
-    const RESET_KEEPS: [&'static str; 1] = ["ui_rotation"];
+    /// Settings a reset keeps, because they describe the room and what is
+    /// installed rather than the configuration: the screen is still lying flat
+    /// after a reset, and being made to straighten the wizard again every time
+    /// is the opposite of what remembering the rotation was for. Likewise the
+    /// Visual Pinball install stays on the disk: forgetting which build it is
+    /// made the launcher offer, at the next start, an "update" to the very
+    /// build that was installed.
+    const RESET_KEEPS: [&'static str; 6] = [
+        "ui_rotation",
+        "vpx_exe_path",
+        "vpx_install_dir",
+        "vpx_install_mode",
+        "vpx_fork_repo",
+        "vpx_installed_tag",
+    ];
 
     /// Wipe every setting PinReady holds, so the next start runs the wizard
     /// from a blank slate — bar the few in [`RESET_KEEPS`].
@@ -1326,11 +1336,15 @@ mod tests {
     }
 
     #[test]
-    fn a_reset_forgets_the_configuration_but_not_the_screen_orientation() {
+    fn a_reset_forgets_the_configuration_but_not_the_screen_nor_the_vpx_install() {
         let db = temp_db();
         db.set_config("ui_rotation", "90").unwrap();
         db.set_config("wizard_completed", "true").unwrap();
         db.set_config("tables_dir", "/somewhere").unwrap();
+        db.set_config("vpx_installed_tag", "v10.8.1-6823-1f940f946")
+            .unwrap();
+        db.set_config("vpx_exe_path", "/home/me/Visual_Pinball/VPinballX_BGFX")
+            .unwrap();
 
         db.reset_config().unwrap();
 
@@ -1340,6 +1354,13 @@ mod tests {
         // …but the playfield is still lying flat, so the wizard comes back
         // the right way up instead of sideways.
         assert_eq!(db.get_config("ui_rotation").as_deref(), Some("90"));
+        // The Visual Pinball install is still on the disk, so the launcher must
+        // not take it for a missing one and offer an update to the same build.
+        assert_eq!(
+            db.get_config("vpx_installed_tag").as_deref(),
+            Some("v10.8.1-6823-1f940f946")
+        );
+        assert!(db.get_config("vpx_exe_path").is_some());
     }
 
     #[test]
