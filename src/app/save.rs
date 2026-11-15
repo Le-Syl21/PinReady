@@ -108,6 +108,7 @@ impl App {
         if !has_topper {
             self.config.set_i32("Topper", "TopperOutput", 0);
         }
+        crate::vpx_display::keep_b2s_first_on_score_view(&mut self.config, &self.db);
 
         // VPX from rev 5515 takes "<name> [x, y]" rather than the bare name
         let ids = crate::vpx_display::uses_ids(&self.config, &self.db);

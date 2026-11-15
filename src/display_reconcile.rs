@@ -424,6 +424,8 @@ pub fn choose_driver_and_reconcile(config: &mut VpxConfig, db: &Database) -> Opt
     // Secondary-window fullscreen mode depends on the session (real X11 vs
     // Wayland/XWayland), independent of the name reconciliation below.
     reconcile_fullscreen(config, session);
+    // Also for installs configured before this rule existed
+    crate::vpx_display::keep_b2s_first_on_score_view(config, db);
     if let Some(preferred) = crate::wayland_caps::preferred_vpx_driver(session) {
         if reconcile_all(config, db, preferred) {
             log::info!("VPX display driver: {preferred} (screens reconciled)");

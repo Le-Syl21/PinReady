@@ -51,6 +51,36 @@ pub fn uses_ids(config: &VpxConfig, db: &Database) -> bool {
 /// plugin that replaces it shows the DMD on the score view by itself.
 pub const FIRST_REVISION_WITHOUT_B2S_LEGACY: u32 = 6293;
 
+/// Priority given to the B2S renderer on the score view window.
+///
+/// VPX draws an ancillary window with the first of its renderers (PUP, Nixie,
+/// B2S) that has something to show, in priority order, all at 0 by default,
+/// so a tie goes to whichever plugin loaded first. On a table with segment
+/// displays that left the score view showing Nixie's own segments over the
+/// black image PinReady puts in the backglass file: the scores twice, instead
+/// of a black screen. B2S first fixes it, and costs nothing where the backglass
+/// file has no image for that window: VPX then moves on to the next renderer.
+pub const SCORE_VIEW_B2S_PRIORITY: i32 = 10;
+
+/// Whether the score view should get [`SCORE_VIEW_B2S_PRIORITY`]: there is a
+/// score view screen, the VPX build has the renderer (no B2SLegacy), and the
+/// player has not set a priority of their own.
+fn wants_b2s_first_on_score_view(legacy: bool, on_screen: bool, current: Option<&str>) -> bool {
+    !legacy && on_screen && current.is_none_or(|v| v.trim().is_empty())
+}
+
+/// Put B2S first on the score view window, unless the player chose otherwise.
+pub fn keep_b2s_first_on_score_view(config: &mut VpxConfig, db: &Database) {
+    let legacy = revision(config, db).is_some_and(|r| r < FIRST_REVISION_WITHOUT_B2S_LEGACY);
+    let on_screen = config
+        .get("ScoreView", "ScoreViewDisplay")
+        .is_some_and(|v| !v.is_empty());
+    let current = config.get("ScoreView", "Priority.B2S");
+    if wants_b2s_first_on_score_view(legacy, on_screen, current.as_deref()) {
+        config.set_i32("ScoreView", "Priority.B2S", SCORE_VIEW_B2S_PRIORITY);
+    }
+}
+
 /// The `*Display=` value for the display `name` at `(x, y)`.
 pub fn value(name: &str, x: i32, y: i32, ids: bool) -> String {
     if ids {
@@ -98,6 +128,22 @@ mod tests {
         assert_eq!(revision_from_stamp("10.8.1"), None);
         assert_eq!(revision_from_tag("v10.8.1-6501-3d9540861"), Some(6501));
         assert_eq!(revision_from_tag("v10.8.1"), None);
+    }
+
+    #[test]
+    fn b2s_goes_first_on_the_score_view_unless_the_player_chose() {
+        // A score view screen, a current VPX, nothing set: put B2S first.
+        assert!(wants_b2s_first_on_score_view(false, true, None));
+        assert!(wants_b2s_first_on_score_view(false, true, Some("")));
+        assert!(wants_b2s_first_on_score_view(false, true, Some("  ")));
+        // The player's own value, even 0 or a negative one, is theirs.
+        assert!(!wants_b2s_first_on_score_view(false, true, Some("0")));
+        assert!(!wants_b2s_first_on_score_view(false, true, Some("-1")));
+        assert!(!wants_b2s_first_on_score_view(false, true, Some("50")));
+        // No score view screen: nothing to prioritise.
+        assert!(!wants_b2s_first_on_score_view(false, false, None));
+        // The builds that still carry B2SLegacy have no such renderer.
+        assert!(!wants_b2s_first_on_score_view(true, true, None));
     }
 
     #[test]
