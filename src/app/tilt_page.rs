@@ -3,6 +3,8 @@ use crate::tilt::SENSOR_RANGES_G;
 
 const NOTICE_AMBER_TILT: egui::Color32 = egui::Color32::from_rgb(255, 200, 80);
 const RING_TILT: egui::Color32 = egui::Color32::from_rgb(255, 120, 120);
+/// The virtual pendulum's marker: cool, so it never reads as a ring or the laser.
+const PLUMB_DOT: egui::Color32 = egui::Color32::from_rgb(70, 170, 255);
 const RING_INTENT: egui::Color32 = egui::Color32::from_rgb(230, 160, 60);
 const RING_DEADZONE: egui::Color32 = egui::Color32::from_rgb(80, 200, 80);
 /// The sensor pinned at its own ceiling — not a level, a loss of information.
@@ -618,6 +620,27 @@ impl App {
         );
         painter.circle_filled(dot_pos, if clipped { 3.0 } else { 2.0 }, laser);
 
+        // The virtual pendulum, the one that decides the tilt: it carries the
+        // nudge chain's physics (the cabinet rings and settles, the plumb adds
+        // up a series of knocks) where the laser only shows the sensor. Its
+        // swing is drawn in the tilt circle's own scale, so it sits on that
+        // circle exactly when VPX would tilt. It hangs on the side of the push,
+        // like the laser, though the bob itself swings the other way.
+        if self.tilt.plumb_enabled {
+            let (dx, dy) = self.plumb.direction();
+            let reach =
+                (self.plumb.angle_deg() / self.tilt.threshold_deg().max(0.01)).clamp(0.0, 1.25);
+            let swing = (to_radius(rings.tilt) * reach).min(radius);
+            let at = egui::pos2(center.x - dx * swing, center.y - dy * swing);
+            let tilting = self
+                .plumb_tilt_until
+                .is_some_and(|t| std::time::Instant::now() < t);
+            let color = if tilting { RING_TILT } else { PLUMB_DOT };
+            painter.circle_filled(at, 11.0, color.gamma_multiply(0.22));
+            painter.circle_filled(at, 5.0, color);
+            painter.circle_stroke(at, 5.0, egui::Stroke::new(1.5, egui::Color32::WHITE));
+        }
+
         // A legend, because a ring nobody can name is decoration.
         ui.add_space(2.0);
         let legend =
@@ -674,6 +697,14 @@ impl App {
             },
             Some(t!("tilt_legend_tilt_what").to_string()),
         );
+        if self.tilt.plumb_enabled {
+            legend(
+                ui,
+                PLUMB_DOT,
+                t!("tilt_legend_plumb").to_string(),
+                Some(t!("tilt_legend_plumb_what").to_string()),
+            );
+        }
         if let Some(intent) = rings.intent {
             legend(
                 ui,

@@ -139,6 +139,19 @@ impl Plumb {
         }
     }
 
+    /// The way the bob is swung, as a unit vector in the cabinet's plane
+    /// (`(0, 0)` while it hangs straight). The bob lags the cabinet: a push
+    /// one way swings it the other, so a caller drawing it next to the sensor
+    /// reading flips the sign.
+    pub fn direction(&self) -> (f32, f32) {
+        let n = (self.pos[0] * self.pos[0] + self.pos[1] * self.pos[1]).sqrt();
+        if n < 1e-6 {
+            (0.0, 0.0)
+        } else {
+            (self.pos[0] / n, self.pos[1] / n)
+        }
+    }
+
     /// Rod angle from vertical, in degrees — what the threshold is compared
     /// against.
     pub fn angle_deg(&self) -> f32 {
@@ -152,6 +165,26 @@ impl Plumb {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The bob lags the cabinet: a push along +x swings it towards -x, and the
+    /// direction says so. The dial flips it to sit on the side of the push.
+    #[test]
+    fn a_push_swings_the_bob_the_other_way() {
+        for (push, along_x) in [((6.0_f32, 0.0_f32), true), ((0.0, 6.0), false)] {
+            let mut plumb = Plumb::default();
+            for _ in 0..30 {
+                plumb.step(push, 0.2, 90.0);
+            }
+            let (dx, dy) = plumb.direction();
+            let (main, other) = if along_x { (dx, dy) } else { (dy, dx) };
+            assert!(
+                main < -0.9,
+                "the bob should swing against the push, got {dx},{dy}"
+            );
+            assert!(other.abs() < 0.1);
+        }
+        assert_eq!(Plumb::default().direction(), (0.0, 0.0));
+    }
 
     #[test]
     fn at_rest_the_plumb_hangs_straight_down() {

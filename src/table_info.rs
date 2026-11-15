@@ -223,6 +223,8 @@ mod tests {
             "tilt_legend_deadzone_what",
             "tilt_legend_intent_what",
             "tilt_legend_tilt_what",
+            "tilt_legend_plumb",
+            "tilt_legend_plumb_what",
             "first_run_update_checking",
             "first_run_update_title",
             "first_run_update_text",
