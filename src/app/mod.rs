@@ -533,6 +533,12 @@ pub struct App {
     /// physics nobody plays.
     nudge_sim: crate::nudge_sim::NudgeSim,
     plumb_last_step: Option<std::time::Instant>,
+    /// Catalog refresh in flight (VPS database sync + update flags), if any.
+    catalog_refresh_rx: Option<crossbeam_channel::Receiver<Result<usize, String>>>,
+    /// When the tiles last re-read their VPS links from the database.
+    vps_links_read_at: Option<std::time::Instant>,
+    /// When the launcher last looked at what housekeeping is due.
+    housekeeping_at: Option<std::time::Instant>,
     /// Latches a tilt for a moment so a 1 ms crossing is still readable.
     plumb_tilt_until: Option<std::time::Instant>,
     /// Coarse state of the nudge, for the banner: 0 inside the deadzone,
@@ -985,6 +991,9 @@ impl App {
             plumb: crate::plumb::Plumb::default(),
             nudge_sim: crate::nudge_sim::NudgeSim::default(),
             plumb_last_step: None,
+            catalog_refresh_rx: None,
+            vps_links_read_at: None,
+            housekeeping_at: None,
             plumb_tilt_until: None,
             nudge_state: 0,
             nudge_state_since: None,
@@ -2036,6 +2045,7 @@ impl App {
 mod audio_page;
 mod autostart;
 mod bgcache;
+mod catalog_refresh;
 mod desktop_integration;
 mod effects;
 mod first_run;

@@ -2053,6 +2053,9 @@ impl App {
             if disconnected {
                 log::info!("Background backglass extraction channel closed");
                 self.bg_rx = None;
+                // The scan is over: show every link it made, whatever order the
+                // pictures came in.
+                self.refresh_vps_links();
             }
             for (msg_gen, idx, rel_path, bytes, source_mtime) in drained {
                 // Drop messages from a prior scan whose index space

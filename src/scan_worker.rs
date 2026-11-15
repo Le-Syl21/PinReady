@@ -56,6 +56,15 @@ pub struct ScanJob {
     pub source_mtime: i64,
 }
 
+/// Whether a newer table file than the local one has been published: the
+/// latest `tableFile` timestamp of the game (VPSDB, ms) against the `.vpx`'s
+/// own modification time (ms), with a day of tolerance so a file saved right
+/// after its release does not look outdated. Unknown on either side: no.
+pub fn update_is_available(latest_tf_ts: i64, local_mtime_ms: i64) -> bool {
+    let tolerance_ms = 24 * 3600 * 1000;
+    latest_tf_ts > 0 && local_mtime_ms > 0 && latest_tf_ts > local_mtime_ms + tolerance_ms
+}
+
 /// Spawn a worker pool and feed it `jobs`. Each worker owns its own
 /// `Database` connection (WAL mode → no cross-thread serialization on
 /// disjoint rows). Workers terminate when the job queue is empty.
@@ -240,9 +249,7 @@ fn process_table(
             .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
             .map(|d| d.as_millis() as i64)
             .unwrap_or(0);
-        let tolerance_ms = 24 * 3600 * 1000;
-        let outdated =
-            latest_tf_ts > 0 && local_mtime_ms > 0 && latest_tf_ts > local_mtime_ms + tolerance_ms;
+        let outdated = update_is_available(latest_tf_ts, local_mtime_ms);
         db.set_update_available(&job.rel_path, outdated)?;
     }
 
@@ -373,5 +380,19 @@ fn install_if_missing(table_dir: &Path, filename: &str, url: &str, expected_md5:
                 table_dir.display()
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod update_tests {
+    use super::*;
+    #[test]
+    fn an_update_is_a_newer_file_than_a_day_past_the_local_one() {
+        let day = 24 * 3600 * 1000;
+        let local = 1_700_000_000_000_i64;
+        assert!(update_is_available(local + day + 1, local));
+        assert!(!update_is_available(local + day, local));
+        assert!(!update_is_available(0, local));
+        assert!(!update_is_available(local + 10 * day, 0));
     }
 }

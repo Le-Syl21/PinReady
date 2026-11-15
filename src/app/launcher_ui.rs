@@ -35,6 +35,9 @@ impl App {
         self.process_index();
         self.process_vpinplay();
         self.process_bg_extraction();
+        self.refresh_vps_links_while_scanning();
+        self.process_catalog_refresh();
+        self.run_housekeeping();
         self.process_vbs_extraction();
         self.process_b2s_dmd();
         self.process_rebuild_clear();
@@ -56,6 +59,7 @@ impl App {
             || self.joystick_rx.is_some()
             || self.update_downloading
             || self.update_check_rx.is_some()
+            || self.catalog_refresh_rx.is_some()
         {
             ui.ctx().request_repaint();
         }
