@@ -22,6 +22,9 @@ DL = REPO + "/releases/latest/download/"
 TREE = REPO + "/tree/main/"
 DISCORD = "https://discord.gg/T37DYHmt2j"
 VIDEO = "https://www.youtube.com/playlist?list=PLZ838nY4NE902Am7NIOGYbEJaak5pEP71"
+# "PinReady Découverte": first-use walkthrough for beginners, in French. The picture is its YouTube thumbnail,
+# kept in docs/img so the page loads nothing from YouTube until the visitor clicks.
+VIDEO_INTRO = "https://youtu.be/uF4Z3Jext8U"
 VPX_FORK = "https://github.com/Le-Syl21/vpinball"
 VPX_UPSTREAM = "https://github.com/vpinball/vpinball"
 HEADTRACKING = "https://github.com/Le-Syl21/headtracking"
@@ -337,6 +340,7 @@ def faq_items(lang):
 def content(page, lang):
     p = lambda name: href(name, lang, lang)  # noqa: E731
     en = lang == "en"
+    img_prefix = "" if en else "../"
 
     if page == "index":
         if en:
@@ -352,13 +356,22 @@ standalone. It configures screens, controls, tilt and nudge, and sound in plain 
 start your tables from one menu. From a single-screen computer to a full pincab (a pinball cabinet with several
 screens), on Linux, macOS and Windows.</p>
 <p class="actions"><a class="btn big" href="{p('download')}">Download PinReady</a>
-<a class="btn big ghost" href="{VIDEO}">Watch the video demo</a></p>
+<a class="btn big ghost" href="{VIDEO_INTRO}">Watch the video (in French)</a></p>
 </section>
 
 <div class="note"><strong>Scope, please read before installing.</strong> PinReady is designed to support the
 development and adoption of VPX 10.8.1, not to replace a stable production setup. It targets testers and early
 adopters of the new 10.8.1 architecture: integrated plugins, one folder per table, SDL3/bgfx engine. If you run a
 stable VPX 10.7.x cabinet, PinReady is probably not for you yet.</div>
+
+<h2>See it in use</h2>
+<a class="video-card" href="{VIDEO_INTRO}">
+<img src="{img_prefix}img/video-decouverte.jpg" width="1280" height="720" loading="lazy"
+alt="PinReady launcher showing a grid of tables with their backglass, with the cover of the selected table (Nascar) on the other screen">
+<span class="video-play" aria-hidden="true">▶</span>
+<span class="video-caption"><strong>PinReady Découverte</strong> – a first walk through PinReady for beginners
+(video on YouTube, in French). More demos in <a href="{VIDEO}">the playlist</a>.</span>
+</a>
 
 <h2>Why PinReady</h2>
 <p>The standalone builds of Visual Pinball X have no configuration tool of their own: screens, buttons and speakers
@@ -420,7 +433,7 @@ Pinball X (VPX) 10.8.1 standalone. Il règle les écrans, les commandes, le tilt
 mots simples, puis vous permet de parcourir et de lancer vos tables depuis un seul menu. D'un ordinateur à un seul
 écran jusqu'au pincab complet (un meuble de flipper à plusieurs écrans), sous Linux, macOS et Windows.</p>
 <p class="actions"><a class="btn big" href="{p('download')}">Télécharger PinReady</a>
-<a class="btn big ghost" href="{VIDEO}">Voir la démo vidéo</a></p>
+<a class="btn big ghost" href="{VIDEO_INTRO}">Voir la vidéo de découverte</a></p>
 </section>
 
 <div class="note"><strong>Périmètre, à lire avant d'installer.</strong> PinReady est conçu pour accompagner le
@@ -428,6 +441,15 @@ développement et l'adoption de VPX 10.8.1, pas pour remplacer une installation 
 testeurs et aux premiers utilisateurs de la nouvelle architecture 10.8.1 : plugins intégrés, un dossier par table,
 moteur SDL3/bgfx. Si votre flipper tourne sur une installation VPX 10.7.x stable, PinReady n'est probablement pas
 encore pour vous.</div>
+
+<h2>Voir PinReady en action</h2>
+<a class="video-card" href="{VIDEO_INTRO}">
+<img src="{img_prefix}img/video-decouverte.jpg" width="1280" height="720" loading="lazy"
+alt="Le lanceur PinReady : une grille de tables avec leur backglass, et la couverture de la table choisie (Nascar) sur l'autre écran">
+<span class="video-play" aria-hidden="true">▶</span>
+<span class="video-caption"><strong>PinReady Découverte</strong> – une première prise en main de PinReady pour
+débutants (vidéo YouTube). D'autres démos dans <a href="{VIDEO}">la playlist</a>.</span>
+</a>
 
 <h2>Pourquoi PinReady</h2>
 <p>Les versions standalone de Visual Pinball X n'ont pas d'outil de configuration : écrans, boutons et enceintes

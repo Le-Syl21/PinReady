@@ -140,3 +140,10 @@ footer.site .wrap { padding-block: 1.4rem; display: flex; flex-wrap: wrap; gap: 
   td a { overflow-wrap: anywhere; }
   .actions .btn { flex: 1 1 100%; text-align: center; }
 }
+
+.video-card { position: relative; display: block; margin: 0.8rem 0 1.6rem; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); text-decoration: none; color: var(--text); }
+.video-card img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; }
+.video-card .video-play { position: absolute; left: 50%; top: calc(50% - 1.6rem); transform: translate(-50%, -50%); width: 4.2rem; height: 4.2rem; border-radius: 50%; background: rgba(0, 0, 0, 0.62); color: #fff; font-size: 1.7rem; display: flex; align-items: center; justify-content: center; padding-left: 0.3rem; }
+.video-card:hover .video-play, .video-card:focus-visible .video-play { background: var(--accent); }
+.video-card .video-caption { display: block; padding: 0.8rem 1rem; }
+.video-card .video-caption a { color: var(--accent); }
