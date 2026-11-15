@@ -1259,7 +1259,10 @@ impl App {
                     ui.add_space(4.0);
                     ui.label(t!("about_tagline"));
                     ui.add_space(12.0);
-                    ui.hyperlink_to(t!("about_homepage").to_string(), env!("CARGO_PKG_HOMEPAGE"));
+                    ui.hyperlink_to(
+                        t!("about_homepage").to_string(),
+                        env!("CARGO_PKG_REPOSITORY"),
+                    );
                     ui.hyperlink_to(
                         "💬 Discord — community & support",
                         "https://discord.gg/T37DYHmt2j",

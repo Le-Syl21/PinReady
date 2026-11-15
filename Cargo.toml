@@ -19,7 +19,7 @@ inspection = ["eframe/inspection"]
 
 [dependencies]
 # UI
-eframe = { version = "0.37", default-features = false, features = ["accesskit", "default_fonts", "glow", "wayland", "x11"] }
+eframe = { version = "0.37", default-features = false, features = ["accesskit", "default_fonts", "glow", "links", "wayland", "x11"] }
 # The emoji glyphs the UI uses (🔍 🌗 🌙 ↻ ℹ…) left the default fonts in
 # egui 0.37; this feature puts NotoEmoji and emoji-icon-font back.
 egui = { version = "0.37", features = ["monochrome_emoji_fonts"] }
