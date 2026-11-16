@@ -85,12 +85,12 @@ def href(page, lang, from_lang):
     if lang == from_lang:
         base = ""
     else:
-        base = "../" if from_lang == "fr" else "fr/"
+        base = ("../" if from_lang != "en" else "") + ("" if lang == "en" else lang + "/")
     return (base + ("" if page == "index" else page + ".html")) or "./"
 
 
 def url(page, lang):
-    return SITE + ("fr/" if lang == "fr" else "") + ("" if page == "index" else page + ".html")
+    return SITE + ("" if lang == "en" else lang + "/") + ("" if page == "index" else page + ".html")
 
 
 def downloads(lang):
@@ -1293,6 +1293,12 @@ Posez-la sur <a href="{DISCORD}">Discord</a>.</p>
 
 # ---------------------------------------------------------------- layout
 
+def faq_pairs(lang):
+    if lang in ("en", "fr"):
+        return faq_items(lang)
+    return [(tr(q, lang), translate_html(a, lang)) for q, a in faq_items("en")]
+
+
 def structured_data(page, lang, title, description):
     app = {
         "@type": "SoftwareApplication",
@@ -1318,8 +1324,125 @@ def structured_data(page, lang, title, description):
         graph.append({"@type": "FAQPage", "url": url(page, lang), "inLanguage": lang, "mainEntity": [
             {"@type": "Question", "name": q,
              "acceptedAnswer": {"@type": "Answer", "text": html.unescape(re.sub(r"<[^>]+>", "", a)).strip()}}
-            for q, a in faq_items(lang)]})
+            for q, a in faq_pairs(lang)]})
     return {"@context": "https://schema.org", "@graph": graph}
+
+
+# ------------------------------------------------------------ more languages
+# English and French are written by hand above. Every other language is the English page whose text blocks are
+# swapped for a translation kept in docs/i18n/<lang>.json ({English block: translated block}). A block that has no
+# valid translation stays in English, so a half-finished catalog still gives a working page.
+LANGS = [("en", "English", "en_GB"), ("fr", "Français", "fr_FR"), ("de", "Deutsch", "de_DE"),
+         ("es", "Español", "es_ES"), ("it", "Italiano", "it_IT"), ("pt", "Português", "pt_PT"),
+         ("nl", "Nederlands", "nl_NL"), ("pl", "Polski", "pl_PL"), ("ru", "Русский", "ru_RU"),
+         ("sv", "Svenska", "sv_SE"), ("ja", "日本語", "ja_JP"), ("zh", "中文", "zh_CN")]
+CODES = [c for c, _, _ in LANGS]
+TRANSLATED = [c for c in CODES if c not in ("en", "fr")]
+I18N = DOCS / "i18n"
+BLOCKS = re.compile(
+    r"<(p|li|h1|h2|h3|summary|th|td|figcaption|div|a|span)\b([^>]*)>((?:(?!</?(?:p|li|ul|ol|div|table|tr|td|th|h[1-3]|summary|"
+    r"details|figure|section|thead|tbody|img)\b).)*?)</\1>", re.S)
+ALT = re.compile(r'\balt="([^"]+)"')
+
+
+def norm(text):
+    return " ".join(text.split())
+
+
+def has_words(text):
+    bare = re.sub(r"<[^>]+>", "", text).strip()
+    if re.fullmatch(r"[\w.+/-]+", bare) and re.search(r"[._/+-]", bare):
+        return False  # a file name, a command: nothing to translate
+    return bool(re.search(r"[A-Za-z]{2}", re.sub(r"<code>.*?</code>|<[^>]+>|&[a-z#0-9]+;", " ", text, flags=re.S)))
+
+
+def signature(text):
+    """Tags (with attributes) and code snippets of a block: a translation must keep exactly these."""
+    return sorted(re.findall(r"<[^>]+>", text)) + sorted(re.findall(r"<code>(.*?)</code>", text, flags=re.S))
+
+
+def blocks_of(html_text):
+    out = [norm(m.group(3)) for m in BLOCKS.finditer(html_text)]
+    out += [html.unescape(a) for a in ALT.findall(html_text)]
+    return [b for b in out if has_words(b)]
+
+
+def all_sources():
+    """Every English text that needs a translation, in page order."""
+    seen, out = set(), []
+
+    def add(text):
+        text = norm(text)
+        if text and has_words(text) and text not in seen:
+            seen.add(text)
+            out.append(text)
+
+    u = UI["en"]
+    for text in [*u["nav"].values(), u["footer_src"], u["footer_chat"], u["footer_video"],
+                 u["footer_note"], u["system"], u["file"]]:
+        add(text)
+    for page in PAGES:
+        title, description, body = content(page, "en")
+        if page == "wizard":
+            body = add_wizard_shots(body, "en")
+        add(title)
+        add(description)
+        for b in blocks_of(body):
+            add(b)
+    return out
+
+
+def load_catalog(lang):
+    f = I18N / f"{lang}.json"
+    if not f.exists():
+        return {}
+    raw = json.loads(f.read_text(encoding="utf-8"))
+    return {k: v for k, v in raw.items() if v and signature(k) == signature(v)}
+
+
+CATALOGS = {}
+
+
+def tr(text, lang):
+    """`text` (English, plain or HTML) in `lang`, or itself when the catalog has no valid entry."""
+    if lang not in CATALOGS:
+        CATALOGS[lang] = load_catalog(lang)
+    cat = CATALOGS[lang]
+    return cat.get(norm(text), text)
+
+
+def translate_html(html_text, lang):
+    def block(m):
+        key = norm(m.group(3))
+        new = tr(key, lang) if has_words(key) else key
+        return f"<{m.group(1)}{m.group(2)}>{new}</{m.group(1)}>"
+
+    out = BLOCKS.sub(block, html_text)
+    return ALT.sub(lambda m: 'alt="' + html.escape(tr(html.unescape(m.group(1)), lang), quote=True) + '"', out)
+
+
+def ui_for(lang):
+    if lang in ("en", "fr"):
+        return UI[lang]
+    u = UI["en"]
+    return {"nav": {k: tr(v, lang) for k, v in u["nav"].items()}, "other": u["other"],
+            "footer_src": tr(u["footer_src"], lang), "footer_chat": u["footer_chat"],
+            "footer_video": tr(u["footer_video"], lang), "footer_note": tr(u["footer_note"], lang),
+            "system": tr(u["system"], lang), "file": tr(u["file"], lang)}
+
+
+def page_for(page, lang):
+    """(title, description, body) of a page in any language."""
+    if lang in ("en", "fr"):
+        title, description, body = content(page, lang)
+        if page == "wizard":
+            body = add_wizard_shots(body, lang)
+        return title, description, body
+    title, description, body = content(page, "en")
+    if page == "wizard":
+        body = add_wizard_shots(body, "en")
+    body = body.replace('src="img/', 'src="../img/')
+    return tr(title, lang), tr(description, lang), translate_html(body, lang)
 
 
 WIZARD_SHOTS = {
@@ -1372,12 +1495,17 @@ def add_wizard_shots(body, lang):
 
 
 def render(page, lang):
-    title, description, body = content(page, lang)
-    if page == "wizard":
-        body = add_wizard_shots(body, lang)
-    u = UI[lang]
-    up = "../" if lang == "fr" else ""
-    other, other_label, other_code = u["other"]
+    title, description, body = page_for(page, lang)
+    u = ui_for(lang)
+    up = "../" if lang != "en" else ""
+    name = dict((c, n) for c, n, _ in LANGS)
+    langmenu = "".join(
+        f'<li><a href="{href(page, c, lang)}" hreflang="{c}" lang="{c}"'
+        f'{" aria-current=\"true\"" if c == lang else ""}>{name[c]}</a></li>' for c in CODES)
+    alternates = "\n".join(f'<link rel="alternate" hreflang="{c}" href="{url(page, c)}">' for c in CODES)
+    og_alt = "\n".join(f'<meta property="og:locale:alternate" content="{loc}">'
+                       for c, _, loc in LANGS if c != lang)
+    og_locale = next(loc for c, _, loc in LANGS if c == lang)
     nav = "".join(
         f'<a href="{href(n, lang, lang)}"{" aria-current=\"page\"" if n == page else ""}>{u["nav"][n]}</a>'
         for n in PAGES)
@@ -1392,8 +1520,7 @@ def render(page, lang):
 <title>{html.escape(title)}</title>
 <meta name="description" content="{html.escape(description)}">
 {verification}<link rel="canonical" href="{url(page, lang)}">
-<link rel="alternate" hreflang="en" href="{url(page, 'en')}">
-<link rel="alternate" hreflang="fr" href="{url(page, 'fr')}">
+{alternates}
 <link rel="alternate" hreflang="x-default" href="{url(page, 'en')}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="PinReady">
@@ -1403,8 +1530,8 @@ def render(page, lang):
 <meta property="og:image" content="{SITE}img/og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:locale" content="{'fr_FR' if lang == 'fr' else 'en_GB'}">
-<meta property="og:locale:alternate" content="{'en_GB' if lang == 'fr' else 'fr_FR'}">
+<meta property="og:locale" content="{og_locale}">
+{og_alt}
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="{html.escape(title)}">
 <meta name="twitter:description" content="{html.escape(description)}">
@@ -1418,7 +1545,7 @@ def render(page, lang):
 <header class="site"><div class="wrap">
 <a class="brand" href="{href('index', lang, lang)}"><img src="{up}img/favicon.svg" alt="" width="24" height="24"><span>Pin<b>Ready</b></span></a>
 <nav class="main">{nav}</nav>
-<a class="lang" href="{href(page, other, lang)}" hreflang="{other}" lang="{other}"><img src="{up}img/{other_code.lower()}.svg" alt="" width="21" height="14">{other_label}</a>
+<details class="langmenu"><summary lang="{lang}">{name[lang]}</summary><ul>{langmenu}</ul></details>
 </div></header>
 <main><div class="wrap">
 {body.strip()}
@@ -1434,17 +1561,48 @@ def render(page, lang):
 """
 
 
+def check_lang(lang):
+    """Report what is missing or invalid in docs/i18n/<lang>.json."""
+    f = I18N / f"{lang}.json"
+    if not f.exists():
+        print("no catalog")
+        return
+    raw = json.loads(f.read_text(encoding="utf-8"))
+    src = all_sources()
+    missing = [k for k in src if not raw.get(k)]
+    broken = [k for k in src if raw.get(k) and signature(k) != signature(raw[k])]
+    same = [k for k in src if raw.get(k) == k and len(k) > 25]
+    extra = [k for k in raw if k not in set(src)]
+    print(f"{lang}: {len(src)} texts, {len(missing)} missing, {len(broken)} with changed tags/code, "
+          f"{len(same)} long ones left identical, {len(extra)} unknown keys")
+    for k in broken[:8]:
+        print("  BROKEN:", k[:90], "|", signature(k), "!=", signature(raw[k]))
+    for k in missing[:5]:
+        print("  MISSING:", k[:90])
+    for k in extra[:5]:
+        print("  UNKNOWN KEY:", k[:90])
+
+
 def main():
-    (DOCS / "fr").mkdir(exist_ok=True)
-    for lang in ("en", "fr"):
-        out = DOCS / ("fr" if lang == "fr" else "")
+    import sys
+    if "--check-lang" in sys.argv:
+        check_lang(sys.argv[sys.argv.index("--check-lang") + 1])
+        return
+    if "--extract" in sys.argv:
+        I18N.mkdir(exist_ok=True)
+        (I18N / "source.json").write_text(json.dumps(all_sources(), ensure_ascii=False, indent=1), encoding="utf-8")
+        print(len(all_sources()), "texts to translate")
+        return
+    for lang in CODES:
+        out = DOCS / ("" if lang == "en" else lang)
+        out.mkdir(exist_ok=True)
         for page in PAGES:
             (out / ("index.html" if page == "index" else page + ".html")).write_text(render(page, lang), encoding="utf-8")
     urls = []
     for page in PAGES:
-        alts = "".join(f'<xhtml:link rel="alternate" hreflang="{l}" href="{url(page, l)}"/>' for l in ("en", "fr"))
+        alts = "".join(f'<xhtml:link rel="alternate" hreflang="{l}" href="{url(page, l)}"/>' for l in CODES)
         alts += f'<xhtml:link rel="alternate" hreflang="x-default" href="{url(page, "en")}"/>'
-        for lang in ("en", "fr"):
+        for lang in CODES:
             urls.append(f"<url><loc>{url(page, lang)}</loc>{alts}</url>")
     (DOCS / "sitemap.xml").write_text(
         '<?xml version="1.0" encoding="UTF-8"?>\n'

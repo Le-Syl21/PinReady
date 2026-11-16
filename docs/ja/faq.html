@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PinReady のよくある質問：Linux での pincab セットアップ、VPX 10.8.1 スタンドアロンのトラブルシューティング</title>
+<meta name="description" content="PinReady と Visual Pinball X 10.8.1 スタンドアロンについての回答：対象となる人、古いテーブルと VBS パッチ、テーブルごとの ini、DOF、ティルトとナッジ、スピーカー、Wayland と X11、クラッシュレポート。">
+<link rel="canonical" href="https://le-syl21.github.io/PinReady/ja/faq.html">
+<link rel="alternate" hreflang="en" href="https://le-syl21.github.io/PinReady/faq.html">
+<link rel="alternate" hreflang="fr" href="https://le-syl21.github.io/PinReady/fr/faq.html">
+<link rel="alternate" hreflang="de" href="https://le-syl21.github.io/PinReady/de/faq.html">
+<link rel="alternate" hreflang="es" href="https://le-syl21.github.io/PinReady/es/faq.html">
+<link rel="alternate" hreflang="it" href="https://le-syl21.github.io/PinReady/it/faq.html">
+<link rel="alternate" hreflang="pt" href="https://le-syl21.github.io/PinReady/pt/faq.html">
+<link rel="alternate" hreflang="nl" href="https://le-syl21.github.io/PinReady/nl/faq.html">
+<link rel="alternate" hreflang="pl" href="https://le-syl21.github.io/PinReady/pl/faq.html">
+<link rel="alternate" hreflang="ru" href="https://le-syl21.github.io/PinReady/ru/faq.html">
+<link rel="alternate" hreflang="sv" href="https://le-syl21.github.io/PinReady/sv/faq.html">
+<link rel="alternate" hreflang="ja" href="https://le-syl21.github.io/PinReady/ja/faq.html">
+<link rel="alternate" hreflang="zh" href="https://le-syl21.github.io/PinReady/zh/faq.html">
+<link rel="alternate" hreflang="x-default" href="https://le-syl21.github.io/PinReady/faq.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="PinReady">
+<meta property="og:title" content="PinReady のよくある質問：Linux での pincab セットアップ、VPX 10.8.1 スタンドアロンのトラブルシューティング">
+<meta property="og:description" content="PinReady と Visual Pinball X 10.8.1 スタンドアロンについての回答：対象となる人、古いテーブルと VBS パッチ、テーブルごとの ini、DOF、ティルトとナッジ、スピーカー、Wayland と X11、クラッシュレポート。">
+<meta property="og:url" content="https://le-syl21.github.io/PinReady/ja/faq.html">
+<meta property="og:image" content="https://le-syl21.github.io/PinReady/img/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:locale:alternate" content="en_GB">
+<meta property="og:locale:alternate" content="fr_FR">
+<meta property="og:locale:alternate" content="de_DE">
+<meta property="og:locale:alternate" content="es_ES">
+<meta property="og:locale:alternate" content="it_IT">
+<meta property="og:locale:alternate" content="pt_PT">
+<meta property="og:locale:alternate" content="nl_NL">
+<meta property="og:locale:alternate" content="pl_PL">
+<meta property="og:locale:alternate" content="ru_RU">
+<meta property="og:locale:alternate" content="sv_SE">
+<meta property="og:locale:alternate" content="zh_CN">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="PinReady のよくある質問：Linux での pincab セットアップ、VPX 10.8.1 スタンドアロンのトラブルシューティング">
+<meta name="twitter:description" content="PinReady と Visual Pinball X 10.8.1 スタンドアロンについての回答：対象となる人、古いテーブルと VBS パッチ、テーブルごとの ini、DOF、ティルトとナッジ、スピーカー、Wayland と X11、クラッシュレポート。">
+<meta name="twitter:image" content="https://le-syl21.github.io/PinReady/img/og.jpg">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" type="image/svg+xml" href="../img/favicon.svg">
+<link rel="stylesheet" href="../style.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "SoftwareApplication", "@id": "https://le-syl21.github.io/PinReady/#app", "name": "PinReady", "description": "Configurateur et lanceur multiplateforme pour Visual Pinball X 10.8.1 standalone.", "applicationCategory": "GameApplication", "operatingSystem": "Linux, macOS, Windows", "url": "https://le-syl21.github.io/PinReady/", "downloadUrl": "https://github.com/Le-Syl21/PinReady/releases/latest", "license": "https://www.gnu.org/licenses/gpl-3.0.html", "codeRepository": "https://github.com/Le-Syl21/PinReady", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"}, "softwareVersion": "0.27.10"}, {"@type": "WebPage", "name": "PinReady のよくある質問：Linux での pincab セットアップ、VPX 10.8.1 スタンドアロンのトラブルシューティング", "description": "PinReady と Visual Pinball X 10.8.1 スタンドアロンについての回答：対象となる人、古いテーブルと VBS パッチ、テーブルごとの ini、DOF、ティルトとナッジ、スピーカー、Wayland と X11、クラッシュレポート。", "url": "https://le-syl21.github.io/PinReady/ja/faq.html", "inLanguage": "ja", "about": {"@id": "https://le-syl21.github.io/PinReady/#app"}}, {"@type": "FAQPage", "url": "https://le-syl21.github.io/PinReady/ja/faq.html", "inLanguage": "ja", "mainEntity": [{"@type": "Question", "name": "PinReady は私のキャビネットに向いていますか？", "acceptedAnswer": {"@type": "Answer", "text": "PinReady は、Visual Pinball X 10.8.1 の開発と普及を支えるために作られています。対象は、新しい 10.8.1 の仕組み（統合プラグイン、テーブルごとに1フォルダー、SDL3/bgfx エンジン）を試すテスターやアーリーアダプターです。頼りにしている安定版の VPX 10.7.x 構成でキャビネットを動かしている場合は、今のところ PinReady は向かない可能性があります。"}}, {"@type": "Question", "name": "本物のピンボール台が必要ですか？", "acceptedAnswer": {"@type": "Answer", "text": "いいえ。ウィザードは画面1つから始められます。通常のパソコンなら 1画面とデスクトップ表示モードを選び、キーボードかゲームパッドで遊んでください。2〜4画面、ピンボール用コントローラーボード、加速度センサー、サラウンドサウンドは、どれも任意です。"}}, {"@type": "Question", "name": "PinReady は公式の Visual Pinball をインストールしますか？", "acceptedAnswer": {"@type": "Answer", "text": "いいえ。自動インストールでは、PinReady で動作確認をした Visual Pinball X のフォーク（Le-Syl21/vpinball）の最近のビルドをダウンロードします。公式の VPX ビルドではありません。ご自身のインストールを使いたい場合は、最初のページでVisual Pinball はすでに持っているを選び、PinReady に VPinballX_BGFX プログラムの場所を指定してください。"}}, {"@type": "Question", "name": "どのピンボール用コントローラーボードに対応していますか？", "acceptedAnswer": {"@type": "Answer", "text": "Pinscape KL25Z（KL Shield V5.1、Brain、Rig Master）、Pinscape Pico、DudesCab、CSD PinOne です。検出されると、出荷時のボタン配置がジョイスティックの列に入力され、プランジャーと加速度センサーは VPX が自動的に処理します。ほかのジョイスティックやゲームパッドも使えます。ボタンを1つずつ割り当ててください。ウィザードの入力のページをご覧ください。"}}, {"@type": "Question", "name": "古いテーブルが VPX スタンドアロンで動きません。どうすればよいですか？", "acceptedAnswer": {"@type": "Answer", "text": "古いテーブルの中には、Windows でしか動かない VBScript の機能を使っているものがあります。テーブルのページで、自動 VBS パッチをオンにしてください。Le-Syl21/vpx-standalone-scripts にパッチがあれば、PinReady がパッチ適用済みのスクリプトをテーブルの隣に置きます。パッチによって特定のテーブルがかえって悪くなることがまれにあるため、初期設定ではオフです。手作業でもできます。jsm174/vpx-standalone-scripts からお使いのテーブルに合う .vbs を取り出し、.vpx と同じベース名にして、その隣に置いてください。"}}, {"@type": "Question", "name": "1つのテーブルだけ別の設定にするには？", "acceptedAnswer": {"@type": "Answer", "text": ".vpx の隣に、同じベース名の .ini ファイルを置き、変更したい設定だけを書いてください。そのほかの設定は、グローバルな VPinballX.ini から読み込まれます。これらの設定をテーブルファイルの中に持たせたい場合は、vpxtool でテーブルを展開し（vpxtool extract MyTable.vpx）、ini を含めて組み立て直せます（vpxtool assemble MyTable/）。"}}, {"@type": "Question", "name": "テーブルがディスクの容量を大きく使います。", "acceptedAnswer": {"@type": "Answer", "text": "テーブルには、大きな可逆圧縮の画像が入っていることがよくあります。vpxtool を使うと、それらを WebP に変換できます：vpxtool images webp MyTable.vpx。"}}, {"@type": "Question", "name": "トイ、ライト、ソレノイドがゲーム中に何も動きません。", "acceptedAnswer": {"@type": "Answer", "text": "Visual Pinball は、DOF を含むすべてのプラグインをオフにした状態で出荷されます。VPUniverse ConfigTool で DOF の設定を生成し、directoutputconfig フォルダーに展開してから、アクセサリーのページで DOF をオンにしてください。"}}, {"@type": "Question", "name": "何もしていないのにテーブルがティルトする、またはまったくティルトしません。", "acceptedAnswer": {"@type": "Answer", "text": "ティルト / ナッジのページで加速度センサーの範囲を確認してください。お使いのボードが実際に使っている範囲と一致している必要があります。ボードが範囲を公開している場合、PinReady はボードから読み取り、選んだ値が合っていなければ警告します。範囲が間違っていると、どの揺れも強すぎたり弱すぎたりして見え、ほかの設定では補えません。選んだティルト角がセンサーの届く範囲を外れているときも、このページでお知らせします。"}}, {"@type": "Question", "name": "音が違うスピーカーから出ます。", "acceptedAnswer": {"@type": "Answer", "text": "音声のページのテストを使ってください。転がるボールが前後で逆に動く場合は出力モードを変更し、左右で逆に動く場合は左右の配線を確認してください。ジャックの色はサウンドカードによって異なります。"}}, {"@type": "Question", "name": "Linux：アクセサリーのページで出力ボードが見つかりません。", "acceptedAnswer": {"@type": "Answer", "text": "Linux で USB HID に直接アクセスするには、たいてい udev ルールが必要です。アクセサリーのページにルールが表示され、コピーしたり、パスワードを入力したうえで代わりにインストールしたりできます。"}}, {"@type": "Question", "name": "Linux：Wayland と X11 を切り替えたあと、ウィザードをやり直す必要はありますか？", "acceptedAnswer": {"@type": "Answer", "text": "いいえ。Visual Pinball が Wayland で動くか X11 で動くかによって画面の名前が変わるため、PinReady は各画面を、位置、サイズ、EDID の識別情報（モニターが報告する ID）で覚えています。ランチャーの起動時に、VPX が使うドライバーを選び、VPinballX.ini の画面名をそれに合わせて更新します。"}}, {"@type": "Question", "name": "設定をやり直すにはどうしますか？", "acceptedAnswer": {"@type": "Answer", "text": "ランチャーの設定ボタンからウィザードを開くか、pinready --config を実行します。最初からやり直したい場合は、ウィザードの設定をリセットを使ってください。すべての回答が破棄され、以前の VPinballX.ini は VPinballX.ini.reset-backup として残されます。テーブルには手を付けません。"}}, {"@type": "Question", "name": "Visual Pinball がクラッシュしました。どう報告すればよいですか？", "acceptedAnswer": {"@type": "Answer", "text": "VPX が異常終了すると、PinReady は、クラッシュを再現するコマンド、システム情報、ログ、クラッシュダンプの場所を載せたレポートを表示します。コピーか保存…をクリックして、Discord か GitHub の課題で共有してください。"}}, {"@type": "Question", "name": "ランチャーでテーブルに「画像なし」と表示されます。", "acceptedAnswer": {"@type": "Answer", "text": "テーブルフォルダーの medias/launcher.png に画像を置いてください（.webp、.jpg、.jpeg も使えます）。.directb2s のバックグラスファイルでもかまいません。テーブルを整理し直したあとで画像が古いままのときは、ランチャーで再構築をクリックしてください。"}}, {"@type": "Question", "name": "設定はどこに保存されますか？", "acceptedAnswer": {"@type": "Answer", "text": "ファイルの保存場所をご覧ください。pinready --print-paths を実行すると、PinReady が実際に使っているパスが表示されます。"}}]}]}</script>
+</head>
+<body>
+<header class="site"><div class="wrap">
+<a class="brand" href="./"><img src="../img/favicon.svg" alt="" width="24" height="24"><span>Pin<b>Ready</b></span></a>
+<nav class="main"><a href="./">ホーム</a><a href="download.html">ダウンロード</a><a href="wizard.html">セットアップウィザード</a><a href="launcher.html">ランチャー</a><a href="faq.html" aria-current="page">よくある質問</a></nav>
+<details class="langmenu"><summary lang="ja">日本語</summary><ul><li><a href="../faq.html" hreflang="en" lang="en">English</a></li><li><a href="../fr/faq.html" hreflang="fr" lang="fr">Français</a></li><li><a href="../de/faq.html" hreflang="de" lang="de">Deutsch</a></li><li><a href="../es/faq.html" hreflang="es" lang="es">Español</a></li><li><a href="../it/faq.html" hreflang="it" lang="it">Italiano</a></li><li><a href="../pt/faq.html" hreflang="pt" lang="pt">Português</a></li><li><a href="../nl/faq.html" hreflang="nl" lang="nl">Nederlands</a></li><li><a href="../pl/faq.html" hreflang="pl" lang="pl">Polski</a></li><li><a href="../ru/faq.html" hreflang="ru" lang="ru">Русский</a></li><li><a href="../sv/faq.html" hreflang="sv" lang="sv">Svenska</a></li><li><a href="faq.html" hreflang="ja" lang="ja" aria-current="true">日本語</a></li><li><a href="../zh/faq.html" hreflang="zh" lang="zh">中文</a></li></ul></details>
+</div></header>
+<main><div class="wrap">
+<h1>質問と回答</h1>
+<p class="lead">PinReady と Visual Pinball X 10.8.1 スタンドアロンについてのよくある質問です。載っていないことがあれば、<a href="https://discord.gg/T37DYHmt2j">Discord</a> で聞いてください。</p>
+<details class="faq"><summary><h2>PinReady は私のキャビネットに向いていますか？</h2></summary><p>PinReady は、Visual Pinball X 10.8.1 の開発と普及を支えるために作られています。対象は、新しい 10.8.1 の仕組み（統合プラグイン、テーブルごとに1フォルダー、SDL3/bgfx エンジン）を試すテスターやアーリーアダプターです。頼りにしている安定版の VPX 10.7.x 構成でキャビネットを動かしている場合は、今のところ PinReady は向かない可能性があります。</p></details>
+<details class="faq"><summary><h2>本物のピンボール台が必要ですか？</h2></summary><p>いいえ。ウィザードは画面1つから始められます。通常のパソコンなら <strong>1画面</strong>と<strong>デスクトップ</strong>表示モードを選び、キーボードかゲームパッドで遊んでください。2〜4画面、ピンボール用コントローラーボード、加速度センサー、サラウンドサウンドは、どれも任意です。</p></details>
+<details class="faq"><summary><h2>PinReady は公式の Visual Pinball をインストールしますか？</h2></summary><p>いいえ。自動インストールでは、PinReady で動作確認をした Visual Pinball X のフォーク（<a href="https://github.com/Le-Syl21/vpinball">Le-Syl21/vpinball</a>）の最近のビルドをダウンロードします。公式の VPX ビルドではありません。ご自身のインストールを使いたい場合は、最初のページで<strong>Visual Pinball はすでに持っている</strong>を選び、PinReady に <code>VPinballX_BGFX</code> プログラムの場所を指定してください。</p></details>
+<details class="faq"><summary><h2>どのピンボール用コントローラーボードに対応していますか？</h2></summary><p>Pinscape KL25Z（KL Shield V5.1、Brain、Rig Master）、Pinscape Pico、DudesCab、CSD PinOne です。検出されると、出荷時のボタン配置がジョイスティックの列に入力され、プランジャーと加速度センサーは VPX が自動的に処理します。ほかのジョイスティックやゲームパッドも使えます。ボタンを1つずつ割り当ててください。<a href="wizard.html#inputs">ウィザードの入力のページ</a>をご覧ください。</p></details>
+<details class="faq"><summary><h2>古いテーブルが VPX スタンドアロンで動きません。どうすればよいですか？</h2></summary><p>古いテーブルの中には、Windows でしか動かない VBScript の機能を使っているものがあります。<strong>テーブル</strong>のページで、自動 VBS パッチをオンにしてください。<a href="https://github.com/Le-Syl21/vpx-standalone-scripts">Le-Syl21/vpx-standalone-scripts</a> にパッチがあれば、PinReady がパッチ適用済みのスクリプトをテーブルの隣に置きます。パッチによって特定のテーブルがかえって悪くなることがまれにあるため、初期設定ではオフです。手作業でもできます。<a href="https://github.com/jsm174/vpx-standalone-scripts">jsm174/vpx-standalone-scripts</a> からお使いのテーブルに合う <code>.vbs</code> を取り出し、<code>.vpx</code> と同じベース名にして、その隣に置いてください。</p></details>
+<details class="faq"><summary><h2>1つのテーブルだけ別の設定にするには？</h2></summary><p><code>.vpx</code> の隣に、同じベース名の <code>.ini</code> ファイルを置き、変更したい設定だけを書いてください。そのほかの設定は、グローバルな <code>VPinballX.ini</code> から読み込まれます。これらの設定をテーブルファイルの中に持たせたい場合は、<a href="https://github.com/francisdb/vpxtool">vpxtool</a> でテーブルを展開し（<code>vpxtool extract MyTable.vpx</code>）、ini を含めて組み立て直せます（<code>vpxtool assemble MyTable/</code>）。</p></details>
+<details class="faq"><summary><h2>テーブルがディスクの容量を大きく使います。</h2></summary><p>テーブルには、大きな可逆圧縮の画像が入っていることがよくあります。<a href="https://github.com/francisdb/vpxtool">vpxtool</a> を使うと、それらを WebP に変換できます：<code>vpxtool images webp MyTable.vpx</code>。</p></details>
+<details class="faq"><summary><h2>トイ、ライト、ソレノイドがゲーム中に何も動きません。</h2></summary><p>Visual Pinball は、DOF を含むすべてのプラグインをオフにした状態で出荷されます。VPUniverse ConfigTool で DOF の設定を生成し、<code>directoutputconfig</code> フォルダーに展開してから、<a href="wizard.html#accessories">アクセサリーのページ</a>で DOF をオンにしてください。</p></details>
+<details class="faq"><summary><h2>何もしていないのにテーブルがティルトする、またはまったくティルトしません。</h2></summary><p><a href="wizard.html#tilt">ティルト / ナッジのページ</a>で<strong>加速度センサーの範囲</strong>を確認してください。お使いのボードが実際に使っている範囲と一致している必要があります。ボードが範囲を公開している場合、PinReady はボードから読み取り、選んだ値が合っていなければ警告します。範囲が間違っていると、どの揺れも強すぎたり弱すぎたりして見え、ほかの設定では補えません。選んだティルト角がセンサーの届く範囲を外れているときも、このページでお知らせします。</p></details>
+<details class="faq"><summary><h2>音が違うスピーカーから出ます。</h2></summary><p><a href="wizard.html#audio">音声のページ</a>のテストを使ってください。転がるボールが前後で逆に動く場合は出力モードを変更し、左右で逆に動く場合は左右の配線を確認してください。ジャックの色はサウンドカードによって異なります。</p></details>
+<details class="faq"><summary><h2>Linux：アクセサリーのページで出力ボードが見つかりません。</h2></summary><p>Linux で USB HID に直接アクセスするには、たいてい udev ルールが必要です。アクセサリーのページにルールが表示され、コピーしたり、パスワードを入力したうえで代わりにインストールしたりできます。</p></details>
+<details class="faq"><summary><h2>Linux：Wayland と X11 を切り替えたあと、ウィザードをやり直す必要はありますか？</h2></summary><p>いいえ。Visual Pinball が Wayland で動くか X11 で動くかによって画面の名前が変わるため、PinReady は各画面を、位置、サイズ、EDID の識別情報（モニターが報告する ID）で覚えています。ランチャーの起動時に、VPX が使うドライバーを選び、<code>VPinballX.ini</code> の画面名をそれに合わせて更新します。</p></details>
+<details class="faq"><summary><h2>設定をやり直すにはどうしますか？</h2></summary><p>ランチャーの<strong>設定</strong>ボタンからウィザードを開くか、<code>pinready --config</code> を実行します。最初からやり直したい場合は、ウィザードの<strong>設定をリセット</strong>を使ってください。すべての回答が破棄され、以前の <code>VPinballX.ini</code> は <code>VPinballX.ini.reset-backup</code> として残されます。テーブルには手を付けません。</p></details>
+<details class="faq"><summary><h2>Visual Pinball がクラッシュしました。どう報告すればよいですか？</h2></summary><p>VPX が異常終了すると、PinReady は、クラッシュを再現するコマンド、システム情報、ログ、クラッシュダンプの場所を載せたレポートを表示します。<strong>コピー</strong>か<strong>保存…</strong>をクリックして、<a href="https://discord.gg/T37DYHmt2j">Discord</a> か <a href="https://github.com/Le-Syl21/PinReady/issues">GitHub の課題</a>で共有してください。</p></details>
+<details class="faq"><summary><h2>ランチャーでテーブルに「画像なし」と表示されます。</h2></summary><p>テーブルフォルダーの <code>medias/launcher.png</code> に画像を置いてください（.webp、.jpg、.jpeg も使えます）。<code>.directb2s</code> のバックグラスファイルでもかまいません。テーブルを整理し直したあとで画像が古いままのときは、ランチャーで<strong>再構築</strong>をクリックしてください。</p></details>
+<details class="faq"><summary><h2>設定はどこに保存されますか？</h2></summary><p><a href="download.html#files">ファイルの保存場所</a>をご覧ください。<code>pinready --print-paths</code> を実行すると、PinReady が実際に使っているパスが表示されます。</p></details>
+</div></main>
+<footer class="site"><div class="wrap">
+<a href="https://github.com/Le-Syl21/PinReady">GitHub のソースコードと課題トラッカー</a>
+<a href="https://discord.gg/T37DYHmt2j">Discord</a>
+<a href="https://www.youtube.com/playlist?list=PLZ838nY4NE902Am7NIOGYbEJaak5pEP71">デモ動画</a>
+<span>PinReady は GNU GPL v3 以降のもとで公開されているフリーソフトウェアです。Visual Pinball は、別の作者による独立したプロジェクトです。</span>
+</div></footer>
+</body>
+</html>

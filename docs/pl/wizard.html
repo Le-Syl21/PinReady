@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kreator konfiguracji VPX standalone: ekrany, sterowanie, tilt, dźwięk – PinReady</title>
+<meta name="description" content="Jak PinReady konfiguruje Visual Pinball X 10.8.1 standalone krok po kroku: ekrany pincaba, klawiatura i sterowanie Pinscape/DudesCab/PinOne, tilt i nudge, dźwięk SSF, DOF, folder ze stołami.">
+<link rel="canonical" href="https://le-syl21.github.io/PinReady/pl/wizard.html">
+<link rel="alternate" hreflang="en" href="https://le-syl21.github.io/PinReady/wizard.html">
+<link rel="alternate" hreflang="fr" href="https://le-syl21.github.io/PinReady/fr/wizard.html">
+<link rel="alternate" hreflang="de" href="https://le-syl21.github.io/PinReady/de/wizard.html">
+<link rel="alternate" hreflang="es" href="https://le-syl21.github.io/PinReady/es/wizard.html">
+<link rel="alternate" hreflang="it" href="https://le-syl21.github.io/PinReady/it/wizard.html">
+<link rel="alternate" hreflang="pt" href="https://le-syl21.github.io/PinReady/pt/wizard.html">
+<link rel="alternate" hreflang="nl" href="https://le-syl21.github.io/PinReady/nl/wizard.html">
+<link rel="alternate" hreflang="pl" href="https://le-syl21.github.io/PinReady/pl/wizard.html">
+<link rel="alternate" hreflang="ru" href="https://le-syl21.github.io/PinReady/ru/wizard.html">
+<link rel="alternate" hreflang="sv" href="https://le-syl21.github.io/PinReady/sv/wizard.html">
+<link rel="alternate" hreflang="ja" href="https://le-syl21.github.io/PinReady/ja/wizard.html">
+<link rel="alternate" hreflang="zh" href="https://le-syl21.github.io/PinReady/zh/wizard.html">
+<link rel="alternate" hreflang="x-default" href="https://le-syl21.github.io/PinReady/wizard.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="PinReady">
+<meta property="og:title" content="Kreator konfiguracji VPX standalone: ekrany, sterowanie, tilt, dźwięk – PinReady">
+<meta property="og:description" content="Jak PinReady konfiguruje Visual Pinball X 10.8.1 standalone krok po kroku: ekrany pincaba, klawiatura i sterowanie Pinscape/DudesCab/PinOne, tilt i nudge, dźwięk SSF, DOF, folder ze stołami.">
+<meta property="og:url" content="https://le-syl21.github.io/PinReady/pl/wizard.html">
+<meta property="og:image" content="https://le-syl21.github.io/PinReady/img/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="pl_PL">
+<meta property="og:locale:alternate" content="en_GB">
+<meta property="og:locale:alternate" content="fr_FR">
+<meta property="og:locale:alternate" content="de_DE">
+<meta property="og:locale:alternate" content="es_ES">
+<meta property="og:locale:alternate" content="it_IT">
+<meta property="og:locale:alternate" content="pt_PT">
+<meta property="og:locale:alternate" content="nl_NL">
+<meta property="og:locale:alternate" content="ru_RU">
+<meta property="og:locale:alternate" content="sv_SE">
+<meta property="og:locale:alternate" content="ja_JP">
+<meta property="og:locale:alternate" content="zh_CN">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Kreator konfiguracji VPX standalone: ekrany, sterowanie, tilt, dźwięk – PinReady">
+<meta name="twitter:description" content="Jak PinReady konfiguruje Visual Pinball X 10.8.1 standalone krok po kroku: ekrany pincaba, klawiatura i sterowanie Pinscape/DudesCab/PinOne, tilt i nudge, dźwięk SSF, DOF, folder ze stołami.">
+<meta name="twitter:image" content="https://le-syl21.github.io/PinReady/img/og.jpg">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" type="image/svg+xml" href="../img/favicon.svg">
+<link rel="stylesheet" href="../style.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "SoftwareApplication", "@id": "https://le-syl21.github.io/PinReady/#app", "name": "PinReady", "description": "Configurateur et lanceur multiplateforme pour Visual Pinball X 10.8.1 standalone.", "applicationCategory": "GameApplication", "operatingSystem": "Linux, macOS, Windows", "url": "https://le-syl21.github.io/PinReady/", "downloadUrl": "https://github.com/Le-Syl21/PinReady/releases/latest", "license": "https://www.gnu.org/licenses/gpl-3.0.html", "codeRepository": "https://github.com/Le-Syl21/PinReady", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"}, "softwareVersion": "0.27.10"}, {"@type": "WebPage", "name": "Kreator konfiguracji VPX standalone: ekrany, sterowanie, tilt, dźwięk – PinReady", "description": "Jak PinReady konfiguruje Visual Pinball X 10.8.1 standalone krok po kroku: ekrany pincaba, klawiatura i sterowanie Pinscape/DudesCab/PinOne, tilt i nudge, dźwięk SSF, DOF, folder ze stołami.", "url": "https://le-syl21.github.io/PinReady/pl/wizard.html", "inLanguage": "pl", "about": {"@id": "https://le-syl21.github.io/PinReady/#app"}}]}</script>
+</head>
+<body>
+<header class="site"><div class="wrap">
+<a class="brand" href="./"><img src="../img/favicon.svg" alt="" width="24" height="24"><span>Pin<b>Ready</b></span></a>
+<nav class="main"><a href="./">Start</a><a href="download.html">Pobierz</a><a href="wizard.html" aria-current="page">Kreator konfiguracji</a><a href="launcher.html">Launcher</a><a href="faq.html">FAQ</a></nav>
+<details class="langmenu"><summary lang="pl">Polski</summary><ul><li><a href="../wizard.html" hreflang="en" lang="en">English</a></li><li><a href="../fr/wizard.html" hreflang="fr" lang="fr">Français</a></li><li><a href="../de/wizard.html" hreflang="de" lang="de">Deutsch</a></li><li><a href="../es/wizard.html" hreflang="es" lang="es">Español</a></li><li><a href="../it/wizard.html" hreflang="it" lang="it">Italiano</a></li><li><a href="../pt/wizard.html" hreflang="pt" lang="pt">Português</a></li><li><a href="../nl/wizard.html" hreflang="nl" lang="nl">Nederlands</a></li><li><a href="wizard.html" hreflang="pl" lang="pl" aria-current="true">Polski</a></li><li><a href="../ru/wizard.html" hreflang="ru" lang="ru">Русский</a></li><li><a href="../sv/wizard.html" hreflang="sv" lang="sv">Svenska</a></li><li><a href="../ja/wizard.html" hreflang="ja" lang="ja">日本語</a></li><li><a href="../zh/wizard.html" hreflang="zh" lang="zh">中文</a></li></ul></details>
+</div></header>
+<main><div class="wrap">
+<h1>Kreator konfiguracji</h1>
+<p class="lead">Przy pierwszym uruchomieniu PinReady kreator prowadzi Cię przez dziewięć stron. Przy każdej opcji jest mały znacznik informacji: najedź na niego kursorem albo kliknij go na pincabie, by zobaczyć wyjaśnienie prostym językiem.</p>
+<p>Twoje odpowiedzi są zapisywane w <code>VPinballX.ini</code>, pliku ustawień Visual Pinball, a komentarze w tym pliku są zachowywane. Jeśli plik jeszcze nie istnieje, PinReady najpierw prosi Visual Pinball o utworzenie kompletnego pliku domyślnego, a potem dopisuje do niego Twoje wybory. Kreator możesz otworzyć ponownie w dowolnej chwili przyciskiem <strong>Konfiguracja</strong> w launcherze lub poleceniem <code>pinready --config</code>: każde pole pokazuje Twoje bieżące ustawienia. Większość ustawień można też zmieniać podczas gry, z menu Visual Pinball pod <kbd>F12</kbd>.</p>
+<nav class="toc" aria-label="Wizard pages"><ol><li><a href="#screens">Ekrany</a></li><li><a href="#rendering">Obraz</a></li><li><a href="#threed">3D</a></li><li><a href="#inputs">Sterowanie</a></li><li><a href="#accessories">Akcesoria</a></li><li><a href="#tilt">Tilt / Nudge</a></li><li><a href="#audio">Dźwięk</a></li><li><a href="#tables">Stoły</a></li><li><a href="#system">System</a></li></ol></nav>
+<p><strong>Zresetuj konfigurację</strong> usuwa wszystkie odpowiedzi, odkłada globalny plik <code>VPinballX.ini</code> jako <code>VPinballX.ini.reset-backup</code> i zaczyna od pierwszej strony. Twoje stoły pozostają nietknięte.</p>
+
+<h2 id="screens">1. Ekrany</h2>
+<figure class="shot"><img src="../img/wizard-screens.jpg" loading="lazy" width="1400" height="1489" alt="Strona 1 kreatora konfiguracji: język, instalacja Visual Pinball, liczba ekranów"></figure>
+<p>Pierwsza strona pokazuje wykryty system (na przykład <em>Ubuntu 24.04 LTS · X11 · GNOME</em>), dzięki czemu zgłoszenia błędów zawsze zawierają kontekst, pozwala wybrać język interfejsu i w razie potrzeby <a href="download.html#vpx">instaluje Visual Pinball</a>.</p>
+<ul>
+<li><strong>Liczba ekranów</strong>: 1 dla zwykłego komputera, 3 lub 4 dla pełnego pincaba (playfield, backglass, DMD i opcjonalny topper).</li>
+<li><strong>Role</strong>: każdy wyświetlacz jest wymieniony z nazwą, rozdzielczością, częstotliwością odświeżania (Hz) i rozmiarem fizycznym. PinReady proponuje rolę na podstawie rozmiarów ekranów: największy zostaje playfieldem, potem backglass, DMD i topper. Zmień dowolną rolę z listy albo ustaw ekran jako <em>Nieużywany</em>.</li>
+<li><strong>Tryb wyświetlania</strong>: <em>Pulpit</em> (w oknie, dla zwykłego komputera), <em>Automat</em> (playfield rysowany dla ekranu leżącego poziomo, backglass i DMD na własnych ekranach) lub <em>Jeden ekran pełny</em> (playfield i backglass na jednym wysokim ekranie). Przy 2 ekranach lub więcej przełącza się na Automat, a nadal możesz to zmienić.</li>
+<li><strong>Zewnętrzne urządzenie DMD</strong> (ZeDMD, PinDMD…): zaznacz, jeśli masz fizyczny wyświetlacz wyniku; Visual Pinball wykrywa go przy starcie stołu.</li>
+<li><strong>Wyłącz ekran dotykowy</strong>: wyłącza nakładkę dotykową VPX, przydatne, gdy playfield nie jest ekranem dotykowym albo gdy sterujesz automatem zdalnie.</li>
+<li><strong>Wymiary automatu</strong>: szerokość i wysokość lockbara, nachylenie playfieldu, Twój wzrost i miejsce, w którym stoisz. Przeciągaj uchwyty na rysunku albo wpisz wartości; nadają one widokowi 3D właściwą perspektywę.</li>
+</ul>
+
+<h2 id="rendering">2. Obraz</h2>
+<figure class="shot"><img src="../img/wizard-rendering.jpg" loading="lazy" width="1400" height="1489" alt="Strona 2 kreatora konfiguracji: płynność i jakość obrazu"></figure>
+<p>Ustawienia grafiki playfieldu. Rada ze strony: zacznij od wartości domyślnych, potem dostosuj do swojego komputera.</p>
+<ul>
+<li><strong>Synchronizacja</strong>: <em>Bez synchronizacji</em>, <em>Synchronizacja pionowa</em>, <em>Synchronizacja adaptacyjna</em> lub <em>Frame pacing</em>, domyślne w Visual Pinball. Każdy wybór wyjaśnia, co daje, a co kosztuje: płynność czy opóźnienie sterowania.</li>
+<li><strong>Limit FPS</strong>: domyślnie <em>Maks.</em>, co podąża za częstotliwością odświeżania ekranu playfieldu, więc żadna klatka nie jest rysowana szybciej, niż ekran zdoła ją pokazać. Naciśnij <em>Wybierz liczbę</em>, by ustawić własny limit. Jeśli Twój ekran potrafi więcej, niż podaje strona, najpierw ustaw jego częstotliwość odświeżania w ustawieniach wyświetlacza systemu (PinReady nie może jej zmienić), a potem wróć.</li>
+<li><strong>Kompresuj tekstury</strong> (domyślnie włączone) pakuje obrazy stołu tak, by zajmowały mniej pamięci graficznej, kosztem nieco dłuższego pierwszego ładowania każdego stołu.</li>
+<li><strong>Jakość obrazu</strong>: supersampling, MSAA, antyaliasing w postprocessingu (FXAA i inne), wyostrzanie, odbicia i maksymalny rozmiar tekstur.</li>
+<li><strong>Pokaż FPS</strong> (domyślnie włączone) wyświetla w grze licznik klatek, przydatny do sprawdzenia ustawień zaraz po konfiguracji.</li>
+<li><strong>Okrągła kula</strong> (domyślnie włączone) sprawia, że kula nie wygląda na lekko jajowatą, gdy porusza się szybko. Wyłącznie kosmetyczne.</li>
+<li><strong>Efekty wizualne</strong>: miękkie cienie (ambient occlusion), poświata wokół jasnych świateł, rozmycie ruchu kuli, ostrzejsze tekstury pod kątem, odbicia całego stołu, wstępnie renderowane klatki oraz gładkość kuli i ramp. Każdy pokazuje zalecaną wartość; jeśli gra się zacina, najpierw wyłącz te z dołu listy.</li>
+</ul>
+
+<h2 id="threed">3. 3D</h2>
+<figure class="shot"><img src="../img/wizard-threed.jpg" loading="lazy" width="1400" height="1489" alt="Strona 3 kreatora konfiguracji: wirtualna rzeczywistość i stereoskopowe 3D"></figure>
+<p>Dwa opcjonalne bloki, oba domyślnie wyłączone, bo automat ich nie potrzebuje.</p>
+<ul>
+<li><strong>Wirtualna rzeczywistość (VR)</strong>: gra w goglach. Potrzebujesz gogli oraz programu VR (środowiska OpenXR, takiego jak SteamVR lub Monado) uruchomionego na komputerze. Po włączeniu wybierasz, kiedy startuje VR, częstotliwość odświeżania gogli, co w międzyczasie pokazuje pulpit oraz kierowanie dźwięku.</li>
+<li><strong>Stereoskopowe 3D</strong>: obraz 3D dla telewizora 3D lub okularów. Po włączeniu wybierasz format 3D i dostosowujesz odległość między oczami, jasność i nasycenie kolorów.</li>
+</ul>
+
+<h2 id="inputs">4. Sterowanie</h2>
+<figure class="shot"><img src="../img/wizard-inputs.jpg" loading="lazy" width="1400" height="1489" alt="Strona 4 kreatora konfiguracji: klawisze i przyciski kontrolera"></figure>
+<p>Każda akcja Visual Pinball ma dwie kolumny, <strong>Klawiatura</strong> i <strong>Joystick</strong>, i obie działają równolegle. Kliknij <strong>Przypisz</strong> i naciśnij klawisz lub przycisk: klawisz wypełnia kolumnę klawiatury, przycisk joysticka kolumnę joysticka. <strong>Przypisz wszystko automatycznie</strong> przeprowadza przez wszystkie akcje za jednym razem. Najważniejsze akcje (flippery, MagnaSave, start, kredyt, wystrzelenie kuli…) są pokazane na początku; zaawansowane są o jedno kliknięcie dalej. PinReady ostrzega, gdy klawisz jest już użyty przez inną akcję.</p>
+<p><strong>Płytki sterujące do pinballa.</strong> Gdy wykryta zostanie płytka Pinscape KL25Z, Pinscape Pico, DudesCab lub PinOne, PinReady wybiera pasujący profil i wypełnia kolumnę joysticka fabrycznym układem przycisków płytki; Visual Pinball obsługuje wtedy plunger i nudge z akcelerometru samodzielnie. Wybierz <em>Brak</em>, by przypisać każdy przycisk samodzielnie. Wykryty gamepad może też służyć do flipperów, plungera i nudge.</p>
+<details><summary>KL25Z (KL Shield V5.1 / Brain / Rig Master)</summary><div class="table"><table><thead><tr><th>Przycisk</th><th>Etykieta na płytce</th><th>Akcja VPX</th></tr></thead><tbody><tr><td>0</td><td>START</td><td><code>Start</code></td></tr><tr><td>1</td><td>EXTRA-B</td><td><code>ExtraBall</code></td></tr><tr><td>2</td><td>COIN1</td><td><code>Credit1</code></td></tr><tr><td>3</td><td>COIN2</td><td><code>Credit2</code></td></tr><tr><td>4</td><td>L BALL</td><td><code>LaunchBall</code></td></tr><tr><td>5</td><td>EXIT</td><td><code>ExitGame</code></td></tr><tr><td>7</td><td>L FLIPP</td><td><code>LeftFlipper + LeftStagedFlipper</code></td></tr><tr><td>8</td><td>R FLIPP</td><td><code>RightFlipper + RightStagedFlipper</code></td></tr><tr><td>9</td><td>L MAGNA</td><td><code>LeftMagna</code></td></tr><tr><td>10</td><td>R MAGNA</td><td><code>RightMagna</code></td></tr><tr><td>11</td><td>FIRE</td><td><code>Lockbar</code></td></tr><tr><td>13</td><td>DOOR</td><td><code>CoinDoor</code></td></tr><tr><td>14</td><td>SERVICE EXIT</td><td><code>Service1</code></td></tr><tr><td>15</td><td>SERVICE -</td><td><code>Service2</code></td></tr><tr><td>16</td><td>SERVICE +</td><td><code>Service3</code></td></tr><tr><td>17</td><td>ENTER</td><td><code>Service4</code></td></tr><tr><td>19</td><td>VOL-</td><td><code>VolumeDown</code></td></tr><tr><td>20</td><td>VOL+</td><td><code>VolumeUp</code></td></tr></tbody></table></div></details>
+<details><summary>Pinscape Pico (OpenPinballDevice)</summary><div class="table"><table><thead><tr><th>Przycisk</th><th>Etykieta na płytce</th><th>Akcja VPX</th></tr></thead><tbody><tr><td>0</td><td>Start</td><td><code>Start</code></td></tr><tr><td>1</td><td>Wyjście</td><td><code>ExitGame</code></td></tr><tr><td>2</td><td>Dodatkowa kula</td><td><code>ExtraBall</code></td></tr><tr><td>3</td><td>Moneta 1</td><td><code>Credit1</code></td></tr><tr><td>4</td><td>Moneta 2</td><td><code>Credit2</code></td></tr><tr><td>5</td><td>Moneta 3</td><td><code>Credit3</code></td></tr><tr><td>6</td><td>Moneta 4</td><td><code>Credit4</code></td></tr><tr><td>7</td><td>Wystrzel kulę</td><td><code>LaunchBall</code></td></tr><tr><td>8</td><td>Ogień</td><td><code>Lockbar</code></td></tr><tr><td>9</td><td>Lewy flipper</td><td><code>LeftFlipper</code></td></tr><tr><td>10</td><td>Prawy flipper</td><td><code>RightFlipper</code></td></tr><tr><td>11</td><td>Górny lewy flipper</td><td><code>LeftStagedFlipper</code></td></tr><tr><td>12</td><td>Górny prawy flipper</td><td><code>RightStagedFlipper</code></td></tr><tr><td>13</td><td>MagnaSave lewy</td><td><code>LeftMagna</code></td></tr><tr><td>14</td><td>MagnaSave prawy</td><td><code>RightMagna</code></td></tr><tr><td>16</td><td>Slam tilt</td><td><code>SlamTilt</code></td></tr><tr><td>17</td><td>Drzwiczki na monety</td><td><code>CoinDoor</code></td></tr><tr><td>18</td><td>Serwis: anuluj</td><td><code>Service1</code></td></tr><tr><td>19</td><td>Serwis: w dół</td><td><code>Service2</code></td></tr><tr><td>20</td><td>Serwis: w górę</td><td><code>Service3</code></td></tr><tr><td>21</td><td>Serwis: zatwierdź</td><td><code>Service4</code></td></tr><tr><td>22</td><td>Nudge w lewo</td><td><code>LeftNudge</code></td></tr><tr><td>23</td><td>Nudge do przodu</td><td><code>CenterNudge</code></td></tr><tr><td>24</td><td>Nudge w prawo</td><td><code>RightNudge</code></td></tr><tr><td>25</td><td>Głośniej</td><td><code>VolumeUp</code></td></tr><tr><td>26</td><td>Ciszej</td><td><code>VolumeDown</code></td></tr></tbody></table></div></details>
+<details><summary>DudesCab (Arnoz)</summary><div class="table"><table><thead><tr><th>Przycisk</th><th>Etykieta na płytce</th><th>Akcja VPX</th></tr></thead><tbody><tr><td>0</td><td>Start</td><td><code>Start</code></td></tr><tr><td>1</td><td>Dodatkowa kula</td><td><code>ExtraBall</code></td></tr><tr><td>2</td><td>Moneta 1</td><td><code>Credit1</code></td></tr><tr><td>3</td><td>Moneta 2</td><td><code>Credit2</code></td></tr><tr><td>4</td><td>Wystrzel kulę</td><td><code>LaunchBall</code></td></tr><tr><td>5</td><td>Powrót</td><td><code>ExitGame</code></td></tr><tr><td>7</td><td>Lewy flipper</td><td><code>LeftFlipper + LeftStagedFlipper</code></td></tr><tr><td>8</td><td>Prawy flipper</td><td><code>RightFlipper + RightStagedFlipper</code></td></tr><tr><td>9</td><td>Magna lewa</td><td><code>LeftMagna</code></td></tr><tr><td>10</td><td>Magna prawa</td><td><code>RightMagna</code></td></tr><tr><td>12</td><td>Ogień</td><td><code>Lockbar</code></td></tr><tr><td>13</td><td>Drzwiczki</td><td><code>CoinDoor</code></td></tr><tr><td>14</td><td>ROM: wyjście</td><td><code>Service1</code></td></tr><tr><td>15</td><td>ROM -</td><td><code>Service2</code></td></tr><tr><td>16</td><td>ROM +</td><td><code>Service3</code></td></tr><tr><td>17</td><td>ROM: zatwierdź</td><td><code>Service4</code></td></tr><tr><td>18</td><td>VOL -</td><td><code>VolumeDown</code></td></tr><tr><td>19</td><td>VOL +</td><td><code>VolumeUp</code></td></tr></tbody></table></div></details>
+<details><summary>CSD PinOne</summary><div class="table"><table><thead><tr><th>Przycisk</th><th>Etykieta na płytce</th><th>Akcja VPX</th></tr></thead><tbody><tr><td>0</td><td>VPX 1</td><td><code>RightFlipper</code></td></tr><tr><td>1</td><td>VPX 2</td><td><code>RightMagna</code></td></tr><tr><td>2</td><td>VPX 3</td><td><code>LeftFlipper</code></td></tr><tr><td>3</td><td>VPX 4</td><td><code>LeftMagna</code></td></tr><tr><td>4</td><td>VPX 5</td><td><code>ExtraBall</code></td></tr><tr><td>5</td><td>VPX 6</td><td><code>Start</code></td></tr><tr><td>6</td><td>VPX 7</td><td><code>Credit1</code></td></tr><tr><td>7</td><td>VPX 8</td><td><code>ExitGame</code></td></tr><tr><td>8</td><td>VPX 9</td><td><code>Lockbar</code></td></tr><tr><td>15</td><td>VPX 16</td><td><code>VolumeUp</code></td></tr><tr><td>16</td><td>VPX 17</td><td><code>VolumeDown</code></td></tr><tr><td>17</td><td>VPX 18</td><td><code>CoinDoor</code></td></tr><tr><td>18</td><td>VPX 19</td><td><code>Service1</code></td></tr><tr><td>19</td><td>VPX 20</td><td><code>Service2</code></td></tr><tr><td>20</td><td>VPX 21</td><td><code>Service3</code></td></tr><tr><td>21</td><td>VPX 22</td><td><code>Service4</code></td></tr><tr><td>23</td><td>VPX 24</td><td><code>LaunchBall</code></td></tr></tbody></table></div></details>
+<p class="muted">Numery przycisków to te, które zgłasza SDL, liczone od 0. Przyciski, których profil nie przypisuje, nie są wymienione.</p>
+
+<h2 id="accessories">5. Akcesoria</h2>
+<figure class="shot"><img src="../img/wizard-outputs.jpg" loading="lazy" width="1400" height="1489" alt="Strona 5 kreatora konfiguracji: efekty zwrotne (DOF)"></figure>
+<h3>Efekty DOF (światła i gadżety)</h3>
+<p>VPX 10.8.1 standalone zawiera DOF (Direct Output Framework), który steruje solenoidami, światłami, silnikiem shakera, knockerem lub koguticiem automatu. Potrzebuje tylko konfiguracji opisującej Twój sprzęt. Strona poprowadzi Cię przez ten proces:</p>
+<ol>
+<li>Załóż darmowe konto w <a href="https://configtool.vpuniverse.com/app/home">VPUniverse ConfigTool</a>.</li>
+<li>Utwórz tabelę odpowiadającą Twojemu automatowi, dodaj jego system wyjść (Pinscape, LedWiz, PinOne, DudesCab, PacLed, TeensyStripController…) i przypisz urządzenia do wyjść.</li>
+<li>Kliknij <em>Generate</em>, pobierz plik zip i rozpakuj go do folderu docelowego: przycisk <strong>Otwórz folder w menedżerze plików</strong> zaprowadzi Cię tam.</li>
+<li>Włącz DOF: Visual Pinball jest dostarczany z wyłączonymi wszystkimi wtyczkami, więc dopóki tego nie zrobisz, nic nie zadziała w grze.</li>
+</ol>
+<p>PinReady potrafi też wyszukać Twoją płytkę wyjść przez USB i podpowiedzieć, jaki typ kontrolera wybrać w ConfigTool. Na Linuxie pokazuje, kopiuje lub instaluje reguły udev dające dostęp do płytki. Tester wyjść, który kolejno pulsuje każde wyjście, z wbudowanym bezpiecznikiem zatrzymania, działa na razie tylko na symulatorze.</p>
+<h3>Head tracking</h3>
+<p>Dla automatów z Kinectem lub kamerą na backglassie albo topperze: perspektywa stołu podąża za Twoją głową. Jedno kliknięcie pobiera wtyczkę <a href="https://github.com/Le-Syl21/headtracking">head tracking</a> wraz z demem, włącza wtyczkę, przełącza Visual Pinball w tryb widoku <em>Okno</em>, którego wymaga, i otwiera demo, abyś mógł(-ła) zainstalować sterowniki kamery i sprawdzić, czy jesteś śledzony(-a). Niedostępne na Macach z procesorem Intel.</p>
+
+<h2 id="tilt">6. Tilt / Nudge</h2>
+<figure class="shot"><img src="../img/wizard-tilt.jpg" loading="lazy" width="1400" height="1489" alt="Strona 6 kreatora konfiguracji: ustawienia nudge i tilt"></figure><figure class="shot"><img src="../img/wizard-tilt-dial.jpg" loading="lazy" width="1400" height="1489" alt="Tarcza nudge: niebieski punkt wahadła, okrąg tiltu i strefa w stronę gracza"></figure>
+<p>Ustawienia akcelerometru, który wykrywa, kiedy potrząsasz (nudge) automatem.</p>
+<ul>
+<li><strong>Typ czujnika nudge</strong>: <em>Kontroler gier</em> dla drążka gamepada, <em>Czujnik intencji</em> dla automatów z płytką akcelerometru, taką jak Pinscape lub DudesCab (ignoruje drobne wibracje i zamienia prawdziwe szturchnięcie w nudge), <em>Czujnik automatu</em> dla szybkiego, czystego czujnika, którego odczyty są stosowane tak, jak zmierzono.</li>
+<li><strong>Siła</strong>: jak mocno potrząśnięcie popycha kulę. W praktyce to jedyne ustawienie warte dostrojenia.</li>
+<li><strong>Strefa martwa</strong>: drobne odczyty poniżej tego poziomu są ignorowane, więc wibracje i szum czujnika nie poruszają kuli.</li>
+<li><strong>Zakres akcelerometru</strong>: fakt o Twojej płytce, a nie preferencja. PinReady odczytuje go z płytki, gdy ta go udostępnia, i ostrzega, jeśli wybrana wartość się nie zgadza.</li>
+<li><strong>Próg TILT</strong>: jak mocno możesz szturchnąć automat, zanim gra ogłosi tilt.</li>
+</ul>
+<p>Potrząśnij automatem i obserwuj podgląd na żywo: punkt pokazuje każde potrząśnięcie na tle okręgów strefy martwej, progu nudge i tiltu; przekroczenie czerwonego okręgu oznacza TILT. PinReady zapamiętuje też zmierzony szczyt, informuje, gdy kąt tiltu jest poza zasięgiem czujnika, i prosi o sprawdzenie, w którą stronę zamontowano płytkę, ponieważ płytka obrócona w złą stronę zamienia lub odbija kierunki nudge.</p>
+<p>Strona symuluje to, co Visual Pinball robi z każdym nudge, z własnym modelem automatu i ustawieniami domyślnymi VPX. <strong>Niebieski punkt</strong> pokazuje wirtualne wahadło: VPX ogłasza tilt na podstawie wahadła, które sumuje serię uderzeń, a czerwony punkt to tylko czujnik. Wahadło dotyka okręgu tiltu dokładnie wtedy, gdy VPX ogłosiłby tilt. Aby to wypróbować, kołysz automatem na boki serią mocnych klepnięć, każde nieco silniejsze.</p>
+<h3>Jak VPX odczytuje nudge</h3>
+<ul>
+<li><strong>Na boki jest czulej niż do przodu.</strong> VPX mnoży odczyt na boki przez 4/3, a szturchnięcie na bok jest zwykle łatwiej wykonać niż to do przodu.</li>
+<li><strong>Pchnięcie się liczy, pociągnięcie nigdy.</strong> VPX szuka zamiaru odepchnięcia automatu od siebie. To, co idzie w Twoją stronę, jest zerowane, choćby było najmocniejsze, więc automat wahający się z powrotem po Twoim pchnięciu nigdy nie jest drugim nudge: on się tylko uspokaja. Strona rysuje tę strefę w stronę gracza.</li>
+<li><strong>Uderzenie liczy się dopiero powyżej progu</strong> (1&nbsp;m/s²). Wtedy VPX buduje krótkie, 25&nbsp;ms pchnięcie o sile równej zmierzonemu szczytowi; surowy odczyt czujnika nie jest potem używany.</li>
+<li><strong>Seria uderzeń się sumuje</strong> w wahadle, więc cztery klepnięcia z rzędu mogą wywołać tilt, którego jedno nigdy by nie wywołało.</li>
+</ul>
+<details><summary>Matematyka w tle</summary>
+<p>Strona pokazuje wzory, które oblicza VPX, po jednym bloku na typ czujnika (wybrany typ jest otwarty), a potem model automatu i pion, które wszystkie współdzielą. Jednostki: m/s² dla przyspieszeń, ms dla czasów, ° dla kąta tiltu. Bloki znajdują się w samej aplikacji, na stronie Nudge &amp; tilt.</p>
+</details>
+
+<h2 id="audio">7. Dźwięk</h2>
+<figure class="shot"><img src="../img/wizard-audio.jpg" loading="lazy" width="1400" height="1489" alt="Strona 7 kreatora konfiguracji: wyjścia dźwięku i układ głośników"></figure>
+<p>Visual Pinball odtwarza dźwięk na dwóch urządzeniach, a PinReady wymienia Twoje karty dźwiękowe dla każdego z nich:</p>
+<ul>
+<li><strong>Backglass</strong>: muzyka, głosy i ogólne dźwięki gry.</li>
+<li><strong>Playfield</strong>: dźwięki mechaniczne (flippery, bumpery, toczenie się kuli). Dla surround lub SSF musi to być wyjście wielokanałowe.</li>
+</ul>
+<p><strong>Tryb wyjścia playfieldu.</strong> PinReady wstępnie wybiera tryb na podstawie wykrytej liczby kanałów i pokazuje schemat układu głośników wraz z wymaganym okablowaniem.</p>
+<div class="table"><table><thead><tr><th>Tryb</th><th>Dla</th></tr></thead><tbody><tr><td>2 kan. — Stereo z przodu</td><td>Zwykłe stereo, oba głośniki z przodu automatu.</td></tr><tr><td>2 kan. — Stereo z tyłu (lockbar)</td><td>Zwykłe stereo, oba głośniki przy lockbarze, blisko gracza.</td></tr><tr><td>5.1 — Tył przy lockbarze</td><td>Dodaje pozycjonowanie przód-tył; kanały tylne przy lockbarze. Wymaga 6-kanałowej karty dźwiękowej.</td></tr><tr><td>5.1 — Przód przy lockbarze</td><td>To samo, z kanałami przednimi przy lockbarze. Wybierz ten, który odpowiada Twojemu okablowaniu.</td></tr><tr><td>SSF — Boki i tył przy lockbarze (Legacy)</td><td>Surround Sound Feedback ze starszym miksowaniem.</td></tr><tr><td>SSF — Boki i tył przy lockbarze (New)</td><td>Surround Sound Feedback z nowszym miksowaniem, zalecane.</td></tr></tbody></table></div>
+<p>Okablowanie dla karty dźwiękowej 7.1, zalecana konfiguracja SSF (kolory gniazd mogą różnić się między kartami):</p>
+<div class="table"><table><thead><tr><th>Gniazdo</th><th>Kanały</th><th>Połączenie w automacie</th></tr></thead><tbody><tr><td>Zielone (Front)</td><td>FL / FR</td><td>Głośniki backglassu (muzyka) lub system 2.1</td></tr><tr><td>Czarne (Rear)</td><td>BL / BR</td><td>Exciter-y górne playfieldu (strona backglassu)</td></tr><tr><td>Szare (Side)</td><td>SL / SR</td><td>Exciter-y dolne playfieldu (strona lockbara / gracza)</td></tr><tr><td>Pomarańczowe (Center/Sub)</td><td>FC / LFE</td><td>Subwoofer lub bass shaker (opcjonalnie)</td></tr></tbody></table></div>
+<p><strong>Głośność i testy.</strong> Ustaw głośność muzyki i playfieldu, a potem sprawdź okablowanie: test 1 odtwarza w pętli muzykę na backglassie z balansem lewo/prawo; test 2 odtwarza dźwięk kolejno na każdym głośniku playfieldu i przesuwa toczącą się kulę od góry do dołu oraz od lewej do prawej. Jeśli kula porusza się w złą stronę z przodu do tyłu, zmień tryb wyjścia; jeśli z lewej do prawej, sprawdź okablowanie. Kartę dźwiękową z tylko 3 gniazdami (zielone, różowe, niebieskie) często można przełączyć na 5.1 lub 7.1: zobacz przewodniki dla <a href="https://github.com/Le-Syl21/PinReady/tree/main/audiomapping_linux">Linuxa</a>, <a href="https://github.com/Le-Syl21/PinReady/tree/main/audiomapping_windows">Windows</a>, <a href="https://github.com/Le-Syl21/PinReady/tree/main/audiomapping_mac">macOS</a>.</p>
+
+<h2 id="tables">8. Stoły</h2>
+<figure class="shot"><img src="../img/wizard-tables.jpg" loading="lazy" width="1400" height="1489" alt="Strona 8 kreatora konfiguracji: gdzie są Twoje stoły"></figure>
+<p>Wybierz folder, w którym trzymasz stoły, jeden podfolder na stół: to układ używany przez Visual Pinball 10.8.1.</p>
+<pre><code>Tables/
+└── Table Name/
+    ├── Table Name.vpx            table file (required)
+    ├── Table Name.directb2s      backglass (optional)
+    ├── Table Name.ini            per-table settings (optional)
+    ├── Table Name.vbs            script patch (optional)
+    ├── medias/launcher.png       launcher picture (optional)
+    ├── pinmame/roms/&lt;rom&gt;.zip    ROM (required for ROM tables)
+    ├── altsound/&lt;rom&gt;/          alt-sound pack (optional)
+    ├── pupvideos/&lt;rom&gt;/         PinUP Player videos (optional)
+    ├── serum/&lt;rom&gt;/&lt;rom&gt;.crz    Serum colorization (optional)
+    └── vni/&lt;rom&gt;/&lt;rom&gt;.vni      VNI colorization, with .pal (optional)</code></pre>
+<p>Obsługiwana jest koloryzacja DMD w formatach Serum (<code>.crz</code>) i VNI (<code>.vni</code> + <code>.pal</code>); formaty zastrzeżone, takie jak <code>.pac</code>, nie są obsługiwane.</p>
+<ul>
+<li><strong>Przenieś swoją kolekcję do nowego układu.</strong> Wskaż PinReady jeden folder (kolekcję stołów, starą instalację VPX, a nawet cały dysk). Zindeksuje wszystko, co jest w środku, a potem da każdemu stołowi własny folder z ROM-em, backglassem, paczką PUP, alt-soundem, koloryzacją i muzyką, które do niego należą. Jeśli Twoje stoły mają już po jednym folderze, zostają tam, gdzie są, a brakujące pliki są dodawane. Najpierw wykonaj <em>próbę na sucho</em>, by zobaczyć podgląd, a potem wybierz kopiowanie (bezpieczne) lub przenoszenie plików.</li>
+<li><strong>Zgodność z Visual Pinball Standalone</strong> (domyślnie wyłączona): PinReady rozpoznaje skrypt wbudowany w każdy stół i, gdy <a href="https://github.com/Le-Syl21/vpx-standalone-scripts">Le-Syl21/vpx-standalone-scripts</a> ma do niego łatkę, umieszcza załatany plik <code>.vbs</code> obok pliku <code>.vpx</code>. Twój własny plik <code>.vbs</code> jest zachowywany jako <code>&lt;table&gt;.pre_standalone.vbs</code>.</li>
+<li><strong>Wzbogacanie katalogu</strong> (domyślnie włączone): dopasowuje każdy stół do <a href="https://github.com/VirtualPinballSpreadsheet/vps-db">Virtual Pinball Spreadsheet</a> i pobiera obraz backglassu oraz dżingiel audio z <a href="https://github.com/superhac/vpinmediadb">VPinMediaDB</a> do folderu <code>medias</code> stołu. Pierwsza synchronizacja pobiera około 7 MB danych katalogu, plus kilka MB na każdy dopasowany stół. Wyłącz to w automacie bez internetu.</li>
+</ul>
+
+<h2 id="system">9. System</h2>
+<figure class="shot"><img src="../img/wizard-system.jpg" loading="lazy" width="1400" height="1489" alt="Strona 9 kreatora konfiguracji: uruchamianie, skróty i oceny społeczności"></figure>
+<p>Opcjonalne udogodnienia, najlepsze dla dedykowanego automatu:</p>
+<ul>
+<li><strong>Uruchamiaj PinReady automatycznie przy starcie.</strong></li>
+<li><strong>Skróty w menu i skojarzenie plików <code>.vpx</code></strong>: dodaje PinReady i Visual Pinball do menu aplikacji (GNOME, KDE lub XFCE na Linuxie, Launchpad na macOS, menu Start w Windows) i otwiera pliki <code>.vpx</code> w Visual Pinball. Odznacz to i ponownie zakończ kreator, aby to usunąć.</li>
+<li><strong>Skrót na pulpicie</strong>, a w GNOME także <strong>przypięcie do docka</strong>.</li>
+<li><strong>Własne serwery lustrzane</strong>: pobieraj łatki skryptów i bazę mediów z własnego serwera zamiast z GitHuba.</li>
+</ul>
+</div></main>
+<footer class="site"><div class="wrap">
+<a href="https://github.com/Le-Syl21/PinReady">Kod źródłowy i zgłoszenia na GitHubie</a>
+<a href="https://discord.gg/T37DYHmt2j">Discord</a>
+<a href="https://www.youtube.com/playlist?list=PLZ838nY4NE902Am7NIOGYbEJaak5pEP71">Wideo demo</a>
+<span>PinReady jest darmowym oprogramowaniem na licencji GNU GPL v3 lub nowszej. Visual Pinball to odrębny projekt, tworzony przez własnych autorów.</span>
+</div></footer>
+</body>
+</html>

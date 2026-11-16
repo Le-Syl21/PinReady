@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PinReady 常见问题：Linux 上的 pincab 设置、VPX 10.8.1 standalone 故障排除</title>
+<meta name="description" content="关于 PinReady 和 Visual Pinball X 10.8.1 standalone 的解答：适合谁用、老table和 VBS 补丁、单table ini、DOF、tilt 与 nudge、扬声器、Wayland 和 X11、崩溃报告。">
+<link rel="canonical" href="https://le-syl21.github.io/PinReady/zh/faq.html">
+<link rel="alternate" hreflang="en" href="https://le-syl21.github.io/PinReady/faq.html">
+<link rel="alternate" hreflang="fr" href="https://le-syl21.github.io/PinReady/fr/faq.html">
+<link rel="alternate" hreflang="de" href="https://le-syl21.github.io/PinReady/de/faq.html">
+<link rel="alternate" hreflang="es" href="https://le-syl21.github.io/PinReady/es/faq.html">
+<link rel="alternate" hreflang="it" href="https://le-syl21.github.io/PinReady/it/faq.html">
+<link rel="alternate" hreflang="pt" href="https://le-syl21.github.io/PinReady/pt/faq.html">
+<link rel="alternate" hreflang="nl" href="https://le-syl21.github.io/PinReady/nl/faq.html">
+<link rel="alternate" hreflang="pl" href="https://le-syl21.github.io/PinReady/pl/faq.html">
+<link rel="alternate" hreflang="ru" href="https://le-syl21.github.io/PinReady/ru/faq.html">
+<link rel="alternate" hreflang="sv" href="https://le-syl21.github.io/PinReady/sv/faq.html">
+<link rel="alternate" hreflang="ja" href="https://le-syl21.github.io/PinReady/ja/faq.html">
+<link rel="alternate" hreflang="zh" href="https://le-syl21.github.io/PinReady/zh/faq.html">
+<link rel="alternate" hreflang="x-default" href="https://le-syl21.github.io/PinReady/faq.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="PinReady">
+<meta property="og:title" content="PinReady 常见问题：Linux 上的 pincab 设置、VPX 10.8.1 standalone 故障排除">
+<meta property="og:description" content="关于 PinReady 和 Visual Pinball X 10.8.1 standalone 的解答：适合谁用、老table和 VBS 补丁、单table ini、DOF、tilt 与 nudge、扬声器、Wayland 和 X11、崩溃报告。">
+<meta property="og:url" content="https://le-syl21.github.io/PinReady/zh/faq.html">
+<meta property="og:image" content="https://le-syl21.github.io/PinReady/img/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:locale:alternate" content="en_GB">
+<meta property="og:locale:alternate" content="fr_FR">
+<meta property="og:locale:alternate" content="de_DE">
+<meta property="og:locale:alternate" content="es_ES">
+<meta property="og:locale:alternate" content="it_IT">
+<meta property="og:locale:alternate" content="pt_PT">
+<meta property="og:locale:alternate" content="nl_NL">
+<meta property="og:locale:alternate" content="pl_PL">
+<meta property="og:locale:alternate" content="ru_RU">
+<meta property="og:locale:alternate" content="sv_SE">
+<meta property="og:locale:alternate" content="ja_JP">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="PinReady 常见问题：Linux 上的 pincab 设置、VPX 10.8.1 standalone 故障排除">
+<meta name="twitter:description" content="关于 PinReady 和 Visual Pinball X 10.8.1 standalone 的解答：适合谁用、老table和 VBS 补丁、单table ini、DOF、tilt 与 nudge、扬声器、Wayland 和 X11、崩溃报告。">
+<meta name="twitter:image" content="https://le-syl21.github.io/PinReady/img/og.jpg">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" type="image/svg+xml" href="../img/favicon.svg">
+<link rel="stylesheet" href="../style.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "SoftwareApplication", "@id": "https://le-syl21.github.io/PinReady/#app", "name": "PinReady", "description": "Configurateur et lanceur multiplateforme pour Visual Pinball X 10.8.1 standalone.", "applicationCategory": "GameApplication", "operatingSystem": "Linux, macOS, Windows", "url": "https://le-syl21.github.io/PinReady/", "downloadUrl": "https://github.com/Le-Syl21/PinReady/releases/latest", "license": "https://www.gnu.org/licenses/gpl-3.0.html", "codeRepository": "https://github.com/Le-Syl21/PinReady", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"}, "softwareVersion": "0.27.10"}, {"@type": "WebPage", "name": "PinReady 常见问题：Linux 上的 pincab 设置、VPX 10.8.1 standalone 故障排除", "description": "关于 PinReady 和 Visual Pinball X 10.8.1 standalone 的解答：适合谁用、老table和 VBS 补丁、单table ini、DOF、tilt 与 nudge、扬声器、Wayland 和 X11、崩溃报告。", "url": "https://le-syl21.github.io/PinReady/zh/faq.html", "inLanguage": "zh", "about": {"@id": "https://le-syl21.github.io/PinReady/#app"}}, {"@type": "FAQPage", "url": "https://le-syl21.github.io/PinReady/zh/faq.html", "inLanguage": "zh", "mainEntity": [{"@type": "Question", "name": "PinReady 适合我的机柜吗？", "acceptedAnswer": {"@type": "Answer", "text": "PinReady 旨在支持 Visual Pinball X 10.8.1 的开发与推广。它面向新 10.8.1 架构的测试者和尝鲜用户：内置插件、每张table一个文件夹、SDL3/bgfx 引擎。如果你的机柜运行的是你所依赖的稳定 VPX 10.7.x 环境，PinReady 目前可能还不适合你。"}}, {"@type": "Question", "name": "我需要一台真正的弹珠台机柜吗？", "acceptedAnswer": {"@type": "Answer", "text": "不需要。向导从一块屏幕开始：普通电脑请选择 1 块屏幕和桌面显示模式，用键盘或游戏手柄游玩。两到四块屏幕、弹珠台控制板、加速度计和环绕声都是可选的。"}}, {"@type": "Question", "name": "PinReady 会安装官方的 Visual Pinball 吗？", "acceptedAnswer": {"@type": "Answer", "text": "不会。自动安装会从 Le-Syl21/vpinball 下载一个近期的、经过 PinReady 测试的 Visual Pinball X 分支版本，而不是官方的 VPX 版本。如果你更想用自己安装的版本，请在第一页选择我已有 Visual Pinball，并让 PinReady 指向 VPinballX_BGFX 程序。"}}, {"@type": "Question", "name": "识别哪些弹珠台控制板？", "acceptedAnswer": {"@type": "Answer", "text": "Pinscape KL25Z（KL Shield V5.1、Brain、Rig Master）、Pinscape Pico、DudesCab 和 CSD PinOne。检测到其中之一时，它的出厂按钮布局会填入摇杆列，VPX 会自行处理 plunger 和加速度计。其他任何摇杆或游戏手柄也都能用：逐个映射它的按钮即可。参见向导的“输入”页面。"}}, {"@type": "Question", "name": "老table在 VPX standalone 下无法运行，怎么办？", "acceptedAnswer": {"@type": "Answer", "text": "一些老table使用了只能在 Windows 上运行的 VBScript 功能。在table页面中，打开自动 VBS 补丁：当 Le-Syl21/vpx-standalone-scripts 有对应补丁时，PinReady 会把打过补丁的脚本放在table旁边。它默认关闭，因为补丁偶尔会让某张特定的table变得更糟。你也可以手动操作：从 jsm174/vpx-standalone-scripts 取得与你的table相匹配的 .vbs，放在 .vpx 旁边，并使用相同的基本文件名。"}}, {"@type": "Question", "name": "如何为某一张table使用不同的设置？", "acceptedAnswer": {"@type": "Answer", "text": "在 .vpx 旁边放一个 .ini 文件，使用相同的基本文件名，里面只写你想更改的设置；其余全部来自全局的 VPinballX.ini。若想把这些设置保存在table文件本身里，vpxtool 可以解包table（vpxtool extract MyTable.vpx），再把 ini 放进去重新组装（vpxtool assemble MyTable/）。"}}, {"@type": "Question", "name": "我的table占用大量磁盘空间。", "acceptedAnswer": {"@type": "Answer", "text": "table往往带有很大的无损图片。vpxtool 可以把它们转换为 WebP：vpxtool images webp MyTable.vpx。"}}, {"@type": "Question", "name": "我的玩具、灯光和电磁铁在游戏中毫无反应。", "acceptedAnswer": {"@type": "Answer", "text": "Visual Pinball 出厂时关闭了所有插件，包括 DOF。请用 VPUniverse ConfigTool 生成你的 DOF 配置，把它解压到 directoutputconfig 文件夹，然后在配件页面打开 DOF。"}}, {"@type": "Question", "name": "table无缘无故 tilt，或者从不 tilt。", "acceptedAnswer": {"@type": "Answer", "text": "请检查 Tilt / Nudge 页面上的加速度计量程。它必须与你的板子实际使用的量程一致：如果板子公布了量程，PinReady 会从板上读取，所选值不匹配时会提醒你。量程错误会让每次摇晃看起来太强或太弱，其他任何设置都无法弥补。当所选的 tilt 角度超出传感器范围时，该页面也会告诉你。"}}, {"@type": "Question", "name": "声音从错误的扬声器发出。", "acceptedAnswer": {"@type": "Answer", "text": "请使用音频页面上的测试。如果滚动的球在前后方向上走错了，请更改输出模式；如果在左右方向上走错了，请检查左右接线。不同声卡的插孔颜色各不相同。"}}, {"@type": "Question", "name": "Linux：在配件页面找不到我的输出板。", "acceptedAnswer": {"@type": "Answer", "text": "在 Linux 上直接访问原始 USB HID 通常需要一条 udev 规则。配件页面会显示这些规则，可以复制，或在询问你的密码后替你安装。"}}, {"@type": "Question", "name": "Linux：在 Wayland 和 X11 之间切换后，需要重新运行向导吗？", "acceptedAnswer": {"@type": "Answer", "text": "不需要。同一块屏幕在 Visual Pinball 运行于 Wayland 还是 X11 下，名称并不相同，所以 PinReady 会按位置、尺寸和 EDID 身份（显示器报告的 ID）来记住每块屏幕。启动器启动时，它会选出 VPX 将使用的驱动，并更新 VPinballX.ini 中的屏幕名称使之匹配。"}}, {"@type": "Question", "name": "如何重新开始配置？", "acceptedAnswer": {"@type": "Answer", "text": "通过启动器的配置按钮打开向导，或运行 pinready --config。若要从头开始，请使用向导中的重置配置：它会忘记所有回答，并把你旧的 VPinballX.ini 保留为 VPinballX.ini.reset-backup。你的table不受影响。"}}, {"@type": "Question", "name": "Visual Pinball 崩溃了，怎么报告？", "acceptedAnswer": {"@type": "Answer", "text": "当 VPX 异常退出时，PinReady 会显示一份报告，包含重现崩溃的命令、系统信息、日志以及崩溃转储的位置。点击复制或保存…，然后分享到 Discord 或 GitHub issues。"}}, {"@type": "Question", "name": "table在启动器中显示“无图片”。", "acceptedAnswer": {"@type": "Answer", "text": "在table文件夹的 medias/launcher.png 放一张图片（.webp、.jpg 和 .jpeg 也可以），或放一个 .directb2s backglass 文件。如果你整理了table后图片看起来已过时，请在启动器中点击重建。"}}, {"@type": "Question", "name": "我的设置存放在哪里？", "acceptedAnswer": {"@type": "Answer", "text": "参见文件位置。pinready --print-paths 会打印 PinReady 实际使用的路径。"}}]}]}</script>
+</head>
+<body>
+<header class="site"><div class="wrap">
+<a class="brand" href="./"><img src="../img/favicon.svg" alt="" width="24" height="24"><span>Pin<b>Ready</b></span></a>
+<nav class="main"><a href="./">Hem</a><a href="download.html">Ladda ner</a><a href="wizard.html">Installationsguide</a><a href="launcher.html">Startmeny</a><a href="faq.html" aria-current="page">Vanliga frågor</a></nav>
+<details class="langmenu"><summary lang="zh">中文</summary><ul><li><a href="../faq.html" hreflang="en" lang="en">English</a></li><li><a href="../fr/faq.html" hreflang="fr" lang="fr">Français</a></li><li><a href="../de/faq.html" hreflang="de" lang="de">Deutsch</a></li><li><a href="../es/faq.html" hreflang="es" lang="es">Español</a></li><li><a href="../it/faq.html" hreflang="it" lang="it">Italiano</a></li><li><a href="../pt/faq.html" hreflang="pt" lang="pt">Português</a></li><li><a href="../nl/faq.html" hreflang="nl" lang="nl">Nederlands</a></li><li><a href="../pl/faq.html" hreflang="pl" lang="pl">Polski</a></li><li><a href="../ru/faq.html" hreflang="ru" lang="ru">Русский</a></li><li><a href="../sv/faq.html" hreflang="sv" lang="sv">Svenska</a></li><li><a href="../ja/faq.html" hreflang="ja" lang="ja">日本語</a></li><li><a href="faq.html" hreflang="zh" lang="zh" aria-current="true">中文</a></li></ul></details>
+</div></header>
+<main><div class="wrap">
+<h1>问与答</h1>
+<p class="lead">关于 PinReady 和 Visual Pinball X 10.8.1 standalone 的常见问题。缺了什么？欢迎到 <a href="https://discord.gg/T37DYHmt2j">Discord</a> 提问。</p>
+<details class="faq"><summary><h2>PinReady 适合我的机柜吗？</h2></summary><p>PinReady 旨在支持 Visual Pinball X 10.8.1 的开发与推广。它面向新 10.8.1 架构的测试者和尝鲜用户：内置插件、每张table一个文件夹、SDL3/bgfx 引擎。如果你的机柜运行的是你所依赖的稳定 VPX 10.7.x 环境，PinReady 目前可能还不适合你。</p></details>
+<details class="faq"><summary><h2>我需要一台真正的弹珠台机柜吗？</h2></summary><p>不需要。向导从一块屏幕开始：普通电脑请选择 <strong>1 块屏幕</strong>和<strong>桌面</strong>显示模式，用键盘或游戏手柄游玩。两到四块屏幕、弹珠台控制板、加速度计和环绕声都是可选的。</p></details>
+<details class="faq"><summary><h2>PinReady 会安装官方的 Visual Pinball 吗？</h2></summary><p>不会。自动安装会从 <a href="https://github.com/Le-Syl21/vpinball">Le-Syl21/vpinball</a> 下载一个近期的、经过 PinReady 测试的 Visual Pinball X 分支版本，而不是官方的 VPX 版本。如果你更想用自己安装的版本，请在第一页选择<strong>我已有 Visual Pinball</strong>，并让 PinReady 指向 <code>VPinballX_BGFX</code> 程序。</p></details>
+<details class="faq"><summary><h2>识别哪些弹珠台控制板？</h2></summary><p>Pinscape KL25Z（KL Shield V5.1、Brain、Rig Master）、Pinscape Pico、DudesCab 和 CSD PinOne。检测到其中之一时，它的出厂按钮布局会填入摇杆列，VPX 会自行处理 plunger 和加速度计。其他任何摇杆或游戏手柄也都能用：逐个映射它的按钮即可。参见<a href="wizard.html#inputs">向导的“输入”页面</a>。</p></details>
+<details class="faq"><summary><h2>老table在 VPX standalone 下无法运行，怎么办？</h2></summary><p>一些老table使用了只能在 Windows 上运行的 VBScript 功能。在<strong>table</strong>页面中，打开自动 VBS 补丁：当 <a href="https://github.com/Le-Syl21/vpx-standalone-scripts">Le-Syl21/vpx-standalone-scripts</a> 有对应补丁时，PinReady 会把打过补丁的脚本放在table旁边。它默认关闭，因为补丁偶尔会让某张特定的table变得更糟。你也可以手动操作：从 <a href="https://github.com/jsm174/vpx-standalone-scripts">jsm174/vpx-standalone-scripts</a> 取得与你的table相匹配的 <code>.vbs</code>，放在 <code>.vpx</code> 旁边，并使用相同的基本文件名。</p></details>
+<details class="faq"><summary><h2>如何为某一张table使用不同的设置？</h2></summary><p>在 <code>.vpx</code> 旁边放一个 <code>.ini</code> 文件，使用相同的基本文件名，里面只写你想更改的设置；其余全部来自全局的 <code>VPinballX.ini</code>。若想把这些设置保存在table文件本身里，<a href="https://github.com/francisdb/vpxtool">vpxtool</a> 可以解包table（<code>vpxtool extract MyTable.vpx</code>），再把 ini 放进去重新组装（<code>vpxtool assemble MyTable/</code>）。</p></details>
+<details class="faq"><summary><h2>我的table占用大量磁盘空间。</h2></summary><p>table往往带有很大的无损图片。<a href="https://github.com/francisdb/vpxtool">vpxtool</a> 可以把它们转换为 WebP：<code>vpxtool images webp MyTable.vpx</code>。</p></details>
+<details class="faq"><summary><h2>我的玩具、灯光和电磁铁在游戏中毫无反应。</h2></summary><p>Visual Pinball 出厂时关闭了所有插件，包括 DOF。请用 VPUniverse ConfigTool 生成你的 DOF 配置，把它解压到 <code>directoutputconfig</code> 文件夹，然后在<a href="wizard.html#accessories">配件页面</a>打开 DOF。</p></details>
+<details class="faq"><summary><h2>table无缘无故 tilt，或者从不 tilt。</h2></summary><p>请检查 <a href="wizard.html#tilt">Tilt / Nudge 页面</a>上的<strong>加速度计量程</strong>。它必须与你的板子实际使用的量程一致：如果板子公布了量程，PinReady 会从板上读取，所选值不匹配时会提醒你。量程错误会让每次摇晃看起来太强或太弱，其他任何设置都无法弥补。当所选的 tilt 角度超出传感器范围时，该页面也会告诉你。</p></details>
+<details class="faq"><summary><h2>声音从错误的扬声器发出。</h2></summary><p>请使用<a href="wizard.html#audio">音频页面</a>上的测试。如果滚动的球在前后方向上走错了，请更改输出模式；如果在左右方向上走错了，请检查左右接线。不同声卡的插孔颜色各不相同。</p></details>
+<details class="faq"><summary><h2>Linux：在配件页面找不到我的输出板。</h2></summary><p>在 Linux 上直接访问原始 USB HID 通常需要一条 udev 规则。配件页面会显示这些规则，可以复制，或在询问你的密码后替你安装。</p></details>
+<details class="faq"><summary><h2>Linux：在 Wayland 和 X11 之间切换后，需要重新运行向导吗？</h2></summary><p>不需要。同一块屏幕在 Visual Pinball 运行于 Wayland 还是 X11 下，名称并不相同，所以 PinReady 会按位置、尺寸和 EDID 身份（显示器报告的 ID）来记住每块屏幕。启动器启动时，它会选出 VPX 将使用的驱动，并更新 <code>VPinballX.ini</code> 中的屏幕名称使之匹配。</p></details>
+<details class="faq"><summary><h2>如何重新开始配置？</h2></summary><p>通过启动器的<strong>配置</strong>按钮打开向导，或运行 <code>pinready --config</code>。若要从头开始，请使用向导中的<strong>重置配置</strong>：它会忘记所有回答，并把你旧的 <code>VPinballX.ini</code> 保留为 <code>VPinballX.ini.reset-backup</code>。你的table不受影响。</p></details>
+<details class="faq"><summary><h2>Visual Pinball 崩溃了，怎么报告？</h2></summary><p>当 VPX 异常退出时，PinReady 会显示一份报告，包含重现崩溃的命令、系统信息、日志以及崩溃转储的位置。点击<strong>复制</strong>或<strong>保存…</strong>，然后分享到 <a href="https://discord.gg/T37DYHmt2j">Discord</a> 或 <a href="https://github.com/Le-Syl21/PinReady/issues">GitHub issues</a>。</p></details>
+<details class="faq"><summary><h2>table在启动器中显示“无图片”。</h2></summary><p>在table文件夹的 <code>medias/launcher.png</code> 放一张图片（.webp、.jpg 和 .jpeg 也可以），或放一个 <code>.directb2s</code> backglass 文件。如果你整理了table后图片看起来已过时，请在启动器中点击<strong>重建</strong>。</p></details>
+<details class="faq"><summary><h2>我的设置存放在哪里？</h2></summary><p>参见<a href="download.html#files">文件位置</a>。<code>pinready --print-paths</code> 会打印 PinReady 实际使用的路径。</p></details>
+</div></main>
+<footer class="site"><div class="wrap">
+<a href="https://github.com/Le-Syl21/PinReady">Källkod och ärenden på GitHub</a>
+<a href="https://discord.gg/T37DYHmt2j">Discord</a>
+<a href="https://www.youtube.com/playlist?list=PLZ838nY4NE902Am7NIOGYbEJaak5pEP71">Videodemo</a>
+<span>PinReady är fri programvara under GNU GPL v3 eller senare. Visual Pinball är ett separat projekt med egna upphovspersoner.</span>
+</div></footer>
+</body>
+</html>

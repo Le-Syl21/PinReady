@@ -151,3 +151,13 @@ footer.site .wrap { padding-block: 1.4rem; display: flex; flex-wrap: wrap; gap: 
 figure.shot { margin: 1rem 0 1.5rem; }
 figure.shot img { display: block; width: 100%; max-width: 760px; height: auto; border-radius: 8px;
   border: 1px solid var(--line, rgba(128, 128, 128, .35)); }
+
+.langmenu { position: relative; margin-left: auto; }
+.langmenu summary { cursor: pointer; list-style: none; padding: .3rem .7rem; border: 1px solid var(--line); border-radius: 6px; }
+.langmenu summary::-webkit-details-marker { display: none; }
+.langmenu summary::after { content: " ▾"; }
+.langmenu ul { position: absolute; right: 0; z-index: 20; margin: .3rem 0 0; padding: .3rem; list-style: none;
+  min-width: 11rem; max-height: 70vh; overflow-y: auto; background: var(--bg, Canvas); border: 1px solid var(--line);
+  border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, .25); }
+.langmenu li a { display: block; padding: .3rem .6rem; border-radius: 4px; text-decoration: none; }
+.langmenu li a:hover, .langmenu li a[aria-current] { background: var(--line); }
