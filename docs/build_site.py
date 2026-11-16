@@ -799,6 +799,27 @@ when the board publishes it, and warns you if the selected value does not match.
 threshold and the tilt; crossing the red ring means TILT. PinReady also keeps the measured peak, tells you when the
 tilt angle is out of the sensor's reach, and asks you to check which way the board is mounted, since a board turned
 the wrong way swaps or mirrors the nudge directions.</p>
+<p>The page simulates what Visual Pinball does with each nudge, with VPX's own cabinet model and defaults. A
+<strong>blue dot</strong> shows the virtual pendulum: VPX tilts on the pendulum, which adds up a series of knocks, while
+the red dot is only the sensor. The pendulum touches the tilt circle exactly when VPX would tilt. To try it, rock the
+cabinet sideways in a chain of big slaps, each a little harder.</p>
+<h3>How VPX reads a nudge</h3>
+<ul>
+<li><strong>Sideways is more sensitive than front to back.</strong> VPX multiplies the sideways reading by 4/3, and a
+sideways shove is usually easier to give than a forward one.</li>
+<li><strong>A push counts, a pull never does.</strong> VPX looks for the intention to push the cabinet away from you.
+What comes toward you is set to zero, however hard, so the cabinet swinging back after your push is never a second
+nudge: it only settles. The page draws this zone toward the player.</li>
+<li><strong>A knock only registers above the gate</strong> (1&nbsp;m/s²). VPX then builds a short 25&nbsp;ms push as hard
+as the peak it measured; the raw reading of the sensor is not used after that.</li>
+<li><strong>A series of knocks adds up</strong> in the pendulum, so four slaps in a row can tilt where one never
+would.</li>
+</ul>
+<details><summary>The maths behind it</summary>
+<p>The page shows the formulas VPX computes, one block per sensor type (the selected type is open), then the cabinet
+model and the plumb they share. Units: m/s² for accelerations, ms for times, ° for the tilt angle. The blocks are in
+the application itself, on the Nudge &amp; tilt page.</p>
+</details>
 
 <h2 id="audio">7. Audio</h2>
 <p>Visual Pinball plays sound on two devices, and PinReady lists your sound cards for each:</p>
@@ -996,6 +1017,28 @@ sur la carte quand celle-ci la publie, et vous prévient si la valeur choisie ne
 morte, le seuil de secousse et le tilt ; franchir l'anneau rouge, c'est TILT. PinReady garde aussi le pic mesuré, vous
 signale quand l'angle de tilt est hors de portée du capteur, et vous demande de vérifier le sens de montage de la
 carte, car une carte tournée dans le mauvais sens inverse ou échange les directions des secousses.</p>
+<p>La page simule ce que Visual Pinball fait de chaque secousse, avec le modèle de meuble et les valeurs par défaut de
+VPX. Un <strong>point bleu</strong> montre le pendule virtuel : VPX tilte sur le pendule, qui additionne une série de
+coups, alors que le point rouge n'est que le capteur. Le pendule touche le cercle de tilt exactement quand VPX
+tilterait. Pour essayer, basculez le meuble sur le côté en enchaînant de grosses baffes, chacune un peu plus forte.</p>
+<h3>Comment VPX lit une secousse</h3>
+<ul>
+<li><strong>Sur le côté, c'est plus sensible que d'avant en arrière.</strong> VPX multiplie la lecture latérale par 4/3,
+et une poussée latérale est en général plus facile à donner qu'une poussée vers l'avant.</li>
+<li><strong>Une poussée compte, une traction jamais.</strong> VPX cherche l'intention de pousser le meuble pour
+l'éloigner de vous. Tout ce qui vient vers vous est mis à zéro, aussi fort que ce soit : le meuble qui revient après
+votre poussée n'est donc jamais une deuxième secousse, il se stabilise seulement. La page dessine cette zone du côté du
+joueur.</li>
+<li><strong>Un coup ne compte qu'au-dessus du seuil</strong> (1&nbsp;m/s²). VPX fabrique alors une courte poussée de
+25&nbsp;ms aussi forte que le pic mesuré ; la lecture brute du capteur n'est plus utilisée ensuite.</li>
+<li><strong>Une série de coups s'additionne</strong> dans le pendule : quatre baffes à la suite peuvent faire tilter là
+où une seule ne le ferait jamais.</li>
+</ul>
+<details><summary>Les maths derrière</summary>
+<p>La page montre les formules que VPX calcule, un bloc par type de capteur (le type choisi est ouvert), puis le modèle
+de meuble et le pendule qu'ils partagent. Unités : m/s² pour les accélérations, ms pour les durées, ° pour l'angle de
+tilt. Les blocs se trouvent dans l'application, sur la page Nudge &amp; tilt.</p>
+</details>
 
 <h2 id="audio">7. Audio</h2>
 <p>Visual Pinball joue le son sur deux périphériques, et PinReady liste vos cartes son pour chacun :</p>
@@ -1082,7 +1125,8 @@ table's <code>.directb2s</code> file, from the artwork downloaded by the catalog
 <code>medias/launcher.png</code>.</li>
 <li><strong>Search</strong>: just start typing, the list filters as you go.</li>
 <li>An <strong>update available</strong> badge on tables with a newer version listed in the Virtual Pinball
-Spreadsheet.</li>
+Spreadsheet, and the community rating if you turned VPinPlay on. Both appear while the scan runs, with no restart, and
+the table database is refreshed on its own at start and every six hours.</li>
 <li><strong>Rebuild</strong> clears the cached pictures and script patch state, then scans the tables folder again,
 for when the list no longer matches your disk.</li>
 <li>The toolbar also has the <strong>Configuration</strong> button to reopen the wizard, a light/dark theme switch, a
@@ -1107,7 +1151,8 @@ too.</p>
 flat, with a mouse pointer drawn by PinReady. The other screens are used too:</p>
 <ul>
 <li><strong>Backglass</strong>: the backglass picture of the selected table.</li>
-<li><strong>DMD and topper</strong>: a cover with the Visual Pinball logo.</li>
+<li><strong>DMD and topper</strong>: a cover with the Visual Pinball logo and the details of the selected table: name,
+maker and year, author, version, dates, how many times you played it and your ratings.</li>
 </ul>
 <p>When a table starts, these covers step aside so Visual Pinball can take over every screen.</p>
 
@@ -1126,7 +1171,9 @@ file.</p>
 
 <h2>Updates</h2>
 <p>PinReady checks for new versions of Visual Pinball and of itself at startup; update buttons appear in the launcher
-and install in one click.</p>
+and install in one click. On the very first launch it offers a newer PinReady before the setup begins, so you set
+everything up with the latest fixes. A configuration reset keeps your Visual Pinball install, so it never offers an
+update to the build you already have.</p>
 
 <h2 id="cli">Command-line options</h2>
 <div class="table"><table><thead><tr><th>Option</th><th>What it does</th></tr></thead><tbody>
@@ -1154,7 +1201,9 @@ tirée du fichier <code>.directb2s</code> de la table, des images téléchargée
 votre propre <code>medias/launcher.png</code>.</li>
 <li><strong>Recherche</strong> : tapez simplement au clavier, la liste se filtre au fur et à mesure.</li>
 <li>Un badge <strong>mise à jour disponible</strong> sur les tables dont une version plus récente figure dans le
-Virtual Pinball Spreadsheet.</li>
+Virtual Pinball Spreadsheet, et la note de la communauté si vous avez activé VPinPlay. Les deux apparaissent pendant
+l'analyse, sans redémarrage, et la base des tables se rafraîchit toute seule au démarrage puis toutes les six
+heures.</li>
 <li><strong>Reconstruire</strong> vide le cache des images et l'état des patches de script, puis analyse de nouveau le
 dossier des tables, quand la liste ne correspond plus à votre disque.</li>
 <li>La barre d'outils propose aussi le bouton <strong>Config</strong> pour rouvrir l'assistant, le choix du thème clair
@@ -1179,7 +1228,8 @@ aussi dans le lanceur.</p>
 plat, avec un pointeur de souris dessiné par PinReady. Les autres écrans servent aussi :</p>
 <ul>
 <li><strong>Fronton</strong> : l'image du fronton de la table sélectionnée.</li>
-<li><strong>DMD et topper</strong> : un cache avec le logo de Visual Pinball.</li>
+<li><strong>DMD et topper</strong> : un cache avec le logo de Visual Pinball et les informations de la table
+sélectionnée : nom, fabricant et année, auteur, version, dates, nombre de parties jouées et vos notes.</li>
 </ul>
 <p>Au lancement d'une table, ces caches s'effacent pour laisser Visual Pinball prendre tous les écrans.</p>
 
@@ -1198,7 +1248,10 @@ pour un signalement ; <strong>Enregistrer…</strong> l'écrit dans un fichier.<
 
 <h2>Mises à jour</h2>
 <p>Au démarrage, PinReady cherche les nouvelles versions de Visual Pinball et de lui-même ; des boutons de mise à jour
-apparaissent dans le lanceur et installent en un clic.</p>
+apparaissent dans le lanceur et installent en un clic. Au tout premier lancement, il propose un PinReady plus récent
+avant le début de la configuration, pour tout régler avec les derniers correctifs. Une réinitialisation de la
+configuration conserve votre installation de Visual Pinball : il ne propose donc jamais une mise à jour vers la version
+que vous avez déjà.</p>
 
 <h2 id="cli">Options en ligne de commande</h2>
 <div class="table"><table><thead><tr><th>Option</th><th>Effet</th></tr></thead><tbody>
@@ -1269,8 +1322,59 @@ def structured_data(page, lang, title, description):
     return {"@context": "https://schema.org", "@graph": graph}
 
 
+WIZARD_SHOTS = {
+    "screens": ("wizard-screens.jpg", "Page 1 of the setup wizard: language, Visual Pinball install, number of screens"),
+    "rendering": ("wizard-rendering.jpg", "Page 2 of the setup wizard: smoothness and picture quality"),
+    "threed": ("wizard-threed.jpg", "Page 3 of the setup wizard: virtual reality and stereoscopic 3D"),
+    "inputs": ("wizard-inputs.jpg", "Page 4 of the setup wizard: keys and controller buttons"),
+    "accessories": ("wizard-outputs.jpg", "Page 5 of the setup wizard: feedback effects (DOF)"),
+    "tilt": ("wizard-tilt.jpg", "Page 6 of the setup wizard: nudge and tilt settings"),
+    "audio": ("wizard-audio.jpg", "Page 7 of the setup wizard: sound outputs and speaker layout"),
+    "tables": ("wizard-tables.jpg", "Page 8 of the setup wizard: where your tables are"),
+    "system": ("wizard-system.jpg", "Page 9 of the setup wizard: start-up, shortcuts and community ratings"),
+}
+
+
+WIZARD_SHOTS_FR = {
+    "screens": "Page 1 de l'assistant : langue, installation de Visual Pinball, nombre d'écrans",
+    "rendering": "Page 2 de l'assistant : fluidité et qualité d'image",
+    "threed": "Page 3 de l'assistant : réalité virtuelle et 3D stéréoscopique",
+    "inputs": "Page 4 de l'assistant : touches et boutons de manette",
+    "accessories": "Page 5 de l'assistant : effets de retour (DOF)",
+    "tilt": "Page 6 de l'assistant : réglages du nudge et du tilt",
+    "audio": "Page 7 de l'assistant : sorties son et disposition des haut-parleurs",
+    "tables": "Page 8 de l'assistant : où sont vos tables",
+    "system": "Page 9 de l'assistant : démarrage, raccourcis et notes de la communauté",
+}
+DIAL_ALT = {"en": "The nudge dial: the blue pendulum dot, the tilt circle and the zone toward the player",
+            "fr": "Le cadran du nudge : le point bleu du pendule, le cercle de tilt et la zone côté joueur"}
+
+
+def add_wizard_shots(body, lang):
+    """A picture of the page right under each wizard section heading."""
+    up = "../" if lang != "en" else ""
+
+    def figure(m):
+        key = m.group(1)
+        if key not in WIZARD_SHOTS:
+            return m.group(0)
+        file, alt = WIZARD_SHOTS[key]
+        if lang == "fr":
+            alt = WIZARD_SHOTS_FR[key]
+        extra = ""
+        if key == "tilt":
+            extra = (f'<figure class="shot"><img src="{up}img/wizard-tilt-dial.jpg" loading="lazy" width="1400" '
+                     f'height="1489" alt="{DIAL_ALT[lang]}"></figure>')
+        return (m.group(0) + f'\n<figure class="shot"><img src="{up}img/{file}" loading="lazy" width="1400" '
+                f'height="1489" alt="{alt}"></figure>' + extra)
+
+    return re.sub(r'<h2 id="([a-z0-9]+)">[^<]*</h2>', figure, body)
+
+
 def render(page, lang):
     title, description, body = content(page, lang)
+    if page == "wizard":
+        body = add_wizard_shots(body, lang)
     u = UI[lang]
     up = "../" if lang == "fr" else ""
     other, other_label, other_code = u["other"]

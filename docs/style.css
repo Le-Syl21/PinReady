@@ -147,3 +147,7 @@ footer.site .wrap { padding-block: 1.4rem; display: flex; flex-wrap: wrap; gap: 
 .video-card:hover .video-play, .video-card:focus-visible .video-play { background: var(--accent); }
 .video-card .video-caption { display: block; padding: 0.8rem 1rem; }
 .video-card .video-caption a { color: var(--accent); }
+
+figure.shot { margin: 1rem 0 1.5rem; }
+figure.shot img { display: block; width: 100%; max-width: 760px; height: auto; border-radius: 8px;
+  border: 1px solid var(--line, rgba(128, 128, 128, .35)); }

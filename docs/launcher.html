@@ -26,7 +26,7 @@
 <meta name="color-scheme" content="light dark">
 <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
 <link rel="stylesheet" href="style.css">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "SoftwareApplication", "@id": "https://le-syl21.github.io/PinReady/#app", "name": "PinReady", "description": "Cross-platform configurator and launcher for Visual Pinball X 10.8.1 standalone.", "applicationCategory": "GameApplication", "operatingSystem": "Linux, macOS, Windows", "url": "https://le-syl21.github.io/PinReady/", "downloadUrl": "https://github.com/Le-Syl21/PinReady/releases/latest", "license": "https://www.gnu.org/licenses/gpl-3.0.html", "codeRepository": "https://github.com/Le-Syl21/PinReady", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"}, "softwareVersion": "0.27.9"}, {"@type": "WebPage", "name": "Visual Pinball X 10.8.1 table launcher and browser for pincabs – PinReady", "description": "PinReady's table launcher for Visual Pinball X 10.8.1 standalone: backglass grid, search, joystick and flipper-button navigation, multi-screen cabinet layout, loading progress, crash reports.", "url": "https://le-syl21.github.io/PinReady/launcher.html", "inLanguage": "en", "about": {"@id": "https://le-syl21.github.io/PinReady/#app"}}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "SoftwareApplication", "@id": "https://le-syl21.github.io/PinReady/#app", "name": "PinReady", "description": "Cross-platform configurator and launcher for Visual Pinball X 10.8.1 standalone.", "applicationCategory": "GameApplication", "operatingSystem": "Linux, macOS, Windows", "url": "https://le-syl21.github.io/PinReady/", "downloadUrl": "https://github.com/Le-Syl21/PinReady/releases/latest", "license": "https://www.gnu.org/licenses/gpl-3.0.html", "codeRepository": "https://github.com/Le-Syl21/PinReady", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"}, "softwareVersion": "0.27.10"}, {"@type": "WebPage", "name": "Visual Pinball X 10.8.1 table launcher and browser for pincabs – PinReady", "description": "PinReady's table launcher for Visual Pinball X 10.8.1 standalone: backglass grid, search, joystick and flipper-button navigation, multi-screen cabinet layout, loading progress, crash reports.", "url": "https://le-syl21.github.io/PinReady/launcher.html", "inLanguage": "en", "about": {"@id": "https://le-syl21.github.io/PinReady/#app"}}]}</script>
 </head>
 <body>
 <header class="site"><div class="wrap">
@@ -46,7 +46,8 @@ table's <code>.directb2s</code> file, from the artwork downloaded by the catalog
 <code>medias/launcher.png</code>.</li>
 <li><strong>Search</strong>: just start typing, the list filters as you go.</li>
 <li>An <strong>update available</strong> badge on tables with a newer version listed in the Virtual Pinball
-Spreadsheet.</li>
+Spreadsheet, and the community rating if you turned VPinPlay on. Both appear while the scan runs, with no restart, and
+the table database is refreshed on its own at start and every six hours.</li>
 <li><strong>Rebuild</strong> clears the cached pictures and script patch state, then scans the tables folder again,
 for when the list no longer matches your disk.</li>
 <li>The toolbar also has the <strong>Configuration</strong> button to reopen the wizard, a light/dark theme switch, a
@@ -71,7 +72,8 @@ too.</p>
 flat, with a mouse pointer drawn by PinReady. The other screens are used too:</p>
 <ul>
 <li><strong>Backglass</strong>: the backglass picture of the selected table.</li>
-<li><strong>DMD and topper</strong>: a cover with the Visual Pinball logo.</li>
+<li><strong>DMD and topper</strong>: a cover with the Visual Pinball logo and the details of the selected table: name,
+maker and year, author, version, dates, how many times you played it and your ratings.</li>
 </ul>
 <p>When a table starts, these covers step aside so Visual Pinball can take over every screen.</p>
 
@@ -90,7 +92,9 @@ file.</p>
 
 <h2>Updates</h2>
 <p>PinReady checks for new versions of Visual Pinball and of itself at startup; update buttons appear in the launcher
-and install in one click.</p>
+and install in one click. On the very first launch it offers a newer PinReady before the setup begins, so you set
+everything up with the latest fixes. A configuration reset keeps your Visual Pinball install, so it never offers an
+update to the build you already have.</p>
 
 <h2 id="cli">Command-line options</h2>
 <div class="table"><table><thead><tr><th>Option</th><th>What it does</th></tr></thead><tbody>

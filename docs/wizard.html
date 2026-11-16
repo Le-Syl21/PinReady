@@ -26,7 +26,7 @@
 <meta name="color-scheme" content="light dark">
 <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
 <link rel="stylesheet" href="style.css">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "SoftwareApplication", "@id": "https://le-syl21.github.io/PinReady/#app", "name": "PinReady", "description": "Cross-platform configurator and launcher for Visual Pinball X 10.8.1 standalone.", "applicationCategory": "GameApplication", "operatingSystem": "Linux, macOS, Windows", "url": "https://le-syl21.github.io/PinReady/", "downloadUrl": "https://github.com/Le-Syl21/PinReady/releases/latest", "license": "https://www.gnu.org/licenses/gpl-3.0.html", "codeRepository": "https://github.com/Le-Syl21/PinReady", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"}, "softwareVersion": "0.27.9"}, {"@type": "WebPage", "name": "VPX standalone configuration wizard: screens, controls, tilt, audio – PinReady", "description": "How PinReady configures Visual Pinball X 10.8.1 standalone step by step: pincab screens, keyboard and Pinscape/DudesCab/PinOne controls, tilt and nudge, SSF audio, DOF, tables folder.", "url": "https://le-syl21.github.io/PinReady/wizard.html", "inLanguage": "en", "about": {"@id": "https://le-syl21.github.io/PinReady/#app"}}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "SoftwareApplication", "@id": "https://le-syl21.github.io/PinReady/#app", "name": "PinReady", "description": "Cross-platform configurator and launcher for Visual Pinball X 10.8.1 standalone.", "applicationCategory": "GameApplication", "operatingSystem": "Linux, macOS, Windows", "url": "https://le-syl21.github.io/PinReady/", "downloadUrl": "https://github.com/Le-Syl21/PinReady/releases/latest", "license": "https://www.gnu.org/licenses/gpl-3.0.html", "codeRepository": "https://github.com/Le-Syl21/PinReady", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"}, "softwareVersion": "0.27.10"}, {"@type": "WebPage", "name": "VPX standalone configuration wizard: screens, controls, tilt, audio – PinReady", "description": "How PinReady configures Visual Pinball X 10.8.1 standalone step by step: pincab screens, keyboard and Pinscape/DudesCab/PinOne controls, tilt and nudge, SSF audio, DOF, tables folder.", "url": "https://le-syl21.github.io/PinReady/wizard.html", "inLanguage": "en", "about": {"@id": "https://le-syl21.github.io/PinReady/#app"}}]}</script>
 </head>
 <body>
 <header class="site"><div class="wrap">
@@ -48,6 +48,7 @@ can also be changed while playing, from the Visual Pinball menu on <kbd>F12</kbd
 aside as <code>VPinballX.ini.reset-backup</code> and starts again at page one. Your tables are left alone.</p>
 
 <h2 id="screens">1. Screens</h2>
+<figure class="shot"><img src="img/wizard-screens.jpg" loading="lazy" width="1400" height="1489" alt="Page 1 of the setup wizard: language, Visual Pinball install, number of screens"></figure>
 <p>The first page shows the detected system (for example <em>Ubuntu 24.04 LTS · X11 · GNOME</em>) so that bug reports
 always carry their context, lets you pick the interface language, and <a href="download.html#vpx">installs Visual
 Pinball</a> if needed.</p>
@@ -69,6 +70,7 @@ Drag the handles on the drawing or type the values; they give the 3D view the ri
 </ul>
 
 <h2 id="rendering">2. Picture</h2>
+<figure class="shot"><img src="img/wizard-rendering.jpg" loading="lazy" width="1400" height="1489" alt="Page 2 of the setup wizard: smoothness and picture quality"></figure>
 <p>Graphics settings for the playfield. The advice on the page: start with the defaults, then adjust to your
 machine.</p>
 <ul>
@@ -92,6 +94,7 @@ the recommended value; if a game stutters, turn off the ones at the bottom of th
 </ul>
 
 <h2 id="threed">3. 3D</h2>
+<figure class="shot"><img src="img/wizard-threed.jpg" loading="lazy" width="1400" height="1489" alt="Page 3 of the setup wizard: virtual reality and stereoscopic 3D"></figure>
 <p>Two optional blocks, both off by default because a cabinet does not need them.</p>
 <ul>
 <li><strong>Virtual reality (VR)</strong>: play in a headset. You need a headset and a VR program (an OpenXR runtime
@@ -102,6 +105,7 @@ and adjust the eye separation, brightness and colour saturation.</li>
 </ul>
 
 <h2 id="inputs">4. Controls</h2>
+<figure class="shot"><img src="img/wizard-inputs.jpg" loading="lazy" width="1400" height="1489" alt="Page 4 of the setup wizard: keys and controller buttons"></figure>
 <p>Every Visual Pinball action has two columns, <strong>Keyboard</strong> and <strong>Joystick</strong>, and both
 work side by side. Click <strong>Map</strong> and press a key or a button: a key fills the keyboard column, a joystick
 button the joystick column. <strong>Auto-map all inputs</strong> walks through every action in one pass. Essential
@@ -119,6 +123,7 @@ yourself. A detected gamepad can also be used for the flippers, plunger and nudg
 listed.</p>
 
 <h2 id="accessories">5. Accessories</h2>
+<figure class="shot"><img src="img/wizard-outputs.jpg" loading="lazy" width="1400" height="1489" alt="Page 5 of the setup wizard: feedback effects (DOF)"></figure>
 <h3>DOF effects (lights and toys)</h3>
 <p>VPX 10.8.1 standalone includes DOF (Direct Output Framework), which drives the solenoids, lights, shaker motor,
 knocker or beacon of a cabinet. It only needs a configuration describing your hardware. The page walks you through
@@ -141,6 +146,7 @@ Visual Pinball to the <em>Window</em> view mode it needs, and opens the demo so 
 check that you are tracked. Not available on Intel Macs.</p>
 
 <h2 id="tilt">6. Tilt / Nudge</h2>
+<figure class="shot"><img src="img/wizard-tilt.jpg" loading="lazy" width="1400" height="1489" alt="Page 6 of the setup wizard: nudge and tilt settings"></figure><figure class="shot"><img src="img/wizard-tilt-dial.jpg" loading="lazy" width="1400" height="1489" alt="The nudge dial: the blue pendulum dot, the tilt circle and the zone toward the player"></figure>
 <p>Settings for the accelerometer that detects when you shake (nudge) the cabinet.</p>
 <ul>
 <li><strong>Nudge sensor type</strong>: <em>Game Controller</em> for a gamepad stick, <em>Intent Sensor</em> for
@@ -157,8 +163,30 @@ when the board publishes it, and warns you if the selected value does not match.
 threshold and the tilt; crossing the red ring means TILT. PinReady also keeps the measured peak, tells you when the
 tilt angle is out of the sensor's reach, and asks you to check which way the board is mounted, since a board turned
 the wrong way swaps or mirrors the nudge directions.</p>
+<p>The page simulates what Visual Pinball does with each nudge, with VPX's own cabinet model and defaults. A
+<strong>blue dot</strong> shows the virtual pendulum: VPX tilts on the pendulum, which adds up a series of knocks, while
+the red dot is only the sensor. The pendulum touches the tilt circle exactly when VPX would tilt. To try it, rock the
+cabinet sideways in a chain of big slaps, each a little harder.</p>
+<h3>How VPX reads a nudge</h3>
+<ul>
+<li><strong>Sideways is more sensitive than front to back.</strong> VPX multiplies the sideways reading by 4/3, and a
+sideways shove is usually easier to give than a forward one.</li>
+<li><strong>A push counts, a pull never does.</strong> VPX looks for the intention to push the cabinet away from you.
+What comes toward you is set to zero, however hard, so the cabinet swinging back after your push is never a second
+nudge: it only settles. The page draws this zone toward the player.</li>
+<li><strong>A knock only registers above the gate</strong> (1&nbsp;m/s²). VPX then builds a short 25&nbsp;ms push as hard
+as the peak it measured; the raw reading of the sensor is not used after that.</li>
+<li><strong>A series of knocks adds up</strong> in the pendulum, so four slaps in a row can tilt where one never
+would.</li>
+</ul>
+<details><summary>The maths behind it</summary>
+<p>The page shows the formulas VPX computes, one block per sensor type (the selected type is open), then the cabinet
+model and the plumb they share. Units: m/s² for accelerations, ms for times, ° for the tilt angle. The blocks are in
+the application itself, on the Nudge &amp; tilt page.</p>
+</details>
 
 <h2 id="audio">7. Audio</h2>
+<figure class="shot"><img src="img/wizard-audio.jpg" loading="lazy" width="1400" height="1489" alt="Page 7 of the setup wizard: sound outputs and speaker layout"></figure>
 <p>Visual Pinball plays sound on two devices, and PinReady lists your sound cards for each:</p>
 <ul>
 <li><strong>Backglass</strong>: music, voices and general game sounds.</li>
@@ -177,6 +205,7 @@ change the output mode; from left to right, check the wiring. A sound card with 
 often be switched to 5.1 or 7.1: see the guides for <a href="https://github.com/Le-Syl21/PinReady/tree/main/audiomapping_linux">Linux</a>, <a href="https://github.com/Le-Syl21/PinReady/tree/main/audiomapping_windows">Windows</a>, <a href="https://github.com/Le-Syl21/PinReady/tree/main/audiomapping_mac">macOS</a>.</p>
 
 <h2 id="tables">8. Tables</h2>
+<figure class="shot"><img src="img/wizard-tables.jpg" loading="lazy" width="1400" height="1489" alt="Page 8 of the setup wizard: where your tables are"></figure>
 <p>Choose the folder that holds your tables, one subfolder per table: the layout used by Visual Pinball 10.8.1.</p>
 <pre><code>Tables/
 └── Table Name/
@@ -209,6 +238,7 @@ catalog data, plus a few MB per matched table. Turn it off on an offline cabinet
 </ul>
 
 <h2 id="system">9. System</h2>
+<figure class="shot"><img src="img/wizard-system.jpg" loading="lazy" width="1400" height="1489" alt="Page 9 of the setup wizard: start-up, shortcuts and community ratings"></figure>
 <p>Optional conveniences, best suited to a dedicated cabinet:</p>
 <ul>
 <li><strong>Launch PinReady automatically at startup.</strong></li>
