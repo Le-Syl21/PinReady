@@ -1,5 +1,24 @@
 use super::*;
 
+/// Ground presets (colour, name key): deep colours that keep light text.
+const GROUND_PRESETS: &[(&str, &str)] = &[
+    ("#5C0A1E", "color_bordeaux"),
+    ("#0B1A33", "color_night_blue"),
+    ("#0F2A1D", "color_racing_green"),
+    ("#2A2A2E", "color_slate"),
+    ("#000000", "color_black"),
+];
+
+/// Selection presets (colour, name key): bright, they must stand out.
+const ACCENT_PRESETS: &[(&str, &str)] = &[
+    ("#FF2800", "color_ferrari_red"),
+    ("#FF8A1F", "color_dmd_orange"),
+    ("#FFD400", "color_yellow"),
+    ("#00C853", "color_green"),
+    ("#2F80FF", "color_blue"),
+    ("#E040FB", "color_magenta"),
+];
+
 impl App {
     /// Ground and selection colours on top of the light / dark theme, shown
     /// live (the whole interface restyles on each change) and kept in the DB.
@@ -42,17 +61,50 @@ impl App {
                     }
                     ui.label(t!("system_colors_accent"));
                 });
+                // One choice for the ground, one for the selection: swatches,
+                // then the original colours.
+                let swatch = |ui: &mut egui::Ui, c: egui::Color32, name: String, on: bool| {
+                    let (rect, r) =
+                        ui.allocate_exact_size(egui::vec2(34.0, 24.0), egui::Sense::click());
+                    ui.painter().rect_filled(rect, 4.0, c);
+                    let stroke = if on {
+                        egui::Stroke::new(2.5, ui.visuals().strong_text_color())
+                    } else {
+                        egui::Stroke::new(1.0, ui.visuals().widgets.inactive.bg_stroke.color)
+                    };
+                    ui.painter()
+                        .rect_stroke(rect, 4.0, stroke, egui::StrokeKind::Inside);
+                    r.on_hover_text(name).clicked()
+                };
                 ui.add_space(6.0);
                 ui.horizontal_wrapped(|ui| {
-                    if ui.button(t!("system_colors_preset_bordeaux")).clicked() {
-                        ground = theme::color_from_hex("#5C0A1E");
-                        accent = theme::color_from_hex("#FF2800");
+                    ui.label(t!("system_colors_ground"));
+                    for (hex, key) in GROUND_PRESETS {
+                        let c = theme::color_from_hex(hex);
+                        if let Some(c) = c
+                            && swatch(ui, c, t!(*key).to_string(), ground == Some(c))
+                        {
+                            ground = Some(c);
+                            changed = true;
+                        }
+                    }
+                    if ground.is_some() && ui.small_button(t!("system_colors_reset")).clicked() {
+                        ground = None;
                         changed = true;
                     }
-                    if (ground.is_some() || accent.is_some())
-                        && ui.button(t!("system_colors_reset")).clicked()
-                    {
-                        ground = None;
+                });
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(t!("system_colors_accent"));
+                    for (hex, key) in ACCENT_PRESETS {
+                        let c = theme::color_from_hex(hex);
+                        if let Some(c) = c
+                            && swatch(ui, c, t!(*key).to_string(), accent == Some(c))
+                        {
+                            accent = Some(c);
+                            changed = true;
+                        }
+                    }
+                    if accent.is_some() && ui.small_button(t!("system_colors_reset")).clicked() {
                         accent = None;
                         changed = true;
                     }
@@ -110,6 +162,34 @@ impl App {
 
         // ---- Colours: the user's own ground and selection colour.
         self.render_colors_section(ui);
+
+        // ---- Keyboard: what works without a mouse.
+        theme::section(
+            ui,
+            &t!("system_keys_title"),
+            Some(&t!("system_keys_intro")),
+            |ui| {
+                egui::Grid::new("keyboard_shortcuts")
+                    .num_columns(2)
+                    .spacing([18.0, 6.0])
+                    .striped(true)
+                    .show(ui, |ui| {
+                        for (keys, what) in [
+                            ("system_keys_alt_letter", "system_keys_alt_letter_do"),
+                            ("system_keys_alt_digit", "system_keys_alt_digit_do"),
+                            ("system_keys_zoom", "system_keys_zoom_do"),
+                            ("system_keys_nav", "system_keys_nav_do"),
+                            ("system_keys_start", "system_keys_start_do"),
+                            ("system_keys_ball", "system_keys_ball_do"),
+                            ("system_keys_extraball", "system_keys_extraball_do"),
+                        ] {
+                            ui.label(egui::RichText::new(t!(keys)).strong());
+                            ui.label(t!(what));
+                            ui.end_row();
+                        }
+                    });
+            },
+        );
 
         // ---- VPinPlay: community ratings, and sharing the table usage.
         self.render_vpinplay_section(ui);
