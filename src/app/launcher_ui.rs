@@ -701,13 +701,7 @@ impl App {
                             // for every table (see `bgcache`); a plain tile
                             // while it is still on its way.
                             if let Some(tex) = self.bg_cache.thumb(idx) {
-                                egui::Image::from_texture(egui::load::SizedTexture::new(
-                                    tex.id(),
-                                    tex.size_vec2(),
-                                ))
-                                .shrink_to_fit()
-                                .corner_radius(egui::CornerRadius::same(4))
-                                .paint_at(ui, img_area);
+                                paint_tile_picture(ui, tex, img_area, self.tile_fill);
                             } else {
                                 painter.rect_filled(img_area, 4.0, p.bg);
                             }
@@ -1862,6 +1856,43 @@ const STAR_BRIGHT: egui::Color32 = egui::Color32::from_rgb(255, 222, 70);
 const STAR_COMMUNITY: egui::Color32 = egui::Color32::from_rgb(90, 175, 255);
 
 /// The ten corners of a five-pointed star (outer, inner, outer...).
+/// Paint a tile picture: the whole picture with black bands (`fill` false), or
+/// filling the tile, cropped to its centre (`fill` true). Never distorted.
+pub(super) fn paint_tile_picture(
+    ui: &egui::Ui,
+    tex: &egui::TextureHandle,
+    area: egui::Rect,
+    fill: bool,
+) {
+    let size = tex.size_vec2();
+    let mut image = egui::Image::from_texture(egui::load::SizedTexture::new(tex.id(), size))
+        .corner_radius(egui::CornerRadius::same(4));
+    if fill && size.x > 0.0 && size.y > 0.0 {
+        image = image.uv(fill_uv(size, area.size()));
+    } else {
+        image = image.shrink_to_fit();
+    }
+    image.paint_at(ui, area);
+}
+
+/// The part of a picture of `size` (centred) that has the aspect ratio of `area`.
+pub(super) fn fill_uv(size: egui::Vec2, area: egui::Vec2) -> egui::Rect {
+    let (pic, tile) = (size.x / size.y, area.x / area.y.max(1.0));
+    if pic > tile {
+        let w = tile / pic;
+        egui::Rect::from_min_max(
+            egui::pos2((1.0 - w) / 2.0, 0.0),
+            egui::pos2((1.0 + w) / 2.0, 1.0),
+        )
+    } else {
+        let h = pic / tile;
+        egui::Rect::from_min_max(
+            egui::pos2(0.0, (1.0 - h) / 2.0),
+            egui::pos2(1.0, (1.0 + h) / 2.0),
+        )
+    }
+}
+
 fn star_points(center: egui::Pos2, radius: f32) -> Vec<egui::Pos2> {
     (0..10)
         .map(|k| {
@@ -1932,6 +1963,17 @@ mod tests {
     /// and panicked when a keyword's byte window happened to end inside
     /// a `·`. The byte-space comparison fixes it; this test pins the
     /// behaviour so we don't regress.
+    #[test]
+    fn fill_crops_the_centre_with_the_tile_ratio() {
+        // a 16:9 picture in a 5:4 tile keeps the middle 70 % of its width
+        let uv = fill_uv(egui::vec2(1600.0, 900.0), egui::vec2(480.0, 384.0));
+        assert!((uv.width() - 0.703).abs() < 0.001 && uv.height() == 1.0);
+        assert!((uv.center().x - 0.5).abs() < 1e-6);
+        // a tall picture keeps the middle band of its height
+        let uv = fill_uv(egui::vec2(400.0, 800.0), egui::vec2(480.0, 384.0));
+        assert!(uv.width() == 1.0 && (uv.height() - 0.4).abs() < 0.001);
+    }
+
     #[test]
     fn highlight_does_not_panic_on_multibyte_separators() {
         let style = egui::Style::default();

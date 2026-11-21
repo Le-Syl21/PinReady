@@ -362,6 +362,12 @@ pub struct App {
     displays: Vec<DisplayInfo>,
     screen_count: usize,
     view_mode: i32, // 0=Desktop, 1=Cabinet, 2=FSS
+    /// Furthest wizard step reached: the step strip lets the user jump to any
+    /// step up to it (all of them once the wizard was completed before).
+    wizard_furthest: usize,
+    /// Launcher tiles: fill the tile (cropped, never distorted) instead of
+    /// showing the whole picture with black bands.
+    tile_fill: bool,
     disable_touch: bool,
     external_dmd: bool, // ZeDMD, PinDMD, etc. — DMD handled by external device, not a screen
 
@@ -787,6 +793,13 @@ impl App {
             d.map(str::to_string)
         };
 
+        let tile_fill = db.get_config("tile_fill").as_deref() == Some("1");
+        // the step strip may jump anywhere once the wizard was completed before
+        let wizard_furthest = if db.get_config("wizard_completed").as_deref() == Some("true") {
+            WizardPage::count() - 1
+        } else {
+            0
+        };
         let screen_count = displays.len().min(4);
         // Keep the display mode the user saved (BGSet); only guess from the screen count
         // when the config has none yet.
@@ -918,6 +931,8 @@ impl App {
             displays,
             screen_count,
             view_mode,
+            tile_fill,
+            wizard_furthest,
             disable_touch,
             external_dmd,
             screen_inclination,
@@ -1629,6 +1644,19 @@ impl App {
         self.leave_page_hooks();
         let next = self.page.index() + 1;
         if let Some(page) = WizardPage::from_index(next) {
+            self.save_current_page();
+            self.page = page;
+            self.wizard_furthest = self.wizard_furthest.max(next);
+        }
+    }
+
+    /// Jump to a step from the step strip (only steps already reached).
+    fn goto_page(&mut self, index: usize) {
+        if index == self.page.index() || index > self.wizard_furthest {
+            return;
+        }
+        if let Some(page) = WizardPage::from_index(index) {
+            self.leave_page_hooks();
             self.save_current_page();
             self.page = page;
         }
@@ -2471,6 +2499,7 @@ impl eframe::App for App {
                 let current = self.page.index();
                 let count = WizardPage::count();
                 let compact = ui.available_width() < 800.0;
+                let mut jump = None;
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing = egui::vec2(5.0, 5.0);
                     for i in 0..count {
@@ -2486,7 +2515,8 @@ impl eframe::App for App {
                                 (egui::Color32::TRANSPARENT, p.text_faint)
                             }
                         };
-                        egui::Frame::new()
+                        let reachable = i != current && i <= self.wizard_furthest;
+                        let pill = egui::Frame::new()
                             .fill(fill)
                             .stroke(if i > current {
                                 egui::Stroke::new(1.0, p.border)
@@ -2508,6 +2538,14 @@ impl eframe::App for App {
                                     ui.label(if i == current { title.strong() } else { title });
                                 });
                             });
+                        // a step already reached is a shortcut to it
+                        if reachable {
+                            let r = pill.response.interact(egui::Sense::click());
+                            if r.clicked() {
+                                jump = Some(i);
+                            }
+                            r.on_hover_cursor(egui::CursorIcon::PointingHand);
+                        }
                     }
                     if compact {
                         ui.label(
@@ -2517,6 +2555,9 @@ impl eframe::App for App {
                         );
                     }
                 });
+                if let Some(i) = jump {
+                    self.goto_page(i);
+                }
             });
 
         // Navigation footer

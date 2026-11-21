@@ -134,6 +134,43 @@ impl App {
             },
         );
 
+        // ---- Launcher tiles: black bands or filled, shown on an example ----
+        theme::section(
+            ui,
+            &t!("tables_tiles_section"),
+            Some(&t!("tables_tiles_intro")),
+            |ui| {
+                let before = self.tile_fill;
+                ui.horizontal_wrapped(|ui| {
+                    for (fill, label) in [
+                        (false, t!("tables_tiles_fit")),
+                        (true, t!("tables_tiles_fill")),
+                    ] {
+                        ui.vertical(|ui| {
+                            let (rect, resp) = ui.allocate_exact_size(
+                                egui::vec2(200.0, 160.0),
+                                egui::Sense::click(),
+                            );
+                            paint_tile_example(ui, rect, fill, self.tile_fill == fill);
+                            if resp
+                                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                .clicked()
+                            {
+                                self.tile_fill = fill;
+                            }
+                            ui.radio_value(&mut self.tile_fill, fill, label);
+                        });
+                        ui.add_space(16.0);
+                    }
+                });
+                if self.tile_fill != before {
+                    let _ = self
+                        .db
+                        .set_config("tile_fill", if self.tile_fill { "1" } else { "0" });
+                }
+            },
+        );
+
         // ---- Maintenance: rescan / patches / catalog. Kept open because
         // these settings are scan-time and users need them visible to make
         // a deliberate choice. Placed before the layout reference, which is
@@ -655,4 +692,50 @@ fn render_merge_event(ui: &mut egui::Ui, ev: &crate::merge::MergeEvent) {
             // the log — repeating them here read as two different results.
         }
     }
+}
+
+/// An example tile: a picture wider than the tile (circle in the middle, red
+/// frame on its edges), shown whole with black bands or filling the tile.
+fn paint_tile_example(ui: &egui::Ui, rect: egui::Rect, fill: bool, selected: bool) {
+    let p = theme::pal(ui.ctx());
+    let painter = ui.painter_at(rect);
+    painter.rect_filled(rect, 6.0, egui::Color32::BLACK);
+    // a 16:9 picture in a 5:4 tile
+    let (pw, ph) = (16.0f32, 9.0f32);
+    let scale = if fill {
+        (rect.width() / pw).max(rect.height() / ph)
+    } else {
+        (rect.width() / pw).min(rect.height() / ph)
+    };
+    let pic = egui::Rect::from_center_size(rect.center(), egui::vec2(pw * scale, ph * scale));
+    let clip = painter.with_clip_rect(rect.shrink(1.0));
+    clip.rect_filled(pic, 0.0, egui::Color32::from_rgb(20, 40, 110));
+    clip.circle_filled(
+        pic.center(),
+        pic.height() * 0.32,
+        egui::Color32::from_rgb(240, 180, 40),
+    );
+    clip.text(
+        pic.center(),
+        egui::Align2::CENTER_CENTER,
+        "PINBALL",
+        egui::FontId::proportional(pic.height() * 0.16),
+        egui::Color32::from_rgb(20, 40, 110),
+    );
+    clip.rect_stroke(
+        pic,
+        0.0,
+        egui::Stroke::new(3.0, egui::Color32::from_rgb(220, 40, 40)),
+        egui::StrokeKind::Inside,
+    );
+    painter.rect_stroke(
+        rect,
+        6.0,
+        if selected {
+            egui::Stroke::new(3.0, p.accent)
+        } else {
+            egui::Stroke::new(1.0, p.border)
+        },
+        egui::StrokeKind::Inside,
+    );
 }
