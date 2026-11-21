@@ -114,7 +114,11 @@ impl App {
             drawn.push(fpos);
             let front = off.abs() < 0.5;
             let picture = if idx == self.selected_table {
-                self.bg_cache.best(idx)
+                // the front table plays its clip, like the selected tile
+                self.video_tile
+                    .as_ref()
+                    .and_then(|v| v.texture().cloned())
+                    .or_else(|| self.bg_cache.best(idx))
             } else {
                 self.bg_cache.thumb(idx).cloned()
             };
