@@ -466,6 +466,7 @@ pub struct App {
     video_due_at: Option<std::time::Instant>,
     video_tile: Option<crate::video::VideoPlayer>,
     video_bg: Option<crate::video::VideoPlayer>,
+    video_dmd: Option<crate::video::VideoPlayer>,
 
     // Page 5 — Tables dir
     tables_dir: String,
@@ -1002,6 +1003,7 @@ impl App {
             video_due_at: None,
             video_tile: None,
             video_bg: None,
+            video_dmd: None,
             sort_mode: launcher::SortMode::from_key(db_sort_key.as_deref().unwrap_or_default()),
             vpx_session: None,
             vpinplay: vpinplay_settings,

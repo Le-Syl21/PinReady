@@ -2043,12 +2043,13 @@ impl App {
 
     /// Drive the per-table video preview: when `selected_table` changes the
     /// clips stop, and after the same debounce as the audio preview the
-    /// selected tile plays its clip, and the backglass screen too when there
-    /// is one. Nothing plays while VPX runs.
+    /// selected tile plays its clip, and the backglass and DMD screens theirs
+    /// when they exist. Nothing plays while VPX runs.
     pub(super) fn process_preview_video(&mut self, ctx: &egui::Context) {
         if self.tables.is_empty() || self.vpx_running.load(Ordering::Relaxed) {
             self.video_tile = None;
             self.video_bg = None;
+            self.video_dmd = None;
             self.video_last_idx = None;
             self.video_due_at = None;
             return;
@@ -2057,6 +2058,7 @@ impl App {
         if Some(cur) != self.video_last_idx {
             self.video_tile = None;
             self.video_bg = None;
+            self.video_dmd = None;
             self.video_last_idx = Some(cur);
             self.video_due_at =
                 Some(std::time::Instant::now() + std::time::Duration::from_millis(700));
@@ -2090,12 +2092,23 @@ impl App {
                 let (w, h) = (d.width.max(1) as u32, d.height.max(1) as u32);
                 self.video_bg = VideoPlayer::open(&p, w.min(1920), h.min(1920), "video-bg");
             }
+            let dmd = self.displays.iter().find(|d| d.role == DisplayRole::Dmd);
+            if let Some(d) = dmd
+                && let Some(p) = find_video(dir, VideoSlot::Dmd)
+            {
+                let (w, h) = (d.width.max(1) as u32, d.height.max(1) as u32);
+                self.video_dmd = VideoPlayer::open(&p, w.min(1920), h.min(1920), "video-dmd");
+            }
         }
         if let Some(v) = &mut self.video_tile {
             v.update(ctx);
         }
         if let Some(v) = &mut self.video_bg {
             v.update(ctx);
+        }
+        if let Some(v) = &mut self.video_dmd {
+            v.update(ctx);
+            ctx.request_repaint_of(egui::ViewportId::from_hash_of(DMD_VIEWPORT));
         }
     }
 

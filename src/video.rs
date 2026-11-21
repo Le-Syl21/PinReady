@@ -16,11 +16,15 @@ const VIDEO_EXTS: &[&str] = &["mp4", "webm", "mkv", "mov", "m4v", "avi"];
 /// Where a clip is shown: it decides which file is preferred.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VideoSlot {
-    /// The selected tile: `medias/launcher.<ext>`, else the backglass video.
+    /// The selected tile: `medias/launcher.<ext>`, else the backglass video,
+    /// else the playfield video (`table.mp4`, VPinMediaDB).
     Tile,
     /// The backglass screen: the frontend's `(Backglass) <name>.<ext>`, else
     /// the launcher video.
     Backglass,
+    /// The DMD screen: `medias/dmd.mp4` (VPinMediaDB), else the frontend's
+    /// `(DMD) <name>.<ext>`.
+    Dmd,
 }
 
 fn is_video(p: &Path) -> bool {
@@ -36,8 +40,20 @@ fn launcher_video(medias: &Path) -> Option<PathBuf> {
         .find(|p| p.is_file())
 }
 
+/// A clip with a fixed name (`table.mp4`, `dmd.mp4`, as VPinMediaDB names them).
+fn named_video(medias: &Path, stem: &str) -> Option<PathBuf> {
+    VIDEO_EXTS
+        .iter()
+        .map(|ext| medias.join(format!("{stem}.{ext}")))
+        .find(|p| p.is_file())
+}
+
 /// Frontend media naming (PinUP Popper / VPX layout): `(Backglass) Table Name.mp4`.
 fn backglass_video(medias: &Path) -> Option<PathBuf> {
+    labelled_video(medias, "(backglass)")
+}
+
+fn labelled_video(medias: &Path, label: &str) -> Option<PathBuf> {
     let mut found: Vec<PathBuf> = std::fs::read_dir(medias)
         .ok()?
         .filter_map(|e| e.ok().map(|e| e.path()))
@@ -45,7 +61,7 @@ fn backglass_video(medias: &Path) -> Option<PathBuf> {
             is_video(p)
                 && p.file_name()
                     .and_then(|n| n.to_str())
-                    .is_some_and(|n| n.to_ascii_lowercase().starts_with("(backglass)"))
+                    .is_some_and(|n| n.to_ascii_lowercase().starts_with(label))
         })
         .collect();
     found.sort();
@@ -56,8 +72,11 @@ fn backglass_video(medias: &Path) -> Option<PathBuf> {
 pub fn find_video(table_dir: &Path, slot: VideoSlot) -> Option<PathBuf> {
     let medias = table_dir.join("medias");
     match slot {
-        VideoSlot::Tile => launcher_video(&medias).or_else(|| backglass_video(&medias)),
+        VideoSlot::Tile => launcher_video(&medias)
+            .or_else(|| backglass_video(&medias))
+            .or_else(|| named_video(&medias, "table")),
         VideoSlot::Backglass => backglass_video(&medias).or_else(|| launcher_video(&medias)),
+        VideoSlot::Dmd => named_video(&medias, "dmd").or_else(|| labelled_video(&medias, "(dmd)")),
     }
 }
 
@@ -344,6 +363,11 @@ mod tests {
         let medias = dir.join("medias");
         std::fs::create_dir_all(&medias).unwrap();
         assert_eq!(find_video(&dir, VideoSlot::Tile), None);
+        std::fs::write(medias.join("table.mp4"), b"").unwrap();
+        assert_eq!(
+            find_video(&dir, VideoSlot::Tile),
+            Some(medias.join("table.mp4"))
+        );
         std::fs::write(medias.join("(Backglass) Some Table.mp4"), b"").unwrap();
         let bg = medias.join("(Backglass) Some Table.mp4");
         assert_eq!(find_video(&dir, VideoSlot::Tile), Some(bg.clone()));
@@ -353,5 +377,11 @@ mod tests {
             Some(medias.join("launcher.webm"))
         );
         assert_eq!(find_video(&dir, VideoSlot::Backglass), Some(bg));
+        assert_eq!(find_video(&dir, VideoSlot::Dmd), None);
+        std::fs::write(medias.join("dmd.mp4"), b"").unwrap();
+        assert_eq!(
+            find_video(&dir, VideoSlot::Dmd),
+            Some(medias.join("dmd.mp4"))
+        );
     }
 }

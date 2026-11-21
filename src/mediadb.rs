@@ -117,6 +117,8 @@ pub struct MediaBucket {
     pub fss_md5: Option<String>,
     pub table_video: Option<String>,
     pub table_video_md5: Option<String>,
+    pub dmd_video: Option<String>,
+    pub dmd_video_md5: Option<String>,
 }
 
 /// Parsed `vpinmdb.json` plus its on-disk cache home.
@@ -170,6 +172,16 @@ impl MediaDb {
     pub fn audio_url_md5(&self, game_id: &str) -> Option<(&str, &str)> {
         let e = self.games.get(game_id)?;
         Some((e.audio.as_deref()?, e.audio_md5.as_deref()?))
+    }
+    /// Playfield video of the 1k bucket (`table.mp4`, 1920x1080).
+    pub fn table_video_url_md5(&self, game_id: &str) -> Option<(&str, &str)> {
+        let b = self.games.get(game_id)?.k1.as_ref()?;
+        Some((b.table_video.as_deref()?, b.table_video_md5.as_deref()?))
+    }
+    /// DMD video of the 1k bucket (`dmd.mp4`).
+    pub fn dmd_video_url_md5(&self, game_id: &str) -> Option<(&str, &str)> {
+        let b = self.games.get(game_id)?.k1.as_ref()?;
+        Some((b.dmd_video.as_deref()?, b.dmd_video_md5.as_deref()?))
     }
     pub fn wheel_url_md5(&self, game_id: &str) -> Option<(&str, &str)> {
         let e = self.games.get(game_id)?;

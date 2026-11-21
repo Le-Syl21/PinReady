@@ -1093,7 +1093,7 @@ impl App {
                 .find(|d| d.role == role)
                 .map(|d| d.monitor_index)
             {
-                Self::show_logo_viewport(ui, id, title, idx, true, None, Vec::new());
+                Self::show_logo_viewport(ui, id, title, idx, true, CoverContent::default());
             }
         }
     }
@@ -1363,8 +1363,11 @@ impl App {
                 "PinReady — DMD",
                 dmd_idx,
                 false,
-                self.selected_cover_info(),
-                self.cover_extra(),
+                CoverContent {
+                    info: self.selected_cover_info(),
+                    extra: self.cover_extra(),
+                    video: self.video_dmd.as_ref().and_then(|v| v.texture().cloned()),
+                },
             );
         }
 
@@ -1385,8 +1388,11 @@ impl App {
                 "PinReady — Topper",
                 tp_idx,
                 playing,
-                self.selected_cover_info(),
-                self.cover_extra(),
+                CoverContent {
+                    info: self.selected_cover_info(),
+                    extra: self.cover_extra(),
+                    video: None,
+                },
             );
         }
     }
@@ -1399,9 +1405,9 @@ impl App {
         title: &str,
         monitor_idx: usize,
         black: bool,
-        info: Option<std::sync::Arc<crate::table_info::TableInfo>>,
-        extra: Vec<(String, egui::Color32)>,
+        content: CoverContent,
     ) {
+        let CoverContent { info, extra, video } = content;
         let viewport_id = egui::ViewportId::from_hash_of(id);
         // The window repaints only when asked: without this it keeps the facts
         // of the table that was selected when it last drew. A black cover (a
@@ -1436,6 +1442,21 @@ impl App {
                     .frame(egui::Frame::NONE.fill(fill))
                     .show(ui, |ui| {
                         if black {
+                            return;
+                        }
+                        if let Some(tex) = &video {
+                            // the table's DMD clip, on a black ground
+                            ui.painter()
+                                .rect_filled(ui.max_rect(), 0.0, egui::Color32::BLACK);
+                            ui.centered_and_justified(|ui| {
+                                ui.add(
+                                    egui::Image::from_texture(egui::load::SizedTexture::new(
+                                        tex.id(),
+                                        tex.size_vec2(),
+                                    ))
+                                    .shrink_to_fit(),
+                                );
+                            });
                             return;
                         }
                         if let Some(info) = &info {
@@ -1917,6 +1938,14 @@ const STAR_BRIGHT: egui::Color32 = egui::Color32::from_rgb(255, 222, 70);
 const STAR_COMMUNITY: egui::Color32 = egui::Color32::from_rgb(90, 175, 255);
 
 /// The ten corners of a five-pointed star (outer, inner, outer...).
+/// What a DMD / topper cover shows: the table's facts, extra lines, or its clip.
+#[derive(Default)]
+struct CoverContent {
+    info: Option<std::sync::Arc<crate::table_info::TableInfo>>,
+    extra: Vec<(String, egui::Color32)>,
+    video: Option<egui::TextureHandle>,
+}
+
 /// Paint a tile picture: the whole picture with black bands (`fill` false), or
 /// filling the tile, cropped to its centre (`fill` true). Never distorted.
 pub(super) fn paint_tile_picture(
