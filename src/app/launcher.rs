@@ -2041,6 +2041,64 @@ impl App {
         }
     }
 
+    /// Drive the per-table video preview: when `selected_table` changes the
+    /// clips stop, and after the same debounce as the audio preview the
+    /// selected tile plays its clip, and the backglass screen too when there
+    /// is one. Nothing plays while VPX runs.
+    pub(super) fn process_preview_video(&mut self, ctx: &egui::Context) {
+        if self.tables.is_empty() || self.vpx_running.load(Ordering::Relaxed) {
+            self.video_tile = None;
+            self.video_bg = None;
+            self.video_last_idx = None;
+            self.video_due_at = None;
+            return;
+        }
+        let cur = self.selected_table;
+        if Some(cur) != self.video_last_idx {
+            self.video_tile = None;
+            self.video_bg = None;
+            self.video_last_idx = Some(cur);
+            self.video_due_at =
+                Some(std::time::Instant::now() + std::time::Duration::from_millis(700));
+        }
+        if let Some(due) = self.video_due_at {
+            let now = std::time::Instant::now();
+            if now < due {
+                ctx.request_repaint_after(due - now);
+                return;
+            }
+            self.video_due_at = None;
+            let Some(dir) = self.tables.get(cur).and_then(|t| t.path.parent()) else {
+                return;
+            };
+            use crate::video::{VideoPlayer, VideoSlot, find_video};
+            if let Some(p) = find_video(dir, VideoSlot::Tile) {
+                self.video_tile = VideoPlayer::open(
+                    &p,
+                    crate::assets::THUMB_WIDTH,
+                    crate::assets::THUMB_HEIGHT,
+                    "video-tile",
+                );
+            }
+            let bg = self
+                .displays
+                .iter()
+                .find(|d| d.role == DisplayRole::Backglass);
+            if let Some(d) = bg
+                && let Some(p) = find_video(dir, VideoSlot::Backglass)
+            {
+                let (w, h) = (d.width.max(1) as u32, d.height.max(1) as u32);
+                self.video_bg = VideoPlayer::open(&p, w.min(1920), h.min(1920), "video-bg");
+            }
+        }
+        if let Some(v) = &mut self.video_tile {
+            v.update(ctx);
+        }
+        if let Some(v) = &mut self.video_bg {
+            v.update(ctx);
+        }
+    }
+
     pub(super) fn process_bg_extraction(&mut self) {
         if let Some(rx) = &self.bg_rx {
             // Drain without holding a borrow of `self` — we need `&mut self`

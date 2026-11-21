@@ -46,6 +46,7 @@ impl App {
         self.process_rebuild_clear();
         self.process_cover_info();
         self.process_preview_audio(ui.ctx());
+        self.process_preview_video(ui.ctx());
         // Process VPX status before the joystick handler so the post-exit
         // input grace window (armed in `process_vpx_status`) is already set
         // on the very first frame `vpx_running` reads false — otherwise the
@@ -743,7 +744,15 @@ impl App {
                                 rect.min + egui::vec2(4.0, 4.0),
                                 egui::vec2(card_width - 8.0, img_height - 8.0),
                             );
-                            if table.has_bg {
+                            let tile_video = if is_selected {
+                                self.video_tile.as_ref().and_then(|v| v.texture())
+                            } else {
+                                None
+                            };
+                            if let Some(tex) = tile_video {
+                                // the selected table's clip plays in its tile
+                                paint_tile_picture(ui, tex, img_area, self.tile_fill);
+                            } else if table.has_bg {
                                 // The thumbnail made for the grid, in the GPU
                                 // for every table (see `bgcache`); a plain tile
                                 // while it is still on its way.
@@ -1292,7 +1301,11 @@ impl App {
             let table_name = self.tables[selected].name.clone();
             // The full picture if the page's pictures are in the GPU, else
             // its thumbnail, else nothing yet (the cover shows the name).
-            let bg_tex = self.bg_cache.best(selected);
+            let bg_tex = self
+                .video_bg
+                .as_ref()
+                .and_then(|v| v.texture().cloned())
+                .or_else(|| self.bg_cache.best(selected));
             let info = self.selected_cover_info();
             let extra = self.cover_extra();
             let uri = format!("table {}/{selected}", self.scan_generation);

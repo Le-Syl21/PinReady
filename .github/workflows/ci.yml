@@ -87,7 +87,24 @@ jobs:
             libxtst-dev libxss-dev libwayland-dev wayland-protocols \
             libdbus-1-dev libdrm-dev libgbm-dev \
             libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev \
-            libudev-dev
+            libudev-dev nasm libclang-dev
+
+      # Preview videos (feature `video`): FFmpeg is compiled from source by
+      # ffmpeg-sys-next and linked statically; its x86 assembly needs nasm.
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install nasm
+
+      # Windows MSVC cannot run FFmpeg's configure script: take a static
+      # FFmpeg from vcpkg instead (ffmpeg-sys-next finds it through vcpkg).
+      - name: Install FFmpeg (Windows, vcpkg)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          vcpkg install "ffmpeg[core,avcodec,avformat,swscale]:x64-windows-static-md"
+          "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "VCPKGRS_TRIPLET=x64-windows-static-md" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "LIBCLANG_PATH=C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       # Cross-compile aarch64 from x86_64 (hosted ubuntu-*-arm runners are
       # too unstable to rely on for releases). cross-rs runs the build

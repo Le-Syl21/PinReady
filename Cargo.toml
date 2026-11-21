@@ -10,12 +10,16 @@ categories = ["games", "config", "gui"]
 readme = "README.md"
 
 [features]
-default = ["inspection"]
+default = ["inspection", "video"]
 win-icon = ["winres"]
 # Let egui_mcp drive the running GUI. On by default but inert until the
 # program is started with EGUI_INSPECTION set (see the README): without it
 # no port is opened. Build with `--no-default-features` to leave it out.
 inspection = ["eframe/inspection"]
+# Table preview videos in the launcher (FFmpeg, built from source and linked
+# statically: no runtime library to install). Windows MSVC takes FFmpeg from
+# vcpkg instead (see the CI).
+video = ["dep:ffmpeg-next", "dep:ffmpeg-sys-next"]
 
 [dependencies]
 # UI
@@ -178,6 +182,18 @@ x11rb = { version = "0.14", features = ["randr", "resource_manager"] }
 # (app::install_quit_signal). A plain `kill` used to leave PinReady running.
 [target.'cfg(unix)'.dependencies]
 signal-hook = "0.3"
+
+[dependencies.ffmpeg-next]
+version = "9.1"
+optional = true
+default-features = false
+features = ["codec", "format", "software-scaling"]
+
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+ffmpeg-sys-next = { version = "9.1", optional = true, default-features = false, features = ["avcodec", "avformat", "swscale", "build"] }
+
+[target.'cfg(target_env = "msvc")'.dependencies]
+ffmpeg-sys-next = { version = "9.1", optional = true, default-features = false, features = ["avcodec", "avformat", "swscale", "static"] }
 
 [dev-dependencies]
 tempfile = "3"

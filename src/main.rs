@@ -43,6 +43,7 @@ mod table_info;
 mod tilt;
 mod updater;
 mod vbs_patches;
+mod video;
 mod vpinplay;
 mod vpsdb;
 mod vpx_display;

@@ -459,6 +459,14 @@ pub struct App {
     preview_due_at: Option<std::time::Instant>,
     preview_playing: bool,
 
+    // Launcher preview video: the selected tile and the backglass screen play
+    // the table's clip (see `video.rs`), started with the same debounce as
+    // the audio preview.
+    video_last_idx: Option<usize>,
+    video_due_at: Option<std::time::Instant>,
+    video_tile: Option<crate::video::VideoPlayer>,
+    video_bg: Option<crate::video::VideoPlayer>,
+
     // Page 5 — Tables dir
     tables_dir: String,
 
@@ -990,6 +998,10 @@ impl App {
             table_filter: String::new(),
             table_filter_lower: String::new(),
             selected_table: 0,
+            video_last_idx: None,
+            video_due_at: None,
+            video_tile: None,
+            video_bg: None,
             sort_mode: launcher::SortMode::from_key(db_sort_key.as_deref().unwrap_or_default()),
             vpx_session: None,
             vpinplay: vpinplay_settings,
