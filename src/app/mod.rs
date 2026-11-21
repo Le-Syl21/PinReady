@@ -368,6 +368,10 @@ pub struct App {
     /// Launcher tiles: fill the tile (cropped, never distorted) instead of
     /// showing the whole picture with black bands.
     tile_fill: bool,
+    /// Launcher view: the carousel instead of the grid (see `carousel.rs`),
+    /// and the turntable's current position (in visible tables).
+    launcher_carousel: bool,
+    carousel_pos: f32,
     disable_touch: bool,
     external_dmd: bool, // ZeDMD, PinDMD, etc. — DMD handled by external device, not a screen
 
@@ -794,6 +798,7 @@ impl App {
         };
 
         let tile_fill = db.get_config("tile_fill").as_deref() == Some("1");
+        let launcher_carousel = db.get_config("launcher_layout").as_deref() == Some("carousel");
         // the step strip may jump anywhere once the wizard was completed before
         let wizard_furthest = if db.get_config("wizard_completed").as_deref() == Some("true") {
             WizardPage::count() - 1
@@ -932,6 +937,8 @@ impl App {
             screen_count,
             view_mode,
             tile_fill,
+            launcher_carousel,
+            carousel_pos: 0.0,
             wizard_furthest,
             disable_touch,
             external_dmd,
@@ -2085,6 +2092,7 @@ impl App {
 mod audio_page;
 mod autostart;
 mod bgcache;
+mod carousel;
 mod catalog_refresh;
 mod desktop_integration;
 mod effects;

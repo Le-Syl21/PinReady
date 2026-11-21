@@ -164,6 +164,31 @@ impl App {
             self.cycle_sort();
         }
 
+        // Grid or carousel
+        let view_label = format!(
+            "{}: {}",
+            t!("launcher_view"),
+            if self.launcher_carousel {
+                t!("launcher_view_carousel")
+            } else {
+                t!("launcher_view_grid")
+            }
+        );
+        let m = mn.pick(&view_label, &t!("launcher_view", locale = "en"));
+        let r = m.tooltip(left.add(header_button(m_text(&m, &left))));
+        if r.clicked() || mn.hit(&m) {
+            self.launcher_carousel = !self.launcher_carousel;
+            self.scroll_to_selected = true;
+            let _ = self.db.set_config(
+                "launcher_layout",
+                if self.launcher_carousel {
+                    "carousel"
+                } else {
+                    "grid"
+                },
+            );
+        }
+
         // Update counter — surfaces tables flagged `update_available` by the
         // catalog worker. The per-card badge is the primary affordance.
         // Update buttons/progress used to live in this row, but any
@@ -532,7 +557,12 @@ impl App {
         let card_spacing = 8.0;
         let available_width = ui.available_width();
         let cols = ((available_width / (card_width + card_spacing)) as usize).max(1);
-        self.launcher_cols = cols;
+        // the magna buttons jump a row in the grid, CAROUSEL_JUMP tables in the carousel
+        self.launcher_cols = if self.launcher_carousel {
+            super::carousel::CAROUSEL_JUMP
+        } else {
+            cols
+        };
         let row_height = card_height + card_spacing;
 
         // Extra keyboard navigation for long lists.
@@ -628,336 +658,340 @@ impl App {
 
         // Positions (in `filtered`) of the cards drawn on screen this frame.
         let mut visible_pos: Vec<usize> = Vec::new();
-        scroll_area.show(ui, |ui| {
-            for row_start in (0..filtered.len()).step_by(cols) {
-                // Center the row
-                let row_count = (filtered.len() - row_start).min(cols);
-                let row_width = row_count as f32 * (card_width + 8.0) - 8.0;
-                let left_pad = ((available_width - row_width) / 2.0).max(0.0);
+        if self.launcher_carousel {
+            self.paint_carousel(ui, &filtered, &mut launch_idx, &mut visible_pos);
+        } else {
+            scroll_area.show(ui, |ui| {
+                for row_start in (0..filtered.len()).step_by(cols) {
+                    // Center the row
+                    let row_count = (filtered.len() - row_start).min(cols);
+                    let row_width = row_count as f32 * (card_width + 8.0) - 8.0;
+                    let left_pad = ((available_width - row_width) / 2.0).max(0.0);
 
-                ui.horizontal(|ui| {
-                    ui.add_space(left_pad);
-                    for col in 0..cols {
-                        let fi = row_start + col;
-                        if fi >= filtered.len() {
-                            break;
-                        }
-                        let idx = filtered[fi];
-                        let table = &self.tables[idx];
-
-                        let (rect, response) = ui.allocate_exact_size(
-                            egui::vec2(card_width, card_height),
-                            egui::Sense::click(),
-                        );
-                        // Off-screen cards are not painted: with thousands of tables
-                        // the text of every placeholder tile used to be laid out and
-                        // tessellated on each frame, which froze the whole interface
-                        // while the pictures were being rebuilt.
-                        if ui.is_rect_visible(rect) {
-                            visible_pos.push(fi);
-                        } else {
-                            continue;
-                        }
-
-                        // Only let hover drive selection when the cursor is actively
-                        // moving. If the user presses a flipper/magna (no mouse motion),
-                        // joystick/keyboard navigation wins and the stale hover doesn't
-                        // snap selected_table back under the cursor.
-                        let mouse_moved_recently = ui
-                            .ctx()
-                            .input(|i| i.pointer.time_since_last_movement() < 0.3);
-                        if response.hovered() && mouse_moved_recently {
-                            self.selected_table = idx;
-                        }
-                        if response.clicked() {
-                            launch_idx = Some(idx);
-                        }
-
-                        let painter = ui.painter_at(rect);
-                        let is_selected = idx == self.selected_table;
-
-                        // Card background: the selected table glows in the
-                        // DMD's orange, as if its playfield lights came on.
-                        let p = theme::pal(ui.ctx());
-                        let bg_color = if is_selected {
-                            p.tint(p.accent, 48)
-                        } else if response.hovered() {
-                            p.raised
-                        } else {
-                            p.surface
-                        };
-                        painter.rect_filled(rect, 8.0, bg_color);
-
-                        // Selection border (inside to avoid clipping by painter_at)
-                        if is_selected {
-                            painter.rect_stroke(
-                                rect,
-                                8.0,
-                                egui::Stroke::new(4.0, p.accent),
-                                egui::StrokeKind::Inside,
-                            );
-                        } else {
-                            painter.rect_stroke(
-                                rect,
-                                8.0,
-                                egui::Stroke::new(1.0, p.border),
-                                egui::StrokeKind::Inside,
-                            );
-                        }
-
-                        // Backglass image (centered in image area)
-                        let img_area = egui::Rect::from_min_size(
-                            rect.min + egui::vec2(4.0, 4.0),
-                            egui::vec2(card_width - 8.0, img_height - 8.0),
-                        );
-                        if table.has_bg {
-                            // The thumbnail made for the grid, in the GPU
-                            // for every table (see `bgcache`); a plain tile
-                            // while it is still on its way.
-                            if let Some(tex) = self.bg_cache.thumb(idx) {
-                                paint_tile_picture(ui, tex, img_area, self.tile_fill);
-                            } else {
-                                painter.rect_filled(img_area, 4.0, p.bg);
+                    ui.horizontal(|ui| {
+                        ui.add_space(left_pad);
+                        for col in 0..cols {
+                            let fi = row_start + col;
+                            if fi >= filtered.len() {
+                                break;
                             }
-                        } else {
-                            // Localized "missing image" placeholder. Tells the user
-                            // exactly which two filenames they can drop in to fix
-                            // it. Rendered live rather than pre-generated so the
-                            // hint re-localizes when the user switches language.
-                            painter.rect_filled(img_area, 4.0, p.bg);
-                            let cx = img_area.center().x;
-                            let h = img_area.height();
-                            painter.text(
-                                egui::pos2(cx, img_area.min.y + h * 0.30),
-                                egui::Align2::CENTER_CENTER,
-                                t!("launcher_missing_title", table = table.name.clone()),
-                                egui::FontId::proportional(18.0),
-                                p.text_muted,
-                            );
-                            painter.text(
-                                egui::pos2(cx, img_area.min.y + h * 0.52),
-                                egui::Align2::CENTER_CENTER,
-                                t!("launcher_missing_hint_launcher"),
-                                egui::FontId::proportional(14.0),
-                                p.text_faint,
-                            );
-                            painter.text(
-                                egui::pos2(cx, img_area.min.y + h * 0.68),
-                                egui::Align2::CENTER_CENTER,
-                                t!("launcher_missing_hint_b2s"),
-                                egui::FontId::proportional(14.0),
-                                p.text_faint,
-                            );
-                        }
+                            let idx = filtered[fi];
+                            let table = &self.tables[idx];
 
-                        // Table name (centered, bigger, bold)
-                        let text_center = egui::pos2(
-                            rect.center().x,
-                            rect.min.y + img_height + (card_height - img_height) / 2.0,
-                        );
-                        painter.text(
-                            text_center,
-                            egui::Align2::CENTER_CENTER,
-                            &table.name,
-                            egui::FontId::new(24.0, egui::FontFamily::Proportional),
-                            if is_selected { p.accent_text } else { p.text },
-                        );
-
-                        // Favourite star (right, big and bright when set) and
-                        // rating (bottom-left, five stars with the empty ones in
-                        // black so the scale is visible; a fraction of a star is
-                        // a fraction of its surface: 3.2 stars). Painted shapes
-                        // (no font needed), both clickable and allocated after
-                        // the card so a click on them is not a click on the
-                        // card (which launches the table).
-                        let fav_center = egui::pos2(img_area.max.x - 30.0, img_area.max.y - 34.0);
-                        let fav_resp = ui.interact(
-                            egui::Rect::from_center_size(fav_center, egui::vec2(52.0, 52.0)),
-                            ui.scope_id().with(("favorite", idx)),
-                            egui::Sense::click(),
-                        );
-                        if table.user.favorite {
-                            // A glow, then a big bright star with a pale heart.
-                            painter.circle_filled(fav_center, 30.0, STAR_GOLD.gamma_multiply(0.22));
-                            painter.circle_filled(fav_center, 24.0, STAR_GOLD.gamma_multiply(0.38));
-                            paint_star(&painter, fav_center, 21.0, STAR_BRIGHT);
-                            paint_star(
-                                &painter,
-                                fav_center,
-                                9.0,
-                                egui::Color32::from_rgb(255, 248, 200),
-                            );
-                        } else if is_selected || fav_resp.hovered() {
-                            painter.circle_filled(
-                                fav_center,
-                                17.0,
-                                egui::Color32::from_black_alpha(160),
-                            );
-                            let color = if fav_resp.hovered() {
-                                STAR_GOLD.gamma_multiply(0.8)
-                            } else {
-                                egui::Color32::from_gray(110)
-                            };
-                            paint_star(&painter, fav_center, 13.0, color);
-                        }
-                        if fav_resp.hovered() {
-                            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-                        }
-                        if fav_resp.clicked() {
-                            fav_toggle = Some(idx);
-                        }
-                        // The community rating (VPinPlay), when there is one.
-                        let community = table
-                            .vps_id
-                            .as_ref()
-                            .and_then(|id| self.community.get(id))
-                            .map(|r| r.avg);
-                        if table.user.rating_tenths > 0 || is_selected || community.is_some() {
-                            const STEP: f32 = 22.0;
-                            let row = egui::Rect::from_min_size(
-                                egui::pos2(img_area.min.x + 6.0, img_area.max.y - 32.0),
-                                egui::vec2(10.0 + 5.0 * STEP, 26.0),
-                            );
-                            painter.rect_filled(row, 13.0, egui::Color32::from_black_alpha(190));
-                            // Gold: the player's own rating. Blue: the community's,
-                            // shown while the player has not rated the table.
-                            let (rating, fill) = if table.user.rating_tenths > 0 {
-                                (table.user.rating_tenths as f32 / 10.0, STAR_GOLD)
-                            } else if let Some(avg) = community {
-                                (avg, STAR_COMMUNITY)
-                            } else {
-                                (0.0, STAR_GOLD)
-                            };
-                            for k in 0..5 {
-                                let c = egui::pos2(
-                                    row.min.x + 5.0 + STEP / 2.0 + k as f32 * STEP,
-                                    row.center().y,
-                                );
-                                paint_rating_star(
-                                    &painter,
-                                    c,
-                                    9.5,
-                                    (rating - k as f32).clamp(0.0, 1.0),
-                                    fill,
-                                );
-                            }
-                            let rating_resp = ui.interact(
-                                row,
-                                ui.scope_id().with(("rating", idx)),
+                            let (rect, response) = ui.allocate_exact_size(
+                                egui::vec2(card_width, card_height),
                                 egui::Sense::click(),
                             );
-                            if rating_resp.hovered() {
-                                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                            // Off-screen cards are not painted: with thousands of tables
+                            // the text of every placeholder tile used to be laid out and
+                            // tessellated on each frame, which froze the whole interface
+                            // while the pictures were being rebuilt.
+                            if ui.is_rect_visible(rect) {
+                                visible_pos.push(fi);
+                            } else {
+                                continue;
                             }
-                            if rating_resp.clicked()
-                                && let Some(pos) = rating_resp.interact_pointer_pos()
-                            {
-                                // Where in the row was the click: 0 to 5 stars, to a
-                                // tenth. Clicking the current value clears it.
-                                let stars = (pos.x - (row.min.x + 5.0)) / STEP;
-                                let tenths = (stars * 10.0).round().clamp(0.0, 50.0) as u8;
-                                let new = if tenths == table.user.rating_tenths {
-                                    0
+
+                            // Only let hover drive selection when the cursor is actively
+                            // moving. If the user presses a flipper/magna (no mouse motion),
+                            // joystick/keyboard navigation wins and the stale hover doesn't
+                            // snap selected_table back under the cursor.
+                            let mouse_moved_recently = ui
+                                .ctx()
+                                .input(|i| i.pointer.time_since_last_movement() < 0.3);
+                            if response.hovered() && mouse_moved_recently {
+                                self.selected_table = idx;
+                            }
+                            if response.clicked() {
+                                launch_idx = Some(idx);
+                            }
+
+                            let painter = ui.painter_at(rect);
+                            let is_selected = idx == self.selected_table;
+
+                            // Card background: the selected table glows in the
+                            // DMD's orange, as if its playfield lights came on.
+                            let p = theme::pal(ui.ctx());
+                            let bg_color = if is_selected {
+                                p.tint(p.accent, 48)
+                            } else if response.hovered() {
+                                p.raised
+                            } else {
+                                p.surface
+                            };
+                            painter.rect_filled(rect, 8.0, bg_color);
+
+                            // Selection border (inside to avoid clipping by painter_at)
+                            if is_selected {
+                                painter.rect_stroke(
+                                    rect,
+                                    8.0,
+                                    egui::Stroke::new(4.0, p.accent),
+                                    egui::StrokeKind::Inside,
+                                );
+                            } else {
+                                painter.rect_stroke(
+                                    rect,
+                                    8.0,
+                                    egui::Stroke::new(1.0, p.border),
+                                    egui::StrokeKind::Inside,
+                                );
+                            }
+
+                            // Backglass image (centered in image area)
+                            let img_area = egui::Rect::from_min_size(
+                                rect.min + egui::vec2(4.0, 4.0),
+                                egui::vec2(card_width - 8.0, img_height - 8.0),
+                            );
+                            if table.has_bg {
+                                // The thumbnail made for the grid, in the GPU
+                                // for every table (see `bgcache`); a plain tile
+                                // while it is still on its way.
+                                if let Some(tex) = self.bg_cache.thumb(idx) {
+                                    paint_tile_picture(ui, tex, img_area, self.tile_fill);
                                 } else {
-                                    tenths
-                                };
-                                rate_set = Some((idx, new));
+                                    painter.rect_filled(img_area, 4.0, p.bg);
+                                }
+                            } else {
+                                // Localized "missing image" placeholder. Tells the user
+                                // exactly which two filenames they can drop in to fix
+                                // it. Rendered live rather than pre-generated so the
+                                // hint re-localizes when the user switches language.
+                                painter.rect_filled(img_area, 4.0, p.bg);
+                                let cx = img_area.center().x;
+                                let h = img_area.height();
+                                painter.text(
+                                    egui::pos2(cx, img_area.min.y + h * 0.30),
+                                    egui::Align2::CENTER_CENTER,
+                                    t!("launcher_missing_title", table = table.name.clone()),
+                                    egui::FontId::proportional(18.0),
+                                    p.text_muted,
+                                );
+                                painter.text(
+                                    egui::pos2(cx, img_area.min.y + h * 0.52),
+                                    egui::Align2::CENTER_CENTER,
+                                    t!("launcher_missing_hint_launcher"),
+                                    egui::FontId::proportional(14.0),
+                                    p.text_faint,
+                                );
+                                painter.text(
+                                    egui::pos2(cx, img_area.min.y + h * 0.68),
+                                    egui::Align2::CENTER_CENTER,
+                                    t!("launcher_missing_hint_b2s"),
+                                    egui::FontId::proportional(14.0),
+                                    p.text_faint,
+                                );
                             }
-                        }
 
-                        // Community rating from VPinPlay (top-left): a small
-                        // star and the average, when the table has one.
-                        if let Some(rating) =
-                            table.vps_id.as_ref().and_then(|id| self.community.get(id))
-                        {
-                            let text = format!("{:.1}", rating.avg);
-                            let pill = egui::Rect::from_min_size(
-                                egui::pos2(img_area.min.x + 6.0, img_area.min.y + 6.0),
-                                egui::vec2(58.0, 24.0),
-                            );
-                            painter.rect_filled(pill, 12.0, egui::Color32::from_black_alpha(190));
-                            paint_star(
-                                &painter,
-                                egui::pos2(pill.min.x + 14.0, pill.center().y),
-                                8.5,
-                                STAR_COMMUNITY,
+                            // Table name (centered, bigger, bold)
+                            let text_center = egui::pos2(
+                                rect.center().x,
+                                rect.min.y + img_height + (card_height - img_height) / 2.0,
                             );
                             painter.text(
-                                egui::pos2(pill.min.x + 26.0, pill.center().y),
-                                egui::Align2::LEFT_CENTER,
-                                text,
-                                egui::FontId::new(15.0, egui::FontFamily::Proportional),
-                                egui::Color32::WHITE,
+                                text_center,
+                                egui::Align2::CENTER_CENTER,
+                                &table.name,
+                                egui::FontId::new(24.0, egui::FontFamily::Proportional),
+                                if is_selected { p.accent_text } else { p.text },
                             );
-                        }
 
-                        // Update-available badge: small "↑" disk in the
-                        // top-right corner of the image area. Set by the
-                        // catalog worker when the live VPSDB Game.updated_at
-                        // has moved past the value recorded at link time.
-                        // Click → open the VPS catalog page for this game
-                        // in the user's browser; allocated AFTER the card
-                        // so egui's hit-testing routes the click here
-                        // instead of triggering the card's launch handler.
-                        if table.update_available {
-                            let badge_radius = 14.0;
-                            let badge_center = egui::pos2(
-                                img_area.max.x - badge_radius - 4.0,
-                                img_area.min.y + badge_radius + 4.0,
-                            );
-                            let badge_rect = egui::Rect::from_center_size(
-                                badge_center,
-                                egui::vec2(badge_radius * 2.0, badge_radius * 2.0),
-                            );
-                            let badge_resp = ui.interact(
-                                badge_rect,
-                                ui.scope_id().with(("update_badge", idx)),
+                            // Favourite star (right, big and bright when set) and
+                            // rating (bottom-left, five stars with the empty ones in
+                            // black so the scale is visible; a fraction of a star is
+                            // a fraction of its surface: 3.2 stars). Painted shapes
+                            // (no font needed), both clickable and allocated after
+                            // the card so a click on them is not a click on the
+                            // card (which launches the table).
+                            let fav_center = egui::pos2(img_area.max.x - 30.0, img_area.max.y - 34.0);
+                            let fav_resp = ui.interact(
+                                egui::Rect::from_center_size(fav_center, egui::vec2(52.0, 52.0)),
+                                ui.scope_id().with(("favorite", idx)),
                                 egui::Sense::click(),
                             );
-                            let bg_color = if badge_resp.hovered() {
-                                p.tint(p.info, 200)
-                            } else {
-                                p.info
-                            };
-                            painter.circle_filled(badge_center, badge_radius, bg_color);
-                            painter.circle_stroke(
-                                badge_center,
-                                badge_radius,
-                                egui::Stroke::new(1.5, egui::Color32::from_rgb(20, 80, 140)),
-                            );
-                            painter.text(
-                                badge_center,
-                                egui::Align2::CENTER_CENTER,
-                                "↑",
-                                egui::FontId::new(20.0, egui::FontFamily::Proportional),
-                                egui::Color32::WHITE,
-                            );
-                            if badge_resp.hovered() {
+                            if table.user.favorite {
+                                // A glow, then a big bright star with a pale heart.
+                                painter.circle_filled(fav_center, 30.0, STAR_GOLD.gamma_multiply(0.22));
+                                painter.circle_filled(fav_center, 24.0, STAR_GOLD.gamma_multiply(0.38));
+                                paint_star(&painter, fav_center, 21.0, STAR_BRIGHT);
+                                paint_star(
+                                    &painter,
+                                    fav_center,
+                                    9.0,
+                                    egui::Color32::from_rgb(255, 248, 200),
+                                );
+                            } else if is_selected || fav_resp.hovered() {
+                                painter.circle_filled(
+                                    fav_center,
+                                    17.0,
+                                    egui::Color32::from_black_alpha(160),
+                                );
+                                let color = if fav_resp.hovered() {
+                                    STAR_GOLD.gamma_multiply(0.8)
+                                } else {
+                                    egui::Color32::from_gray(110)
+                                };
+                                paint_star(&painter, fav_center, 13.0, color);
+                            }
+                            if fav_resp.hovered() {
                                 ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
                             }
-                            // Tooltip on hover — replaces the previous
-                            // bare circle with a friendly hint that
-                            // explains what clicking does. The egui
-                            // tooltip uses the response's hover state
-                            // and renders a small floating panel near
-                            // the cursor.
-                            let badge_resp =
-                                badge_resp.on_hover_text(t!("launcher_update_badge_tooltip"));
-                            if badge_resp.clicked()
-                                && let Some(ref vid) = table.vps_id
-                            {
-                                let url = format!(
-                                    "https://virtualpinballspreadsheet.github.io/games?game={vid}"
+                            if fav_resp.clicked() {
+                                fav_toggle = Some(idx);
+                            }
+                            // The community rating (VPinPlay), when there is one.
+                            let community = table
+                                .vps_id
+                                .as_ref()
+                                .and_then(|id| self.community.get(id))
+                                .map(|r| r.avg);
+                            if table.user.rating_tenths > 0 || is_selected || community.is_some() {
+                                const STEP: f32 = 22.0;
+                                let row = egui::Rect::from_min_size(
+                                    egui::pos2(img_area.min.x + 6.0, img_area.max.y - 32.0),
+                                    egui::vec2(10.0 + 5.0 * STEP, 26.0),
                                 );
-                                log::info!("Opening VPS page: {url}");
-                                ui.ctx().open_url(egui::OpenUrl::new_tab(url));
+                                painter.rect_filled(row, 13.0, egui::Color32::from_black_alpha(190));
+                                // Gold: the player's own rating. Blue: the community's,
+                                // shown while the player has not rated the table.
+                                let (rating, fill) = if table.user.rating_tenths > 0 {
+                                    (table.user.rating_tenths as f32 / 10.0, STAR_GOLD)
+                                } else if let Some(avg) = community {
+                                    (avg, STAR_COMMUNITY)
+                                } else {
+                                    (0.0, STAR_GOLD)
+                                };
+                                for k in 0..5 {
+                                    let c = egui::pos2(
+                                        row.min.x + 5.0 + STEP / 2.0 + k as f32 * STEP,
+                                        row.center().y,
+                                    );
+                                    paint_rating_star(
+                                        &painter,
+                                        c,
+                                        9.5,
+                                        (rating - k as f32).clamp(0.0, 1.0),
+                                        fill,
+                                    );
+                                }
+                                let rating_resp = ui.interact(
+                                    row,
+                                    ui.scope_id().with(("rating", idx)),
+                                    egui::Sense::click(),
+                                );
+                                if rating_resp.hovered() {
+                                    ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                                }
+                                if rating_resp.clicked()
+                                    && let Some(pos) = rating_resp.interact_pointer_pos()
+                                {
+                                    // Where in the row was the click: 0 to 5 stars, to a
+                                    // tenth. Clicking the current value clears it.
+                                    let stars = (pos.x - (row.min.x + 5.0)) / STEP;
+                                    let tenths = (stars * 10.0).round().clamp(0.0, 50.0) as u8;
+                                    let new = if tenths == table.user.rating_tenths {
+                                        0
+                                    } else {
+                                        tenths
+                                    };
+                                    rate_set = Some((idx, new));
+                                }
+                            }
+
+                            // Community rating from VPinPlay (top-left): a small
+                            // star and the average, when the table has one.
+                            if let Some(rating) =
+                                table.vps_id.as_ref().and_then(|id| self.community.get(id))
+                            {
+                                let text = format!("{:.1}", rating.avg);
+                                let pill = egui::Rect::from_min_size(
+                                    egui::pos2(img_area.min.x + 6.0, img_area.min.y + 6.0),
+                                    egui::vec2(58.0, 24.0),
+                                );
+                                painter.rect_filled(pill, 12.0, egui::Color32::from_black_alpha(190));
+                                paint_star(
+                                    &painter,
+                                    egui::pos2(pill.min.x + 14.0, pill.center().y),
+                                    8.5,
+                                    STAR_COMMUNITY,
+                                );
+                                painter.text(
+                                    egui::pos2(pill.min.x + 26.0, pill.center().y),
+                                    egui::Align2::LEFT_CENTER,
+                                    text,
+                                    egui::FontId::new(15.0, egui::FontFamily::Proportional),
+                                    egui::Color32::WHITE,
+                                );
+                            }
+
+                            // Update-available badge: small "↑" disk in the
+                            // top-right corner of the image area. Set by the
+                            // catalog worker when the live VPSDB Game.updated_at
+                            // has moved past the value recorded at link time.
+                            // Click → open the VPS catalog page for this game
+                            // in the user's browser; allocated AFTER the card
+                            // so egui's hit-testing routes the click here
+                            // instead of triggering the card's launch handler.
+                            if table.update_available {
+                                let badge_radius = 14.0;
+                                let badge_center = egui::pos2(
+                                    img_area.max.x - badge_radius - 4.0,
+                                    img_area.min.y + badge_radius + 4.0,
+                                );
+                                let badge_rect = egui::Rect::from_center_size(
+                                    badge_center,
+                                    egui::vec2(badge_radius * 2.0, badge_radius * 2.0),
+                                );
+                                let badge_resp = ui.interact(
+                                    badge_rect,
+                                    ui.scope_id().with(("update_badge", idx)),
+                                    egui::Sense::click(),
+                                );
+                                let bg_color = if badge_resp.hovered() {
+                                    p.tint(p.info, 200)
+                                } else {
+                                    p.info
+                                };
+                                painter.circle_filled(badge_center, badge_radius, bg_color);
+                                painter.circle_stroke(
+                                    badge_center,
+                                    badge_radius,
+                                    egui::Stroke::new(1.5, egui::Color32::from_rgb(20, 80, 140)),
+                                );
+                                painter.text(
+                                    badge_center,
+                                    egui::Align2::CENTER_CENTER,
+                                    "↑",
+                                    egui::FontId::new(20.0, egui::FontFamily::Proportional),
+                                    egui::Color32::WHITE,
+                                );
+                                if badge_resp.hovered() {
+                                    ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                                }
+                                // Tooltip on hover — replaces the previous
+                                // bare circle with a friendly hint that
+                                // explains what clicking does. The egui
+                                // tooltip uses the response's hover state
+                                // and renders a small floating panel near
+                                // the cursor.
+                                let badge_resp =
+                                    badge_resp.on_hover_text(t!("launcher_update_badge_tooltip"));
+                                if badge_resp.clicked()
+                                    && let Some(ref vid) = table.vps_id
+                                {
+                                    let url = format!(
+                                        "https://virtualpinballspreadsheet.github.io/games?game={vid}"
+                                    );
+                                    log::info!("Opening VPS page: {url}");
+                                    ui.ctx().open_url(egui::OpenUrl::new_tab(url));
+                                }
                             }
                         }
-                    }
-                });
-                ui.add_space(4.0);
-            }
-        });
+                    });
+                    ui.add_space(4.0);
+                }
+            });
+        }
 
         // Which pictures to hold: the page on screen (plus the selection, if
         // it was jumped to) in the GPU at full size, the page before and the
@@ -1864,7 +1898,7 @@ fn save_error_log(log: &str) -> Option<Result<String, String>> {
     })
 }
 
-const STAR_GOLD: egui::Color32 = egui::Color32::from_rgb(255, 200, 40);
+pub(super) const STAR_GOLD: egui::Color32 = egui::Color32::from_rgb(255, 200, 40);
 const STAR_BRIGHT: egui::Color32 = egui::Color32::from_rgb(255, 222, 70);
 /// The community's rating, to tell it from the player's own (gold).
 const STAR_COMMUNITY: egui::Color32 = egui::Color32::from_rgb(90, 175, 255);
@@ -1942,7 +1976,7 @@ fn paint_star(painter: &egui::Painter, center: egui::Pos2, radius: f32, color: e
 
 /// A rating star: black, outlined so it shows on a dark ground, with the
 /// left `fraction` (0 to 1) of its width filled in gold.
-fn paint_rating_star(
+pub(super) fn paint_rating_star(
     painter: &egui::Painter,
     center: egui::Pos2,
     radius: f32,
