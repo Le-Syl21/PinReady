@@ -82,6 +82,7 @@ pub fn find_video(table_dir: &Path, slot: VideoSlot) -> Option<PathBuf> {
 
 /// Largest size with the clip's aspect ratio that fits `max_w`×`max_h`, never
 /// enlarged, even dimensions (what the scaler expects for YUV sources).
+#[cfg_attr(not(feature = "video"), allow(dead_code))]
 pub fn fit(w: u32, h: u32, max_w: u32, max_h: u32) -> (u32, u32) {
     if w == 0 || h == 0 {
         return (0, 0);

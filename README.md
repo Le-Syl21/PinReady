@@ -89,7 +89,8 @@ If you prefer to compile it yourself:
 ```bash
 sudo apt install build-essential cmake pkg-config \
   libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
-  libxkbcommon-dev libssl-dev libudev-dev libwayland-dev
+  libxkbcommon-dev libssl-dev libudev-dev libwayland-dev \
+  nasm libclang-dev git
 
 cargo build --release
 ```
@@ -107,6 +108,12 @@ cargo install pinready
 ```
 
 SDL3 and SQLite compile from source automatically -- no manual installation needed. ✅
+
+The preview videos need FFmpeg, also compiled from source and linked in: it takes
+`nasm` and `libclang` (Linux: in the line above; macOS: `brew install nasm`;
+Windows: a static FFmpeg from vcpkg, `vcpkg install ffmpeg[core,avcodec,avformat,swscale]:x64-windows-static-md`).
+To build without the videos, and without any of this, add `--no-default-features`:
+`cargo install pinready --no-default-features`.
 
 Working on PinReady without a cabinet? [`tools/virtual-cab`](tools/virtual-cab) runs a 4-screen
 cabinet in Docker (Ubuntu 24.04 or 26.04), Visual Pinball included.
@@ -420,7 +427,8 @@ Si vous préférez compiler vous-même :
 ```bash
 sudo apt install build-essential cmake pkg-config \
   libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
-  libxkbcommon-dev libssl-dev libudev-dev libwayland-dev
+  libxkbcommon-dev libssl-dev libudev-dev libwayland-dev \
+  nasm libclang-dev git
 
 cargo build --release
 ```
@@ -438,6 +446,12 @@ cargo install pinready
 ```
 
 SDL3 et SQLite se compilent depuis les sources automatiquement -- aucune installation manuelle nécessaire. ✅
+
+Les vidéos d'aperçu ont besoin de FFmpeg, compilé lui aussi depuis les sources et intégré :
+il faut `nasm` et `libclang` (Linux : dans la ligne ci-dessus ; macOS : `brew install nasm` ;
+Windows : un FFmpeg statique de vcpkg, `vcpkg install ffmpeg[core,avcodec,avformat,swscale]:x64-windows-static-md`).
+Pour compiler sans les vidéos, et sans rien de tout ça, ajoutez `--no-default-features` :
+`cargo install pinready --no-default-features`.
 
 Vous travaillez sur PinReady sans flipper ? [`tools/virtual-cab`](tools/virtual-cab) lance un pincab
 de 4 écrans dans Docker (Ubuntu 24.04 ou 26.04), Visual Pinball compris.
