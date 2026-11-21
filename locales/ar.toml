@@ -434,7 +434,7 @@ Tables/
 └── Table Name/
     ├── Table Name.vpx                <- ملف الطاولة (مطلوب)
     ├── Table Name.directb2s          <- backglass B2S (اختياري)
-    ├── medias/launcher.png            <- تجاوز صورة مصغرة للمشغّل (اختياري، .png/.webp/.jpg/.jpeg)
+    ├── medias/launcher.png            <- تجاوز صورة مصغرة للمشغّل (اختياري، .png/.webp/.jpg/.jpeg، 480×384)
     ├── Table Name.ini                <- تجاوزات لكل طاولة (اختياري)
     ├── Table Name.vbs                <- VBS patch / تجاوز السكربت (اختياري)
     ├── altsound/<rom>/               <- حزمة altsound (اختياري)
