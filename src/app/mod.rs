@@ -2087,6 +2087,7 @@ mod inputs_page;
 mod launcher;
 mod launcher_input;
 mod launcher_ui;
+mod mnemonic;
 mod outputs_page;
 mod rendering_page;
 mod save;
@@ -2455,6 +2456,9 @@ impl eframe::App for App {
         // Header: the wordmark and the toolbar, then the steps as a strip of
         // pills that wraps on a narrow (rotated) window.
         let p = theme::pal(ui.ctx());
+        // Alt + underlined letter / step number (no mouse on many cabinets),
+        // taken out of the input before the pages' fields see it.
+        let mut mn = mnemonic::Mnemonics::begin(ui.ctx());
         egui::Panel::top("wizard_header")
             .frame(
                 egui::Frame::new()
@@ -2528,12 +2532,16 @@ impl eframe::App for App {
                             .show(ui, |ui| {
                                 ui.horizontal(|ui| {
                                     ui.spacing_mut().item_spacing.x = 5.0;
-                                    ui.label(
-                                        egui::RichText::new((i + 1).to_string())
-                                            .monospace()
-                                            .color(fg)
-                                            .strong(),
-                                    );
+                                    // a reachable step's number is its Alt shortcut
+                                    let num = egui::RichText::new((i + 1).to_string())
+                                        .monospace()
+                                        .color(fg)
+                                        .strong();
+                                    ui.label(if reachable && i < 9 {
+                                        num.underline()
+                                    } else {
+                                        num
+                                    });
                                     let title = egui::RichText::new(page.title()).color(fg);
                                     ui.label(if i == current { title.strong() } else { title });
                                 });
@@ -2544,7 +2552,16 @@ impl eframe::App for App {
                             if r.clicked() {
                                 jump = Some(i);
                             }
-                            r.on_hover_cursor(egui::CursorIcon::PointingHand);
+                            let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
+                            if i < 9 {
+                                r.on_hover_text(format!("Alt+{}", i + 1));
+                            }
+                        }
+                    }
+                    // Alt + step number, also for the steps a compact strip hides
+                    for i in 0..count.min(9) {
+                        if i != current && i <= self.wizard_furthest && mn.digit(i as u32 + 1) {
+                            jump = Some(i);
                         }
                     }
                     if compact {
@@ -2570,38 +2587,49 @@ impl eframe::App for App {
             )
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    if self.page.index() > 0
-                        && ui
-                            .add(theme::secondary_button(
-                                format!(
-                                    "\u{2190}  {}",
-                                    t!("wizard_previous").trim_start_matches(['<', ' '])
-                                ),
-                                &p,
-                            ))
-                            .clicked()
-                    {
-                        self.prev_page();
+                    // Alt letters, picked in a fixed order so they stay put
+                    let en = |k: &str| t!(k, locale = "en").to_string();
+                    let m_prev = mn.pick(
+                        &format!(
+                            "\u{2190}  {}",
+                            t!("wizard_previous").trim_start_matches(['<', ' '])
+                        ),
+                        &en("wizard_previous"),
+                    );
+                    let m_quit = mn.pick(&t!("wizard_quit_nosave"), &en("wizard_quit_nosave"));
+                    let m_reset = mn.pick(&t!("wizard_reset"), &en("wizard_reset"));
+                    let last = self.page.index() + 1 >= WizardPage::count();
+                    let m_next = if last {
+                        mn.pick(&t!("wizard_finish"), &en("wizard_finish"))
+                    } else {
+                        let label = t!("wizard_next").trim_end_matches(['>', ' ']).to_string();
+                        mn.pick(&format!("{label}  \u{2192}"), &en("wizard_next"))
+                    };
+
+                    if self.page.index() > 0 {
+                        let r = m_prev.tooltip(ui.add(theme::secondary_button_text(
+                            m_prev.widget_text(ui, p.text, None),
+                            &p,
+                        )));
+                        if r.clicked() || mn.hit(&m_prev) {
+                            self.prev_page();
+                        }
                     }
 
                     // Leaves without writing anything: the settings of the pages
                     // already validated only live in memory until the last page.
-                    if ui
-                        .add(theme::secondary_button(t!("wizard_quit_nosave"), &p))
-                        .clicked()
-                    {
+                    let r = m_quit.tooltip(ui.add(theme::secondary_button_text(
+                        m_quit.widget_text(ui, p.text, None),
+                        &p,
+                    )));
+                    if r.clicked() || mn.hit(&m_quit) {
                         ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                     }
 
-                    if ui
-                        .add(
-                            egui::Button::new(
-                                egui::RichText::new(t!("wizard_reset")).color(p.text_muted),
-                            )
-                            .frame(false),
-                        )
-                        .clicked()
-                    {
+                    let r = m_reset.tooltip(ui.add(
+                        egui::Button::new(m_reset.widget_text(ui, p.text_muted, None)).frame(false),
+                    ));
+                    if r.clicked() || mn.hit(&m_reset) {
                         self.reset_current_page();
                     }
 
@@ -2625,17 +2653,14 @@ impl eframe::App for App {
                         let finishing = self.close_at.is_some();
                         let blocked = downloading || vpx_missing || tables_dir_missing || finishing;
 
-                        if self.page.index() < WizardPage::count() - 1 {
-                            let label = t!("wizard_next").trim_end_matches(['>', ' ']).to_string();
-                            let btn =
-                                theme::primary_button(format!("{label}  \u{2192}"), &p, !blocked);
-                            if ui.add_enabled(!blocked, btn).clicked() {
-                                self.next_page();
-                            }
-                        } else {
-                            let btn = theme::primary_button(t!("wizard_finish"), &p, !blocked);
-                            if ui.add_enabled(!blocked, btn).clicked() {
+                        let text = m_next.widget_text(ui, theme::primary_fg(&p, !blocked), None);
+                        let btn = theme::primary_button_text(text, &p, !blocked);
+                        let r = m_next.tooltip(ui.add_enabled(!blocked, btn));
+                        if r.clicked() || (!blocked && mn.hit(&m_next)) {
+                            if last {
                                 self.finalize_wizard(ui.ctx());
+                            } else {
+                                self.next_page();
                             }
                         }
                         if vpx_missing && !downloading {

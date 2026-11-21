@@ -28,6 +28,9 @@ impl App {
     pub(super) fn render_launcher(&mut self, ui: &mut egui::Ui) {
         // Install image loaders once
         egui_extras::install_image_loaders(ui.ctx());
+        // Alt + underlined letter presses the header buttons (no mouse on
+        // many cabinets); taken out of the input before navigation and search.
+        let mut mn = super::mnemonic::Mnemonics::begin(ui.ctx());
 
         // About window: painted on top of everything when open.
         self.render_about_window(ui.ctx());
@@ -111,11 +114,14 @@ impl App {
         let (row_rect, _) = ui.allocate_exact_size(egui::vec2(hrow_w, row_h), egui::Sense::hover());
         let ctx = ui.ctx().clone();
         let p = theme::pal(&ctx);
-        let header_button = |text: String| {
-            egui::Button::new(egui::RichText::new(text).size(h_size).color(p.text))
+        let header_button = |text: egui::WidgetText| {
+            egui::Button::new(text)
                 .fill(egui::Color32::TRANSPARENT)
                 .stroke(egui::Stroke::new(1.0, p.border))
         };
+        // label with its underlined Alt letter
+        let m_text =
+            |m: &super::mnemonic::Mnemonic, ui: &egui::Ui| m.widget_text(ui, p.text, Some(h_size));
 
         let mut left = ui.new_child(
             egui::UiBuilder::new()
@@ -138,8 +144,12 @@ impl App {
         // mtime-invalidation inside `scan_tables` already
         // handles "new tables" and "source file changed"
         // cases transparently on every scan.
-        let label = t!("launcher_rebuild").to_string();
-        if left.add(header_button(label)).clicked() {
+        let m = mn.pick(
+            &t!("launcher_rebuild"),
+            &t!("launcher_rebuild", locale = "en"),
+        );
+        let r = m.tooltip(left.add(header_button(m_text(&m, &left))));
+        if r.clicked() || mn.hit(&m) {
             log::info!("Rebuild: flushing backglass + vbs_patches caches, full re-scan");
             self.start_rebuild();
         }
@@ -148,7 +158,9 @@ impl App {
         // does the same). Favourites are toggled with F or the ball-launch
         // button, ratings 0 to 5 with the number keys.
         let sort_label = format!("{}: {}", t!("launcher_sort"), self.sort_mode.label());
-        if left.add(header_button(sort_label)).clicked() {
+        let m = mn.pick(&sort_label, &t!("launcher_sort", locale = "en"));
+        let r = m.tooltip(left.add(header_button(m_text(&m, &left))));
+        if r.clicked() || mn.hit(&m) {
             self.cycle_sort();
         }
 
@@ -173,16 +185,18 @@ impl App {
                 .max_rect(row_rect)
                 .layout(egui::Layout::right_to_left(egui::Align::Center)),
         );
-        if right
-            .add(header_button(t!("launcher_quit").to_string()))
-            .clicked()
-        {
+        // Configuration takes its letter before Quit (Alt+C in most languages)
+        let m_config = mn.pick(
+            &t!("launcher_config"),
+            &t!("launcher_config", locale = "en"),
+        );
+        let m_quit = mn.pick(&t!("launcher_quit"), &t!("launcher_quit", locale = "en"));
+        let r = m_quit.tooltip(right.add(header_button(m_text(&m_quit, &right))));
+        if r.clicked() || mn.hit(&m_quit) {
             self.quit_launcher(&ctx);
         }
-        if right
-            .add(header_button(t!("launcher_config").to_string()))
-            .clicked()
-        {
+        let r = m_config.tooltip(right.add(header_button(m_text(&m_config, &right))));
+        if r.clicked() || mn.hit(&m_config) {
             // Signal main.rs to relaunch this eframe session in
             // Wizard mode with a fresh viewport (windowed on the
             // primary display), then close this one. Cover

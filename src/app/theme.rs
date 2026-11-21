@@ -310,9 +310,28 @@ pub fn primary_button(
         .min_size(vec2(112.0, 30.0))
 }
 
-/// A secondary action: outlined, on the ground.
-pub fn secondary_button(text: impl Into<String>, p: &Palette) -> egui::Button<'static> {
-    egui::Button::new(egui::RichText::new(text.into()).color(p.text))
+/// [`primary_button`] for an already laid-out label (an underlined mnemonic).
+pub fn primary_button_text(
+    text: egui::WidgetText,
+    p: &Palette,
+    enabled: bool,
+) -> egui::Button<'static> {
+    let fill = if enabled { p.accent } else { p.raised };
+    egui::Button::new(text)
+        .fill(fill)
+        .stroke(Stroke::NONE)
+        .min_size(vec2(112.0, 30.0))
+}
+
+/// Text colour of [`primary_button`].
+pub fn primary_fg(p: &Palette, enabled: bool) -> Color32 {
+    if enabled { p.on_accent } else { p.text_faint }
+}
+
+/// A secondary action: outlined, on the ground. The label is already laid
+/// out (an underlined mnemonic, see `mnemonic.rs`).
+pub fn secondary_button_text(text: egui::WidgetText, p: &Palette) -> egui::Button<'static> {
+    egui::Button::new(text)
         .fill(Color32::TRANSPARENT)
         .stroke(Stroke::new(1.0, p.border))
         .min_size(vec2(0.0, 30.0))
