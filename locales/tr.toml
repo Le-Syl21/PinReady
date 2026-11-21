@@ -518,6 +518,12 @@ page_system = "Sistem"
 
 # System wizard page (autostart + desktop integration)
 system_heading = "Sistem"
+system_colors_title = "Renkler"
+system_colors_intro = "Açık ya da koyu temanın üzerine kendi arka plan ve seçim renkleriniz."
+system_colors_ground = "Arka plan"
+system_colors_accent = "Seçim"
+system_colors_preset_bordeaux = "Bordo ve Ferrari kırmızısı"
+system_colors_reset = "Özgün renkler"
 system_desc = "Özel bir makine için kolaylıklar. Bilgisayar başka işler için de kullanılıyorsa kapalı bırakın."
 
 # Asset bundling / merge (Tables wizard page — Import section)

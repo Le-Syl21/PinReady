@@ -1,6 +1,74 @@
 use super::*;
 
 impl App {
+    /// Ground and selection colours on top of the light / dark theme, shown
+    /// live (the whole interface restyles on each change) and kept in the DB.
+    fn render_colors_section(&mut self, ui: &mut egui::Ui) {
+        theme::section(
+            ui,
+            &t!("system_colors_title"),
+            Some(&t!("system_colors_intro")),
+            |ui| {
+                let base = match ui.ctx().theme() {
+                    egui::Theme::Dark => theme::Palette::DARK,
+                    egui::Theme::Light => theme::Palette::LIGHT,
+                };
+                let (mut ground, mut accent) = theme::custom_colors();
+                let mut changed = false;
+                let mut g = ground.unwrap_or(base.bg);
+                let mut a = accent.unwrap_or(base.accent);
+                ui.horizontal(|ui| {
+                    if egui::color_picker::color_edit_button_srgba(
+                        ui,
+                        &mut g,
+                        egui::color_picker::Alpha::Opaque,
+                    )
+                    .changed()
+                    {
+                        ground = Some(g);
+                        changed = true;
+                    }
+                    ui.label(t!("system_colors_ground"));
+                    ui.add_space(24.0);
+                    if egui::color_picker::color_edit_button_srgba(
+                        ui,
+                        &mut a,
+                        egui::color_picker::Alpha::Opaque,
+                    )
+                    .changed()
+                    {
+                        accent = Some(a);
+                        changed = true;
+                    }
+                    ui.label(t!("system_colors_accent"));
+                });
+                ui.add_space(6.0);
+                ui.horizontal_wrapped(|ui| {
+                    if ui.button(t!("system_colors_preset_bordeaux")).clicked() {
+                        ground = theme::color_from_hex("#5C0A1E");
+                        accent = theme::color_from_hex("#FF2800");
+                        changed = true;
+                    }
+                    if (ground.is_some() || accent.is_some())
+                        && ui.button(t!("system_colors_reset")).clicked()
+                    {
+                        ground = None;
+                        accent = None;
+                        changed = true;
+                    }
+                });
+                if changed {
+                    let hex =
+                        |c: Option<egui::Color32>| c.map(theme::color_to_hex).unwrap_or_default();
+                    let _ = self.db.set_config("ui_color_ground", &hex(ground));
+                    let _ = self.db.set_config("ui_color_accent", &hex(accent));
+                    theme::set_custom_colors(ground, accent);
+                    theme::setup(ui.ctx(), self.theme_pref);
+                }
+            },
+        );
+    }
+
     pub(super) fn render_system_page(&mut self, ui: &mut egui::Ui) {
         theme::page_header(ui, &t!("system_heading"), Some(&t!("system_desc")));
 
@@ -39,6 +107,9 @@ impl App {
                 });
             }
         });
+
+        // ---- Colours: the user's own ground and selection colour.
+        self.render_colors_section(ui);
 
         // ---- VPinPlay: community ratings, and sharing the table usage.
         self.render_vpinplay_section(ui);

@@ -516,6 +516,12 @@ page_system = "النظام"
 
 # System wizard page (autostart + desktop integration)
 system_heading = "النظام"
+system_colors_title = "الألوان"
+system_colors_intro = "ألوانك الخاصة للخلفية والتحديد فوق السمة الفاتحة أو الداكنة."
+system_colors_ground = "الخلفية"
+system_colors_accent = "التحديد"
+system_colors_preset_bordeaux = "عنابي وأحمر فيراري"
+system_colors_reset = "الألوان الأصلية"
 system_desc = "وسائل راحة لكابينة مخصصة. اتركها غير مفعّلة إذا كان الحاسوب يُستخدم لشيء آخر أيضاً."
 
 # Asset bundling / merge (Tables wizard page — Import section)

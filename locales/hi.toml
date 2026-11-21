@@ -517,6 +517,12 @@ page_system = "सिस्टम"
 
 # System wizard page (autostart + desktop integration)
 system_heading = "सिस्टम"
+system_colors_title = "रंग"
+system_colors_intro = "हल्की या गहरी थीम के ऊपर अपना पृष्ठभूमि और चयन रंग।"
+system_colors_ground = "पृष्ठभूमि"
+system_colors_accent = "चयन"
+system_colors_preset_bordeaux = "बोर्डो और फ़ेरारी लाल"
+system_colors_reset = "मूल रंग"
 system_desc = "समर्पित कैबिनेट के लिए सुविधाएँ। अगर कंप्यूटर किसी और काम में भी आता है तो इन्हें बंद रखें।"
 
 # Asset bundling / merge (Tables wizard page — Import section)

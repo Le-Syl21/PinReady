@@ -532,6 +532,12 @@ dock_pin_hint = "Ajoute PinReady aux favoris du dock. Disponible sous GNOME uniq
 
 # Page wizard Système (autostart + intégration au bureau)
 system_heading = "Système"
+system_colors_title = "Couleurs"
+system_colors_intro = "Vos propres couleurs de fond et de sélection, par-dessus le thème clair ou sombre."
+system_colors_ground = "Fond"
+system_colors_accent = "Sélection"
+system_colors_preset_bordeaux = "Bordeaux et rouge Ferrari"
+system_colors_reset = "Couleurs d'origine"
 system_desc = "Des conforts pour une caisse dédiée. Laissez-les décochés si l'ordinateur sert aussi à autre chose."
 system_credits_title = "Remerciements"
 system_credits_intro = "PinReady s'appuie sur le travail de ces membres de la communauté Visual Pinball :"

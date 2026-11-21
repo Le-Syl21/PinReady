@@ -517,6 +517,12 @@ page_system = "System"
 
 # System wizard page (autostart + desktop integration)
 system_heading = "System"
+system_colors_title = "Färger"
+system_colors_intro = "Egna färger för bakgrund och markering, ovanpå det ljusa eller mörka temat."
+system_colors_ground = "Bakgrund"
+system_colors_accent = "Markering"
+system_colors_preset_bordeaux = "Vinröd och Ferrariröd"
+system_colors_reset = "Ursprungliga färger"
 system_desc = "Bekvämligheter för en dedikerad cabinet. Låt dem vara avstängda om datorn också används till annat."
 
 # Asset bundling / merge (Tables wizard page — Import section)

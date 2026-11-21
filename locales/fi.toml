@@ -517,6 +517,12 @@ page_system = "Järjestelmä"
 
 # System wizard page (autostart + desktop integration)
 system_heading = "Järjestelmä"
+system_colors_title = "Värit"
+system_colors_intro = "Omat tausta- ja valintavärit vaalean tai tumman teeman päälle."
+system_colors_ground = "Tausta"
+system_colors_accent = "Valinta"
+system_colors_preset_bordeaux = "Viininpunainen ja Ferrarin punainen"
+system_colors_reset = "Alkuperäiset värit"
 system_desc = "Mukavuuksia omistetulle koneelle. Jätä ne pois päältä, jos tietokonetta käytetään myös muuhun."
 
 # Asset bundling / merge (Tables wizard page — Import section)

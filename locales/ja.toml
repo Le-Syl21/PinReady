@@ -517,6 +517,12 @@ page_system = "システム"
 
 # System wizard page (autostart + desktop integration)
 system_heading = "システム"
+system_colors_title = "色"
+system_colors_intro = "明るい／暗いテーマの上に、背景色と選択色を自分で設定します。"
+system_colors_ground = "背景"
+system_colors_accent = "選択"
+system_colors_preset_bordeaux = "ボルドーとフェラーリレッド"
+system_colors_reset = "元の色"
 system_desc = "専用キャビネット向けの便利機能です。このコンピューターを他の用途にも使う場合はオフのままにしてください。"
 
 # Asset bundling / merge (Tables wizard page — Import section)

@@ -81,10 +81,55 @@ impl Palette {
     };
 
     pub fn of(theme: Theme) -> Palette {
-        match theme {
+        let base = match theme {
             Theme::Dark => Self::DARK,
             Theme::Light => Self::LIGHT,
+        };
+        let (ground, accent) = custom_colors();
+        base.with_custom(ground, accent)
+    }
+
+    /// The palette with the user's own ground and accent (selection) colours:
+    /// bars, cards, fields and borders are derived from the ground, the text
+    /// follows its brightness so it stays readable.
+    pub fn with_custom(mut self, ground: Option<Color32>, accent: Option<Color32>) -> Palette {
+        if let Some(g) = ground {
+            let dark = luminance(g) < 0.4;
+            let (text_from, lift) = if dark {
+                (Self::DARK, Color32::WHITE)
+            } else {
+                (Self::LIGHT, Color32::BLACK)
+            };
+            self.text = text_from.text;
+            self.text_muted = text_from.text_muted;
+            self.text_faint = text_from.text_faint;
+            self.success = text_from.success;
+            self.warning = text_from.warning;
+            self.error = text_from.error;
+            self.info = text_from.info;
+            self.bg = g;
+            self.bar = mix(g, Color32::BLACK, if dark { 0.35 } else { 0.04 });
+            self.surface = mix(g, lift, if dark { 0.06 } else { 0.5 });
+            self.raised = mix(g, lift, if dark { 0.12 } else { 0.25 });
+            self.border = mix(g, lift, if dark { 0.2 } else { 0.35 });
+            self.dmd_off = mix(g, lift, 0.1);
         }
+        if let Some(a) = accent {
+            self.accent = a;
+            self.on_accent = if luminance(a) < 0.45 {
+                Color32::WHITE
+            } else {
+                Color32::from_rgb(28, 14, 0)
+            };
+            // the accent as text on the ground: lifted on a dark ground,
+            // darkened on a light one
+            self.accent_text = if luminance(self.bg) < 0.4 {
+                mix(a, Color32::WHITE, 0.25)
+            } else {
+                mix(a, Color32::BLACK, 0.3)
+            };
+        }
+        self
     }
 
     /// `color` laid over the surface at `alpha` (0-255): the ground of a
@@ -98,6 +143,56 @@ impl Palette {
             mix(color.b(), self.surface.b()),
         )
     }
+}
+
+// ── The user's own colours, kept in the DB ──────────────────────────
+
+static CUSTOM: std::sync::RwLock<(Option<Color32>, Option<Color32>)> =
+    std::sync::RwLock::new((None, None));
+
+/// The user's ground and accent colours (`None` = the theme's own).
+pub fn custom_colors() -> (Option<Color32>, Option<Color32>) {
+    CUSTOM.read().map(|c| *c).unwrap_or((None, None))
+}
+
+/// Set the user's colours; [`setup`] must run again to restyle the widgets.
+pub fn set_custom_colors(ground: Option<Color32>, accent: Option<Color32>) {
+    if let Ok(mut c) = CUSTOM.write() {
+        *c = (ground, accent);
+    }
+}
+
+/// `#RRGGBB` → colour.
+pub fn color_from_hex(s: &str) -> Option<Color32> {
+    let h = s.trim().trim_start_matches('#');
+    if h.len() != 6 {
+        return None;
+    }
+    let v = u32::from_str_radix(h, 16).ok()?;
+    Some(Color32::from_rgb((v >> 16) as u8, (v >> 8) as u8, v as u8))
+}
+
+pub fn color_to_hex(c: Color32) -> String {
+    format!("#{:02X}{:02X}{:02X}", c.r(), c.g(), c.b())
+}
+
+/// Relative luminance (0 black … 1 white), sRGB weights.
+fn luminance(c: Color32) -> f32 {
+    let lin = |v: u8| {
+        let v = v as f32 / 255.0;
+        if v <= 0.04045 {
+            v / 12.92
+        } else {
+            ((v + 0.055) / 1.055).powf(2.4)
+        }
+    };
+    0.2126 * lin(c.r()) + 0.7152 * lin(c.g()) + 0.0722 * lin(c.b())
+}
+
+/// `a` moved towards `b` by `t` (0..1).
+fn mix(a: Color32, b: Color32, t: f32) -> Color32 {
+    let m = |x: u8, y: u8| (x as f32 + (y as f32 - x as f32) * t).round() as u8;
+    Color32::from_rgb(m(a.r(), b.r()), m(a.g(), b.g()), m(a.b(), b.b()))
 }
 
 /// The palette of the theme egui is drawing with.
@@ -399,4 +494,26 @@ pub fn section<R>(
 pub fn field_label(ui: &mut egui::Ui, text: &str) -> egui::Response {
     let p = pal(ui.ctx());
     ui.label(egui::RichText::new(clean(text)).color(p.text).strong())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn custom_colours_stay_readable() {
+        let bordeaux = color_from_hex("#5C0A1E").unwrap();
+        let ferrari = color_from_hex("#FF2800").unwrap();
+        let p = Palette::DARK.with_custom(Some(bordeaux), Some(ferrari));
+        assert_eq!(p.bg, bordeaux);
+        assert_eq!(p.accent, ferrari);
+        assert_eq!(p.text, Palette::DARK.text); // light text on a dark ground
+        assert_eq!(p.on_accent, Color32::WHITE); // white on Ferrari red
+        assert!(luminance(p.surface) > luminance(p.bg) && luminance(p.bar) < luminance(p.bg));
+        // a light ground takes the dark text, whatever the theme
+        let p = Palette::DARK.with_custom(Some(Color32::from_rgb(250, 240, 230)), None);
+        assert_eq!(p.text, Palette::LIGHT.text);
+        assert_eq!(color_to_hex(ferrari), "#FF2800");
+        assert_eq!(color_from_hex("nope"), None);
+    }
 }

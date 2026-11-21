@@ -516,6 +516,12 @@ page_system = "Hệ thống"
 
 # System wizard page (autostart + desktop integration)
 system_heading = "Hệ thống"
+system_colors_title = "Màu sắc"
+system_colors_intro = "Màu nền và màu chọn của riêng bạn, trên chủ đề sáng hoặc tối."
+system_colors_ground = "Nền"
+system_colors_accent = "Chọn"
+system_colors_preset_bordeaux = "Đỏ bordeaux và đỏ Ferrari"
+system_colors_reset = "Màu gốc"
 system_desc = "Những tiện ích dành cho tủ máy chuyên dụng. Hãy để tắt nếu máy tính còn được dùng cho việc khác."
 
 # Asset bundling / merge (Tables wizard page — Import section)

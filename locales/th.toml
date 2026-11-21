@@ -516,6 +516,12 @@ page_system = "ระบบ"
 
 # System wizard page (autostart + desktop integration)
 system_heading = "ระบบ"
+system_colors_title = "สี"
+system_colors_intro = "สีพื้นหลังและสีที่เลือกของคุณเอง บนธีมสว่างหรือมืด"
+system_colors_ground = "พื้นหลัง"
+system_colors_accent = "การเลือก"
+system_colors_preset_bordeaux = "แดงบอร์โดและแดงเฟอร์รารี"
+system_colors_reset = "สีดั้งเดิม"
 system_desc = "ฟีเจอร์อำนวยความสะดวกสำหรับตู้โดยเฉพาะ ปิดไว้หากคอมพิวเตอร์เครื่องนี้ใช้ทำอย่างอื่นด้วย"
 
 # Asset bundling / merge (Tables wizard page — Import section)

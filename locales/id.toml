@@ -517,6 +517,12 @@ page_system = "Sistem"
 
 # System wizard page (autostart + desktop integration)
 system_heading = "Sistem"
+system_colors_title = "Warna"
+system_colors_intro = "Warna latar dan pilihan Anda sendiri, di atas tema terang atau gelap."
+system_colors_ground = "Latar"
+system_colors_accent = "Pilihan"
+system_colors_preset_bordeaux = "Merah marun dan merah Ferrari"
+system_colors_reset = "Warna asli"
 system_desc = "Kemudahan untuk kabinet khusus. Biarkan nonaktif jika komputer juga dipakai untuk hal lain."
 
 # Asset bundling / merge (Tables wizard page — Import section)

@@ -517,6 +517,12 @@ page_system = "সিস্টেম"
 
 # System wizard page (autostart + desktop integration)
 system_heading = "সিস্টেম"
+system_colors_title = "রং"
+system_colors_intro = "হালকা বা গাঢ় থিমের ওপর নিজের পটভূমি ও নির্বাচনের রং।"
+system_colors_ground = "পটভূমি"
+system_colors_accent = "নির্বাচন"
+system_colors_preset_bordeaux = "বোর্দো ও ফেরারি লাল"
+system_colors_reset = "আসল রং"
 system_desc = "নিবেদিত ক্যাবিনেটের জন্য কিছু সুবিধা। কম্পিউটার অন্য কাজেও ব্যবহার হলে এগুলো বন্ধ রাখুন।"
 
 # Asset bundling / merge (Tables wizard page — Import section)

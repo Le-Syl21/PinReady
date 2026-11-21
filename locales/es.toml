@@ -518,6 +518,12 @@ page_system = "Sistema"
 
 # System wizard page (autostart + desktop integration)
 system_heading = "Sistema"
+system_colors_title = "Colores"
+system_colors_intro = "Tus propios colores de fondo y de selección, sobre el tema claro u oscuro."
+system_colors_ground = "Fondo"
+system_colors_accent = "Selección"
+system_colors_preset_bordeaux = "Burdeos y rojo Ferrari"
+system_colors_reset = "Colores originales"
 system_desc = "Comodidades para una máquina dedicada. Déjelas desactivadas si el ordenador también se usa para otra cosa."
 
 # Asset bundling / merge (Tables wizard page — Import section)

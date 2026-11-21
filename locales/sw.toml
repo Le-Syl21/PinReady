@@ -518,6 +518,12 @@ page_system = "Mfumo"
 
 # System wizard page (autostart + desktop integration)
 system_heading = "Mfumo"
+system_colors_title = "Rangi"
+system_colors_intro = "Rangi zako za mandharinyuma na uteuzi, juu ya mandhari angavu au meusi."
+system_colors_ground = "Mandharinyuma"
+system_colors_accent = "Uteuzi"
+system_colors_preset_bordeaux = "Bordo na nyekundu ya Ferrari"
+system_colors_reset = "Rangi asili"
 system_desc = "Urahisi kwa kabati maalum. Viache vimezimwa ikiwa kompyuta pia hutumika kwa jambo lingine."
 
 # Asset bundling / merge (Tables wizard page — Import section)

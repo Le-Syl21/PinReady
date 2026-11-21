@@ -515,6 +515,12 @@ page_system = "系統"
 
 # System wizard page (autostart + desktop integration)
 system_heading = "系統"
+system_colors_title = "顏色"
+system_colors_intro = "在淺色或深色主題之上，使用你自己的背景色與選取色。"
+system_colors_ground = "背景"
+system_colors_accent = "選取"
+system_colors_preset_bordeaux = "波爾多紅與法拉利紅"
+system_colors_reset = "原始顏色"
 system_desc = "為專用機櫃提供的便利功能。如果這台電腦還用於其他用途，請保持關閉。"
 
 # Asset bundling / merge (Tables wizard page — Import section)

@@ -518,6 +518,12 @@ page_system = "Система"
 
 # System wizard page (autostart + desktop integration)
 system_heading = "Система"
+system_colors_title = "Цвета"
+system_colors_intro = "Свои цвета фона и выделения поверх светлой или тёмной темы."
+system_colors_ground = "Фон"
+system_colors_accent = "Выделение"
+system_colors_preset_bordeaux = "Бордо и красный Ferrari"
+system_colors_reset = "Исходные цвета"
 system_desc = "Удобства для выделенной машины. Оставьте их выключенными, если компьютер используется и для другого."
 
 # Asset bundling / merge (Tables wizard page — Import section)

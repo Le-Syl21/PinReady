@@ -1157,6 +1157,13 @@ impl App {
     /// to the context with both palettes' styles.
     pub fn apply_theme(&mut self, ctx: &egui::Context) {
         self.theme_pref = theme::theme_from_db(self.db.get_config("ui_theme").as_deref());
+        let color = |k: &str| {
+            self.db
+                .get_config(k)
+                .as_deref()
+                .and_then(theme::color_from_hex)
+        };
+        theme::set_custom_colors(color("ui_color_ground"), color("ui_color_accent"));
         theme::setup(ctx, self.theme_pref);
     }
 

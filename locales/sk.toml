@@ -517,6 +517,12 @@ page_system = "Systém"
 
 # System wizard page (autostart + desktop integration)
 system_heading = "Systém"
+system_colors_title = "Farby"
+system_colors_intro = "Vlastná farba pozadia a výberu nad svetlým alebo tmavým motívom."
+system_colors_ground = "Pozadie"
+system_colors_accent = "Výber"
+system_colors_preset_bordeaux = "Bordová a Ferrari červená"
+system_colors_reset = "Pôvodné farby"
 system_desc = "Pohodlnosti pre vyhradený stroj. Nechajte ich vypnuté, ak sa počítač používa aj na niečo iné."
 
 # Asset bundling / merge (Tables wizard page — Import section)
