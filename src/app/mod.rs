@@ -788,7 +788,12 @@ impl App {
         };
 
         let screen_count = displays.len().min(4);
-        let view_mode = if screen_count >= 2 { 1 } else { 0 };
+        // Keep the display mode the user saved (BGSet); only guess from the screen count
+        // when the config has none yet.
+        let view_mode = config
+            .get_i32("Player", "BGSet")
+            .filter(|m| (0..=2).contains(m))
+            .unwrap_or(if screen_count >= 2 { 1 } else { 0 });
         let disable_touch = config
             .get_i32("Player", "NumberOfTimesToShowTouchMessage")
             .unwrap_or(10)
