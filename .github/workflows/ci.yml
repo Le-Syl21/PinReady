@@ -27,7 +27,9 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             label: macos-aarch64
-          - os: macos-latest
+          # Native Intel runner: FFmpeg (feature `video`) is built from source
+          # and its configure script does not cross-compile from Apple silicon.
+          - os: macos-15-intel
             target: x86_64-apple-darwin
             label: macos-x86_64
           - os: windows-latest
@@ -145,13 +147,15 @@ jobs:
 
       - name: Build (cross)
         if: matrix.cross
+        # bindgen (FFmpeg bindings) must parse the aarch64 headers
+        env:
+          BINDGEN_EXTRA_CLANG_ARGS_aarch64_unknown_linux_gnu: --sysroot=/usr/aarch64-linux-gnu -I/usr/aarch64-linux-gnu/include
         run: cross build --release --target ${{ matrix.target }}
 
       # Tests are skipped for cross-compiled targets (no aarch64 binary
-      # can run on the x86_64 host) and for the macOS x86_64 cross-build
-      # (Apple silicon runner can't execute x86_64 release binaries).
+      # can run on the x86_64 host).
       - name: Run tests
-        if: matrix.target != 'x86_64-apple-darwin' && !matrix.cross
+        if: '!matrix.cross'
         run: cargo test --release --target ${{ matrix.target }}
 
       # --- Empaquetage (binaires non signés ; la signature Apple est faite plus

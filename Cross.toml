@@ -2,16 +2,22 @@
 # The ubuntu-*-arm hosted runners on GitHub Actions have been chronically
 # unstable (runner-shutdown signals before the build even starts), so we
 # build the aarch64 artifact inside a Docker container on the x86_64 pool
-# instead. The default `ghcr.io/cross-rs/aarch64-unknown-linux-gnu` image
-# is based on Ubuntu 22.04 (glibc 2.35) — strictly more compatible than
-# the pincab's Ubuntu 24.04 (glibc 2.39) and every supported SBC target.
+# instead. The image is pinned below (Ubuntu 20.04, glibc 2.31) — older,
+# so more compatible, than the pincab's Ubuntu 24.04 (glibc 2.39) and every
+# supported SBC target.
 #
 # pre-build pulls all the SDL3/eframe/winit native deps for aarch64 via
 # multiarch apt — sdl3-sys's build-from-source-static needs the X/Wayland
 # headers at build time even though the resulting binary statically links
 # only SDL3 itself.
 
+[build.env]
+passthrough = ["BINDGEN_EXTRA_CLANG_ARGS_aarch64_unknown_linux_gnu"]
+
 [target.aarch64-unknown-linux-gnu]
+# Ubuntu 20.04 based (glibc 2.31, still older than every target): the 0.2.5
+# default image ships libclang 3.8, too old for bindgen (FFmpeg bindings).
+image = "ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main"
 pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH",
     "apt-get update",
