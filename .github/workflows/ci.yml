@@ -439,7 +439,8 @@ jobs:
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
             libxtst-dev libxss-dev libwayland-dev wayland-protocols \
             libdbus-1-dev libdrm-dev libgbm-dev \
-            libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev libudev-dev
+            libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev libudev-dev \
+            nasm libclang-dev  # cargo publish builds FFmpeg (feature `video`)
       # Trusted Publishing: no long-lived secret. GitHub vouches for this
       # workflow (repo, file, environment) and crates.io, which has it on
       # record for the crate, hands out a token that expires with the job.
