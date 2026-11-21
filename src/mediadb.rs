@@ -189,6 +189,52 @@ impl MediaDb {
     }
 }
 
+impl MediaDb {
+    /// The index the last scan synced to disk, parsed once per session (for
+    /// on-demand downloads from the UI, which has no `MediaDb` of its own).
+    pub fn cached() -> Option<&'static MediaDb> {
+        static CACHED: std::sync::OnceLock<Option<MediaDb>> = std::sync::OnceLock::new();
+        CACHED
+            .get_or_init(|| {
+                let cache_dir = Self::default_cache_dir();
+                let bytes = std::fs::read(cache_dir.join("vpinmdb.json")).ok()?;
+                let games = serde_json::from_slice(&bytes).ok()?;
+                Some(MediaDb { games, cache_dir })
+            })
+            .as_ref()
+    }
+}
+
+/// Download a table's preview clips that are missing (`table.mp4`, and
+/// `dmd.mp4` when `with_dmd`) into its `medias/`, md5-checked. Blocking: call
+/// it from a worker thread. Returns whether anything was installed.
+pub fn fetch_preview_videos(table_dir: &Path, vps_id: &str, with_dmd: bool) -> bool {
+    let Some(mdb) = MediaDb::cached() else {
+        return false;
+    };
+    let mut wanted = Vec::new();
+    if let Some(u) = mdb.table_video_url_md5(vps_id) {
+        wanted.push(("table.mp4", u));
+    }
+    if with_dmd && let Some(u) = mdb.dmd_video_url_md5(vps_id) {
+        wanted.push(("dmd.mp4", u));
+    }
+    let mut installed = false;
+    for (name, (url, md5)) in wanted {
+        if table_dir.join("medias").join(name).exists() {
+            continue;
+        }
+        match fetch_asset(url, md5).and_then(|b| install_asset(table_dir, name, &b)) {
+            Ok(p) => {
+                log::info!("Preview video installed: {}", p.display());
+                installed = true;
+            }
+            Err(e) => log::warn!("Preview video {name} for {}: {e}", table_dir.display()),
+        }
+    }
+    installed
+}
+
 fn fetch_index(base_url: Option<&str>) -> Result<Vec<u8>> {
     let url = index_url(base_url);
     let resp = http_agent()

@@ -142,8 +142,23 @@ jobs:
           fi
 
       - name: Build (native)
-        if: '!matrix.cross'
-        run: cargo build --release --target ${{ matrix.target }} ${{ runner.os == 'Windows' && '--features win-icon' || '' }}
+        if: ${{ !matrix.cross && runner.os != 'Windows' }}
+        run: cargo build --release --target ${{ matrix.target }}
+
+      # Windows: ffmpeg-sys-next's build script runs bindgen/libclang over the
+      # Windows headers and overflows the 1 MB main-thread stack. RUSTFLAGS
+      # only reach build scripts without --target (the host is the target
+      # here), so build without it with an 8 MB stack, then put the binary
+      # where the packaging steps expect it.
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          RUSTFLAGS: -C link-arg=/STACK:8388608
+        run: |
+          cargo build --release --features win-icon
+          mkdir -p target/${{ matrix.target }}/release
+          cp target/release/pinready.exe target/${{ matrix.target }}/release/
 
       - name: Build (cross)
         if: matrix.cross
@@ -155,8 +170,14 @@ jobs:
       # Tests are skipped for cross-compiled targets (no aarch64 binary
       # can run on the x86_64 host).
       - name: Run tests
-        if: '!matrix.cross'
+        if: ${{ !matrix.cross && runner.os != 'Windows' }}
         run: cargo test --release --target ${{ matrix.target }}
+
+      - name: Run tests (Windows)
+        if: runner.os == 'Windows'
+        env:
+          RUSTFLAGS: -C link-arg=/STACK:8388608
+        run: cargo test --release --features win-icon
 
       # --- Empaquetage (binaires non signés ; la signature Apple est faite plus
       # bas, dans un job dédié derrière l'environnement `signing`). ---

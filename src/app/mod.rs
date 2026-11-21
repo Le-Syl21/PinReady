@@ -467,6 +467,10 @@ pub struct App {
     video_tile: Option<crate::video::VideoPlayer>,
     video_bg: Option<crate::video::VideoPlayer>,
     video_dmd: Option<crate::video::VideoPlayer>,
+    /// On-demand clip download in flight (table index, done signal), and the
+    /// tables already tried this session (no retry loop on a failure).
+    video_fetch: Option<(usize, crossbeam_channel::Receiver<bool>)>,
+    video_fetch_tried: std::collections::HashSet<std::path::PathBuf>,
 
     // Page 5 — Tables dir
     tables_dir: String,
@@ -1004,6 +1008,8 @@ impl App {
             video_tile: None,
             video_bg: None,
             video_dmd: None,
+            video_fetch: None,
+            video_fetch_tried: Default::default(),
             sort_mode: launcher::SortMode::from_key(db_sort_key.as_deref().unwrap_or_default()),
             vpx_session: None,
             vpinplay: vpinplay_settings,

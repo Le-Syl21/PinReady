@@ -253,8 +253,7 @@ fn process_table(
         db.set_update_available(&job.rel_path, outdated)?;
     }
 
-    // 2. Media install — fetch bg.png, audio.mp3 and the preview videos
-    // (table.mp4, dmd.mp4) from VPinMediaDB
+    // 2. Media install — fetch bg.png and audio.mp3 from VPinMediaDB
     // when missing. The file-exists short-circuit (in install_if_missing)
     // means we never re-download something that already lives on disk.
     if let (Some(vps_id), Some(mdb)) = (&matched_vps_id, media_db) {
@@ -264,17 +263,8 @@ fn process_table(
         if let Some((url, md5)) = mdb.audio_url_md5(vps_id) {
             install_if_missing(&job.table_dir, "audio.mp3", url, md5);
         }
-        // Preview videos (launcher tile / DMD screen): a few MB each, so
-        // they follow the "download preview videos" setting (on unless
-        // turned off on the Tables page).
-        if db.get_config("media_videos").as_deref() != Some("0") {
-            if let Some((url, md5)) = mdb.table_video_url_md5(vps_id) {
-                install_if_missing(&job.table_dir, "table.mp4", url, md5);
-            }
-            if let Some((url, md5)) = mdb.dmd_video_url_md5(vps_id) {
-                install_if_missing(&job.table_dir, "dmd.mp4", url, md5);
-            }
-        }
+        // Preview videos are not fetched here: the launcher downloads a
+        // table's clips on demand, when the table stays selected.
     }
 
     // 3. Backglass extraction — priority chain. Same worker that just

@@ -2063,6 +2063,22 @@ impl App {
             self.video_due_at =
                 Some(std::time::Instant::now() + std::time::Duration::from_millis(700));
         }
+        // An on-demand download finished: start the clips if the table is
+        // still the selected one.
+        if let Some((idx, rx)) = &self.video_fetch {
+            match rx.try_recv() {
+                Ok(installed) => {
+                    if installed && *idx == cur {
+                        self.video_due_at = Some(std::time::Instant::now());
+                    }
+                    self.video_fetch = None;
+                }
+                Err(crossbeam_channel::TryRecvError::Disconnected) => self.video_fetch = None,
+                Err(crossbeam_channel::TryRecvError::Empty) => {
+                    ctx.request_repaint_after(std::time::Duration::from_millis(200));
+                }
+            }
+        }
         if let Some(due) = self.video_due_at {
             let now = std::time::Instant::now();
             if now < due {
@@ -2074,6 +2090,28 @@ impl App {
                 return;
             };
             use crate::video::{VideoPlayer, VideoSlot, find_video};
+            let has_dmd = self.displays.iter().any(|d| d.role == DisplayRole::Dmd);
+            // Missing clips are fetched from VPinMediaDB now, once per table
+            // and session, unless turned off on the Tables page.
+            let missing = find_video(dir, VideoSlot::Tile).is_none()
+                || (has_dmd && find_video(dir, VideoSlot::Dmd).is_none());
+            if missing
+                && self.video_fetch.is_none()
+                && !self.video_fetch_tried.contains(dir)
+                && self.db.get_config("media_videos").as_deref() != Some("0")
+                && let Some(vps_id) = self.tables[cur].vps_id.clone()
+            {
+                self.video_fetch_tried.insert(dir.to_path_buf());
+                let (tx, rx) = crossbeam_channel::bounded(1);
+                let dir = dir.to_path_buf();
+                let _ = std::thread::Builder::new()
+                    .name("preview-video-fetch".into())
+                    .spawn(move || {
+                        let _ =
+                            tx.send(crate::mediadb::fetch_preview_videos(&dir, &vps_id, has_dmd));
+                    });
+                self.video_fetch = Some((cur, rx));
+            }
             if let Some(p) = find_video(dir, VideoSlot::Tile) {
                 self.video_tile = VideoPlayer::open(
                     &p,

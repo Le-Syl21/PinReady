@@ -169,7 +169,7 @@ impl App {
                         .set_config("tile_fill", if self.tile_fill { "1" } else { "0" });
                 }
                 ui.add_space(8.0);
-                // preview clips from VPinMediaDB, fetched by the scan (on by default)
+                // preview clips from VPinMediaDB, fetched on demand by the launcher (on by default)
                 let mut videos = self.db.get_config("media_videos").as_deref() != Some("0");
                 if ui
                     .checkbox(&mut videos, t!("tables_tiles_videos"))
