@@ -167,12 +167,24 @@ fn card_corners(p: &CardPose, ratio: f32, part: Rect, mirror: Option<f32>) -> [V
             None => v3(x, y, z),
         }
     };
-    [
-        at(part.min.x, part.min.y),
-        at(part.max.x, part.min.y),
-        at(part.max.x, part.max.y),
-        at(part.min.x, part.max.y),
-    ]
+    match mirror {
+        // Under the floor the face starts at the edge that touches it (the
+        // card's bottom), so the texture's top row and the fade's opaque
+        // end are against the card; with a flipped `uv` this shows the
+        // picture as a mirror image.
+        Some(_) => [
+            at(part.min.x, part.max.y),
+            at(part.max.x, part.max.y),
+            at(part.max.x, part.min.y),
+            at(part.min.x, part.min.y),
+        ],
+        None => [
+            at(part.min.x, part.min.y),
+            at(part.max.x, part.min.y),
+            at(part.max.x, part.max.y),
+            at(part.min.x, part.max.y),
+        ],
+    }
 }
 
 /// Where the picture goes on a card and which part of the texture it shows,
@@ -367,17 +379,8 @@ impl App {
                     let (part, uv) = picture_part(fit, tex.size_vec2(), card, pose.width);
                     if part.is_positive() {
                         // a mirrored card shows the picture upside down
-                        let (part, uv) = if refl {
-                            (
-                                Rect::from_min_max(
-                                    Pos2::new(part.min.x, 1.0 - part.max.y),
-                                    Pos2::new(part.max.x, 1.0 - part.min.y),
-                                ),
-                                flip(uv),
-                            )
-                        } else {
-                            (part, uv)
-                        };
+                        // (`card_corners` already places `part` under the floor)
+                        let uv = if refl { flip(uv) } else { uv };
                         let corners = card_corners(&pose, ratio, part, mirror);
                         let fill = if refl {
                             Fill::TexFade(tex.id(), uv, fade_to)
