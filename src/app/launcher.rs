@@ -2389,6 +2389,52 @@ impl App {
     /// (matches the grid the user actually sees). Empty filter →
     /// every table; non-empty → tables whose name contains the
     /// lowercased filter.
+    /// Select the next table, in the order shown, that has an update.
+    pub(super) fn select_next_update(&mut self) {
+        let order = self.visible_indices();
+        let start = order
+            .iter()
+            .position(|&i| i == self.selected_table)
+            .map_or(0, |p| p + 1);
+        let n = order.len();
+        if let Some(&idx) = (0..n)
+            .map(|k| &order[(start + k) % n])
+            .find(|&&i| self.tables[i].update_available)
+        {
+            self.selected_table = idx;
+            self.scroll_to_selected = true;
+        }
+    }
+
+    /// Whether the launcher header is drawn this frame. Always on a desktop;
+    /// on a cabinet (several screens or a turned playfield) only while the
+    /// mouse moved in the last few seconds, Alt is held or a search is typed.
+    pub(super) fn header_visible(&mut self, ctx: &egui::Context) -> bool {
+        const IDLE: std::time::Duration = std::time::Duration::from_secs(4);
+        let cabinet = self.view_mode == 1 || !self.rotation.is_none();
+        if !cabinet {
+            return true;
+        }
+        let (moved, alt) = ctx.input(|i| {
+            (
+                i.pointer.delta() != egui::Vec2::ZERO || i.pointer.any_down(),
+                i.modifiers.alt,
+            )
+        });
+        let now = std::time::Instant::now();
+        if moved {
+            self.pointer_moved_at = Some(now);
+        }
+        let recent = self
+            .pointer_moved_at
+            .map(|t| now.duration_since(t))
+            .filter(|d| *d < IDLE);
+        if let Some(d) = recent {
+            ctx.request_repaint_after(IDLE - d);
+        }
+        recent.is_some() || alt || !self.table_filter.is_empty()
+    }
+
     pub(super) fn visible_indices(&self) -> Vec<usize> {
         let mut order: Vec<usize> = if self.table_filter_lower.is_empty() {
             (0..self.tables.len()).collect()

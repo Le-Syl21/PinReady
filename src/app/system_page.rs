@@ -177,6 +177,8 @@ impl App {
                         for (keys, what) in [
                             ("system_keys_alt_letter", "system_keys_alt_letter_do"),
                             ("system_keys_alt_digit", "system_keys_alt_digit_do"),
+                            ("system_keys_alt", "system_keys_alt_do"),
+                            ("system_keys_updates", "system_keys_updates_do"),
                             ("system_keys_zoom", "system_keys_zoom_do"),
                             ("system_keys_nav", "system_keys_nav_do"),
                             ("system_keys_start", "system_keys_start_do"),

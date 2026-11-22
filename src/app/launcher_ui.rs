@@ -105,7 +105,9 @@ impl App {
         // rotated playfield is tall and narrow, and a header sized on its
         // height ran out of width.
         let h_size = (ui.available_height().min(ui.available_width()) * 0.02).ceil();
-        ui.add_space(6.0);
+        if self.header_visible(ui.ctx()) {
+            ui.add_space(6.0);
+        }
         // The row is laid out in three parts, each in its own child Ui: the
         // toolbar and Rebuild on the left, Configuration and Quit on the
         // right, and the search field in the middle, centred between them
@@ -113,7 +115,14 @@ impl App {
         // the middle knows how much room is left.
         let hrow_w = ui.available_size_before_wrap().x;
         let row_h = (h_size * 1.8).max(ui.spacing().interact_size.y);
-        let (row_rect, _) = ui.allocate_exact_size(egui::vec2(hrow_w, row_h), egui::Sense::hover());
+        // On a cabinet the header only shows while the mouse is in use, Alt is
+        // held (to read the underlined letters) or a search is typed: the
+        // tables get the whole screen. The Alt shortcuts work either way.
+        let show_header = self.header_visible(ui.ctx());
+        let (row_rect, _) = ui.allocate_exact_size(
+            egui::vec2(hrow_w, if show_header { row_h } else { 0.0 }),
+            egui::Sense::hover(),
+        );
         let ctx = ui.ctx().clone();
         let p = theme::pal(&ctx);
         let header_button = |text: egui::WidgetText| {
@@ -130,6 +139,9 @@ impl App {
                 .max_rect(row_rect)
                 .layout(egui::Layout::left_to_right(egui::Align::Center)),
         );
+        if !show_header {
+            left.set_invisible();
+        }
         // The DMD wordmark when the row has room for it (a rotated
         // playfield is narrow, the search field matters more).
         if hrow_w > 900.0 {
@@ -197,13 +209,21 @@ impl App {
         // transition (available → downloading → gone) resized it and
         // shifted the other buttons around: they render as full-width
         // banners below the header, see `render_update_banners`.
+        // A button, Alt+U without a mouse: it goes to the next table that has
+        // an update, so a cabinet can find them.
         let updates = self.tables.iter().filter(|t| t.update_available).count();
         if updates > 0 {
-            left.label(
-                egui::RichText::new(format!("↑ {updates}"))
-                    .size(h_size)
-                    .color(p.info),
-            );
+            let m = mn.pick(&format!("↑ {updates}"), "Updates");
+            let r = left
+                .add(header_button(m.widget_text(&left, p.info, Some(h_size))))
+                .on_hover_text(format!(
+                    "{}{}",
+                    t!("launcher_updates_next"),
+                    m.hint().map(|h| format!(" ({h})")).unwrap_or_default()
+                ));
+            if r.clicked() || mn.hit(&m) {
+                self.select_next_update();
+            }
         }
         let left_end = left.min_rect().right();
 
@@ -212,6 +232,9 @@ impl App {
                 .max_rect(row_rect)
                 .layout(egui::Layout::right_to_left(egui::Align::Center)),
         );
+        if !show_header {
+            right.set_invisible();
+        }
         // Configuration takes its letter before Quit (Alt+C in most languages)
         let m_config = mn.pick(
             &t!("launcher_config"),
@@ -284,6 +307,9 @@ impl App {
                 ))
                 .layout(egui::Layout::left_to_right(egui::Align::Center)),
         );
+        if !show_header {
+            center.set_invisible();
+        }
         center.label(egui::RichText::new("🔍").size(h_size));
         // Scoped visuals tweak — thicker + lighter bg_stroke so the search
         // frame is visible on glossy / bright pincab playfields. The default
@@ -379,7 +405,9 @@ impl App {
             }
         }
 
-        ui.add_space(8.0);
+        if show_header {
+            ui.add_space(8.0);
+        }
 
         // Full-width update banners (one per pending update). Rendering
         // below the header keeps the button row stable — the header never

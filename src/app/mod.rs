@@ -475,6 +475,9 @@ pub struct App {
     /// `medias/launcher.*` of its own: (table index, picture once loaded,
     /// loader in flight).
     bg_screen: Option<launcher::BgScreen>,
+    /// Last time the mouse moved over the launcher (the cabinet header shows
+    /// for a few seconds after).
+    pointer_moved_at: Option<std::time::Instant>,
 
     // Page 5 — Tables dir
     tables_dir: String,
@@ -1015,6 +1018,7 @@ impl App {
             video_fetch: None,
             video_fetch_tried: Default::default(),
             bg_screen: None,
+            pointer_moved_at: None,
             sort_mode: launcher::SortMode::from_key(db_sort_key.as_deref().unwrap_or_default()),
             vpx_session: None,
             vpinplay: vpinplay_settings,
