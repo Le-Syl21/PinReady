@@ -375,8 +375,10 @@ pub fn extract_backglass_from_b2s(directb2s_path: &Path) -> Option<Vec<u8>> {
         count
     };
 
-    // Step 4: Normalize brightness by median luminosity
-    let mut rgb = image::DynamicImage::ImageRgba8(rgba).into_rgb8();
+    // Step 4: Normalize brightness by median luminosity. Transparent parts
+    // are first laid over black, as B2S shows them: dropping the alpha
+    // alone would keep whatever colour they store (often white).
+    let mut rgb = flatten_on_black(&rgba);
     let median = median_luminosity(&rgb);
     if median > 1.0 {
         let factor =
@@ -518,7 +520,7 @@ pub fn extract_backglass_from_vpx(vpx_path: &Path) -> Option<Vec<u8>> {
         DISPLAY_HEIGHT,
         image::imageops::FilterType::Lanczos3,
     );
-    let bytes = encode_jpeg(&resized)?;
+    let bytes = encode_cached(&resized)?;
     log::info!(
         "Extracted embedded backglass from .vpx ({}x{}, {} bytes)",
         resized.width(),
@@ -541,7 +543,8 @@ pub const THUMB_HEIGHT: u32 = 384;
 
 /// The grid thumbnail of an encoded backglass (any format the `image`
 /// crate reads): fitted in `THUMB_WIDTH`×`THUMB_HEIGHT`, never enlarged,
-/// JPEG. `None` if the bytes do not decode.
+/// JPEG, or lossless WebP when the picture has transparency (see
+/// [`encode_cached`]). `None` if the bytes do not decode.
 pub fn make_thumbnail(image_bytes: &[u8]) -> Option<Vec<u8>> {
     let img = image::load_from_memory(image_bytes).ok()?;
     let small = if img.width() <= THUMB_WIDTH && img.height() <= THUMB_HEIGHT {
@@ -553,7 +556,43 @@ pub fn make_thumbnail(image_bytes: &[u8]) -> Option<Vec<u8>> {
             image::imageops::FilterType::Triangle,
         )
     };
-    encode_jpeg(&small)
+    encode_cached(&small)
+}
+
+/// Encode a picture for the SQLite cache: JPEG (small) when it is opaque,
+/// lossless WebP when it has transparent pixels, so a PNG with a cut-out
+/// (a shaped launcher picture, a wheel-like logo) keeps its transparency.
+/// The decoders (`load_from_memory`) guess the format, so existing JPEG
+/// blobs keep working and a rebuild re-encodes them.
+fn encode_cached(img: &image::DynamicImage) -> Option<Vec<u8>> {
+    if !has_transparency(img) {
+        return encode_jpeg(img);
+    }
+    let rgba = img.to_rgba8();
+    let mut buf = Vec::new();
+    image::codecs::webp::WebPEncoder::new_lossless(std::io::Cursor::new(&mut buf))
+        .encode(
+            rgba.as_raw(),
+            rgba.width(),
+            rgba.height(),
+            image::ExtendedColorType::Rgba8,
+        )
+        .ok()?;
+    Some(buf)
+}
+
+/// `rgba` laid over black: each colour scaled by its alpha.
+fn flatten_on_black(rgba: &image::RgbaImage) -> image::RgbImage {
+    image::RgbImage::from_fn(rgba.width(), rgba.height(), |x, y| {
+        let [r, g, b, a] = rgba.get_pixel(x, y).0;
+        let m = |c: u8| ((c as u16 * a as u16 + 127) / 255) as u8;
+        image::Rgb([m(r), m(g), m(b)])
+    })
+}
+
+/// Whether some pixel of `img` is not fully opaque.
+fn has_transparency(img: &image::DynamicImage) -> bool {
+    img.color().has_alpha() && img.to_rgba8().pixels().any(|p| p.0[3] < 255)
 }
 
 /// Encode a [`image::DynamicImage`] as JPEG bytes at `BG_JPEG_QUALITY`
@@ -761,6 +800,36 @@ mod tests {
         let tall = image::load_from_memory(&make_thumbnail(&png_of(1146, 1024)).unwrap()).unwrap();
         assert_eq!(tall.height(), THUMB_HEIGHT);
         assert!(tall.width() < THUMB_WIDTH);
+    }
+
+    #[test]
+    fn thumbnail_keeps_transparency_as_webp() {
+        let mut img = image::RgbaImage::from_pixel(300, 200, image::Rgba([90, 40, 160, 255]));
+        img.put_pixel(0, 0, image::Rgba([0, 0, 0, 0]));
+        let mut png = Vec::new();
+        image::DynamicImage::ImageRgba8(img)
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
+        let t = make_thumbnail(&png).unwrap();
+        assert_eq!(image::guess_format(&t).unwrap(), image::ImageFormat::WebP);
+        let back = image::load_from_memory(&t).unwrap().to_rgba8();
+        assert_eq!(back.get_pixel(0, 0).0[3], 0);
+        assert_eq!(back.get_pixel(1, 1).0, [90, 40, 160, 255]);
+    }
+
+    #[test]
+    fn transparent_pixels_flatten_to_black() {
+        let mut img = image::RgbaImage::from_pixel(2, 1, image::Rgba([255, 255, 255, 0]));
+        img.put_pixel(1, 0, image::Rgba([200, 100, 50, 128]));
+        let rgb = flatten_on_black(&img);
+        assert_eq!(rgb.get_pixel(0, 0).0, [0, 0, 0]);
+        assert_eq!(rgb.get_pixel(1, 0).0, [100, 50, 25]);
+    }
+
+    #[test]
+    fn opaque_thumbnail_stays_jpeg() {
+        let t = make_thumbnail(&png_of(300, 200)).unwrap();
+        assert_eq!(image::guess_format(&t).unwrap(), image::ImageFormat::Jpeg);
     }
 
     #[test]
