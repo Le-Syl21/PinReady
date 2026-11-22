@@ -436,6 +436,8 @@ Tables/
     ├── Table Name.vpx                <- ไฟล์โต๊ะ (ต้องมี)
     ├── Table Name.directb2s          <- backglass B2S (ทางเลือก)
     ├── medias/launcher.png            <- การแทนที่ภาพย่อของ launcher (ทางเลือก, .png/.webp/.jpg/.jpeg, 480×384)
+    ├── medias/bg.png                  <- ภาพสำหรับจอ backglass (ทางเลือก, จาก VPinMediaDB; ไทล์ยังใช้ launcher.png)
+    ├── medias/table.mp4, dmd.mp4      <- วิดีโอตัวอย่าง: ไทล์และโต๊ะ (table.mp4), DMD (dmd.mp4)
     ├── Table Name.ini                <- การตั้งค่าเฉพาะโต๊ะ (ทางเลือก)
     ├── Table Name.vbs                <- VBS patch / override สคริปต์ (ทางเลือก)
     ├── altsound/<rom>/               <- ชุด altsound (ทางเลือก)
@@ -778,7 +780,7 @@ audio_section_test = "ทดสอบ"
 audio_section_test_intro = "เล่นเสียงที่แต่ละเอาต์พุต แล้วตรวจสอบว่าเสียงมาจากตำแหน่งที่ถูกต้อง"
 tables_section_where = "โต๊ะของคุณ"
 tables_tiles_section = "ไทล์ของตัวเรียกใช้"
-tables_tiles_intro = "วิธีแสดงภาพที่ไม่ใช่รูปทรงของไทล์ ดีที่สุด: ภาพขนาด 480×384 (5:4) ใน medias/launcher.png วิดีโอใน medias/launcher.mp4 จะเล่นในไทล์ที่เลือก"
+tables_tiles_intro = "วิธีแสดงภาพที่รูปทรงไม่ตรงกับไทล์ ดีที่สุด: ภาพรูปทรงเดียวกับไทล์ (ขนาดอยู่ใต้แต่ละรูปทรง) ใน medias/launcher.png วิดีโอใน medias/launcher.mp4 จะเล่นในไทล์ที่เลือก"
 tables_tiles_fit = "แถบดำ: แสดงภาพทั้งภาพ"
 tables_tiles_fill = "เติมเต็มไทล์: ครอบตัด ไม่ยืดภาพ"
 tables_tiles_videos = "ดาวน์โหลดวิดีโอตัวอย่างจาก VPinMediaDB เมื่อโต๊ะยังถูกเลือกอยู่ (เก็บไว้ในโฟลเดอร์ medias ของโต๊ะ)"
@@ -949,3 +951,5 @@ system_keys_alt = "Alt (กดค้าง)"
 system_keys_alt_do = "ตู้เกม: แสดงแถบด้านบนและตัวอักษร (ซ่อนเมื่อเมาส์ไม่ขยับ)"
 system_keys_updates = "Alt + U"
 system_keys_updates_do = "ตัวเปิด: ไปยังโต๊ะถัดไปที่มีอัปเดต"
+tables_tiles_shape = "รูปทรงไทล์"
+tables_tiles_shape_hint = "เลือกรูปทรงของภาพคุณ: 1:1 สำหรับวีลกลม, 3:4 สำหรับวิดีโอโต๊ะแนวตั้ง ใต้แต่ละรูปทรงคือขนาดภาพที่เต็มพอดี"

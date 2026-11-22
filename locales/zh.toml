@@ -435,6 +435,8 @@ Tables/
     ├── Table Name.vpx                <- 球台文件（必需）
     ├── Table Name.directb2s          <- backglass B2S（可选）
     ├── medias/launcher.png            <- 启动器缩略图覆盖（可选，.png/.webp/.jpg/.jpeg，480×384）
+    ├── medias/bg.png                  <- 背景屏图片(可选,来自 VPinMediaDB;磁贴仍用 launcher.png)
+    ├── medias/table.mp4, dmd.mp4      <- 预览视频:磁贴和台面(table.mp4),DMD(dmd.mp4)
     ├── Table Name.ini                <- 单台覆盖设置（可选）
     ├── Table Name.vbs                <- VBS 补丁 / 脚本覆盖（可选）
     ├── altsound/<rom>/               <- altsound 包（可选）
@@ -779,7 +781,7 @@ audio_section_test = "测试"
 audio_section_test_intro = "在每个输出上播放一段声音，确认它来自正确的位置。"
 tables_section_where = "您的球台"
 tables_tiles_section = "启动器图块"
-tables_tiles_intro = "形状与图块不同的图片如何显示。最佳：在 medias/launcher.png 放一张 480×384（5:4）的图片。medias/launcher.mp4 中的视频会在选中的图块里播放。"
+tables_tiles_intro = "形状与磁贴不同的图片如何显示。最佳:与磁贴同形状的图片(尺寸见每种形状下方)放在 medias/launcher.png。medias/launcher.mp4 中的视频在选中的磁贴里播放。"
 tables_tiles_fit = "黑边：显示整张图片"
 tables_tiles_fill = "填满图块：裁剪，绝不拉伸"
 tables_tiles_videos = "台保持选中时从 VPinMediaDB 下载预览视频（保存在其 medias 文件夹）"
@@ -950,3 +952,5 @@ system_keys_alt = "Alt(按住)"
 system_keys_alt_do = "机柜:显示顶部栏及其字母(鼠标不动时隐藏)"
 system_keys_updates = "Alt + U"
 system_keys_updates_do = "启动器:转到下一个有更新的台子"
+tables_tiles_shape = "磁贴形状"
+tables_tiles_shape_hint = "选择你的图片形状:圆形 wheel 用 1:1,竖直的台面视频用 3:4。每种形状下方是正好填满它的图片尺寸。"

@@ -435,6 +435,8 @@ Tables/
     ├── Table Name.vpx                <- tệp bàn (bắt buộc)
     ├── Table Name.directb2s          <- backglass B2S (tùy chọn)
     ├── medias/launcher.png            <- ghi đè hình thu nhỏ của launcher (tùy chọn, .png/.webp/.jpg/.jpeg, 480×384)
+    ├── medias/bg.png                  <- ảnh cho màn hình backglass (tùy chọn, từ VPinMediaDB; ô vẫn dùng launcher.png)
+    ├── medias/table.mp4, dmd.mp4      <- video xem trước: ô và mặt bàn (table.mp4), DMD (dmd.mp4)
     ├── Table Name.ini                <- ghi đè theo bàn (tùy chọn)
     ├── Table Name.vbs                <- patch VBS / ghi đè script (tùy chọn)
     ├── altsound/<rom>/               <- gói altsound (tùy chọn)
@@ -778,7 +780,7 @@ audio_section_test = "Kiểm tra"
 audio_section_test_intro = "Phát một âm thanh trên từng đầu ra và kiểm tra xem nó có phát ra đúng chỗ không."
 tables_section_where = "Các bàn của bạn"
 tables_tiles_section = "Ô của trình khởi chạy"
-tables_tiles_intro = "Cách hiển thị ảnh không có hình dạng của ô. Tốt nhất: ảnh 480×384 (5:4) trong medias/launcher.png. Video trong medias/launcher.mp4 phát trong ô đang chọn."
+tables_tiles_intro = "Cách hiển thị ảnh không có hình dạng của ô. Tốt nhất: ảnh có hình dạng của ô (kích thước dưới mỗi hình dạng) trong medias/launcher.png. Video trong medias/launcher.mp4 phát trong ô được chọn."
 tables_tiles_fit = "Dải đen: toàn bộ ảnh"
 tables_tiles_fill = "Lấp đầy ô: cắt bớt, không bao giờ kéo giãn"
 tables_tiles_videos = "Tải video xem trước từ VPinMediaDB khi một bàn được chọn lâu (lưu trong thư mục medias của bàn)"
@@ -950,3 +952,5 @@ system_keys_alt = "Alt (giữ)"
 system_keys_alt_do = "Tủ máy: hiện thanh trên cùng và các chữ của nó (ẩn khi chuột không di chuyển)"
 system_keys_updates = "Alt + U"
 system_keys_updates_do = "Trình chạy: đến bàn tiếp theo có bản cập nhật"
+tables_tiles_shape = "Hình dạng ô"
+tables_tiles_shape_hint = "Chọn hình dạng ảnh của bạn: 1:1 cho wheel tròn, 3:4 cho video mặt bàn dựng đứng. Dưới mỗi hình dạng là kích thước ảnh lấp đầy nó."

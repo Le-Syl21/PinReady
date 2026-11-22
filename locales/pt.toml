@@ -436,6 +436,8 @@ Tables/
     ├── Table Name.vpx                <- ficheiro de mesa (obrigatório)
     ├── Table Name.directb2s          <- backglass B2S (opcional)
     ├── medias/launcher.png            <- override da miniatura do launcher (opcional, .png/.webp/.jpg/.jpeg, 480×384)
+    ├── medias/bg.png                  <- imagem do ecrã do backglass (opcional, do VPinMediaDB; o mosaico mantém launcher.png)
+    ├── medias/table.mp4, dmd.mp4      <- vídeos de pré-visualização: mosaico e mesa (table.mp4), DMD (dmd.mp4)
     ├── Table Name.ini                <- overrides por mesa (opcional)
     ├── Table Name.vbs                <- patch VBS / override de script (opcional)
     ├── altsound/<rom>/               <- pacote altsound (opcional)
@@ -780,7 +782,7 @@ audio_section_test = "Teste"
 audio_section_test_intro = "Reproduza um som em cada saída e verifique se vem do sítio certo."
 tables_section_where = "As suas mesas"
 tables_tiles_section = "Blocos do lançador"
-tables_tiles_intro = "Como é mostrada uma imagem que não tem o formato de um bloco. Ideal: uma imagem de 480×384 (5:4) em medias/launcher.png. Um vídeo em medias/launcher.mp4 é reproduzido no bloco selecionado."
+tables_tiles_intro = "Como é mostrada uma imagem que não tem a forma do mosaico. Ideal: uma imagem com a forma do mosaico (tamanho sob cada forma) em medias/launcher.png. Um vídeo em medias/launcher.mp4 reproduz-se no mosaico selecionado."
 tables_tiles_fit = "Barras pretas: a imagem inteira"
 tables_tiles_fill = "Preencher o bloco: recortada, nunca esticada"
 tables_tiles_videos = "Baixar os vídeos de prévia do VPinMediaDB quando uma mesa fica selecionada (guardados na pasta medias dela)"
@@ -952,3 +954,5 @@ system_keys_alt = "Alt (mantido)"
 system_keys_alt_do = "Cabine: mostra a barra superior e as suas letras (esconde-se quando o rato está parado)"
 system_keys_updates = "Alt + U"
 system_keys_updates_do = "Lançador: vai para a próxima mesa com atualização"
+tables_tiles_shape = "Forma dos mosaicos"
+tables_tiles_shape_hint = "Escolha a forma das suas imagens: 1:1 para wheels redondas, 3:4 para vídeos da mesa na vertical. Sob cada forma, o tamanho de imagem que a preenche."

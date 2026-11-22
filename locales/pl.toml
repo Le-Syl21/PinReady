@@ -436,6 +436,8 @@ Tables/
     ├── Table Name.vpx                <- plik stołu (wymagany)
     ├── Table Name.directb2s          <- backglass B2S (opcjonalnie)
     ├── medias/launcher.png            <- nadpisanie miniatury launchera (opcjonalnie, .png/.webp/.jpg/.jpeg, 480×384)
+    ├── medias/bg.png                  <- obraz ekranu backglass (opcjonalnie, z VPinMediaDB; kafelek zachowuje launcher.png)
+    ├── medias/table.mp4, dmd.mp4      <- filmy podglądu: kafelek i stół (table.mp4), DMD (dmd.mp4)
     ├── Table Name.ini                <- nadpisania dla stołu (opcjonalnie)
     ├── Table Name.vbs                <- patch VBS / nadpisanie skryptu (opcjonalnie)
     ├── altsound/<rom>/               <- pakiet altsound (opcjonalnie)
@@ -779,7 +781,7 @@ audio_section_test = "Test"
 audio_section_test_intro = "Odtwórz dźwięk na każdym wyjściu i sprawdź, czy dochodzi stamtąd, skąd powinien."
 tables_section_where = "Twoje stoły"
 tables_tiles_section = "Kafelki launchera"
-tables_tiles_intro = "Jak wyświetlany jest obraz, który nie ma kształtu kafelka. Najlepiej: obraz 480×384 (5:4) w medias/launcher.png. Wideo w medias/launcher.mp4 odtwarza się w zaznaczonym kafelku."
+tables_tiles_intro = "Jak wyświetlany jest obraz, który nie ma kształtu kafelka. Najlepiej: obraz w kształcie kafelka (rozmiar pod każdym kształtem) w medias/launcher.png. Film w medias/launcher.mp4 odtwarza się w wybranym kafelku."
 tables_tiles_fit = "Czarne pasy: cały obraz"
 tables_tiles_fill = "Wypełnij kafelek: przycięty, nigdy nierozciągnięty"
 tables_tiles_videos = "Pobieraj filmy podglądu z VPinMediaDB, gdy stół pozostaje zaznaczony (zapisywane w jego folderze medias)"
@@ -951,3 +953,5 @@ system_keys_alt = "Alt (przytrzymany)"
 system_keys_alt_do = "Kabina: pokazuje górny pasek i jego litery (chowa się, gdy mysz się nie rusza)"
 system_keys_updates = "Alt + U"
 system_keys_updates_do = "Launcher: przechodzi do następnego stołu z aktualizacją"
+tables_tiles_shape = "Kształt kafelków"
+tables_tiles_shape_hint = "Wybierz kształt swoich obrazów: 1:1 dla okrągłych wheels, 3:4 dla pionowych filmów stołu. Pod każdym kształtem rozmiar obrazu, który go wypełnia."

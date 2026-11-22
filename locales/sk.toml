@@ -436,6 +436,8 @@ Tables/
     ├── Table Name.vpx                <- súbor stola (povinný)
     ├── Table Name.directb2s          <- backglass B2S (voliteľný)
     ├── medias/launcher.png            <- prepis miniatúry launchera (voliteľné, .png/.webp/.jpg/.jpeg, 480×384)
+    ├── medias/bg.png                  <- obrázok pre obrazovku backglassu (voliteľné, z VPinMediaDB; dlaždica si nechá launcher.png)
+    ├── medias/table.mp4, dmd.mp4      <- náhľadové videá: dlaždica a hracia plocha (table.mp4), DMD (dmd.mp4)
     ├── Table Name.ini                <- prepisy pre stôl (voliteľné)
     ├── Table Name.vbs                <- patch VBS / prepis skriptu (voliteľné)
     ├── altsound/<rom>/               <- balíček altsound (voliteľný)
@@ -779,7 +781,7 @@ audio_section_test = "Test"
 audio_section_test_intro = "Prehrajte zvuk na každom výstupe a overte, že vychádza zo správneho miesta."
 tables_section_where = "Vaše stoly"
 tables_tiles_section = "Dlaždice spúšťača"
-tables_tiles_intro = "Ako sa zobrazí obrázok, ktorý nemá tvar dlaždice. Najlepšie: obrázok 480×384 (5:4) v medias/launcher.png. Video v medias/launcher.mp4 sa prehrá vo vybranej dlaždici."
+tables_tiles_intro = "Ako sa zobrazí obrázok, ktorý nemá tvar dlaždice. Ideálne: obrázok v tvare dlaždice (veľkosť pod každým tvarom) v medias/launcher.png. Video v medias/launcher.mp4 sa prehrá vo vybranej dlaždici."
 tables_tiles_fit = "Čierne pruhy: celý obrázok"
 tables_tiles_fill = "Vyplniť dlaždicu: orezaný, nikdy roztiahnutý"
 tables_tiles_videos = "Sťahovať náhľadové videá z VPinMediaDB, keď stôl zostane vybraný (uložia sa do jeho priečinka medias)"
@@ -951,3 +953,5 @@ system_keys_alt = "Alt (podržaný)"
 system_keys_alt_do = "Kabinet: zobrazí hornú lištu a jej písmená (skryje sa, keď sa myš nehýbe)"
 system_keys_updates = "Alt + U"
 system_keys_updates_do = "Spúšťač: prejde na ďalší stôl s aktualizáciou"
+tables_tiles_shape = "Tvar dlaždíc"
+tables_tiles_shape_hint = "Vyberte tvar svojich obrázkov: 1:1 pre okrúhle wheely, 3:4 pre zvislé videá hracej plochy. Pod každým tvarom veľkosť obrázka, ktorá ho vyplní."

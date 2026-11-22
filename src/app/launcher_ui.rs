@@ -581,9 +581,11 @@ impl App {
         let mut launch_idx: Option<usize> = None;
         let mut fav_toggle: Option<usize> = None;
         let mut rate_set: Option<(usize, u8)> = None;
+        // The picture area takes the tile shape chosen on the Tables page;
+        // the name and rating below keep their 120 px.
         let card_width = 400.0;
-        let card_height = 520.0;
-        let img_height = 400.0;
+        let img_height = (card_width - 8.0) / self.tile_shape.ratio() + 8.0;
+        let card_height = img_height + 120.0;
         let card_spacing = 8.0;
         let available_width = ui.available_width();
         let cols = ((available_width / (card_width + card_spacing)) as usize).max(1);

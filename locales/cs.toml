@@ -436,6 +436,8 @@ Tables/
     ├── Table Name.vpx                <- soubor stolu (povinný)
     ├── Table Name.directb2s          <- backglass B2S (volitelný)
     ├── medias/launcher.png            <- přepis miniatury launcheru (volitelné, .png/.webp/.jpg/.jpeg, 480×384)
+    ├── medias/bg.png                  <- obrázek pro obrazovku backglassu (volitelné, z VPinMediaDB; dlaždice si nechá launcher.png)
+    ├── medias/table.mp4, dmd.mp4      <- náhledová videa: dlaždice a hrací plocha (table.mp4), DMD (dmd.mp4)
     ├── Table Name.ini                <- přepisy pro stůl (volitelné)
     ├── Table Name.vbs                <- patch VBS / přepis skriptu (volitelné)
     ├── altsound/<rom>/               <- balíček altsound (volitelný)
@@ -779,7 +781,7 @@ audio_section_test = "Test"
 audio_section_test_intro = "Přehrajte zvuk na každém výstupu a ověřte, že vychází ze správného místa."
 tables_section_where = "Vaše stoly"
 tables_tiles_section = "Dlaždice spouštěče"
-tables_tiles_intro = "Jak se zobrazí obrázek, který nemá tvar dlaždice. Nejlépe: obrázek 480×384 (5:4) v medias/launcher.png. Video v medias/launcher.mp4 se přehraje ve vybrané dlaždici."
+tables_tiles_intro = "Jak se zobrazí obrázek, který nemá tvar dlaždice. Ideálně: obrázek ve tvaru dlaždice (velikost pod každým tvarem) v medias/launcher.png. Video v medias/launcher.mp4 se přehraje ve vybrané dlaždici."
 tables_tiles_fit = "Černé pruhy: celý obrázek"
 tables_tiles_fill = "Vyplnit dlaždici: oříznutý, nikdy roztažený"
 tables_tiles_videos = "Stahovat náhledová videa z VPinMediaDB, když stůl zůstane vybraný (uloží se do jeho složky medias)"
@@ -951,3 +953,5 @@ system_keys_alt = "Alt (podržený)"
 system_keys_alt_do = "Kabinet: zobrazí horní lištu a její písmena (skryje se, když se myš nehýbe)"
 system_keys_updates = "Alt + U"
 system_keys_updates_do = "Spouštěč: přejde na další stůl s aktualizací"
+tables_tiles_shape = "Tvar dlaždic"
+tables_tiles_shape_hint = "Vyberte tvar svých obrázků: 1:1 pro kulaté wheely, 3:4 pro svislá videa hrací plochy. Pod každým tvarem velikost obrázku, která ho vyplní."

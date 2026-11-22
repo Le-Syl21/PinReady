@@ -479,6 +479,8 @@ Tables/
     ├── Nom de Table.vpx              <- fichier de table (requis)
     ├── Nom de Table.directb2s        <- backglass B2S (optionnel)
     ├── medias/launcher.png            <- miniature launcher (optionnel, .png/.webp/.jpg/.jpeg, 480×384)
+    ├── medias/bg.png                  <- image de l'écran du backglass (optionnel, de VPinMediaDB ; la tuile garde launcher.png)
+    ├── medias/table.mp4, dmd.mp4      <- vidéos d'aperçu : tuile et plateau (table.mp4), DMD (dmd.mp4)
     ├── Nom de Table.ini              <- surcharges par table (optionnel)
     ├── Nom de Table.vbs              <- patch VBS / override script (optionnel)
     ├── altsound/<rom>/               <- pack altsound (optionnel)
@@ -796,7 +798,7 @@ audio_section_test = "Tester"
 audio_section_test_intro = "Jouez un son sur chaque sortie et vérifiez qu'il vient bien du bon endroit."
 tables_section_where = "Vos tables"
 tables_tiles_section = "Tuiles du lanceur"
-tables_tiles_intro = "Comment s'affiche une image qui n'a pas la forme d'une tuile. Idéal : une image de 480×384 (5:4) dans medias/launcher.png. Une vidéo dans medias/launcher.mp4 se lance dans la tuile sélectionnée."
+tables_tiles_intro = "Comment s'affiche une image qui n'a pas la forme de la tuile. Idéal : une image de la forme des tuiles (taille sous chaque forme) dans medias/launcher.png. Une vidéo dans medias/launcher.mp4 se lance dans la tuile sélectionnée."
 tables_tiles_fit = "Bandes noires : l'image entière"
 tables_tiles_fill = "Remplir la tuile : recadrée, jamais étirée"
 tables_tiles_videos = "Télécharger les vidéos d'aperçu depuis VPinMediaDB quand une table reste sélectionnée (gardées dans son dossier medias)"
@@ -957,3 +959,5 @@ system_keys_alt = "Alt (maintenu)"
 system_keys_alt_do = "Pincab : affiche la barre du haut et ses lettres (elle se cache quand la souris ne bouge pas)"
 system_keys_updates = "Alt + U"
 system_keys_updates_do = "Lanceur : va à la prochaine table qui a une mise à jour"
+tables_tiles_shape = "Forme des tuiles"
+tables_tiles_shape_hint = "Choisissez la forme de vos images : 1:1 pour les wheels rondes, 3:4 pour les vidéos de plateau debout. Sous chaque forme, la taille d'image qui la remplit."

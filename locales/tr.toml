@@ -436,6 +436,8 @@ Tables/
     ├── Table Name.vpx                <- masa dosyası (zorunlu)
     ├── Table Name.directb2s          <- backglass B2S (isteğe bağlı)
     ├── medias/launcher.png            <- launcher küçük resmi geçersiz kılma (isteğe bağlı, .png/.webp/.jpg/.jpeg, 480×384)
+    ├── medias/bg.png                  <- backglass ekranının resmi (isteğe bağlı, VPinMediaDB'den; kutucuk launcher.png'yi tutar)
+    ├── medias/table.mp4, dmd.mp4      <- önizleme videoları: kutucuk ve oyun alanı (table.mp4), DMD (dmd.mp4)
     ├── Table Name.ini                <- masa başına geçersiz kılma (isteğe bağlı)
     ├── Table Name.vbs                <- VBS patch / script geçersiz kılma (isteğe bağlı)
     ├── altsound/<rom>/               <- altsound paketi (isteğe bağlı)
@@ -782,7 +784,7 @@ audio_section_test = "Test"
 audio_section_test_intro = "Her çıkışta bir ses çalın ve olması gereken yerden geldiğini kontrol edin."
 tables_section_where = "Masalarınız"
 tables_tiles_section = "Başlatıcı kutucukları"
-tables_tiles_intro = "Kutucuk biçiminde olmayan bir resmin nasıl gösterileceği. En iyisi: medias/launcher.png içinde 480×384 (5:4) bir resim. medias/launcher.mp4 içindeki video seçili kutucukta oynar."
+tables_tiles_intro = "Kutucuk biçiminde olmayan bir resmin nasıl gösterileceği. En iyisi: kutucuk biçiminde bir resim (boyut her biçimin altında) medias/launcher.png içinde. medias/launcher.mp4 içindeki bir video seçili kutucukta oynar."
 tables_tiles_fit = "Siyah bantlar: resmin tamamı"
 tables_tiles_fill = "Kutucuğu doldur: kırpılır, asla uzatılmaz"
 tables_tiles_videos = "Bir masa seçili kaldığında önizleme videolarını VPinMediaDB'den indir (medias klasöründe saklanır)"
@@ -954,3 +956,5 @@ system_keys_alt = "Alt (basılı)"
 system_keys_alt_do = "Kabin: üst çubuğu ve harflerini gösterir (fare hareketsizken gizlenir)"
 system_keys_updates = "Alt + U"
 system_keys_updates_do = "Başlatıcı: güncellemesi olan sonraki masaya gider"
+tables_tiles_shape = "Kutucuk biçimi"
+tables_tiles_shape_hint = "Resimlerinizin biçimini seçin: yuvarlak wheel'ler için 1:1, dik oyun alanı videoları için 3:4. Her biçimin altında onu dolduran resim boyutu."

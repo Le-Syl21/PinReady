@@ -140,6 +140,61 @@ impl App {
             &t!("tables_tiles_section"),
             Some(&t!("tables_tiles_intro")),
             |ui| {
+                // The tile shape: one small drawn tile per choice, with the
+                // picture size that fills it.
+                ui.label(egui::RichText::new(t!("tables_tiles_shape")).strong());
+                ui.label(
+                    egui::RichText::new(t!("tables_tiles_shape_hint"))
+                        .color(theme::pal(ui.ctx()).text_muted),
+                );
+                ui.add_space(4.0);
+                let shape_before = self.tile_shape;
+                ui.horizontal_wrapped(|ui| {
+                    for shape in super::tile_shape::TileShape::ALL {
+                        ui.vertical(|ui| {
+                            let h = 72.0;
+                            let (rect, resp) = ui.allocate_exact_size(
+                                egui::vec2(h * 16.0 / 9.0, h),
+                                egui::Sense::click(),
+                            );
+                            let tile = egui::Rect::from_center_size(
+                                rect.center(),
+                                egui::vec2(h * shape.ratio(), h).min(rect.size()),
+                            );
+                            let p = theme::pal(ui.ctx());
+                            let on = self.tile_shape == shape;
+                            ui.painter().rect_filled(tile, 4.0, p.surface);
+                            ui.painter().rect_stroke(
+                                tile,
+                                4.0,
+                                if on {
+                                    egui::Stroke::new(3.0, p.accent)
+                                } else {
+                                    egui::Stroke::new(1.0, p.border)
+                                },
+                                egui::StrokeKind::Inside,
+                            );
+                            if resp
+                                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                .clicked()
+                            {
+                                self.tile_shape = shape;
+                            }
+                            let (w, h) = shape.picture_size();
+                            ui.radio_value(
+                                &mut self.tile_shape,
+                                shape,
+                                format!("{} · {w}×{h}", shape.key()),
+                            );
+                        });
+                        ui.add_space(8.0);
+                    }
+                });
+                if self.tile_shape != shape_before {
+                    let _ = self.db.set_config("tile_shape", self.tile_shape.key());
+                }
+                ui.add_space(10.0);
+
                 let before = self.tile_fill;
                 ui.horizontal_wrapped(|ui| {
                     for (fill, label) in [
@@ -147,8 +202,9 @@ impl App {
                         (true, t!("tables_tiles_fill")),
                     ] {
                         ui.vertical(|ui| {
+                            let ex_h = 160.0;
                             let (rect, resp) = ui.allocate_exact_size(
-                                egui::vec2(200.0, 160.0),
+                                egui::vec2(ex_h * self.tile_shape.ratio(), ex_h),
                                 egui::Sense::click(),
                             );
                             paint_tile_example(ui, rect, fill, self.tile_fill == fill);
@@ -711,8 +767,12 @@ fn paint_tile_example(ui: &egui::Ui, rect: egui::Rect, fill: bool, selected: boo
     let p = theme::pal(ui.ctx());
     let painter = ui.painter_at(rect);
     painter.rect_filled(rect, 6.0, egui::Color32::BLACK);
-    // a 16:9 picture in a 5:4 tile
-    let (pw, ph) = (16.0f32, 9.0f32);
+    // a 16:9 picture in the tile (a square one in a wide tile)
+    let (pw, ph) = if rect.width() / rect.height() > 1.5 {
+        (1.0f32, 1.0f32)
+    } else {
+        (16.0f32, 9.0f32)
+    };
     let scale = if fill {
         (rect.width() / pw).max(rect.height() / ph)
     } else {

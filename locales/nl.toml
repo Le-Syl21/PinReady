@@ -436,6 +436,8 @@ Tables/
     ├── Table Name.vpx                <- tafelbestand (vereist)
     ├── Table Name.directb2s          <- backglass B2S (optioneel)
     ├── medias/launcher.png            <- override launcher-miniatuur (optioneel, .png/.webp/.jpg/.jpeg, 480×384)
+    ├── medias/bg.png                  <- afbeelding voor het backglass-scherm (optioneel, van VPinMediaDB; de tegel houdt launcher.png)
+    ├── medias/table.mp4, dmd.mp4      <- voorbeeldvideo's: tegel en speelveld (table.mp4), DMD (dmd.mp4)
     ├── Table Name.ini                <- per-tafel overrides (optioneel)
     ├── Table Name.vbs                <- VBS-patch / script-override (optioneel)
     ├── altsound/<rom>/               <- altsound-pakket (optioneel)
@@ -779,7 +781,7 @@ audio_section_test = "Test"
 audio_section_test_intro = "Speel een geluid af op elke uitgang en controleer of het van de juiste plek komt."
 tables_section_where = "Uw tafels"
 tables_tiles_section = "Tegels in de launcher"
-tables_tiles_intro = "Hoe een afbeelding wordt getoond die niet de vorm van een tegel heeft. Ideaal: een afbeelding van 480×384 (5:4) in medias/launcher.png. Een video in medias/launcher.mp4 speelt in de geselecteerde tegel."
+tables_tiles_intro = "Hoe een afbeelding wordt getoond die niet de vorm van de tegel heeft. Ideaal: een afbeelding in tegelvorm (grootte onder elke vorm) in medias/launcher.png. Een video in medias/launcher.mp4 speelt in de geselecteerde tegel."
 tables_tiles_fit = "Zwarte balken: de hele afbeelding"
 tables_tiles_fill = "Tegel vullen: bijgesneden, nooit uitgerekt"
 tables_tiles_videos = "Voorbeeldvideo's van VPinMediaDB downloaden als een tafel geselecteerd blijft (bewaard in de map medias)"
@@ -951,3 +953,5 @@ system_keys_alt = "Alt (ingedrukt)"
 system_keys_alt_do = "Kast: toont de bovenbalk en zijn letters (verdwijnt als de muis stilstaat)"
 system_keys_updates = "Alt + U"
 system_keys_updates_do = "Launcher: gaat naar de volgende tafel met een update"
+tables_tiles_shape = "Tegelvorm"
+tables_tiles_shape_hint = "Kies de vorm van je afbeeldingen: 1:1 voor ronde wheels, 3:4 voor staande speelveldvideo's. Onder elke vorm de afbeeldingsgrootte die hem vult."

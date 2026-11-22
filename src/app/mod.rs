@@ -368,6 +368,8 @@ pub struct App {
     /// Launcher tiles: fill the tile (cropped, never distorted) instead of
     /// showing the whole picture with black bands.
     tile_fill: bool,
+    /// Launcher tiles: their shape (see `tile_shape.rs`).
+    tile_shape: tile_shape::TileShape,
     /// Launcher view: the carousel instead of the grid (see `carousel.rs`),
     /// and the turntable's current position (in visible tables).
     launcher_carousel: bool,
@@ -818,6 +820,8 @@ impl App {
         };
 
         let tile_fill = db.get_config("tile_fill").as_deref() == Some("1");
+        let tile_shape =
+            tile_shape::TileShape::from_key(db.get_config("tile_shape").as_deref().unwrap_or(""));
         let launcher_carousel = db.get_config("launcher_layout").as_deref() == Some("carousel");
         // the step strip may jump anywhere once the wizard was completed before
         let wizard_furthest = if db.get_config("wizard_completed").as_deref() == Some("true") {
@@ -957,6 +961,7 @@ impl App {
             screen_count,
             view_mode,
             tile_fill,
+            tile_shape,
             launcher_carousel,
             carousel_pos: 0.0,
             wizard_furthest,
@@ -2142,6 +2147,7 @@ mod tables_dir_page;
 pub mod theme;
 mod threed;
 mod threed_page;
+mod tile_shape;
 mod tilt_page;
 mod vpinplay_link;
 

@@ -436,6 +436,8 @@ Tables/
     ├── Table Name.vpx                <- テーブルファイル（必須）
     ├── Table Name.directb2s          <- バックグラス B2S（オプション）
     ├── medias/launcher.png            <- ランチャーのサムネイル上書き（オプション、.png/.webp/.jpg/.jpeg、480×384）
+    ├── medias/bg.png                  <- バックグラス画面の画像(任意、VPinMediaDB から。タイルは launcher.png のまま)
+    ├── medias/table.mp4, dmd.mp4      <- プレビュー動画:タイルとプレイフィールド(table.mp4)、DMD(dmd.mp4)
     ├── Table Name.ini                <- テーブル別オーバーライド（オプション）
     ├── Table Name.vbs                <- VBS パッチ / スクリプトオーバーライド（オプション）
     ├── altsound/<rom>/               <- altsound パック（オプション）
@@ -779,7 +781,7 @@ audio_section_test = "テスト"
 audio_section_test_intro = "各出力で音を鳴らして、正しい場所から聞こえるか確認します。"
 tables_section_where = "お使いのテーブル"
 tables_tiles_section = "ランチャーのタイル"
-tables_tiles_intro = "タイルと形が違う画像の表示方法。最適なのは medias/launcher.png に置いた 480×384（5:4）の画像です。medias/launcher.mp4 の動画は選択中のタイルで再生されます。"
+tables_tiles_intro = "タイルの形と違う画像の表示方法。最適:タイルの形の画像(サイズは各形の下)を medias/launcher.png に。medias/launcher.mp4 の動画は選択中のタイルで再生されます。"
 tables_tiles_fit = "黒帯：画像全体を表示"
 tables_tiles_fill = "タイルを埋める：切り抜き、引き伸ばしなし"
 tables_tiles_videos = "テーブルを選択したままにすると VPinMediaDB からプレビュー動画をダウンロード（medias フォルダーに保存）"
@@ -950,3 +952,5 @@ system_keys_alt = "Alt(押したまま)"
 system_keys_alt_do = "筐体:上部バーとその文字を表示(マウスが止まっていると隠れます)"
 system_keys_updates = "Alt + U"
 system_keys_updates_do = "ランチャー:更新のある次の台へ移動"
+tables_tiles_shape = "タイルの形"
+tables_tiles_shape_hint = "画像の形を選んでください:丸いホイールは 1:1、縦向きのプレイフィールド動画は 3:4。各形の下に、ぴったり埋まる画像サイズ。"

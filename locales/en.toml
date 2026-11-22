@@ -479,6 +479,8 @@ Tables/
     ├── Table Name.vpx                <- table file (required)
     ├── Table Name.directb2s          <- backglass B2S (optional)
     ├── medias/launcher.png            <- launcher thumbnail override (optional, .png/.webp/.jpg/.jpeg, 480×384)
+    ├── medias/bg.png                  <- backglass screen picture (optional, from VPinMediaDB; the tile keeps launcher.png)
+    ├── medias/table.mp4, dmd.mp4      <- preview clips: tile and playfield (table.mp4), DMD (dmd.mp4)
     ├── Table Name.ini                <- per-table overrides (optional)
     ├── Table Name.vbs                <- VBS patch / script override (optional)
     ├── altsound/<rom>/               <- altsound pack (optional)
@@ -796,7 +798,7 @@ audio_section_test = "Test"
 audio_section_test_intro = "Play a sound on each output and check it comes from where it should."
 tables_section_where = "Your tables"
 tables_tiles_section = "Launcher tiles"
-tables_tiles_intro = "How a picture that is not the shape of a tile is shown. Best fit: a 480×384 picture (5:4) in medias/launcher.png. A clip in medias/launcher.mp4 plays in the selected tile."
+tables_tiles_intro = "How a picture that is not the shape of the tile is shown. Best fit: a picture of the tile shape (size under each shape) in medias/launcher.png. A clip in medias/launcher.mp4 plays in the selected tile."
 tables_tiles_fit = "Black bands: the whole picture"
 tables_tiles_fill = "Fill the tile: cropped, never stretched"
 tables_tiles_videos = "Download a table's preview videos from VPinMediaDB when it stays selected (kept in its medias folder)"
@@ -957,3 +959,5 @@ system_keys_alt = "Alt (held)"
 system_keys_alt_do = "Cabinet: shows the top bar and its letters (it hides while the mouse is idle)"
 system_keys_updates = "Alt + U"
 system_keys_updates_do = "Launcher: goes to the next table with an update"
+tables_tiles_shape = "Tile shape"
+tables_tiles_shape_hint = "Pick the shape of your pictures: 1:1 suits round wheels, 3:4 upright playfield videos. Under each shape, the picture size that fills it."

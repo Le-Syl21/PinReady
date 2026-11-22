@@ -436,6 +436,8 @@ Tables/
     ├── Table Name.vpx                <- faili ya meza (inahitajika)
     ├── Table Name.directb2s          <- backglass B2S (hiari)
     ├── medias/launcher.png            <- ubatilishaji wa kijipicha cha launcher (hiari, .png/.webp/.jpg/.jpeg, 480×384)
+    ├── medias/bg.png                  <- picha ya skrini ya backglass (hiari, kutoka VPinMediaDB; kigae kinabaki na launcher.png)
+    ├── medias/table.mp4, dmd.mp4      <- video za onyesho: kigae na uwanja (table.mp4), DMD (dmd.mp4)
     ├── Table Name.ini                <- ubatilishaji kwa meza (hiari)
     ├── Table Name.vbs                <- VBS patch / ubatilishaji wa skripti (hiari)
     ├── altsound/<rom>/               <- pakiti ya altsound (hiari)
@@ -780,7 +782,7 @@ audio_section_test = "Jaribio"
 audio_section_test_intro = "Cheza sauti kwenye kila pato na uhakikishe inatoka mahali sahihi."
 tables_section_where = "Meza zako"
 tables_tiles_section = "Vigae vya kizindua"
-tables_tiles_intro = "Jinsi picha isiyo na umbo la kigae inavyoonyeshwa. Bora zaidi: picha ya 480×384 (5:4) katika medias/launcher.png. Video katika medias/launcher.mp4 huchezwa kwenye kigae kilichochaguliwa."
+tables_tiles_intro = "Jinsi picha isiyo na umbo la kigae inavyoonyeshwa. Bora: picha yenye umbo la kigae (ukubwa chini ya kila umbo) katika medias/launcher.png. Video katika medias/launcher.mp4 huchezwa katika kigae kilichochaguliwa."
 tables_tiles_fit = "Mikanda myeusi: picha nzima"
 tables_tiles_fill = "Jaza kigae: imekatwa, haivutwi kamwe"
 tables_tiles_videos = "Pakua video za onyesho kutoka VPinMediaDB meza ikibaki imechaguliwa (huhifadhiwa kwenye folda yake ya medias)"
@@ -952,3 +954,5 @@ system_keys_alt = "Alt (ikishikiliwa)"
 system_keys_alt_do = "Kabati: huonyesha upau wa juu na herufi zake (hujificha kipanya kisiposogea)"
 system_keys_updates = "Alt + U"
 system_keys_updates_do = "Kizinduzi: huenda kwenye meza inayofuata yenye sasisho"
+tables_tiles_shape = "Umbo la vigae"
+tables_tiles_shape_hint = "Chagua umbo la picha zako: 1:1 kwa wheels za mviringo, 3:4 kwa video za uwanja zilizosimama. Chini ya kila umbo, ukubwa wa picha unaoujaza."

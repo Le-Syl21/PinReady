@@ -436,6 +436,8 @@ Tables/
     ├── Table Name.vpx                <- ٹیبل فائل (ضروری)
     ├── Table Name.directb2s          <- backglass B2S (اختیاری)
     ├── medias/launcher.png            <- launcher تھمب نیل اوورائیڈ (اختیاری، .png/.webp/.jpg/.jpeg، 480×384)
+    ├── medias/bg.png                  <- بیک گلاس اسکرین کی تصویر (اختیاری، VPinMediaDB سے؛ ٹائل launcher.png رکھتی ہے)
+    ├── medias/table.mp4, dmd.mp4      <- پیش نظارہ ویڈیوز: ٹائل اور پلے فیلڈ (table.mp4)، DMD (dmd.mp4)
     ├── Table Name.ini                <- فی ٹیبل اوورائیڈ (اختیاری)
     ├── Table Name.vbs                <- VBS patch / اسکرپٹ اوورائیڈ (اختیاری)
     ├── altsound/<rom>/               <- altsound پیک (اختیاری)
@@ -779,7 +781,7 @@ audio_section_test = "ٹیسٹ"
 audio_section_test_intro = "ہر آؤٹ پٹ پر ایک آواز چلائیں اور دیکھیں کہ وہ صحیح جگہ سے آ رہی ہے۔"
 tables_section_where = "آپ کے ٹیبلز"
 tables_tiles_section = "لانچر ٹائلیں"
-tables_tiles_intro = "ٹائل کی شکل سے مختلف تصویر کیسے دکھائی جائے۔ بہترین: medias/launcher.png میں 480×384 (5:4) کی تصویر۔ medias/launcher.mp4 کی ویڈیو منتخب ٹائل میں چلتی ہے۔"
+tables_tiles_intro = "جو تصویر ٹائل کی شکل کی نہ ہو وہ کیسے دکھائی جائے۔ بہترین: ٹائل کی شکل کی تصویر (سائز ہر شکل کے نیچے) medias/launcher.png میں۔ medias/launcher.mp4 میں ویڈیو منتخب ٹائل میں چلتی ہے۔"
 tables_tiles_fit = "سیاہ پٹیاں: پوری تصویر"
 tables_tiles_fill = "ٹائل بھریں: کٹی ہوئی، کبھی کھنچی نہیں"
 tables_tiles_videos = "ٹیبل منتخب رہنے پر VPinMediaDB سے پیش نظارہ ویڈیوز ڈاؤن لوڈ کریں (اس کے medias فولڈر میں رکھی جاتی ہیں)"
@@ -950,3 +952,5 @@ system_keys_alt = "Alt (دبا کر رکھیں)"
 system_keys_alt_do = "کیبنٹ: اوپر والی پٹی اور اس کے حروف دکھاتا ہے (ماؤس رکا ہو تو چھپ جاتی ہے)"
 system_keys_updates = "Alt + U"
 system_keys_updates_do = "لانچر: اپ ڈیٹ والی اگلی میز پر جاتا ہے"
+tables_tiles_shape = "ٹائلوں کی شکل"
+tables_tiles_shape_hint = "اپنی تصاویر کی شکل چنیں: گول وہیلز کے لیے 1:1، کھڑی پلے فیلڈ ویڈیوز کے لیے 3:4۔ ہر شکل کے نیچے اسے بھرنے والا تصویر کا سائز۔"

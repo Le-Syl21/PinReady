@@ -436,6 +436,8 @@ Tables/
     ├── Table Name.vpx                <- bordfil (obligatorisk)
     ├── Table Name.directb2s          <- backglass B2S (valfri)
     ├── medias/launcher.png            <- överskrivning av launcher-miniatyr (valfri, .png/.webp/.jpg/.jpeg, 480×384)
+    ├── medias/bg.png                  <- bild för backglass-skärmen (valfri, från VPinMediaDB; rutan behåller launcher.png)
+    ├── medias/table.mp4, dmd.mp4      <- förhandsvideor: ruta och spelplan (table.mp4), DMD (dmd.mp4)
     ├── Table Name.ini                <- bordspecifika överskrivningar (valfri)
     ├── Table Name.vbs                <- VBS-patch / scriptöverskrivning (valfri)
     ├── altsound/<rom>/               <- altsound-paket (valfri)
@@ -779,7 +781,7 @@ audio_section_test = "Test"
 audio_section_test_intro = "Spela upp ett ljud på varje utgång och kontrollera att det kommer från rätt ställe."
 tables_section_where = "Dina bord"
 tables_tiles_section = "Rutor i startprogrammet"
-tables_tiles_intro = "Hur en bild som inte har rutans form visas. Bäst: en bild på 480×384 (5:4) i medias/launcher.png. En video i medias/launcher.mp4 spelas i den valda rutan."
+tables_tiles_intro = "Hur en bild visas som inte har rutans form. Bäst: en bild med rutans form (storlek under varje form) i medias/launcher.png. En video i medias/launcher.mp4 spelas i den valda rutan."
 tables_tiles_fit = "Svarta kanter: hela bilden"
 tables_tiles_fill = "Fyll rutan: beskuren, aldrig utdragen"
 tables_tiles_videos = "Hämta förhandsvideor från VPinMediaDB när ett bord förblir valt (sparas i dess mapp medias)"
@@ -951,3 +953,5 @@ system_keys_alt = "Alt (nedhållen)"
 system_keys_alt_do = "Kabinett: visar översta raden och dess bokstäver (den döljs när musen är stilla)"
 system_keys_updates = "Alt + U"
 system_keys_updates_do = "Startaren: går till nästa bord med en uppdatering"
+tables_tiles_shape = "Rutornas form"
+tables_tiles_shape_hint = "Välj formen på dina bilder: 1:1 för runda wheels, 3:4 för stående spelplansvideor. Under varje form, bildstorleken som fyller den."

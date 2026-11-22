@@ -435,6 +435,8 @@ Tables/
     ├── Table Name.vpx                <- ملف الطاولة (مطلوب)
     ├── Table Name.directb2s          <- backglass B2S (اختياري)
     ├── medias/launcher.png            <- تجاوز صورة مصغرة للمشغّل (اختياري، .png/.webp/.jpg/.jpeg، 480×384)
+    ├── medias/bg.png                  <- صورة شاشة الـ backglass (اختياري، من VPinMediaDB؛ البلاطة تحتفظ بـ launcher.png)
+    ├── medias/table.mp4, dmd.mp4      <- مقاطع المعاينة: البلاطة والملعب (table.mp4)، DMD (dmd.mp4)
     ├── Table Name.ini                <- تجاوزات لكل طاولة (اختياري)
     ├── Table Name.vbs                <- VBS patch / تجاوز السكربت (اختياري)
     ├── altsound/<rom>/               <- حزمة altsound (اختياري)
@@ -778,7 +780,7 @@ audio_section_test = "اختبار"
 audio_section_test_intro = "شغّل صوتاً على كل مخرج وتأكد أنه يأتي من المكان الصحيح."
 tables_section_where = "طاولاتك"
 tables_tiles_section = "مربعات المشغّل"
-tables_tiles_intro = "كيف تُعرض صورة ليست بشكل المربع. الأفضل: صورة بمقاس 480×384 (5:4) في medias/launcher.png. يُشغَّل مقطع medias/launcher.mp4 في المربع المحدد."
+tables_tiles_intro = "كيف تُعرض صورة ليست بشكل البلاطة. الأفضل: صورة بشكل البلاطة (الحجم تحت كل شكل) في medias/launcher.png. مقطع في medias/launcher.mp4 يُشغَّل في البلاطة المحددة."
 tables_tiles_fit = "أشرطة سوداء: الصورة كاملة"
 tables_tiles_fill = "ملء المربع: مقصوصة، دون تمديد أبدًا"
 tables_tiles_videos = "تنزيل مقاطع المعاينة من VPinMediaDB عندما تبقى الطاولة محددة (تُحفظ في مجلد medias الخاص بها)"
@@ -949,3 +951,5 @@ system_keys_alt = "Alt (مضغوط)"
 system_keys_alt_do = "الخزانة: يُظهر الشريط العلوي وحروفه (يختفي عندما لا تتحرك الفأرة)"
 system_keys_updates = "Alt + U"
 system_keys_updates_do = "المشغّل: ينتقل إلى الطاولة التالية التي لها تحديث"
+tables_tiles_shape = "شكل البلاطات"
+tables_tiles_shape_hint = "اختر شكل صورك: 1:1 للعجلات الدائرية، 3:4 لمقاطع الملعب العمودية. تحت كل شكل حجم الصورة الذي يملؤه."

@@ -436,6 +436,8 @@ Tables/
     ├── Table Name.vpx                <- pöytätiedosto (pakollinen)
     ├── Table Name.directb2s          <- backglass B2S (valinnainen)
     ├── medias/launcher.png            <- launcherin pikkukuvan ohitus (valinnainen, .png/.webp/.jpg/.jpeg, 480×384)
+    ├── medias/bg.png                  <- backglass-näytön kuva (valinnainen, VPinMediaDB:stä; ruutu pitää launcher.png:n)
+    ├── medias/table.mp4, dmd.mp4      <- esikatseluvideot: ruutu ja pelikenttä (table.mp4), DMD (dmd.mp4)
     ├── Table Name.ini                <- pöytäkohtaiset asetukset (valinnainen)
     ├── Table Name.vbs                <- VBS-paikka / skriptin ohitus (valinnainen)
     ├── altsound/<rom>/               <- altsound-paketti (valinnainen)
@@ -779,7 +781,7 @@ audio_section_test = "Testi"
 audio_section_test_intro = "Soita ääni jokaisessa lähdössä ja tarkista, että se kuuluu oikeasta paikasta."
 tables_section_where = "Pöytäsi"
 tables_tiles_section = "Käynnistimen ruudut"
-tables_tiles_intro = "Miten näytetään kuva, joka ei ole ruudun muotoinen. Paras: 480×384 (5:4) -kuva tiedostossa medias/launcher.png. Tiedoston medias/launcher.mp4 video toistuu valitussa ruudussa."
+tables_tiles_intro = "Miten näytetään kuva, joka ei ole ruudun muotoinen. Paras: ruudun muotoinen kuva (koko jokaisen muodon alla) tiedostossa medias/launcher.png. Video tiedostossa medias/launcher.mp4 toistuu valitussa ruudussa."
 tables_tiles_fit = "Mustat palkit: koko kuva"
 tables_tiles_fill = "Täytä ruutu: rajattu, ei koskaan venytetty"
 tables_tiles_videos = "Lataa esikatseluvideot VPinMediaDB:stä, kun pöytä pysyy valittuna (tallennetaan sen medias-kansioon)"
@@ -951,3 +953,5 @@ system_keys_alt = "Alt (pohjassa)"
 system_keys_alt_do = "Kabinetti: näyttää yläpalkin ja sen kirjaimet (piiloutuu, kun hiiri ei liiku)"
 system_keys_updates = "Alt + U"
 system_keys_updates_do = "Käynnistin: siirtyy seuraavaan pöytään, jossa on päivitys"
+tables_tiles_shape = "Ruutujen muoto"
+tables_tiles_shape_hint = "Valitse kuviesi muoto: 1:1 pyöreille wheeleille, 3:4 pystyssä oleville pelikenttävideoille. Jokaisen muodon alla sen täyttävä kuvakoko."

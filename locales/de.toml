@@ -436,6 +436,8 @@ Tables/
     ├── Table Name.vpx                <- Tischdatei (erforderlich)
     ├── Table Name.directb2s          <- Backglass B2S (optional)
     ├── medias/launcher.png            <- Launcher-Miniatur-Override (optional, .png/.webp/.jpg/.jpeg, 480×384)
+    ├── medias/bg.png                  <- Bild für den Backglass-Bildschirm (optional, von VPinMediaDB; die Kachel behält launcher.png)
+    ├── medias/table.mp4, dmd.mp4      <- Vorschauvideos: Kachel und Spielfeld (table.mp4), DMD (dmd.mp4)
     ├── Table Name.ini                <- Tisch-spezifische Overrides (optional)
     ├── Table Name.vbs                <- VBS-Patch / Script-Override (optional)
     ├── altsound/<rom>/               <- altsound-Paket (optional)
@@ -779,7 +781,7 @@ audio_section_test = "Test"
 audio_section_test_intro = "Spielen Sie auf jedem Ausgang einen Ton ab und prüfen Sie, ob er von der richtigen Stelle kommt."
 tables_section_where = "Ihre Tische"
 tables_tiles_section = "Kacheln im Launcher"
-tables_tiles_intro = "Wie ein Bild angezeigt wird, das nicht die Form einer Kachel hat. Ideal: ein Bild mit 480×384 (5:4) in medias/launcher.png. Ein Video in medias/launcher.mp4 läuft in der ausgewählten Kachel."
+tables_tiles_intro = "Wie ein Bild angezeigt wird, das nicht die Form der Kachel hat. Ideal: ein Bild in Kachelform (Größe unter jeder Form) in medias/launcher.png. Ein Video in medias/launcher.mp4 läuft in der ausgewählten Kachel."
 tables_tiles_fit = "Schwarze Balken: das ganze Bild"
 tables_tiles_fill = "Kachel füllen: zugeschnitten, nie verzerrt"
 tables_tiles_videos = "Vorschauvideos eines Tisches von VPinMediaDB laden, wenn er ausgewählt bleibt (im Ordner medias gespeichert)"
@@ -951,3 +953,5 @@ system_keys_alt = "Alt (gedrückt)"
 system_keys_alt_do = "Cabinet: zeigt die obere Leiste und ihre Buchstaben (sie verschwindet, solange die Maus ruht)"
 system_keys_updates = "Alt + U"
 system_keys_updates_do = "Launcher: springt zum nächsten Tisch mit Update"
+tables_tiles_shape = "Kachelform"
+tables_tiles_shape_hint = "Wähle die Form deiner Bilder: 1:1 für runde Wheels, 3:4 für aufrechte Spielfeldvideos. Unter jeder Form die Bildgröße, die sie füllt."

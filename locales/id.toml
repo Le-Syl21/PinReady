@@ -436,6 +436,8 @@ Tables/
     ├── Table Name.vpx                <- file meja (wajib)
     ├── Table Name.directb2s          <- backglass B2S (opsional)
     ├── medias/launcher.png            <- override thumbnail launcher (opsional, .png/.webp/.jpg/.jpeg, 480×384)
+    ├── medias/bg.png                  <- gambar layar backglass (opsional, dari VPinMediaDB; ubin tetap memakai launcher.png)
+    ├── medias/table.mp4, dmd.mp4      <- video pratinjau: ubin dan playfield (table.mp4), DMD (dmd.mp4)
     ├── Table Name.ini                <- override per meja (opsional)
     ├── Table Name.vbs                <- patch VBS / override skrip (opsional)
     ├── altsound/<rom>/               <- paket altsound (opsional)
@@ -779,7 +781,7 @@ audio_section_test = "Uji"
 audio_section_test_intro = "Putar suara di setiap output dan pastikan keluar dari tempat yang benar."
 tables_section_where = "Meja Anda"
 tables_tiles_section = "Ubin peluncur"
-tables_tiles_intro = "Cara menampilkan gambar yang bentuknya tidak sama dengan ubin. Terbaik: gambar 480×384 (5:4) di medias/launcher.png. Video di medias/launcher.mp4 diputar di ubin yang dipilih."
+tables_tiles_intro = "Cara menampilkan gambar yang bentuknya tidak sama dengan ubin. Terbaik: gambar berbentuk ubin (ukuran di bawah tiap bentuk) di medias/launcher.png. Video di medias/launcher.mp4 diputar di ubin yang dipilih."
 tables_tiles_fit = "Pita hitam: seluruh gambar"
 tables_tiles_fill = "Isi ubin: dipotong, tidak pernah direntangkan"
 tables_tiles_videos = "Unduh video pratinjau dari VPinMediaDB saat meja tetap dipilih (disimpan di folder medias-nya)"
@@ -951,3 +953,5 @@ system_keys_alt = "Alt (ditahan)"
 system_keys_alt_do = "Kabinet: menampilkan bilah atas dan hurufnya (tersembunyi saat mouse diam)"
 system_keys_updates = "Alt + U"
 system_keys_updates_do = "Peluncur: ke meja berikutnya yang punya pembaruan"
+tables_tiles_shape = "Bentuk ubin"
+tables_tiles_shape_hint = "Pilih bentuk gambar Anda: 1:1 untuk wheel bundar, 3:4 untuk video playfield tegak. Di bawah tiap bentuk, ukuran gambar yang mengisinya."

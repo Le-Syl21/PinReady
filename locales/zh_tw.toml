@@ -435,6 +435,8 @@ Tables/
     ├── Table Name.vpx                <- 球台檔案（必需）
     ├── Table Name.directb2s          <- backglass B2S（選用）
     ├── medias/launcher.png            <- 啟動器縮圖覆寫（選用，.png/.webp/.jpg/.jpeg，480×384）
+    ├── medias/bg.png                  <- 背景螢幕圖片(選用,來自 VPinMediaDB;磁貼仍用 launcher.png)
+    ├── medias/table.mp4, dmd.mp4      <- 預覽影片:磁貼和台面(table.mp4),DMD(dmd.mp4)
     ├── Table Name.ini                <- 單台覆寫設定（選用）
     ├── Table Name.vbs                <- VBS 修補 / 腳本覆寫（選用）
     ├── altsound/<rom>/               <- altsound 套件（選用）
@@ -777,7 +779,7 @@ audio_section_test = "測試"
 audio_section_test_intro = "在每個輸出上播放一段聲音，確認它來自正確的位置。"
 tables_section_where = "您的球台"
 tables_tiles_section = "啟動器圖塊"
-tables_tiles_intro = "形狀與圖塊不同的圖片如何顯示。最佳：在 medias/launcher.png 放一張 480×384（5:4）的圖片。medias/launcher.mp4 中的影片會在選取的圖塊裡播放。"
+tables_tiles_intro = "形狀與磁貼不同的圖片如何顯示。最佳:與磁貼同形狀的圖片(尺寸見每種形狀下方)放在 medias/launcher.png。medias/launcher.mp4 中的影片在選取的磁貼裡播放。"
 tables_tiles_fit = "黑邊：顯示整張圖片"
 tables_tiles_fill = "填滿圖塊：裁切，絕不拉伸"
 tables_tiles_videos = "台保持選取時從 VPinMediaDB 下載預覽影片（存於其 medias 資料夾）"
@@ -948,3 +950,5 @@ system_keys_alt = "Alt(按住)"
 system_keys_alt_do = "機台:顯示頂部列及其字母(滑鼠不動時隱藏)"
 system_keys_updates = "Alt + U"
 system_keys_updates_do = "啟動器:前往下一個有更新的台子"
+tables_tiles_shape = "磁貼形狀"
+tables_tiles_shape_hint = "選擇你的圖片形狀:圓形 wheel 用 1:1,直立的台面影片用 3:4。每種形狀下方是剛好填滿它的圖片尺寸。"

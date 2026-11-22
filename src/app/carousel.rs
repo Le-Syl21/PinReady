@@ -72,8 +72,9 @@ impl App {
         let painter = ui.painter_at(rect);
         let info_h = 90.0;
         let card_h = ((rect.height() - info_h) * 0.66).max(80.0);
-        let card_w = (card_h * 1.25).min(rect.width() * 0.46);
-        let card_h = card_w / 1.25;
+        let ratio = self.tile_shape.ratio();
+        let card_w = (card_h * ratio).min(rect.width() * 0.46);
+        let card_h = card_w / ratio;
         let floor_y = rect.top() + (rect.height() - info_h) * 0.5 + card_h * 0.5;
         let radius = rect.width() * 0.42;
 
