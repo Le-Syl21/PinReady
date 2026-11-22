@@ -697,7 +697,10 @@ impl App {
             }
         } else {
             if self.clip_behind() {
-                let r = ui.max_rect();
+                // What is left below the header and the banners: the clip is
+                // painted after them, so the panel's whole rect (`max_rect`)
+                // covered the header, which stayed clickable but invisible.
+                let r = ui.available_rect_before_wrap();
                 self.paint_selected_behind(&ui.painter_at(r), r, 110);
             }
             scroll_area.show(ui, |ui| {
