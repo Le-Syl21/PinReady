@@ -8,8 +8,9 @@
 //! projected with a pinhole camera, cut into a small grid so the textures
 //! keep their perspective, and the faces are painted far to near.
 
+use super::mesh3d::*;
 use super::*;
-use egui::{Color32, Pos2, Rect, Vec2, epaint::Vertex};
+use egui::{Color32, Pos2, Rect, Vec2};
 
 /// Distance between two cabinets (metres, like everything here).
 const SPACING: f32 = 1.3;
@@ -17,193 +18,16 @@ const SPACING: f32 = 1.3;
 const SIDE: i64 = 5;
 /// How far the selected cabinet comes forward.
 const STEP_OUT: f32 = 0.38;
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct V3 {
-    x: f32,
-    y: f32,
-    z: f32,
-}
-
-const fn v3(x: f32, y: f32, z: f32) -> V3 {
-    V3 { x, y, z }
-}
-
-impl V3 {
-    fn sub(self, o: V3) -> V3 {
-        v3(self.x - o.x, self.y - o.y, self.z - o.z)
-    }
-    fn add(self, o: V3) -> V3 {
-        v3(self.x + o.x, self.y + o.y, self.z + o.z)
-    }
-    fn scale(self, k: f32) -> V3 {
-        v3(self.x * k, self.y * k, self.z * k)
-    }
-    fn dot(self, o: V3) -> f32 {
-        self.x * o.x + self.y * o.y + self.z * o.z
-    }
-    fn cross(self, o: V3) -> V3 {
-        v3(
-            self.y * o.z - self.z * o.y,
-            self.z * o.x - self.x * o.z,
-            self.x * o.y - self.y * o.x,
-        )
-    }
-    fn norm(self) -> V3 {
-        self.scale(1.0 / self.dot(self).sqrt().max(1e-6))
-    }
-    fn lerp(self, o: V3, t: f32) -> V3 {
-        self.add(o.sub(self).scale(t))
-    }
-}
-
-/// A pinhole camera looking from `eye` at `target`, `focal` in pixels.
-struct Camera {
-    eye: V3,
-    right: V3,
-    up: V3,
-    fwd: V3,
-    focal: f32,
-    center: Pos2,
-}
-
-impl Camera {
-    fn new(eye: V3, target: V3, focal: f32, center: Pos2) -> Self {
-        let fwd = target.sub(eye).norm();
-        let right = fwd.cross(v3(0.0, 1.0, 0.0)).norm();
-        let up = right.cross(fwd);
-        Self {
-            eye,
-            right,
-            up,
-            fwd,
-            focal,
-            center,
-        }
-    }
-
-    /// Screen position and depth of a point; `None` behind the camera.
-    fn project(&self, p: V3) -> Option<(Pos2, f32)> {
-        let d = p.sub(self.eye);
-        let z = d.dot(self.fwd);
-        if z < 0.05 {
-            return None;
-        }
-        let x = d.dot(self.right) / z * self.focal;
-        let y = d.dot(self.up) / z * self.focal;
-        Some((Pos2::new(self.center.x + x, self.center.y - y), z))
-    }
-}
-
-/// One face to paint: four corners (top-left, top-right, bottom-right,
-/// bottom-left as the texture sees them), what covers it, and its depth.
-struct Face {
-    corners: [V3; 4],
-    fill: Fill,
-    tint: Color32,
-    depth: f32,
-}
-
-enum Fill {
-    Flat,
-    /// A texture, with the part of it to show.
-    Tex(egui::TextureId, Rect),
-    /// Two colours, top to bottom.
-    Gradient(Color32),
-}
-
-/// Grid cells per side when a textured face is cut up for perspective.
-const SUBDIV: usize = 6;
-
-fn add_face(mesh_flat: &mut egui::Mesh, meshes: &mut Vec<egui::Mesh>, cam: &Camera, f: &Face) {
-    let [tl, tr, br, bl] = f.corners;
-    let (cells, tex, uv) = match &f.fill {
-        Fill::Tex(id, uv) => (SUBDIV, Some(*id), *uv),
-        _ => (1, None, Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0))),
-    };
-    let mut pts: Vec<Option<Pos2>> = Vec::with_capacity((cells + 1) * (cells + 1));
-    for j in 0..=cells {
-        let v = j as f32 / cells as f32;
-        let left = tl.lerp(bl, v);
-        let right = tr.lerp(br, v);
-        for i in 0..=cells {
-            let u = i as f32 / cells as f32;
-            pts.push(cam.project(left.lerp(right, u)).map(|(p, _)| p));
-        }
-    }
-    if pts.iter().any(Option::is_none) {
-        return;
-    }
-    let target: &mut egui::Mesh = match tex {
-        Some(id) => {
-            meshes.push(egui::Mesh::with_texture(id));
-            meshes.last_mut().expect("just pushed")
-        }
-        None => mesh_flat,
-    };
-    let base = target.vertices.len() as u32;
-    for j in 0..=cells {
-        let v = j as f32 / cells as f32;
-        let color = match &f.fill {
-            Fill::Gradient(bottom) => lerp_color(f.tint, *bottom, v),
-            _ => f.tint,
-        };
-        for i in 0..=cells {
-            let u = i as f32 / cells as f32;
-            let pos = pts[j * (cells + 1) + i].expect("checked above");
-            let uv_p = match tex {
-                Some(_) => Pos2::new(uv.min.x + u * uv.width(), uv.min.y + v * uv.height()),
-                None => egui::epaint::WHITE_UV,
-            };
-            target.vertices.push(Vertex {
-                pos,
-                uv: uv_p,
-                color,
-            });
-        }
-    }
-    let w = (cells + 1) as u32;
-    for j in 0..cells as u32 {
-        for i in 0..cells as u32 {
-            let a = base + j * w + i;
-            target
-                .indices
-                .extend_from_slice(&[a, a + 1, a + w, a + 1, a + w + 1, a + w]);
-        }
-    }
-}
-
-fn lerp_color(a: Color32, b: Color32, t: f32) -> Color32 {
-    let m = |x: u8, y: u8| (x as f32 + (y as f32 - x as f32) * t) as u8;
-    Color32::from_rgba_premultiplied(
-        m(a.r(), b.r()),
-        m(a.g(), b.g()),
-        m(a.b(), b.b()),
-        m(a.a(), b.a()),
-    )
-}
-
-fn shade(c: Color32, k: f32) -> Color32 {
-    let m = |x: u8| (x as f32 * k).min(255.0) as u8;
-    Color32::from_rgba_premultiplied(m(c.r()), m(c.g()), m(c.b()), c.a())
-}
-
-/// A box face list helper: an axis-aligned quad.
-fn quad(corners: [V3; 4], fill: Fill, tint: Color32, cam: &Camera) -> Face {
-    let c = corners[0].lerp(corners[2], 0.5);
-    let depth = c.sub(cam.eye).dot(cam.fwd);
-    Face {
-        corners,
-        fill,
-        tint,
-        depth,
-    }
-}
+/// Length of the dive to the playfield when a table is launched (seconds).
+const PLUNGE_S: f32 = 1.4;
 
 /// What a cabinet shows.
 struct CabinetArt {
     backglass: Option<egui::TextureHandle>,
     playfield: Option<egui::TextureHandle>,
+    /// The backglass blurred: what an unselected playfield shows, like a lit
+    /// playfield seen through dusty glass.
+    glow: Option<egui::TextureHandle>,
     wheel: Option<egui::TextureHandle>,
 }
 
@@ -272,8 +96,8 @@ fn cabinet_faces(x: f32, z: f32, light: f32, art: &CabinetArt, cam: &Camera, out
         v3(x + w - 0.02, front_y, front_z - 0.02),
         v3(x - w + 0.02, front_y, front_z - 0.02),
     ];
-    match &art.playfield {
-        Some(t) => {
+    match (&art.playfield, &art.glow) {
+        (Some(t), _) | (None, Some(t)) => {
             let uv = super::tile_fit::fill_uv(t.size_vec2(), Vec2::new(0.68, 1.24));
             out.push(quad(
                 pf,
@@ -282,7 +106,7 @@ fn cabinet_faces(x: f32, z: f32, light: f32, art: &CabinetArt, cam: &Camera, out
                 cam,
             ));
         }
-        None => out.push(quad(
+        (None, None) => out.push(quad(
             pf,
             Fill::Gradient(lit(Color32::from_rgb(10, 14, 30), 1.0)),
             lit(Color32::from_rgb(40, 50, 90), 1.0),
@@ -423,9 +247,24 @@ impl App {
         let info_painter = ui.painter_at(rect);
         let cam_x = 0.0; // the row moves, the camera stays: no float drift on long lists
         let focal = view.height().min(view.width() * 0.75) * 1.1;
+        // launching: the camera dives to the selected playfield while VPX loads
+        let launching = self.vpx_running.load(Ordering::Relaxed);
+        match (launching, self.arcade_plunge) {
+            (true, None) => self.arcade_plunge = Some(std::time::Instant::now()),
+            (false, Some(_)) => self.arcade_plunge = None,
+            _ => {}
+        }
+        let dive = self
+            .arcade_plunge
+            .map(|t0| (t0.elapsed().as_secs_f32() / PLUNGE_S).min(1.0))
+            .unwrap_or(0.0);
+        if dive > 0.0 && dive < 1.0 {
+            ui.ctx().request_repaint();
+        }
+        let e = dive * dive * (3.0 - 2.0 * dive); // smoothstep
         let cam = Camera::new(
-            v3(cam_x, 1.95, 2.9),
-            v3(cam_x, 1.0, -0.2),
+            v3(cam_x, 1.95, 2.9).lerp(v3(cam_x, 1.55, STEP_OUT + 1.05), e),
+            v3(cam_x, 1.0, -0.2).lerp(v3(cam_x, 0.9, STEP_OUT - 0.35), e),
             focal,
             egui::pos2(view.center().x, view.center().y + view.height() * 0.05),
         );
@@ -492,7 +331,18 @@ impl App {
         cabinets.sort_by(|a, b| b.0.total_cmp(&a.0));
 
         let sel = self.selected_table;
-        let clip = self.video_tile.as_ref().and_then(|v| v.texture().cloned());
+        // the clip's last picture stays on the playfield while VPX loads
+        // (the player is stopped then)
+        let clip = match self.video_tile.as_ref().and_then(|v| v.texture().cloned()) {
+            Some(t) => {
+                self.arcade_pf_last = Some((sel, t.clone()));
+                Some(t)
+            }
+            None => match &self.arcade_pf_last {
+                Some((i, t)) if *i == sel => Some(t.clone()),
+                _ => None,
+            },
+        };
         let allow_download = self.db.get_config("media_videos").as_deref() != Some("0");
         let mut hit: Vec<(usize, f32, Rect)> = Vec::new();
         for &(dist, fpos, off) in &cabinets {
@@ -515,6 +365,7 @@ impl App {
                     self.bg_cache.thumb(idx).cloned()
                 },
                 playfield: if idx == sel { clip.clone() } else { None },
+                glow: self.bg_cache.backdrop(idx).map(|b| b.blur.clone()),
                 wheel: dir
                     .as_deref()
                     .and_then(|d| self.wheels.get(idx, d, download.as_deref()).cloned()),
@@ -606,58 +457,5 @@ impl App {
                 self.selected_table = filtered[fpos];
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn camera_projects_the_target_to_the_centre_and_keeps_left_left() {
-        let c = egui::pos2(400.0, 300.0);
-        let cam = Camera::new(v3(0.0, 2.0, 3.0), v3(0.0, 1.0, 0.0), 800.0, c);
-        let (p, z) = cam.project(v3(0.0, 1.0, 0.0)).unwrap();
-        assert!((p - c).length() < 1e-3 && z > 0.0);
-        let (l, _) = cam.project(v3(-1.0, 1.0, 0.0)).unwrap();
-        let (r, _) = cam.project(v3(1.0, 1.0, 0.0)).unwrap();
-        assert!(l.x < c.x && r.x > c.x);
-        let (hi, _) = cam.project(v3(0.0, 2.0, 0.0)).unwrap();
-        assert!(hi.y < c.y, "up is up on screen");
-        assert!(
-            cam.project(v3(0.0, 2.0, 5.0)).is_none(),
-            "behind the camera"
-        );
-    }
-
-    #[test]
-    fn a_textured_face_is_cut_into_a_grid() {
-        let cam = Camera::new(
-            v3(0.0, 2.0, 3.0),
-            v3(0.0, 1.0, 0.0),
-            800.0,
-            egui::pos2(0.0, 0.0),
-        );
-        let face = quad(
-            [
-                v3(-0.3, 1.4, 0.0),
-                v3(0.3, 1.4, 0.0),
-                v3(0.3, 1.0, 0.0),
-                v3(-0.3, 1.0, 0.0),
-            ],
-            Fill::Tex(
-                egui::TextureId::Managed(1),
-                Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
-            ),
-            Color32::WHITE,
-            &cam,
-        );
-        let mut flat = egui::Mesh::default();
-        let mut tex = Vec::new();
-        add_face(&mut flat, &mut tex, &cam, &face);
-        assert_eq!(tex.len(), 1);
-        assert_eq!(tex[0].vertices.len(), (SUBDIV + 1) * (SUBDIV + 1));
-        assert_eq!(tex[0].indices.len(), SUBDIV * SUBDIV * 6);
-        assert!(flat.vertices.is_empty());
     }
 }

@@ -7,6 +7,8 @@
 //!   the selected one in the middle and larger, the table's name under it.
 //!   The row fades out after a few idle seconds and comes back on any input,
 //!   so the clip plays alone like on an attract screen.
+//! - **Cover flow, stack, wave, cascade, accordion, zoom**: cards in 3D
+//!   (`cardfx.rs`).
 //! - **Arcade**: a row of cabinets the camera walks along (`arcade.rs`).
 
 use super::*;
@@ -15,18 +17,41 @@ use super::*;
 pub enum LauncherLayout {
     Grid,
     Carousel,
+    CoverFlow,
+    Stack,
+    Wave,
+    Cascade,
+    Accordion,
+    Zoom,
     Wheels,
     Arcade,
 }
 
 impl LauncherLayout {
-    pub const ALL: [Self; 4] = [Self::Grid, Self::Carousel, Self::Wheels, Self::Arcade];
+    pub const ALL: [Self; 10] = [
+        Self::Grid,
+        Self::Carousel,
+        Self::CoverFlow,
+        Self::Stack,
+        Self::Wave,
+        Self::Cascade,
+        Self::Accordion,
+        Self::Zoom,
+        Self::Wheels,
+        Self::Arcade,
+    ];
 
     /// The value stored in `launcher_layout`.
     pub fn key(self) -> &'static str {
         match self {
             Self::Grid => "grid",
             Self::Carousel => "carousel",
+            Self::CoverFlow => "coverflow",
+            Self::Stack => "stack",
+            Self::Wave => "wave",
+            Self::Cascade => "cascade",
+            Self::Accordion => "accordion",
+            Self::Zoom => "zoom",
             Self::Wheels => "wheels",
             Self::Arcade => "arcade",
         }
@@ -49,10 +74,35 @@ impl LauncherLayout {
         match self {
             Self::Grid => t!("launcher_view_grid"),
             Self::Carousel => t!("launcher_view_carousel"),
+            Self::CoverFlow => t!("launcher_view_coverflow"),
+            Self::Stack => t!("launcher_view_stack"),
+            Self::Wave => t!("launcher_view_wave"),
+            Self::Cascade => t!("launcher_view_cascade"),
+            Self::Accordion => t!("launcher_view_accordion"),
+            Self::Zoom => t!("launcher_view_zoom"),
             Self::Wheels => t!("launcher_view_wheels"),
             Self::Arcade => t!("launcher_view_arcade"),
         }
         .to_string()
+    }
+
+    /// The card effect this layout draws, if it is one.
+    pub fn card_fx(self) -> Option<super::cardfx::CardFx> {
+        use super::cardfx::CardFx;
+        Some(match self {
+            Self::CoverFlow => CardFx::CoverFlow,
+            Self::Stack => CardFx::Stack,
+            Self::Wave => CardFx::Wave,
+            Self::Cascade => CardFx::Cascade,
+            Self::Accordion => CardFx::Accordion,
+            Self::Zoom => CardFx::Zoom,
+            _ => return None,
+        })
+    }
+
+    /// Whether the tiles' shape and fit settings apply (pictures in cards).
+    pub fn uses_tiles(self) -> bool {
+        !matches!(self, Self::Wheels | Self::Arcade)
     }
 
     /// Whether the selected table's clip should be decoded at screen size

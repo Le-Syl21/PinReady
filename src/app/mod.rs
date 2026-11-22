@@ -381,6 +381,10 @@ pub struct App {
     wheel_active_at: std::time::Instant,
     /// The tables' wheels (wheel and arcade layouts).
     wheels: wheels::WheelCache,
+    /// Arcade layout: when the dive to the playfield started (a table is
+    /// launching), and the selected clip's last picture.
+    arcade_plunge: Option<std::time::Instant>,
+    arcade_pf_last: Option<(usize, egui::TextureHandle)>,
     disable_touch: bool,
     external_dmd: bool, // ZeDMD, PinDMD, etc. — DMD handled by external device, not a screen
 
@@ -980,6 +984,8 @@ impl App {
             wheel_last_sel: None,
             wheel_active_at: std::time::Instant::now(),
             wheels: wheels::WheelCache::new(),
+            arcade_plunge: None,
+            arcade_pf_last: None,
             wizard_furthest,
             disable_touch,
             external_dmd,
@@ -2143,6 +2149,7 @@ mod arcade;
 mod audio_page;
 mod autostart;
 mod bgcache;
+mod cardfx;
 mod carousel;
 mod catalog_refresh;
 mod desktop_integration;
@@ -2154,6 +2161,7 @@ mod launcher;
 mod launcher_input;
 mod launcher_ui;
 mod layouts;
+mod mesh3d;
 mod mnemonic;
 mod outputs_page;
 mod rendering_page;

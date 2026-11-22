@@ -157,10 +157,7 @@ impl App {
                         .set_config("launcher_layout", self.launcher_layout.key());
                 }
                 ui.add_space(10.0);
-                if matches!(
-                    self.launcher_layout,
-                    LauncherLayout::Grid | LauncherLayout::Carousel
-                ) {
+                if self.launcher_layout.uses_tiles() {
                     // The tile shape: one small drawn tile per choice, with the
                     // picture size that fills it.
                     ui.label(egui::RichText::new(t!("tables_tiles_shape")).strong());

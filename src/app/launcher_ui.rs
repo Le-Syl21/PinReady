@@ -689,6 +689,10 @@ impl App {
                 LauncherLayout::Arcade => {
                     self.paint_arcade(ui, &filtered, &mut launch_idx, &mut visible_pos)
                 }
+                l if l.card_fx().is_some() => {
+                    let fx = l.card_fx().expect("checked");
+                    self.paint_cards(fx, ui, &filtered, &mut launch_idx, &mut visible_pos)
+                }
                 _ => self.paint_carousel(ui, &filtered, &mut launch_idx, &mut visible_pos),
             }
         } else {
