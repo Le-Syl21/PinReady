@@ -47,6 +47,7 @@ impl App {
         self.process_cover_info();
         self.process_preview_audio(ui.ctx());
         self.process_preview_video(ui.ctx());
+        self.process_bg_screen(ui.ctx());
         // Process VPX status before the joystick handler so the post-exit
         // input grace window (armed in `process_vpx_status`) is already set
         // on the very first frame `vpx_running` reads false — otherwise the
@@ -1305,7 +1306,7 @@ impl App {
                 .video_bg
                 .as_ref()
                 .and_then(|v| v.texture().cloned())
-                .or_else(|| self.bg_cache.best(selected));
+                .or_else(|| self.bg_screen_texture(selected));
             let info = self.selected_cover_info();
             let extra = self.cover_extra();
             let uri = format!("table {}/{selected}", self.scan_generation);

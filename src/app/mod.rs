@@ -471,6 +471,10 @@ pub struct App {
     /// tables already tried this session (no retry loop on a failure).
     video_fetch: Option<(usize, crossbeam_channel::Receiver<bool>)>,
     video_fetch_tried: std::collections::HashSet<std::path::PathBuf>,
+    /// The backglass screen's own picture when the tile has a
+    /// `medias/launcher.*` of its own: (table index, picture once loaded,
+    /// loader in flight).
+    bg_screen: Option<launcher::BgScreen>,
 
     // Page 5 — Tables dir
     tables_dir: String,
@@ -1010,6 +1014,7 @@ impl App {
             video_dmd: None,
             video_fetch: None,
             video_fetch_tried: Default::default(),
+            bg_screen: None,
             sort_mode: launcher::SortMode::from_key(db_sort_key.as_deref().unwrap_or_default()),
             vpx_session: None,
             vpinplay: vpinplay_settings,

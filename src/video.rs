@@ -94,6 +94,32 @@ pub fn fit(w: u32, h: u32, max_w: u32, max_h: u32) -> (u32, u32) {
     (even(w as f64 * scale), even(h as f64 * scale))
 }
 
+/// VPinMediaDB's playfield clip (`table.<ext>`) is recorded for a cabinet's
+/// playfield screen: landscape, the top of the table on the left. Such a clip
+/// is turned a quarter clockwise to stand upright in a tile; a portrait one is
+/// already upright and left alone (decided on its size, in the decoder).
+pub fn is_cabinet_playfield(path: &Path) -> bool {
+    path.file_stem()
+        .and_then(|s| s.to_str())
+        .is_some_and(|s| s.eq_ignore_ascii_case("table"))
+}
+
+/// `rgba` (`w`×`h`) turned a quarter clockwise: the result is `h`×`w`.
+#[cfg_attr(not(feature = "video"), allow(dead_code))]
+fn turn_clockwise(rgba: &[u8], w: usize, h: usize) -> Vec<u8> {
+    let mut out = vec![0u8; rgba.len()];
+    for y in 0..h {
+        for x in 0..w {
+            // source (x, y) lands at column h-1-y, row x
+            let (nx, ny) = (h - 1 - y, x);
+            let s = (y * w + x) * 4;
+            let d = (ny * h + nx) * 4;
+            out[d..d + 4].copy_from_slice(&rgba[s..s + 4]);
+        }
+    }
+    out
+}
+
 /// One decoded frame, `pts` in seconds from the start of the clip (growing
 /// across loops).
 struct Frame {
@@ -114,11 +140,13 @@ pub struct VideoPlayer {
 
 impl VideoPlayer {
     /// Start decoding `path`, frames fitted in `max_w`×`max_h`. `None` when
-    /// the build has no video support.
+    /// the build has no video support. A playfield clip made for a cabinet
+    /// (see [`is_cabinet_playfield`]) is turned upright.
     pub fn open(path: &Path, max_w: u32, max_h: u32, name: &str) -> Option<Self> {
         let (tx, rx) = crossbeam_channel::bounded(4);
         let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-        if !decoder::spawn(path.to_path_buf(), max_w, max_h, tx, stop.clone()) {
+        let upright = is_cabinet_playfield(path);
+        if !decoder::spawn(path.to_path_buf(), max_w, max_h, upright, tx, stop.clone()) {
             return None;
         }
         Some(Self {
@@ -197,13 +225,14 @@ mod decoder {
         path: PathBuf,
         max_w: u32,
         max_h: u32,
+        upright: bool,
         tx: crossbeam_channel::Sender<Frame>,
         stop: Arc<AtomicBool>,
     ) -> bool {
         std::thread::Builder::new()
             .name("video-decoder".into())
             .spawn(move || {
-                if let Err(e) = run(&path, max_w, max_h, &tx, &stop) {
+                if let Err(e) = run(&path, max_w, max_h, upright, &tx, &stop) {
                     log::warn!("video {}: {e}", path.display());
                 }
             })
@@ -214,6 +243,7 @@ mod decoder {
         path: &std::path::Path,
         max_w: u32,
         max_h: u32,
+        upright: bool,
         tx: &crossbeam_channel::Sender<Frame>,
         stop: &AtomicBool,
     ) -> Result<(), ff::Error> {
@@ -231,7 +261,15 @@ mod decoder {
         let time_base = f64::from(stream.time_base());
         let ctx = ff::codec::context::Context::from_parameters(stream.parameters())?;
         let mut decoder = ctx.decoder().video()?;
-        let (w, h) = fit(decoder.width(), decoder.height(), max_w, max_h);
+        // a landscape cabinet playfield is shown turned: fit its turned size,
+        // scale to the unturned one, turn each frame
+        let turn = upright && decoder.width() > decoder.height();
+        let (w, h) = if turn {
+            let (tw, th) = fit(decoder.height(), decoder.width(), max_w, max_h);
+            (th, tw)
+        } else {
+            fit(decoder.width(), decoder.height(), max_w, max_h)
+        };
         if w == 0 {
             return Err(ff::Error::InvalidData);
         }
@@ -245,10 +283,11 @@ mod decoder {
             ff::software::scaling::Flags::BILINEAR,
         )?;
         log::info!(
-            "video {}: {}x{} -> {w}x{h}",
+            "video {}: {}x{} -> {w}x{h}{}",
             path.display(),
             decoder.width(),
-            decoder.height()
+            decoder.height(),
+            if turn { ", turned upright" } else { "" }
         );
         let mut decoded = ff::frame::Video::empty();
         let mut rgba = ff::frame::Video::empty();
@@ -281,10 +320,18 @@ mod decoder {
                     for y in 0..h as usize {
                         out.extend_from_slice(&data[y * stride..y * stride + row]);
                     }
-                    let frame = Frame {
-                        pts: offset + pts,
-                        size: [w as usize, h as usize],
-                        rgba: out,
+                    let frame = if turn {
+                        Frame {
+                            pts: offset + pts,
+                            size: [h as usize, w as usize],
+                            rgba: super::turn_clockwise(&out, w as usize, h as usize),
+                        }
+                    } else {
+                        Frame {
+                            pts: offset + pts,
+                            size: [w as usize, h as usize],
+                            rgba: out,
+                        }
                     };
                     if tx.send(frame).is_err() {
                         return Ok(()); // the player was dropped
@@ -310,6 +357,7 @@ mod decoder {
         _path: std::path::PathBuf,
         _max_w: u32,
         _max_h: u32,
+        _upright: bool,
         _tx: crossbeam_channel::Sender<super::Frame>,
         _stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
     ) -> bool {
@@ -321,6 +369,24 @@ mod decoder {
 mod tests {
     use super::*;
 
+    #[test]
+    fn quarter_turn_puts_the_left_edge_on_top() {
+        // 3x2: a b c / d e f  ->  2x3: d a / e b / f c
+        let px = |v: u8| [v, v, v, 255];
+        let src: Vec<u8> = [1, 2, 3, 4, 5, 6].iter().flat_map(|&v| px(v)).collect();
+        let out = turn_clockwise(&src, 3, 2);
+        let vals: Vec<u8> = out.chunks(4).map(|c| c[0]).collect();
+        assert_eq!(vals, vec![4, 1, 5, 2, 6, 3]);
+    }
+
+    #[test]
+    fn only_the_playfield_clip_is_turned() {
+        assert!(is_cabinet_playfield(Path::new("/t/medias/table.mp4")));
+        assert!(is_cabinet_playfield(Path::new("/t/medias/Table.webm")));
+        assert!(!is_cabinet_playfield(Path::new("/t/medias/launcher.mp4")));
+        assert!(!is_cabinet_playfield(Path::new("/t/medias/dmd.mp4")));
+    }
+
     /// Decodes a real clip: `PINREADY_TEST_VIDEO=<file> cargo test -- --ignored decodes`.
     #[cfg(feature = "video")]
     #[test]
@@ -329,7 +395,7 @@ mod tests {
         let path = std::path::PathBuf::from(std::env::var("PINREADY_TEST_VIDEO").unwrap());
         let (tx, rx) = crossbeam_channel::bounded(4);
         let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-        assert!(decoder::spawn(path, 480, 384, tx, stop.clone()));
+        assert!(decoder::spawn(path, 480, 384, false, tx, stop.clone()));
         let mut last = -1.0;
         let mut n = 0;
         let mut looped = false;
@@ -347,6 +413,31 @@ mod tests {
         stop.store(true, std::sync::atomic::Ordering::Relaxed);
         eprintln!("decoded {n} frames up to {last:.2} s");
         assert!(n > 10 && looped, "the clip must decode and keep looping");
+    }
+
+    /// A cabinet playfield clip comes out upright (portrait):
+    /// `PINREADY_TEST_VIDEO=<table.mp4> PINREADY_TEST_OUT=<x.ppm> cargo test -- --ignored upright`.
+    #[cfg(feature = "video")]
+    #[test]
+    #[ignore]
+    fn turns_a_real_playfield_clip_upright() {
+        let path = std::path::PathBuf::from(std::env::var("PINREADY_TEST_VIDEO").unwrap());
+        let (tx, rx) = crossbeam_channel::bounded(4);
+        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        assert!(decoder::spawn(path, 480, 960, true, tx, stop.clone()));
+        let f = rx.recv_timeout(std::time::Duration::from_secs(10)).unwrap();
+        stop.store(true, std::sync::atomic::Ordering::Relaxed);
+        assert!(
+            f.size[1] > f.size[0],
+            "upright means portrait: {:?}",
+            f.size
+        );
+        assert!(f.size[0] <= 480 && f.size[1] <= 960);
+        if let Ok(out) = std::env::var("PINREADY_TEST_OUT") {
+            let mut ppm = format!("P6 {} {} 255\n", f.size[0], f.size[1]).into_bytes();
+            ppm.extend(f.rgba.chunks(4).flat_map(|c| [c[0], c[1], c[2]]));
+            std::fs::write(out, ppm).unwrap();
+        }
     }
 
     #[test]

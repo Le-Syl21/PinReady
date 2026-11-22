@@ -2113,10 +2113,11 @@ impl App {
                 self.video_fetch = Some((cur, rx));
             }
             if let Some(p) = find_video(dir, VideoSlot::Tile) {
+                // tall enough for an upright playfield filling the tile
                 self.video_tile = VideoPlayer::open(
                     &p,
                     crate::assets::THUMB_WIDTH,
-                    crate::assets::THUMB_HEIGHT,
+                    crate::assets::THUMB_WIDTH * 2,
                     "video-tile",
                 );
             }
@@ -2147,6 +2148,91 @@ impl App {
         if let Some(v) = &mut self.video_dmd {
             v.update(ctx);
             ctx.request_repaint_of(egui::ViewportId::from_hash_of(DMD_VIEWPORT));
+        }
+    }
+
+    /// Keep the backglass screen's picture for the selected table. The tile
+    /// picture stored by the scan is `medias/launcher.*` when there is one,
+    /// which is a tile (a wheel, a logo), not a backglass: the backglass
+    /// screen then shows `medias/bg.png`, else the `.directb2s` image, loaded
+    /// off the UI thread. Without a `launcher.*` the stored picture already is
+    /// the backglass and this stays empty.
+    pub(super) fn process_bg_screen(&mut self, ctx: &egui::Context) {
+        if self.tables.is_empty()
+            || !self
+                .displays
+                .iter()
+                .any(|d| d.role == DisplayRole::Backglass)
+        {
+            self.bg_screen = None;
+            return;
+        }
+        let cur = self.selected_table.min(self.tables.len() - 1);
+        if self.bg_screen.as_ref().map(|b| b.idx) != Some(cur) {
+            let vpx = self.tables[cur].path.clone();
+            let Some(dir) = vpx.parent().map(|d| d.to_path_buf()) else {
+                self.bg_screen = None;
+                return;
+            };
+            if crate::assets::extract_backglass_from_launcher_override(&dir).is_none() {
+                self.bg_screen = None;
+                return;
+            }
+            let (tx, rx) = crossbeam_channel::bounded(1);
+            let _ = std::thread::Builder::new()
+                .name("bg-screen".into())
+                .spawn(move || {
+                    let bytes =
+                        crate::assets::extract_backglass_from_vpinmediadb(&dir).or_else(|| {
+                            let b2s = vpx.with_extension("directb2s");
+                            b2s.is_file()
+                                .then(|| crate::assets::extract_backglass_from_b2s(&b2s))
+                                .flatten()
+                        });
+                    let image = bytes.and_then(|b| {
+                        let rgba = image::load_from_memory(&b).ok()?.to_rgba8();
+                        let size = [rgba.width() as usize, rgba.height() as usize];
+                        Some(egui::ColorImage::from_rgba_unmultiplied(
+                            size,
+                            rgba.as_raw(),
+                        ))
+                    });
+                    let _ = tx.send(image);
+                });
+            self.bg_screen = Some(BgScreen {
+                idx: cur,
+                texture: None,
+                rx: Some(rx),
+            });
+        }
+        if let Some(b) = &mut self.bg_screen
+            && let Some(rx) = &b.rx
+        {
+            match rx.try_recv() {
+                Ok(image) => {
+                    b.texture = image
+                        .map(|i| ctx.load_texture("bg-screen", i, egui::TextureOptions::LINEAR));
+                    b.rx = None;
+                    ctx.request_repaint_of(egui::ViewportId::from_hash_of(BG_VIEWPORT));
+                }
+                Err(crossbeam_channel::TryRecvError::Disconnected) => b.rx = None,
+                Err(crossbeam_channel::TryRecvError::Empty) => {
+                    ctx.request_repaint_after(std::time::Duration::from_millis(50));
+                }
+            }
+        }
+    }
+
+    /// The picture for the backglass screen: its own one when the tile has a
+    /// `launcher.*` (see [`Self::process_bg_screen`]), else the stored one.
+    pub(super) fn bg_screen_texture(&self, idx: usize) -> Option<egui::TextureHandle> {
+        match &self.bg_screen {
+            // no backglass found: the tile picture is better than nothing
+            Some(b) if b.idx == idx => b
+                .texture
+                .clone()
+                .or_else(|| b.rx.is_none().then(|| self.bg_cache.best(idx)).flatten()),
+            _ => self.bg_cache.best(idx),
         }
     }
 
@@ -2851,6 +2937,14 @@ impl App {
             }
         });
     }
+}
+
+/// The backglass screen's own picture for one table (see
+/// [`App::process_bg_screen`]).
+pub(super) struct BgScreen {
+    pub(super) idx: usize,
+    pub(super) texture: Option<egui::TextureHandle>,
+    pub(super) rx: Option<crossbeam_channel::Receiver<Option<egui::ColorImage>>>,
 }
 
 #[cfg(test)]
