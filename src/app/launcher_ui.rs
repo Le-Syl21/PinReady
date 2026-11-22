@@ -1,3 +1,4 @@
+use super::tile_fit::paint_tile_picture;
 use super::*;
 
 /// Whether the cover windows (backglass, DMD, topper) let the pointer through.
@@ -782,13 +783,29 @@ impl App {
                             };
                             if let Some(tex) = tile_video {
                                 // the selected table's clip plays in its tile
-                                paint_tile_picture(ui, tex, img_area, self.tile_fill);
+                                let backdrop =
+                                    self.video_tile.as_ref().and_then(|v| v.backdrop());
+                                paint_tile_picture(
+                                    ui,
+                                    tex,
+                                    img_area,
+                                    self.tile_fit,
+                                    self.tile_bands,
+                                    backdrop,
+                                );
                             } else if table.has_bg {
                                 // The thumbnail made for the grid, in the GPU
                                 // for every table (see `bgcache`); a plain tile
                                 // while it is still on its way.
                                 if let Some(tex) = self.bg_cache.thumb(idx) {
-                                    paint_tile_picture(ui, tex, img_area, self.tile_fill);
+                                    paint_tile_picture(
+                                        ui,
+                                        tex,
+                                        img_area,
+                                        self.tile_fit,
+                                        self.tile_bands,
+                                        self.bg_cache.backdrop(idx),
+                                    );
                                 } else {
                                     painter.rect_filled(img_area, 4.0, p.bg);
                                 }
@@ -1049,16 +1066,7 @@ impl App {
                 }
                 v
             };
-            let mut near: Vec<usize> = Vec::new();
-            if let (Some(&first), Some(&last)) = (visible_pos.first(), visible_pos.last()) {
-                let page = last - first + 1;
-                near.extend(filtered[first.saturating_sub(page)..first].iter().copied());
-                near.extend(
-                    filtered[(last + 1).min(filtered.len())..(last + 1 + page).min(filtered.len())]
-                        .iter()
-                        .copied(),
-                );
-            }
+            let near = near_pages(&visible_pos, &filtered);
             let tables_dir = self.tables_dir.clone();
             let paths: Vec<std::path::PathBuf> =
                 self.tables.iter().map(|t| t.path.clone()).collect();
@@ -1977,41 +1985,22 @@ struct CoverContent {
     video: Option<egui::TextureHandle>,
 }
 
-/// Paint a tile picture: the whole picture with black bands (`fill` false), or
-/// filling the tile, cropped to its centre (`fill` true). Never distorted.
-pub(super) fn paint_tile_picture(
-    ui: &egui::Ui,
-    tex: &egui::TextureHandle,
-    area: egui::Rect,
-    fill: bool,
-) {
-    let size = tex.size_vec2();
-    let mut image = egui::Image::from_texture(egui::load::SizedTexture::new(tex.id(), size))
-        .corner_radius(egui::CornerRadius::same(4));
-    if fill && size.x > 0.0 && size.y > 0.0 {
-        image = image.uv(fill_uv(size, area.size()));
-    } else {
-        image = image.shrink_to_fit();
+/// The tables of the page before and the page after the cards on screen.
+/// `visible` holds positions in `filtered`, in any order: the carousel lists
+/// them back to front and wraps around the end of the list (the crash of
+/// 0.28: the first and last entries were taken as the smallest and largest).
+pub(super) fn near_pages(visible: &[usize], filtered: &[usize]) -> Vec<usize> {
+    let n = filtered.len();
+    let (Some(&first), Some(&last)) = (visible.iter().min(), visible.iter().max()) else {
+        return Vec::new();
+    };
+    if last >= n {
+        return Vec::new();
     }
-    image.paint_at(ui, area);
-}
-
-/// The part of a picture of `size` (centred) that has the aspect ratio of `area`.
-pub(super) fn fill_uv(size: egui::Vec2, area: egui::Vec2) -> egui::Rect {
-    let (pic, tile) = (size.x / size.y, area.x / area.y.max(1.0));
-    if pic > tile {
-        let w = tile / pic;
-        egui::Rect::from_min_max(
-            egui::pos2((1.0 - w) / 2.0, 0.0),
-            egui::pos2((1.0 + w) / 2.0, 1.0),
-        )
-    } else {
-        let h = pic / tile;
-        egui::Rect::from_min_max(
-            egui::pos2(0.0, (1.0 - h) / 2.0),
-            egui::pos2(1.0, (1.0 + h) / 2.0),
-        )
-    }
+    let page = last - first + 1;
+    let mut near: Vec<usize> = filtered[first.saturating_sub(page)..first].to_vec();
+    near.extend_from_slice(&filtered[last + 1..(last + 1 + page).min(n)]);
+    near
 }
 
 fn star_points(center: egui::Pos2, radius: f32) -> Vec<egui::Pos2> {
@@ -2085,14 +2074,23 @@ mod tests {
     /// a `·`. The byte-space comparison fixes it; this test pins the
     /// behaviour so we don't regress.
     #[test]
-    fn fill_crops_the_centre_with_the_tile_ratio() {
-        // a 16:9 picture in a 5:4 tile keeps the middle 70 % of its width
-        let uv = fill_uv(egui::vec2(1600.0, 900.0), egui::vec2(480.0, 384.0));
-        assert!((uv.width() - 0.703).abs() < 0.001 && uv.height() == 1.0);
-        assert!((uv.center().x - 0.5).abs() < 1e-6);
-        // a tall picture keeps the middle band of its height
-        let uv = fill_uv(egui::vec2(400.0, 800.0), egui::vec2(480.0, 384.0));
-        assert!(uv.width() == 1.0 && (uv.height() - 0.4).abs() < 0.001);
+    fn near_pages_takes_any_order_and_the_carousel_wrap() {
+        let filtered: Vec<usize> = (100..120).collect();
+        // grid: one page of 4 in order
+        assert_eq!(
+            near_pages(&[8, 9, 10, 11], &filtered),
+            [104, 105, 106, 107, 112, 113, 114, 115]
+        );
+        // carousel: back to front, wrapping past the end (the crash)
+        let near = near_pages(&[18, 2, 19, 1, 0], &filtered);
+        assert!(near.iter().all(|i| filtered.contains(i)));
+        // carousel, no wrap, back to front
+        assert_eq!(
+            near_pages(&[7, 3, 6, 4, 5], &filtered),
+            [100, 101, 102, 108, 109, 110, 111, 112]
+        );
+        assert!(near_pages(&[], &filtered).is_empty());
+        assert!(near_pages(&[25], &filtered).is_empty());
     }
 
     #[test]

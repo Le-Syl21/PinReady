@@ -18,6 +18,7 @@
 //! thousand tables filled an 8 GB card in seven seconds and glutin answered
 //! `out of memory`.
 
+use super::tile_fit::{Backdrop, BackdropPixels};
 use crate::db::Database;
 use crossbeam_channel::{Receiver, Sender};
 use egui::{ColorImage, TextureHandle, TextureOptions};
@@ -51,6 +52,8 @@ struct Decoded {
     idx: usize,
     full: bool,
     image: ColorImage,
+    /// Thumbnails only: the blurred copy and edge colour for the tile bands.
+    backdrop: Option<BackdropPixels>,
 }
 
 /// The decoded pixels of an encoded picture (JPEG, PNG or WebP).
@@ -65,8 +68,10 @@ pub struct BgCache {
     req_tx: Sender<Request>,
     res_rx: Receiver<Decoded>,
     thumbs: Vec<Option<TextureHandle>>,
+    /// Blurred copy and edge colour of each thumbnail (tile bands).
+    backdrops: Vec<Option<Backdrop>>,
     /// Decoded thumbnails waiting for their upload.
-    thumb_ready: Vec<(usize, ColorImage)>,
+    thumb_ready: Vec<(usize, ColorImage, Option<BackdropPixels>)>,
     /// Full pictures of the page on screen, in the GPU.
     gpu: HashMap<usize, TextureHandle>,
     /// Full pictures of the neighbouring pages, decoded, in RAM.
@@ -102,6 +107,7 @@ impl BgCache {
                                 generation,
                                 idx,
                                 full: false,
+                                backdrop: Backdrop::compute(&image),
                                 image,
                             }),
                             Request::Full {
@@ -120,6 +126,7 @@ impl BgCache {
                                         idx,
                                         full: true,
                                         image,
+                                        backdrop: None,
                                     })
                             }
                         };
@@ -130,6 +137,7 @@ impl BgCache {
                             idx: usize::MAX,
                             full: false,
                             image: ColorImage::default(),
+                            backdrop: None,
                         });
                         if res_tx.send(msg).is_err() {
                             break;
@@ -142,6 +150,7 @@ impl BgCache {
             req_tx,
             res_rx,
             thumbs: Vec::new(),
+            backdrops: Vec::new(),
             thumb_ready: Vec::new(),
             gpu: HashMap::new(),
             ram: HashMap::new(),
@@ -157,6 +166,7 @@ impl BgCache {
     pub fn reset(&mut self, generation: u64, tables: usize) {
         self.generation = generation;
         self.thumbs = vec![None; tables];
+        self.backdrops = vec![None; tables];
         self.thumb_ready.clear();
         self.gpu.clear();
         self.ram.clear();
@@ -178,6 +188,7 @@ impl BgCache {
         self.generation += 1;
         let kept = keep.and_then(|idx| self.gpu.remove(&idx).map(|tex| (idx, tex)));
         self.thumbs.iter_mut().for_each(|t| *t = None);
+        self.backdrops.iter_mut().for_each(|t| *t = None);
         self.thumb_ready.clear();
         self.gpu.clear();
         self.ram.clear();
@@ -213,6 +224,11 @@ impl BgCache {
 
     pub fn thumb(&self, idx: usize) -> Option<&TextureHandle> {
         self.thumbs.get(idx).and_then(|t| t.as_ref())
+    }
+
+    /// The blurred copy and edge colour of table `idx`'s picture.
+    pub fn backdrop(&self, idx: usize) -> Option<&Backdrop> {
+        self.backdrops.get(idx).and_then(|b| b.as_ref())
     }
 
     /// The full-size picture of `idx` if it is in the GPU.
@@ -256,13 +272,20 @@ impl BgCache {
                 self.full_ready.push((d.idx, d.image));
             } else {
                 self.inflight_thumbs = self.inflight_thumbs.saturating_sub(1);
-                self.thumb_ready.push((d.idx, d.image));
+                self.thumb_ready.push((d.idx, d.image, d.backdrop));
             }
         }
 
         // Thumbnails: every one goes to the GPU, a few per frame.
         let n = self.thumb_ready.len().min(THUMB_UPLOADS_PER_FRAME);
-        for (idx, image) in self.thumb_ready.drain(..n) {
+        for (idx, image, backdrop) in self.thumb_ready.drain(..n) {
+            if let (Some(slot), Some(px)) = (self.backdrops.get_mut(idx), backdrop) {
+                *slot = Some(Backdrop::upload(
+                    ctx,
+                    format!("bgblur/{}/{idx}", self.generation),
+                    px,
+                ));
+            }
             if let Some(slot) = self.thumbs.get_mut(idx) {
                 *slot = Some(ctx.load_texture(
                     format!("bgthumb/{}/{idx}", self.generation),

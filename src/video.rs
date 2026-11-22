@@ -136,6 +136,10 @@ pub struct VideoPlayer {
     pending: Option<Frame>,
     started: Option<std::time::Instant>,
     name: String,
+    /// Blurred copy and edge colour for the tile bands, made again every
+    /// second of the clip (`backdrop_due` is the next clip time).
+    backdrop: Option<crate::app::tile_fit::Backdrop>,
+    backdrop_due: f64,
 }
 
 impl VideoPlayer {
@@ -156,12 +160,19 @@ impl VideoPlayer {
             pending: None,
             started: None,
             name: name.to_string(),
+            backdrop: None,
+            backdrop_due: 0.0,
         })
     }
 
     /// The last frame shown, once the first one arrived.
     pub fn texture(&self) -> Option<&egui::TextureHandle> {
         self.texture.as_ref()
+    }
+
+    /// The clip's blurred copy and edge colour, once a frame arrived.
+    pub fn backdrop(&self) -> Option<&crate::app::tile_fit::Backdrop> {
+        self.backdrop.as_ref()
     }
 
     /// Show the frame that is due, if any, and schedule the next repaint.
@@ -195,6 +206,25 @@ impl VideoPlayer {
         }
         if let Some(f) = due {
             let image = egui::ColorImage::from_rgba_unmultiplied(f.size, &f.rgba);
+            // a loop starts over at 0: refresh then too
+            if f.pts >= self.backdrop_due || f.pts + 1.0 < self.backdrop_due - 1.0 {
+                self.backdrop_due = f.pts + 1.0;
+                if let Some(px) = crate::app::tile_fit::Backdrop::compute(&image) {
+                    match &mut self.backdrop {
+                        Some(b) => {
+                            b.blur.set(px.blur, egui::TextureOptions::LINEAR);
+                            b.edge = px.edge;
+                        }
+                        None => {
+                            self.backdrop = Some(crate::app::tile_fit::Backdrop::upload(
+                                ctx,
+                                format!("{}/blur", self.name),
+                                px,
+                            ))
+                        }
+                    }
+                }
+            }
             match &mut self.texture {
                 Some(t) => t.set(image, egui::TextureOptions::LINEAR),
                 None => {

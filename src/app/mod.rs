@@ -365,9 +365,10 @@ pub struct App {
     /// Furthest wizard step reached: the step strip lets the user jump to any
     /// step up to it (all of them once the wizard was completed before).
     wizard_furthest: usize,
-    /// Launcher tiles: fill the tile (cropped, never distorted) instead of
-    /// showing the whole picture with black bands.
-    tile_fill: bool,
+    /// Launcher tiles: how a picture fits a tile of another shape, and what
+    /// fills the bands (see `tile_fit.rs`).
+    tile_fit: tile_fit::TileFit,
+    tile_bands: tile_fit::BandFill,
     /// Launcher tiles: their shape (see `tile_shape.rs`).
     tile_shape: tile_shape::TileShape,
     /// Launcher view: the carousel instead of the grid (see `carousel.rs`),
@@ -819,7 +820,11 @@ impl App {
             d.map(str::to_string)
         };
 
-        let tile_fill = db.get_config("tile_fill").as_deref() == Some("1");
+        let tile_fit = tile_fit::TileFit::from_config(
+            db.get_config("tile_fit").as_deref(),
+            db.get_config("tile_fill").as_deref(),
+        );
+        let tile_bands = tile_fit::BandFill::from_key(db.get_config("tile_bands").as_deref());
         let tile_shape =
             tile_shape::TileShape::from_key(db.get_config("tile_shape").as_deref().unwrap_or(""));
         let launcher_carousel = db.get_config("launcher_layout").as_deref() == Some("carousel");
@@ -960,7 +965,8 @@ impl App {
             displays,
             screen_count,
             view_mode,
-            tile_fill,
+            tile_fit,
+            tile_bands,
             tile_shape,
             launcher_carousel,
             carousel_pos: 0.0,
@@ -2147,6 +2153,7 @@ mod tables_dir_page;
 pub mod theme;
 mod threed;
 mod threed_page;
+pub(crate) mod tile_fit;
 mod tile_shape;
 mod tilt_page;
 mod vpinplay_link;

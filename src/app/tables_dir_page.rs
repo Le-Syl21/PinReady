@@ -195,34 +195,80 @@ impl App {
                 }
                 ui.add_space(10.0);
 
-                let before = self.tile_fill;
+                use super::tile_fit::{BandFill, TileFit};
+                let (fit_before, bands_before) = (self.tile_fit, self.tile_bands);
                 ui.horizontal_wrapped(|ui| {
-                    for (fill, label) in [
-                        (false, t!("tables_tiles_fit")),
-                        (true, t!("tables_tiles_fill")),
-                    ] {
+                    for fit in TileFit::ALL {
+                        let label = match fit {
+                            TileFit::Bands => t!("tables_tiles_fit"),
+                            TileFit::Crop => t!("tables_tiles_fill"),
+                            TileFit::Stretch => t!("tables_tiles_stretch"),
+                        };
                         ui.vertical(|ui| {
-                            let ex_h = 160.0;
+                            let ex_h = 120.0;
                             let (rect, resp) = ui.allocate_exact_size(
                                 egui::vec2(ex_h * self.tile_shape.ratio(), ex_h),
                                 egui::Sense::click(),
                             );
-                            paint_tile_example(ui, rect, fill, self.tile_fill == fill);
+                            paint_tile_example(
+                                ui,
+                                rect,
+                                fit,
+                                self.tile_bands,
+                                self.tile_fit == fit,
+                            );
                             if resp
                                 .on_hover_cursor(egui::CursorIcon::PointingHand)
                                 .clicked()
                             {
-                                self.tile_fill = fill;
+                                self.tile_fit = fit;
                             }
-                            ui.radio_value(&mut self.tile_fill, fill, label);
+                            ui.radio_value(&mut self.tile_fit, fit, label);
                         });
                         ui.add_space(16.0);
                     }
                 });
-                if self.tile_fill != before {
-                    let _ = self
-                        .db
-                        .set_config("tile_fill", if self.tile_fill { "1" } else { "0" });
+                // what fills the bands, for the whole-picture choice only
+                if self.tile_fit == TileFit::Bands {
+                    ui.add_space(6.0);
+                    ui.label(egui::RichText::new(t!("tables_tiles_bands")).strong());
+                    ui.horizontal_wrapped(|ui| {
+                        for bands in BandFill::ALL {
+                            let label = match bands {
+                                BandFill::Black => t!("tables_tiles_bands_black"),
+                                BandFill::Blur => t!("tables_tiles_bands_blur"),
+                                BandFill::Color => t!("tables_tiles_bands_color"),
+                            };
+                            ui.vertical(|ui| {
+                                let ex_h = 72.0;
+                                let (rect, resp) = ui.allocate_exact_size(
+                                    egui::vec2(ex_h * self.tile_shape.ratio(), ex_h),
+                                    egui::Sense::click(),
+                                );
+                                paint_tile_example(
+                                    ui,
+                                    rect,
+                                    TileFit::Bands,
+                                    bands,
+                                    self.tile_bands == bands,
+                                );
+                                if resp
+                                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                    .clicked()
+                                {
+                                    self.tile_bands = bands;
+                                }
+                                ui.radio_value(&mut self.tile_bands, bands, label);
+                            });
+                            ui.add_space(12.0);
+                        }
+                    });
+                }
+                if self.tile_fit != fit_before {
+                    let _ = self.db.set_config("tile_fit", self.tile_fit.key());
+                }
+                if self.tile_bands != bands_before {
+                    let _ = self.db.set_config("tile_bands", self.tile_bands.key());
                 }
                 ui.add_space(8.0);
                 // preview clips from VPinMediaDB, fetched on demand by the launcher (on by default)
@@ -763,35 +809,71 @@ fn render_merge_event(ui: &mut egui::Ui, ev: &crate::merge::MergeEvent) {
 
 /// An example tile: a picture wider than the tile (circle in the middle, red
 /// frame on its edges), shown whole with black bands or filling the tile.
-fn paint_tile_example(ui: &egui::Ui, rect: egui::Rect, fill: bool, selected: bool) {
+fn paint_tile_example(
+    ui: &egui::Ui,
+    rect: egui::Rect,
+    fit: super::tile_fit::TileFit,
+    bands: super::tile_fit::BandFill,
+    selected: bool,
+) {
+    use super::tile_fit::{BandFill, TileFit};
     let p = theme::pal(ui.ctx());
     let painter = ui.painter_at(rect);
-    painter.rect_filled(rect, 6.0, egui::Color32::BLACK);
+    let blue = egui::Color32::from_rgb(20, 40, 110);
+    let yellow = egui::Color32::from_rgb(240, 180, 40);
     // a 16:9 picture in the tile (a square one in a wide tile)
     let (pw, ph) = if rect.width() / rect.height() > 1.5 {
         (1.0f32, 1.0f32)
     } else {
         (16.0f32, 9.0f32)
     };
-    let scale = if fill {
-        (rect.width() / pw).max(rect.height() / ph)
-    } else {
-        (rect.width() / pw).min(rect.height() / ph)
+    let fitted = |scale: f32| {
+        egui::Rect::from_center_size(rect.center(), egui::vec2(pw * scale, ph * scale))
     };
-    let pic = egui::Rect::from_center_size(rect.center(), egui::vec2(pw * scale, ph * scale));
+    let pic = match fit {
+        TileFit::Bands => fitted((rect.width() / pw).min(rect.height() / ph)),
+        TileFit::Crop => fitted((rect.width() / pw).max(rect.height() / ph)),
+        TileFit::Stretch => rect,
+    };
+    let ground = match (fit, bands) {
+        (TileFit::Bands, BandFill::Blur) => egui::Color32::from_rgb(40, 40, 60),
+        (TileFit::Bands, BandFill::Color) => blue,
+        _ => egui::Color32::BLACK,
+    };
+    painter.rect_filled(rect, 6.0, ground);
     let clip = painter.with_clip_rect(rect.shrink(1.0));
-    clip.rect_filled(pic, 0.0, egui::Color32::from_rgb(20, 40, 110));
-    clip.circle_filled(
-        pic.center(),
-        pic.height() * 0.32,
-        egui::Color32::from_rgb(240, 180, 40),
-    );
+    if fit == TileFit::Bands && bands == BandFill::Blur {
+        // the picture enlarged behind itself, soft and dark
+        let behind = fitted((rect.width() / pw).max(rect.height() / ph));
+        clip.rect_filled(behind, 0.0, egui::Color32::from_rgb(12, 22, 60));
+        for k in 0..4 {
+            let r = behind.height() * (0.42 - k as f32 * 0.05);
+            let a = 40 + k * 20;
+            clip.circle_filled(
+                behind.center(),
+                r,
+                egui::Color32::from_rgba_unmultiplied(130, 100, 30, a as u8),
+            );
+        }
+    }
+    clip.rect_filled(pic, 0.0, blue);
+    // the disc follows the picture: an ellipse when it is stretched
+    let disc = if fit == TileFit::Stretch {
+        let s = (rect.width() / pw).min(rect.height() / ph) * 0.32;
+        egui::vec2(
+            s * pw * rect.width() / (pw * s / 0.32).max(1.0),
+            s * ph * rect.height() / (ph * s / 0.32).max(1.0),
+        )
+    } else {
+        egui::Vec2::splat(pic.height() * 0.32)
+    };
+    clip.add(egui::Shape::ellipse_filled(pic.center(), disc, yellow));
     clip.text(
         pic.center(),
         egui::Align2::CENTER_CENTER,
         "PINBALL",
-        egui::FontId::proportional(pic.height() * 0.16),
-        egui::Color32::from_rgb(20, 40, 110),
+        egui::FontId::proportional(disc.y * 0.5),
+        blue,
     );
     clip.rect_stroke(
         pic,

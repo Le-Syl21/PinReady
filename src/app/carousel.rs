@@ -8,7 +8,8 @@
 //! `CAROUSEL_JUMP`, Start launches. A click on a side table turns it to the
 //! front, a click on the front table plays it.
 
-use super::launcher_ui::{STAR_GOLD, paint_rating_star, paint_tile_picture};
+use super::launcher_ui::{STAR_GOLD, paint_rating_star};
+use super::tile_fit::paint_tile_picture;
 use super::*;
 
 /// Tables the magna buttons skip in the carousel.
@@ -114,14 +115,24 @@ impl App {
             let idx = filtered[fpos];
             drawn.push(fpos);
             let front = off.abs() < 0.5;
-            let picture = if idx == self.selected_table {
+            let clip = if idx == self.selected_table {
                 // the front table plays its clip, like the selected tile
                 self.video_tile
                     .as_ref()
-                    .and_then(|v| v.texture().cloned())
-                    .or_else(|| self.bg_cache.best(idx))
+                    .and_then(|v| Some((v.texture().cloned()?, v.backdrop().cloned())))
             } else {
-                self.bg_cache.thumb(idx).cloned()
+                None
+            };
+            let (picture, backdrop) = match clip {
+                Some((tex, b)) => (Some(tex), b),
+                None if idx == self.selected_table => (
+                    self.bg_cache.best(idx),
+                    self.bg_cache.backdrop(idx).cloned(),
+                ),
+                None => (
+                    self.bg_cache.thumb(idx).cloned(),
+                    self.bg_cache.backdrop(idx).cloned(),
+                ),
             };
             // reflection on the floor, then the card
             if let Some(tex) = &picture {
@@ -138,7 +149,14 @@ impl App {
             }
             painter.rect_filled(r.expand(4.0), 8.0, p.surface);
             match &picture {
-                Some(tex) => paint_tile_picture(ui, tex, r, self.tile_fill),
+                Some(tex) => paint_tile_picture(
+                    ui,
+                    tex,
+                    r,
+                    self.tile_fit,
+                    self.tile_bands,
+                    backdrop.as_ref(),
+                ),
                 None => {
                     painter.rect_filled(r, 4.0, p.bg);
                     painter.text(
