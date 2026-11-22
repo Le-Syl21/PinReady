@@ -158,6 +158,38 @@ impl App {
                 }
                 ui.add_space(10.0);
                 if self.launcher_layout.uses_tiles() {
+                    // What the tiles show, and where the selected clip plays
+                    use super::tile_fit::TilePicture;
+                    ui.label(egui::RichText::new(t!("tables_tiles_picture")).strong());
+                    let picture_before = self.tile_picture;
+                    ui.horizontal_wrapped(|ui| {
+                        for pic in TilePicture::ALL {
+                            let label = match pic {
+                                TilePicture::Picture => t!("tables_tiles_picture_image"),
+                                TilePicture::Wheel => t!("tables_tiles_picture_wheel"),
+                            };
+                            ui.radio_value(&mut self.tile_picture, pic, label);
+                            ui.add_space(12.0);
+                        }
+                    });
+                    if self.tile_picture != picture_before {
+                        let _ = self.db.set_config("tile_picture", self.tile_picture.key());
+                    }
+                    if ui
+                        .checkbox(
+                            &mut self.clip_background,
+                            t!("tables_tiles_clip_background"),
+                        )
+                        .changed()
+                    {
+                        let _ = self.db.set_config(
+                            "clip_background",
+                            if self.clip_background { "1" } else { "0" },
+                        );
+                        // the clip opens again, at the size it is now shown
+                        self.video_last_idx = None;
+                    }
+                    ui.add_space(10.0);
                     // The tile shape: one small drawn tile per choice, with the
                     // picture size that fills it.
                     ui.label(egui::RichText::new(t!("tables_tiles_shape")).strong());

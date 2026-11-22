@@ -369,6 +369,11 @@ pub struct App {
     /// fills the bands (see `tile_fit.rs`).
     tile_fit: tile_fit::TileFit,
     tile_bands: tile_fit::BandFill,
+    /// Launcher tiles: the picture or the wheel.
+    tile_picture: tile_fit::TilePicture,
+    /// The selected table's clip behind the whole layout, instead of in its
+    /// tile.
+    clip_background: bool,
     /// Launcher tiles: their shape (see `tile_shape.rs`).
     tile_shape: tile_shape::TileShape,
     /// Launcher view: the carousel instead of the grid (see `carousel.rs`),
@@ -379,8 +384,10 @@ pub struct App {
     /// idle fade of the wheel row.
     wheel_last_sel: Option<usize>,
     wheel_active_at: std::time::Instant,
-    /// The tables' wheels (wheel and arcade layouts).
-    wheels: wheels::WheelCache,
+    /// The tables' wheels, and their real backglasses (the arcade's
+    /// backboxes).
+    wheels: wheels::ArtCache,
+    backglasses: wheels::ArtCache,
     /// Arcade layout: when the dive to the playfield started (a table is
     /// launching), and the selected clip's last picture.
     arcade_plunge: Option<std::time::Instant>,
@@ -837,6 +844,9 @@ impl App {
             db.get_config("tile_fill").as_deref(),
         );
         let tile_bands = tile_fit::BandFill::from_key(db.get_config("tile_bands").as_deref());
+        let tile_picture =
+            tile_fit::TilePicture::from_key(db.get_config("tile_picture").as_deref());
+        let clip_background = db.get_config("clip_background").as_deref() == Some("1");
         let tile_shape =
             tile_shape::TileShape::from_key(db.get_config("tile_shape").as_deref().unwrap_or(""));
         let launcher_layout =
@@ -980,12 +990,15 @@ impl App {
             view_mode,
             tile_fit,
             tile_bands,
+            tile_picture,
+            clip_background,
             tile_shape,
             launcher_layout,
             carousel_pos: 0.0,
             wheel_last_sel: None,
             wheel_active_at: std::time::Instant::now(),
-            wheels: wheels::WheelCache::new(),
+            wheels: wheels::ArtCache::new(wheels::ArtKind::Wheel),
+            backglasses: wheels::ArtCache::new(wheels::ArtKind::Backglass),
             arcade_plunge: None,
             arcade_pf_last: None,
             wizard_furthest,

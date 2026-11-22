@@ -48,6 +48,48 @@ impl TileFit {
     }
 }
 
+/// What a tile shows: the table's picture, or its wheel (the picture when
+/// the table has no wheel).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TilePicture {
+    Picture,
+    Wheel,
+}
+
+impl TilePicture {
+    pub const ALL: [Self; 2] = [Self::Picture, Self::Wheel];
+
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Picture => "picture",
+            Self::Wheel => "wheel",
+        }
+    }
+
+    pub fn from_key(k: Option<&str>) -> Self {
+        Self::ALL
+            .into_iter()
+            .find(|p| Some(p.key()) == k)
+            .unwrap_or(Self::Picture)
+    }
+}
+
+/// A wheel in `area`: whole, a little inside the edges, over whatever is
+/// behind it (wheels have transparent surroundings).
+pub(super) fn paint_wheel(painter: &egui::Painter, tex: &TextureHandle, area: egui::Rect) {
+    let size = tex.size_vec2();
+    if size.x <= 0.0 || size.y <= 0.0 {
+        return;
+    }
+    let inner = area.shrink(area.height().min(area.width()) * 0.06);
+    painter.image(
+        tex.id(),
+        fit_rect(size, inner),
+        egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+        Color32::WHITE,
+    );
+}
+
 /// What fills the bands of [`TileFit::Bands`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BandFill {

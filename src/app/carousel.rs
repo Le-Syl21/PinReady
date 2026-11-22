@@ -71,6 +71,9 @@ impl App {
 
         let (rect, _) = ui.allocate_exact_size(ui.available_size(), egui::Sense::hover());
         let painter = ui.painter_at(rect);
+        if self.clip_behind() {
+            self.paint_selected_behind(&painter, rect, 110);
+        }
         let info_h = 90.0;
         let card_h = ((rect.height() - info_h) * 0.66).max(80.0);
         let ratio = self.tile_shape.ratio();
@@ -115,25 +118,8 @@ impl App {
             let idx = filtered[fpos];
             drawn.push(fpos);
             let front = off.abs() < 0.5;
-            let clip = if idx == self.selected_table {
-                // the front table plays its clip, like the selected tile
-                self.video_tile
-                    .as_ref()
-                    .and_then(|v| Some((v.texture().cloned()?, v.backdrop().cloned())))
-            } else {
-                None
-            };
-            let (picture, backdrop) = match clip {
-                Some((tex, b)) => (Some(tex), b),
-                None if idx == self.selected_table => (
-                    self.bg_cache.best(idx),
-                    self.bg_cache.backdrop(idx).cloned(),
-                ),
-                None => (
-                    self.bg_cache.thumb(idx).cloned(),
-                    self.bg_cache.backdrop(idx).cloned(),
-                ),
-            };
+            let art = self.tile_art(idx);
+            let (picture, backdrop) = (art.tex, art.backdrop);
             // reflection on the floor, then the card
             if let Some(tex) = &picture {
                 let refl =
@@ -149,6 +135,7 @@ impl App {
             }
             painter.rect_filled(r.expand(4.0), 8.0, p.surface);
             match &picture {
+                Some(tex) if art.wheel => super::tile_fit::paint_wheel(&painter, tex, r),
                 Some(tex) => paint_tile_picture(
                     ui,
                     tex,

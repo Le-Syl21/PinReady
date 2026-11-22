@@ -352,23 +352,26 @@ impl App {
             let x = cam_x + off * SPACING;
             let z = STEP_OUT * light;
             let table = &self.tables[idx];
-            let dir = table.path.parent().map(|d| d.to_path_buf());
+            let path = table.path.clone();
             let download = if allow_download {
                 table.vps_id.clone()
             } else {
                 None
             };
-            let art = CabinetArt {
-                backglass: if idx == sel {
+            // the real backglass (bg.png or the .directb2s), the table's
+            // picture only when it has none or while it loads
+            let backglass = self.backglasses.get(idx, &path, None).cloned().or_else(|| {
+                if idx == sel {
                     self.bg_cache.best(idx)
                 } else {
                     self.bg_cache.thumb(idx).cloned()
-                },
+                }
+            });
+            let art = CabinetArt {
+                backglass,
                 playfield: if idx == sel { clip.clone() } else { None },
                 glow: self.bg_cache.backdrop(idx).map(|b| b.blur.clone()),
-                wheel: dir
-                    .as_deref()
-                    .and_then(|d| self.wheels.get(idx, d, download.as_deref()).cloned()),
+                wheel: self.wheels.get(idx, &path, download.as_deref()).cloned(),
             };
             if idx == sel
                 && let (Some((a, _)), Some((b, _))) = (

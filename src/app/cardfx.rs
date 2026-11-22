@@ -260,9 +260,13 @@ impl App {
         );
         let floor = -0.5 - 0.04;
 
-        // the room: a dark ground with a glossy floor fading away
-        painter.rect_filled(view, 0.0, p.bg);
-        if let Some((fy, _)) = cam.project(v3(0.0, floor, 0.0)) {
+        // the room: a dark ground with a glossy floor fading away, or the
+        // selected table's clip
+        let behind = self.clip_behind() && self.paint_selected_behind(&painter, view, 110);
+        if !behind {
+            painter.rect_filled(view, 0.0, p.bg);
+        }
+        if !behind && let Some((fy, _)) = cam.project(v3(0.0, floor, 0.0)) {
             let fl = Rect::from_min_max(egui::pos2(view.left(), fy.y), view.max);
             let mut m = egui::Mesh::default();
             let top = p.surface.gamma_multiply(0.6);
@@ -276,9 +280,6 @@ impl App {
             painter.add(egui::Shape::mesh(m));
         }
 
-        let sel = self.selected_table;
-        let clip = self.video_tile.as_ref().and_then(|v| v.texture().cloned());
-        let clip_backdrop = self.video_tile.as_ref().and_then(|v| v.backdrop().cloned());
         let side = reach(fx).min(((n as i64) - 1) / 2);
         let base = self.carousel_pos.round();
         let mut cards: Vec<(f32, usize, f32, CardPose)> = Vec::new();
@@ -302,19 +303,13 @@ impl App {
             let idx = filtered[fpos];
             drawn.push(fpos);
             let front = off.abs() < 0.5;
-            let (picture, backdrop) = if idx == sel {
-                match (&clip, &clip_backdrop) {
-                    (Some(c), b) => (Some(c.clone()), b.clone()),
-                    (None, _) => (
-                        self.bg_cache.best(idx),
-                        self.bg_cache.backdrop(idx).cloned(),
-                    ),
-                }
+            let art = self.tile_art(idx);
+            let (picture, backdrop, is_wheel) = (art.tex, art.backdrop, art.wheel);
+            // a wheel sits whole on a plain card
+            let fit = if is_wheel {
+                super::tile_fit::TileFit::Bands
             } else {
-                (
-                    self.bg_cache.thumb(idx).cloned(),
-                    self.bg_cache.backdrop(idx).cloned(),
-                )
+                self.tile_fit
             };
             let a = (pose.alpha * 255.0) as u8;
             let tint = Color32::from_white_alpha(a);
@@ -335,11 +330,12 @@ impl App {
                 };
                 // the card body: the band colour behind the picture
                 let band = match (self.tile_bands, &backdrop) {
+                    _ if is_wheel => p.surface,
                     (super::tile_fit::BandFill::Color, Some(b)) => b.edge,
                     _ => Color32::BLACK,
                 };
                 let body = card_corners(&pose, ratio, full, mirror);
-                let body_fill = match (self.tile_fit, self.tile_bands, &backdrop) {
+                let body_fill = match (fit, self.tile_bands, &backdrop) {
                     (super::tile_fit::TileFit::Bands, super::tile_fit::BandFill::Blur, Some(b)) => {
                         let uv = super::tile_fit::fill_uv(
                             b.blur.size_vec2(),
@@ -368,7 +364,7 @@ impl App {
                 f.depth += 0.002; // behind the picture
                 faces.push(f);
                 if let Some(tex) = &picture {
-                    let (part, uv) = picture_part(self.tile_fit, tex.size_vec2(), card, pose.width);
+                    let (part, uv) = picture_part(fit, tex.size_vec2(), card, pose.width);
                     if part.is_positive() {
                         // a mirrored card shows the picture upside down
                         let (part, uv) = if refl {
@@ -445,7 +441,7 @@ impl App {
             }
         }
 
-        if let Some(t) = self.tables.get(sel) {
+        if let Some(t) = self.tables.get(self.selected_table) {
             let y = rect.bottom() - info_h + 22.0;
             info_painter.text(
                 egui::pos2(rect.center().x, y),

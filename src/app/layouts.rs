@@ -140,7 +140,97 @@ pub(super) fn wheel_slot(off: f32) -> (f32, f32) {
     (scale, x)
 }
 
+/// What a tile shows: a picture (clip, wheel or table picture), the blurred
+/// copy and edge colour that fill its bands, and whether it is a wheel.
+pub(super) struct TileArt {
+    pub tex: Option<egui::TextureHandle>,
+    pub backdrop: Option<super::tile_fit::Backdrop>,
+    pub wheel: bool,
+}
+
 impl App {
+    /// The selected table's clip plays behind the whole layout, not in its
+    /// tile (a setting, for the layouts made of tiles).
+    pub(super) fn clip_behind(&self) -> bool {
+        self.clip_background && self.launcher_layout.uses_tiles()
+    }
+
+    /// The selected table's clip, else its picture darkened, filling `rect`;
+    /// the clip is darkened by `clip_dim` (0 to 255) so what is drawn over
+    /// it stays readable. False when there is nothing to show yet.
+    pub(super) fn paint_selected_behind(
+        &self,
+        painter: &egui::Painter,
+        rect: egui::Rect,
+        clip_dim: u8,
+    ) -> bool {
+        let clip = self.video_tile.as_ref().and_then(|v| v.texture().cloned());
+        let (bg, dim) = match clip {
+            Some(t) => (Some(t), clip_dim),
+            None => (self.bg_cache.best(self.selected_table), clip_dim.max(90)),
+        };
+        let Some(tex) = bg else {
+            return false;
+        };
+        let size = tex.size_vec2();
+        if size.x <= 0.0 || size.y <= 0.0 {
+            return false;
+        }
+        painter.image(
+            tex.id(),
+            rect,
+            super::tile_fit::fill_uv(size, rect.size()),
+            egui::Color32::WHITE,
+        );
+        if dim > 0 {
+            painter.rect_filled(rect, 0.0, egui::Color32::from_black_alpha(dim));
+        }
+        true
+    }
+
+    /// What the tile of table `idx` shows. The selected table plays its clip
+    /// in its tile (unless the clip is behind the layout); otherwise the
+    /// wheel when the tiles show wheels and the table has one; otherwise the
+    /// table's picture, sharp for the selected table.
+    pub(super) fn tile_art(&mut self, idx: usize) -> TileArt {
+        let selected = idx == self.selected_table;
+        if selected
+            && !self.clip_behind()
+            && let Some(v) = &self.video_tile
+            && let Some(tex) = v.texture()
+        {
+            return TileArt {
+                tex: Some(tex.clone()),
+                backdrop: v.backdrop().cloned(),
+                wheel: false,
+            };
+        }
+        if self.tile_picture == super::tile_fit::TilePicture::Wheel
+            && let Some(table) = self.tables.get(idx)
+        {
+            let path = table.path.clone();
+            let download = (self.db.get_config("media_videos").as_deref() != Some("0"))
+                .then(|| table.vps_id.clone())
+                .flatten();
+            if let Some(tex) = self.wheels.get(idx, &path, download.as_deref()) {
+                return TileArt {
+                    tex: Some(tex.clone()),
+                    backdrop: None,
+                    wheel: true,
+                };
+            }
+        }
+        TileArt {
+            tex: if selected {
+                self.bg_cache.best(idx)
+            } else {
+                self.bg_cache.thumb(idx).cloned()
+            },
+            backdrop: self.bg_cache.backdrop(idx).cloned(),
+            wheel: false,
+        }
+    }
+
     /// The wheel layout. Same contract as [`App::paint_carousel`].
     pub(super) fn paint_wheel_bar(
         &mut self,
@@ -199,26 +289,7 @@ impl App {
         painter.rect_filled(rect, 0.0, egui::Color32::BLACK);
 
         // the selected table's clip, else its backglass, filling the screen
-        let sel = self.selected_table;
-        let clip = self.video_tile.as_ref().and_then(|v| v.texture().cloned());
-        let (bg, dim) = match clip {
-            Some(t) => (Some(t), 0u8),
-            None => (self.bg_cache.best(sel), 90u8),
-        };
-        if let Some(tex) = bg {
-            let size = tex.size_vec2();
-            if size.x > 0.0 && size.y > 0.0 {
-                painter.image(
-                    tex.id(),
-                    rect,
-                    super::tile_fit::fill_uv(size, rect.size()),
-                    egui::Color32::WHITE,
-                );
-                if dim > 0 {
-                    painter.rect_filled(rect, 0.0, egui::Color32::from_black_alpha(dim));
-                }
-            }
-        }
+        self.paint_selected_behind(&painter, rect, 0);
 
         // the wheel row
         let big = (rect.height() * 0.17).min(rect.width() * 0.26).max(48.0);
@@ -270,7 +341,7 @@ impl App {
                 continue;
             }
             let table = &self.tables[idx];
-            let dir = table.path.parent().map(|d| d.to_path_buf());
+            let path = table.path.clone();
             let download = if allow_download {
                 table.vps_id.clone()
             } else {
@@ -278,9 +349,7 @@ impl App {
             };
             let shade = (255.0 * (1.0 - 0.35 * off.abs().min(1.5))) as u8;
             let tint = fade(egui::Color32::from_gray(shade));
-            let wheel = dir
-                .as_deref()
-                .and_then(|d| self.wheels.get(idx, d, download.as_deref()).cloned());
+            let wheel = self.wheels.get(idx, &path, download.as_deref()).cloned();
             match wheel {
                 Some(tex) => {
                     let fit = super::tile_fit::fit_rect(tex.size_vec2(), r);
@@ -313,7 +382,7 @@ impl App {
 
         // name and rating of the selected table
         if alpha > 0.0
-            && let Some(t) = self.tables.get(sel)
+            && let Some(t) = self.tables.get(self.selected_table)
         {
             let y = rect.bottom() - 46.0;
             painter.text(

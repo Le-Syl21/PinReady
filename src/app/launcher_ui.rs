@@ -696,6 +696,10 @@ impl App {
                 _ => self.paint_carousel(ui, &filtered, &mut launch_idx, &mut visible_pos),
             }
         } else {
+            if self.clip_behind() {
+                let r = ui.max_rect();
+                self.paint_selected_behind(&ui.painter_at(r), r, 110);
+            }
             scroll_area.show(ui, |ui| {
                 for row_start in (0..filtered.len()).step_by(cols) {
                     // Center the row
@@ -711,7 +715,6 @@ impl App {
                                 break;
                             }
                             let idx = filtered[fi];
-                            let table = &self.tables[idx];
 
                             let (rect, response) = ui.allocate_exact_size(
                                 egui::vec2(card_width, card_height),
@@ -741,6 +744,8 @@ impl App {
                                 launch_idx = Some(idx);
                             }
 
+                            let art = self.tile_art(idx);
+                            let table = &self.tables[idx];
                             let painter = ui.painter_at(rect);
                             let is_selected = idx == self.selected_table;
 
@@ -778,39 +783,22 @@ impl App {
                                 rect.min + egui::vec2(4.0, 4.0),
                                 egui::vec2(card_width - 8.0, img_height - 8.0),
                             );
-                            let tile_video = if is_selected {
-                                self.video_tile.as_ref().and_then(|v| v.texture())
-                            } else {
-                                None
-                            };
-                            if let Some(tex) = tile_video {
-                                // the selected table's clip plays in its tile
-                                let backdrop =
-                                    self.video_tile.as_ref().and_then(|v| v.backdrop());
-                                paint_tile_picture(
-                                    ui,
-                                    tex,
-                                    img_area,
-                                    self.tile_fit,
-                                    self.tile_bands,
-                                    backdrop,
-                                );
-                            } else if table.has_bg {
-                                // The thumbnail made for the grid, in the GPU
-                                // for every table (see `bgcache`); a plain tile
-                                // while it is still on its way.
-                                if let Some(tex) = self.bg_cache.thumb(idx) {
+                            if let Some(tex) = &art.tex {
+                                if art.wheel {
+                                    super::tile_fit::paint_wheel(&painter, tex, img_area);
+                                } else {
                                     paint_tile_picture(
                                         ui,
                                         tex,
                                         img_area,
                                         self.tile_fit,
                                         self.tile_bands,
-                                        self.bg_cache.backdrop(idx),
+                                        art.backdrop.as_ref(),
                                     );
-                                } else {
-                                    painter.rect_filled(img_area, 4.0, p.bg);
                                 }
+                            } else if table.has_bg {
+                                // the picture is still on its way
+                                painter.rect_filled(img_area, 4.0, p.bg);
                             } else {
                                 // Localized "missing image" placeholder. Tells the user
                                 // exactly which two filenames they can drop in to fix
@@ -1081,6 +1069,7 @@ impl App {
             };
             self.bg_cache.update(ui.ctx(), &on_screen, &near, &rel);
             self.wheels.update(ui.ctx());
+            self.backglasses.update(ui.ctx());
         }
 
         if let Some(idx) = fav_toggle {
