@@ -108,6 +108,9 @@ fn install(vpx_exe_path: &str) -> anyhow::Result<()> {
     // .vpx mimetype — same artwork is fine and keeps the binary smaller).
     std::fs::write(icons.join("apps/pinready.png"), PINREADY_LOGO_PNG)?;
     std::fs::write(icons.join("apps/vpinballx.png"), PINREADY_LOGO_PNG)?;
+    drop_stale_icon_cache(&h);
+    let pinready_icon = icons.join("apps/pinready.png").display().to_string();
+    let vpx_icon = icons.join("apps/vpinballx.png").display().to_string();
     std::fs::write(
         icons.join("mimetypes/application-x-vpinball.png"),
         PINREADY_LOGO_PNG,
@@ -122,7 +125,7 @@ fn install(vpx_exe_path: &str) -> anyhow::Result<()> {
          GenericName=Visual Pinball Launcher\n\
          Comment=Visual Pinball configurator and table launcher\n\
          Exec={exe_quoted}\n\
-         Icon=pinready\n\
+         Icon={pinready_icon}\n\
          Terminal=false\n\
          Categories=Game;ArcadeGame;\n\
          StartupNotify=true\n\
@@ -160,7 +163,7 @@ fn install(vpx_exe_path: &str) -> anyhow::Result<()> {
              GenericName=Pinball Simulator\n\
              Comment=Play Visual Pinball X tables\n\
              Exec={vpx_quoted} -play %f\n\
-             Icon=vpinballx\n\
+             Icon={vpx_icon}\n\
              Terminal=false\n\
              MimeType=application/x-vpinball;\n\
              Categories=Game;ArcadeGame;\n"
@@ -218,6 +221,84 @@ fn uninstall() -> anyhow::Result<()> {
 #[cfg(target_os = "linux")]
 fn shell_quote(s: &str) -> String {
     format!("'{}'", s.replace('\'', r"'\''"))
+}
+
+/// At start-up: give the PinReady entries already written (menu, desktop
+/// shortcut) the icon by absolute path and clear a stale icon cache, so
+/// shortcuts made by older versions (`Icon=pinready`) show their icon again.
+/// Only touches files PinReady wrote; does nothing when there are none.
+pub(super) fn heal_icons() {
+    #[cfg(target_os = "linux")]
+    {
+        let Some(h) = home() else {
+            return;
+        };
+        let mut entries = vec![h.join(".local/share/applications/pinready.desktop")];
+        if let Some(p) = desktop_shortcut_path() {
+            entries.push(p);
+        }
+        let entries: Vec<PathBuf> = entries.into_iter().filter(|p| p.is_file()).collect();
+        if entries.is_empty() {
+            return;
+        }
+        let icon = h.join(".local/share/icons/hicolor/128x128/apps/pinready.png");
+        if !icon.is_file() {
+            let ok = icon
+                .parent()
+                .is_some_and(|d| std::fs::create_dir_all(d).is_ok())
+                && std::fs::write(&icon, PINREADY_LOGO_PNG).is_ok();
+            if !ok {
+                return;
+            }
+        }
+        drop_stale_icon_cache(&h);
+        for e in entries {
+            let Ok(text) = std::fs::read_to_string(&e) else {
+                continue;
+            };
+            if let Some(fixed) = with_icon_path(&text, &icon.display().to_string())
+                && std::fs::write(&e, fixed).is_ok()
+            {
+                log::info!("Icon path set in {}", e.display());
+            }
+        }
+    }
+}
+
+/// The desktop entry with `Icon=pinready` replaced by `path`; `None` when it
+/// has no such line (already a path, or someone else's icon).
+#[cfg(target_os = "linux")]
+fn with_icon_path(entry: &str, path: &str) -> Option<String> {
+    let mut changed = false;
+    let lines: Vec<String> = entry
+        .lines()
+        .map(|l| {
+            if l.trim() == "Icon=pinready" {
+                changed = true;
+                format!("Icon={path}")
+            } else {
+                l.to_string()
+            }
+        })
+        .collect();
+    changed.then(|| lines.join("\n") + "\n")
+}
+
+/// Remove `~/.local/share/icons/hicolor/icon-theme.cache`. PinReady never
+/// writes one, but some system tool can (a pincab had one listing only the
+/// .vpx file icon): GTK then trusts the cache over the directory as long as
+/// the cache is not older than `hicolor/`, so every icon added later stays
+/// invisible (blank PinReady icon on the desktop and in the dock). Without a
+/// cache GTK reads the directories.
+#[cfg(target_os = "linux")]
+fn drop_stale_icon_cache(home: &Path) {
+    let cache = home.join(".local/share/icons/hicolor/icon-theme.cache");
+    if cache.is_file() {
+        match std::fs::remove_file(&cache) {
+            Ok(()) => log::info!("Removed stale icon cache {}", cache.display()),
+            Err(e) => log::warn!("Could not remove {}: {e}", cache.display()),
+        }
+    }
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -528,11 +609,15 @@ pub(super) fn set_desktop_shortcut(enabled: bool) -> anyhow::Result<()> {
         // theme, which is the menu integration's job — and this toggle is
         // independent of it. Write the icon here too (same bytes, same path,
         // so enabling both is idempotent) or the launcher shows up blank.
+        let mut pinready_icon = "pinready".to_string();
         if let Some(h) = home() {
             let icons = h.join(".local/share/icons/hicolor/128x128/apps");
-            if std::fs::create_dir_all(&icons).is_ok() {
-                let _ = std::fs::write(icons.join("pinready.png"), PINREADY_LOGO_PNG);
+            if std::fs::create_dir_all(&icons).is_ok()
+                && std::fs::write(icons.join("pinready.png"), PINREADY_LOGO_PNG).is_ok()
+            {
+                pinready_icon = icons.join("pinready.png").display().to_string();
             }
+            drop_stale_icon_cache(&h);
         }
 
         // Reuse the menu entry when it exists so both always agree; write a
@@ -550,12 +635,13 @@ pub(super) fn set_desktop_shortcut(enabled: bool) -> anyhow::Result<()> {
                      GenericName=Visual Pinball Launcher\n\
                      Comment=Visual Pinball configurator and table launcher\n\
                      Exec={}\n\
-                     Icon=pinready\n\
+                     Icon={}\n\
                      Terminal=false\n\
                      Categories=Game;ArcadeGame;\n\
                      StartupNotify=true\n\
                      StartupWMClass=PinReady\n",
-                    shell_quote(&exe.display().to_string())
+                    shell_quote(&exe.display().to_string()),
+                    pinready_icon
                 )
             }
         };
@@ -724,4 +810,18 @@ fn gsettings(args: &[&str]) -> Option<String> {
     out.status
         .success()
         .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod icon_tests {
+    use super::*;
+
+    #[test]
+    fn old_entries_get_the_icon_path_once() {
+        let old = "[Desktop Entry]\nName=PinReady\nIcon=pinready\nTerminal=false\n";
+        let fixed = with_icon_path(old, "/h/icons/pinready.png").unwrap();
+        assert!(fixed.contains("Icon=/h/icons/pinready.png\n") && fixed.contains("Terminal=false"));
+        assert!(with_icon_path(&fixed, "/h/icons/pinready.png").is_none());
+        assert!(with_icon_path("Icon=firefox\n", "/x").is_none());
+    }
 }

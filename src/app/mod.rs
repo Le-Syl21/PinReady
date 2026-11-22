@@ -830,6 +830,8 @@ impl App {
             d.map(str::to_string)
         };
 
+        // shortcuts written by older versions: icon by path, stale cache gone
+        desktop_integration::heal_icons();
         let tile_fit = tile_fit::TileFit::from_config(
             db.get_config("tile_fit").as_deref(),
             db.get_config("tile_fill").as_deref(),

@@ -189,8 +189,12 @@ optional = true
 default-features = false
 features = ["codec", "format", "software-scaling"]
 
+# "build-portable", not "build": "build" compiles FFmpeg with -march=native,
+# i.e. for the CI runner's CPU (AVX-512), and the release then dies with an
+# illegal instruction on the first clip on any CPU without it (an i5-12400F
+# pincab, 0.28.1). FFmpeg picks its SIMD code at run time anyway.
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
-ffmpeg-sys-next = { version = "9.1", optional = true, default-features = false, features = ["avcodec", "avformat", "swscale", "build"] }
+ffmpeg-sys-next = { version = "9.1", optional = true, default-features = false, features = ["avcodec", "avformat", "swscale", "build-portable"] }
 
 [target.'cfg(target_env = "msvc")'.dependencies]
 ffmpeg-sys-next = { version = "9.1", optional = true, default-features = false, features = ["avcodec", "avformat", "swscale", "static"] }
