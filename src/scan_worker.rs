@@ -263,6 +263,13 @@ fn process_table(
         if let Some((url, md5)) = mdb.audio_url_md5(vps_id) {
             install_if_missing(&job.table_dir, "audio.mp3", url, md5);
         }
+        // the wheel, for the launcher layouts that show one (a frontend's
+        // `(Wheel) <name>.png` counts as present)
+        if crate::app::wheels::find_wheel(&job.table_dir).is_none()
+            && let Some((url, md5)) = mdb.wheel_url_md5(vps_id)
+        {
+            install_if_missing(&job.table_dir, "wheel.png", url, md5);
+        }
         // Preview videos are not fetched here: the launcher downloads a
         // table's clips on demand, when the table stays selected.
     }

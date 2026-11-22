@@ -863,6 +863,7 @@ impl App {
         // Fresh numbering for the pictures: textures and in-flight decodes
         // of the previous scan go away with the old generation.
         self.bg_cache.reset(self.scan_generation, self.tables.len());
+        self.wheels.reset();
         log::info!("Listed {} tables in {}", self.tables.len(), dir);
 
         // Cancel any prior scan so the new pool is the only one writing
@@ -1508,6 +1509,7 @@ impl App {
         // launched stays until VPX's own windows are up.
         let launching = self.tables.iter().position(|t| t.path == table_path);
         self.bg_cache.release(launching);
+        self.wheels.reset();
         log::info!(
             "Launching: {} -Play {}",
             resolved.display(),
@@ -2114,12 +2116,13 @@ impl App {
             }
             if let Some(p) = find_video(dir, VideoSlot::Tile) {
                 // tall enough for an upright playfield filling the tile
-                self.video_tile = VideoPlayer::open(
-                    &p,
-                    crate::assets::THUMB_WIDTH,
-                    crate::assets::THUMB_WIDTH * 2,
-                    "video-tile",
-                );
+                // the wheel and arcade layouts show it full screen
+                let (w, h) = if self.launcher_layout.full_screen_clip() {
+                    (1080, 1920)
+                } else {
+                    (crate::assets::THUMB_WIDTH, crate::assets::THUMB_WIDTH * 2)
+                };
+                self.video_tile = VideoPlayer::open(&p, w, h, "video-tile");
             }
             let bg = self
                 .displays

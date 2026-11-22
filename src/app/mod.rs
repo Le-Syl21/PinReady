@@ -373,8 +373,14 @@ pub struct App {
     tile_shape: tile_shape::TileShape,
     /// Launcher view: the carousel instead of the grid (see `carousel.rs`),
     /// and the turntable's current position (in visible tables).
-    launcher_carousel: bool,
+    launcher_layout: layouts::LauncherLayout,
     carousel_pos: f32,
+    /// Wheel layout: the selection last seen and the last input, for the
+    /// idle fade of the wheel row.
+    wheel_last_sel: Option<usize>,
+    wheel_active_at: std::time::Instant,
+    /// The tables' wheels (wheel and arcade layouts).
+    wheels: wheels::WheelCache,
     disable_touch: bool,
     external_dmd: bool, // ZeDMD, PinDMD, etc. — DMD handled by external device, not a screen
 
@@ -827,7 +833,8 @@ impl App {
         let tile_bands = tile_fit::BandFill::from_key(db.get_config("tile_bands").as_deref());
         let tile_shape =
             tile_shape::TileShape::from_key(db.get_config("tile_shape").as_deref().unwrap_or(""));
-        let launcher_carousel = db.get_config("launcher_layout").as_deref() == Some("carousel");
+        let launcher_layout =
+            layouts::LauncherLayout::from_key(db.get_config("launcher_layout").as_deref());
         // the step strip may jump anywhere once the wizard was completed before
         let wizard_furthest = if db.get_config("wizard_completed").as_deref() == Some("true") {
             WizardPage::count() - 1
@@ -968,8 +975,11 @@ impl App {
             tile_fit,
             tile_bands,
             tile_shape,
-            launcher_carousel,
+            launcher_layout,
             carousel_pos: 0.0,
+            wheel_last_sel: None,
+            wheel_active_at: std::time::Instant::now(),
+            wheels: wheels::WheelCache::new(),
             wizard_furthest,
             disable_touch,
             external_dmd,
@@ -2129,6 +2139,7 @@ impl App {
     }
 }
 
+mod arcade;
 mod audio_page;
 mod autostart;
 mod bgcache;
@@ -2142,6 +2153,7 @@ mod inputs_page;
 mod launcher;
 mod launcher_input;
 mod launcher_ui;
+mod layouts;
 mod mnemonic;
 mod outputs_page;
 mod rendering_page;
@@ -2157,6 +2169,7 @@ pub(crate) mod tile_fit;
 mod tile_shape;
 mod tilt_page;
 mod vpinplay_link;
+pub(crate) mod wheels;
 
 pub(crate) use help::help_marker;
 

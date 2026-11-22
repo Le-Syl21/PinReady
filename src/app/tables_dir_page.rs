@@ -140,107 +140,93 @@ impl App {
             &t!("tables_tiles_section"),
             Some(&t!("tables_tiles_intro")),
             |ui| {
-                // The tile shape: one small drawn tile per choice, with the
-                // picture size that fills it.
-                ui.label(egui::RichText::new(t!("tables_tiles_shape")).strong());
-                ui.label(
-                    egui::RichText::new(t!("tables_tiles_shape_hint"))
-                        .color(theme::pal(ui.ctx()).text_muted),
-                );
-                ui.add_space(4.0);
-                let shape_before = self.tile_shape;
+                // The layout: the tile settings below only matter for the
+                // grid and the carousel
+                use super::layouts::LauncherLayout;
+                ui.label(egui::RichText::new(t!("launcher_view")).strong());
+                let layout_before = self.launcher_layout;
                 ui.horizontal_wrapped(|ui| {
-                    for shape in super::tile_shape::TileShape::ALL {
-                        ui.vertical(|ui| {
-                            let h = 72.0;
-                            let (rect, resp) = ui.allocate_exact_size(
-                                egui::vec2(h * 16.0 / 9.0, h),
-                                egui::Sense::click(),
-                            );
-                            let tile = egui::Rect::from_center_size(
-                                rect.center(),
-                                egui::vec2(h * shape.ratio(), h).min(rect.size()),
-                            );
-                            let p = theme::pal(ui.ctx());
-                            let on = self.tile_shape == shape;
-                            ui.painter().rect_filled(tile, 4.0, p.surface);
-                            ui.painter().rect_stroke(
-                                tile,
-                                4.0,
-                                if on {
-                                    egui::Stroke::new(3.0, p.accent)
-                                } else {
-                                    egui::Stroke::new(1.0, p.border)
-                                },
-                                egui::StrokeKind::Inside,
-                            );
-                            if resp
-                                .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                .clicked()
-                            {
-                                self.tile_shape = shape;
-                            }
-                            let (w, h) = shape.picture_size();
-                            ui.radio_value(
-                                &mut self.tile_shape,
-                                shape,
-                                format!("{} · {w}×{h}", shape.key()),
-                            );
-                        });
-                        ui.add_space(8.0);
+                    for l in LauncherLayout::ALL {
+                        ui.radio_value(&mut self.launcher_layout, l, l.label());
+                        ui.add_space(12.0);
                     }
                 });
-                if self.tile_shape != shape_before {
-                    let _ = self.db.set_config("tile_shape", self.tile_shape.key());
+                if self.launcher_layout != layout_before {
+                    let _ = self
+                        .db
+                        .set_config("launcher_layout", self.launcher_layout.key());
                 }
                 ui.add_space(10.0);
-
-                use super::tile_fit::{BandFill, TileFit};
-                let (fit_before, bands_before) = (self.tile_fit, self.tile_bands);
-                ui.horizontal_wrapped(|ui| {
-                    for fit in TileFit::ALL {
-                        let label = match fit {
-                            TileFit::Bands => t!("tables_tiles_fit"),
-                            TileFit::Crop => t!("tables_tiles_fill"),
-                            TileFit::Stretch => t!("tables_tiles_stretch"),
-                        };
-                        ui.vertical(|ui| {
-                            let ex_h = 120.0;
-                            let (rect, resp) = ui.allocate_exact_size(
-                                egui::vec2(ex_h * self.tile_shape.ratio(), ex_h),
-                                egui::Sense::click(),
-                            );
-                            paint_tile_example(
-                                ui,
-                                rect,
-                                fit,
-                                self.tile_bands,
-                                self.tile_fit == fit,
-                            );
-                            if resp
-                                .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                .clicked()
-                            {
-                                self.tile_fit = fit;
-                            }
-                            ui.radio_value(&mut self.tile_fit, fit, label);
-                        });
-                        ui.add_space(16.0);
-                    }
-                });
-                // what fills the bands, for the whole-picture choice only
-                if self.tile_fit == TileFit::Bands {
-                    ui.add_space(6.0);
-                    ui.label(egui::RichText::new(t!("tables_tiles_bands")).strong());
+                if matches!(
+                    self.launcher_layout,
+                    LauncherLayout::Grid | LauncherLayout::Carousel
+                ) {
+                    // The tile shape: one small drawn tile per choice, with the
+                    // picture size that fills it.
+                    ui.label(egui::RichText::new(t!("tables_tiles_shape")).strong());
+                    ui.label(
+                        egui::RichText::new(t!("tables_tiles_shape_hint"))
+                            .color(theme::pal(ui.ctx()).text_muted),
+                    );
+                    ui.add_space(4.0);
+                    let shape_before = self.tile_shape;
                     ui.horizontal_wrapped(|ui| {
-                        for bands in BandFill::ALL {
-                            let label = match bands {
-                                BandFill::Black => t!("tables_tiles_bands_black"),
-                                BandFill::Blur => t!("tables_tiles_bands_blur"),
-                                BandFill::Color => t!("tables_tiles_bands_color"),
+                        for shape in super::tile_shape::TileShape::ALL {
+                            ui.vertical(|ui| {
+                                let h = 72.0;
+                                let (rect, resp) = ui.allocate_exact_size(
+                                    egui::vec2(h * 16.0 / 9.0, h),
+                                    egui::Sense::click(),
+                                );
+                                let tile = egui::Rect::from_center_size(
+                                    rect.center(),
+                                    egui::vec2(h * shape.ratio(), h).min(rect.size()),
+                                );
+                                let p = theme::pal(ui.ctx());
+                                let on = self.tile_shape == shape;
+                                ui.painter().rect_filled(tile, 4.0, p.surface);
+                                ui.painter().rect_stroke(
+                                    tile,
+                                    4.0,
+                                    if on {
+                                        egui::Stroke::new(3.0, p.accent)
+                                    } else {
+                                        egui::Stroke::new(1.0, p.border)
+                                    },
+                                    egui::StrokeKind::Inside,
+                                );
+                                if resp
+                                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                    .clicked()
+                                {
+                                    self.tile_shape = shape;
+                                }
+                                let (w, h) = shape.picture_size();
+                                ui.radio_value(
+                                    &mut self.tile_shape,
+                                    shape,
+                                    format!("{} · {w}×{h}", shape.key()),
+                                );
+                            });
+                            ui.add_space(8.0);
+                        }
+                    });
+                    if self.tile_shape != shape_before {
+                        let _ = self.db.set_config("tile_shape", self.tile_shape.key());
+                    }
+                    ui.add_space(10.0);
+
+                    use super::tile_fit::{BandFill, TileFit};
+                    let (fit_before, bands_before) = (self.tile_fit, self.tile_bands);
+                    ui.horizontal_wrapped(|ui| {
+                        for fit in TileFit::ALL {
+                            let label = match fit {
+                                TileFit::Bands => t!("tables_tiles_fit"),
+                                TileFit::Crop => t!("tables_tiles_fill"),
+                                TileFit::Stretch => t!("tables_tiles_stretch"),
                             };
                             ui.vertical(|ui| {
-                                let ex_h = 72.0;
+                                let ex_h = 120.0;
                                 let (rect, resp) = ui.allocate_exact_size(
                                     egui::vec2(ex_h * self.tile_shape.ratio(), ex_h),
                                     egui::Sense::click(),
@@ -248,27 +234,63 @@ impl App {
                                 paint_tile_example(
                                     ui,
                                     rect,
-                                    TileFit::Bands,
-                                    bands,
-                                    self.tile_bands == bands,
+                                    fit,
+                                    self.tile_bands,
+                                    self.tile_fit == fit,
                                 );
                                 if resp
                                     .on_hover_cursor(egui::CursorIcon::PointingHand)
                                     .clicked()
                                 {
-                                    self.tile_bands = bands;
+                                    self.tile_fit = fit;
                                 }
-                                ui.radio_value(&mut self.tile_bands, bands, label);
+                                ui.radio_value(&mut self.tile_fit, fit, label);
                             });
-                            ui.add_space(12.0);
+                            ui.add_space(16.0);
                         }
                     });
-                }
-                if self.tile_fit != fit_before {
-                    let _ = self.db.set_config("tile_fit", self.tile_fit.key());
-                }
-                if self.tile_bands != bands_before {
-                    let _ = self.db.set_config("tile_bands", self.tile_bands.key());
+                    // what fills the bands, for the whole-picture choice only
+                    if self.tile_fit == TileFit::Bands {
+                        ui.add_space(6.0);
+                        ui.label(egui::RichText::new(t!("tables_tiles_bands")).strong());
+                        ui.horizontal_wrapped(|ui| {
+                            for bands in BandFill::ALL {
+                                let label = match bands {
+                                    BandFill::Black => t!("tables_tiles_bands_black"),
+                                    BandFill::Blur => t!("tables_tiles_bands_blur"),
+                                    BandFill::Color => t!("tables_tiles_bands_color"),
+                                };
+                                ui.vertical(|ui| {
+                                    let ex_h = 72.0;
+                                    let (rect, resp) = ui.allocate_exact_size(
+                                        egui::vec2(ex_h * self.tile_shape.ratio(), ex_h),
+                                        egui::Sense::click(),
+                                    );
+                                    paint_tile_example(
+                                        ui,
+                                        rect,
+                                        TileFit::Bands,
+                                        bands,
+                                        self.tile_bands == bands,
+                                    );
+                                    if resp
+                                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                        .clicked()
+                                    {
+                                        self.tile_bands = bands;
+                                    }
+                                    ui.radio_value(&mut self.tile_bands, bands, label);
+                                });
+                                ui.add_space(12.0);
+                            }
+                        });
+                    }
+                    if self.tile_fit != fit_before {
+                        let _ = self.db.set_config("tile_fit", self.tile_fit.key());
+                    }
+                    if self.tile_bands != bands_before {
+                        let _ = self.db.set_config("tile_bands", self.tile_bands.key());
+                    }
                 }
                 ui.add_space(8.0);
                 // preview clips from VPinMediaDB, fetched on demand by the launcher (on by default)

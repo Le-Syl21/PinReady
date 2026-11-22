@@ -179,29 +179,18 @@ impl App {
             self.cycle_sort();
         }
 
-        // Grid or carousel
-        let view_label = format!(
-            "{}: {}",
-            t!("launcher_view"),
-            if self.launcher_carousel {
-                t!("launcher_view_carousel")
-            } else {
-                t!("launcher_view_grid")
-            }
-        );
+        // Layout: grid, carousel, wheels, arcade
+        let view_label = format!("{}: {}", t!("launcher_view"), self.launcher_layout.label());
         let m = mn.pick(&view_label, &t!("launcher_view", locale = "en"));
         let r = m.tooltip(left.add(header_button(m_text(&m, &left))));
         if r.clicked() || mn.hit(&m) {
-            self.launcher_carousel = !self.launcher_carousel;
+            self.launcher_layout = self.launcher_layout.next();
             self.scroll_to_selected = true;
-            let _ = self.db.set_config(
-                "launcher_layout",
-                if self.launcher_carousel {
-                    "carousel"
-                } else {
-                    "grid"
-                },
-            );
+            // the clip is decoded at the size the layout shows it
+            self.video_last_idx = None;
+            let _ = self
+                .db
+                .set_config("launcher_layout", self.launcher_layout.key());
         }
 
         // Update counter — surfaces tables flagged `update_available` by the
@@ -591,7 +580,7 @@ impl App {
         let available_width = ui.available_width();
         let cols = ((available_width / (card_width + card_spacing)) as usize).max(1);
         // the magna buttons jump a row in the grid, CAROUSEL_JUMP tables in the carousel
-        self.launcher_cols = if self.launcher_carousel {
+        self.launcher_cols = if self.launcher_layout != super::layouts::LauncherLayout::Grid {
             super::carousel::CAROUSEL_JUMP
         } else {
             cols
@@ -691,8 +680,17 @@ impl App {
 
         // Positions (in `filtered`) of the cards drawn on screen this frame.
         let mut visible_pos: Vec<usize> = Vec::new();
-        if self.launcher_carousel {
-            self.paint_carousel(ui, &filtered, &mut launch_idx, &mut visible_pos);
+        use super::layouts::LauncherLayout;
+        if self.launcher_layout != LauncherLayout::Grid {
+            match self.launcher_layout {
+                LauncherLayout::Wheels => {
+                    self.paint_wheel_bar(ui, &filtered, &mut launch_idx, &mut visible_pos)
+                }
+                LauncherLayout::Arcade => {
+                    self.paint_arcade(ui, &filtered, &mut launch_idx, &mut visible_pos)
+                }
+                _ => self.paint_carousel(ui, &filtered, &mut launch_idx, &mut visible_pos),
+            }
         } else {
             scroll_area.show(ui, |ui| {
                 for row_start in (0..filtered.len()).step_by(cols) {
@@ -1078,6 +1076,7 @@ impl App {
                     .map(|p| p.to_string_lossy().into_owned())
             };
             self.bg_cache.update(ui.ctx(), &on_screen, &near, &rel);
+            self.wheels.update(ui.ctx());
         }
 
         if let Some(idx) = fav_toggle {
