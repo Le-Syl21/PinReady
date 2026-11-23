@@ -422,6 +422,8 @@ struct HallTextures {
     wall: egui::TextureHandle,
     wood: egui::TextureHandle,
     floor: egui::TextureHandle,
+    /// A soft white disc fading to nothing: a lamp's light on the floor.
+    pool: egui::TextureHandle,
 }
 
 /// A cheap repeatable hash noise, 0..1.
@@ -479,59 +481,49 @@ fn hall_textures(ctx: &egui::Context) -> HallTextures {
             [c(52.0 * n), c(14.0 * n), c(20.0 * n)]
         }
     });
+    let pool = {
+        const P: usize = 64;
+        let mut px = Vec::with_capacity(P * P);
+        for y in 0..P {
+            for x in 0..P {
+                let (u, v) = (
+                    (x as f32 + 0.5) / P as f32 * 2.0 - 1.0,
+                    (y as f32 + 0.5) / P as f32 * 2.0 - 1.0,
+                );
+                let r = (u * u + v * v).sqrt().min(1.0);
+                let a = (1.0 - r * r).powi(2);
+                px.push(Color32::from_white_alpha((a * 255.0) as u8));
+            }
+        }
+        egui::ColorImage::new([P, P], px)
+    };
     let opts = egui::TextureOptions::LINEAR_REPEAT;
     let t = HallTextures {
         wall: ctx.load_texture("arcade/wall", wall, opts),
         wood: ctx.load_texture("arcade/wood", wood, opts),
         floor: ctx.load_texture("arcade/floor", floor, opts),
+        pool: ctx.load_texture("arcade/pool", pool, egui::TextureOptions::LINEAR),
     };
     ctx.data_mut(|d| d.insert_temp(id, t.clone()));
     t
 }
 
-/// A billiard lamp hanging above the cabinet whose middle is `x`, `zc`: a
-/// cord, a dark green shade, its warm opening. `light` 0..1.
-fn lamp_faces(x: f32, zc: f32, light: f32, cam: &Camera, out: &mut Vec<Face>) {
-    let shade_c = Color32::from_rgb(18, 54, 34);
-    let (y0, y1) = (2.42, 2.56);
-    out.push(quad(
-        [
-            v3(x - 0.006, 3.4, zc),
-            v3(x + 0.006, 3.4, zc),
-            v3(x + 0.006, y1, zc),
-            v3(x - 0.006, y1, zc),
-        ],
-        Fill::Flat,
-        Color32::from_rgb(20, 18, 22),
-        cam,
-    ));
-    out.push(quad(
-        [
-            v3(x - 0.12, y1, zc),
-            v3(x + 0.12, y1, zc),
-            v3(x + 0.30, y0, zc),
-            v3(x - 0.30, y0, zc),
-        ],
-        Fill::Gradient(shade(shade_c, 0.6)),
-        shade(shade_c, 1.2),
-        cam,
-    ));
-    let glow = lerp_color(
-        Color32::from_rgb(110, 70, 30),
-        Color32::from_rgb(255, 214, 150),
-        light,
-    );
-    out.push(quad(
-        [
-            v3(x - 0.30, y0, zc + 0.001),
-            v3(x + 0.30, y0, zc + 0.001),
-            v3(x + 0.27, y0 - 0.02, zc + 0.001),
-            v3(x - 0.27, y0 - 0.02, zc + 0.001),
-        ],
-        Fill::Flat,
-        glow,
-        cam,
-    ));
+/// The colour a machine's light throws around it: its backglass's colour
+/// brought up to full brightness, a warm white when it has none yet.
+fn glow_colour(edge: Option<Color32>) -> Color32 {
+    let c = edge.unwrap_or(Color32::from_rgb(255, 196, 140));
+    let max = c.r().max(c.g()).max(c.b()).max(1) as f32;
+    let k = 255.0 / max;
+    // half way to warm white so a dark or grey backglass still glows
+    lerp_color(
+        Color32::from_rgb(
+            (c.r() as f32 * k) as u8,
+            (c.g() as f32 * k) as u8,
+            (c.b() as f32 * k) as u8,
+        ),
+        Color32::from_rgb(255, 210, 160),
+        0.4,
+    )
 }
 
 impl App {
@@ -592,7 +584,8 @@ impl App {
         );
 
         // the hall: a bar carpet on the floor, a mahogany wainscot and a
-        // carpeted wall above it, warm light falling from the lamps
+        // carpeted wall above it. No lamps: like in a real pinball bar at
+        // night, the machines are the light (see the glows below)
         let tex = hall_textures(ui.ctx());
         let mut flat = egui::Mesh::default();
         let mut textured: Vec<egui::Mesh> = Vec::new();
@@ -610,8 +603,8 @@ impl App {
                     v3(9.0, 0.0, 3.0),
                     v3(-9.0, 0.0, 3.0),
                 ],
-                Fill::TexFade(tex.floor.id(), uv(18.0, 4.3, 0.6), shade(warm, 0.55)),
-                shade(warm, 0.35),
+                Fill::TexFade(tex.floor.id(), uv(18.0, 4.3, 0.6), shade(warm, 0.42)),
+                shade(warm, 0.22),
                 &cam,
             ),
             quad(
@@ -632,8 +625,8 @@ impl App {
                     v3(9.0, 1.2, -1.3),
                     v3(-9.0, 1.2, -1.3),
                 ],
-                Fill::TexFade(tex.wall.id(), uv(18.0, 2.2, 0.5), shade(warm, 0.75)),
-                shade(warm, 0.3),
+                Fill::TexFade(tex.wall.id(), uv(18.0, 2.2, 0.5), shade(warm, 0.6)),
+                shade(warm, 0.18),
                 &cam,
             ),
             // the rail capping the wainscot
@@ -719,20 +712,47 @@ impl App {
                 glow,
                 wheel: self.wheels.get(idx, &path, download.as_deref()).cloned(),
             };
-            if let (Some((a, _)), Some((b, _))) = (
-                cam.project(v3(x - 0.75, 0.0, z - size::LENGTH / 2.0)),
-                cam.project(v3(x + 0.75, 0.0, z - size::LENGTH / 2.0)),
-            ) {
-                // the lamp's pool of warm light on the carpet
-                painter.add(egui::Shape::ellipse_filled(
-                    a.lerp(b, 0.5),
-                    Vec2::new((b.x - a.x) * 0.5, (b.x - a.x) * 0.09),
-                    Color32::from_rgba_unmultiplied(255, 190, 120, (14.0 + 40.0 * light) as u8),
-                ));
+            {
+                // the machine is the light: its backglass throws its colour
+                // on the wall behind it, its playfield on the carpet in
+                // front; the selected one shines the most
+                let zc = z - size::LENGTH / 2.0;
+                let full = Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0));
+                let c = glow_colour(self.bg_cache.backdrop(idx).map(|b| b.edge));
+                let tint = |a: f32| {
+                    Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), (a * 255.0) as u8)
+                };
+                let wall = quad(
+                    [
+                        v3(x - 0.95, 2.75, -1.29),
+                        v3(x + 0.95, 2.75, -1.29),
+                        v3(x + 0.95, 0.75, -1.29),
+                        v3(x - 0.95, 0.75, -1.29),
+                    ],
+                    Fill::Tex(tex.pool.id(), full),
+                    tint(0.10 + 0.30 * light),
+                    &cam,
+                );
+                let floor = quad(
+                    [
+                        v3(x - 0.8, 0.002, zc - 0.6),
+                        v3(x + 0.8, 0.002, zc - 0.6),
+                        v3(x + 0.8, 0.002, z + 0.9),
+                        v3(x - 0.8, 0.002, z + 0.9),
+                    ],
+                    Fill::Tex(tex.pool.id(), full),
+                    tint(0.04 + 0.30 * light),
+                    &cam,
+                );
+                add_face(&mut flat, &mut textured, &cam, &wall);
+                add_face(&mut flat, &mut textured, &cam, &floor);
+                painter.add(egui::Shape::mesh(std::mem::take(&mut flat)));
+                for m in textured.drain(..) {
+                    painter.add(egui::Shape::mesh(m));
+                }
             }
             let mut faces = Vec::new();
             cabinet_faces(x, z, light, &art, &cam, &mut faces);
-            lamp_faces(x, z - size::LENGTH / 2.0, light, &cam, &mut faces);
             faces.sort_by(|a, b| b.depth.total_cmp(&a.depth));
             let mut bbox = Rect::NOTHING;
             for f in &faces {
