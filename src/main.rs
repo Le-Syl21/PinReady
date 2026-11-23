@@ -391,6 +391,11 @@ fn main() -> Result<()> {
     // artifacts (double rotation, half-rendered frames).
     let initial_mode = {
         let db = db::Database::open(None)?;
+        // The VPX settings folder follows the installed VPX (10.8 or 10.9);
+        // a 10.9 VPX gets its folder filled from 10.8 first.
+        if let Some(tag) = db.get_config("vpx_installed_tag").filter(|t| !t.is_empty()) {
+            config::set_installed_vpx(&tag);
+        }
         let configured = db.get_config("wizard_completed").as_deref() == Some("true");
 
         // A Wayland↔X11 session change no longer needs special handling: at

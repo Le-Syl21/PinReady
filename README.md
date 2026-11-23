@@ -6,7 +6,7 @@
 
 ## 🇬🇧 English
 
-Cross-platform configurator and launcher for [Visual Pinball](https://github.com/vpinball/vpinball) standalone (10.8.1).
+Cross-platform configurator and launcher for [Visual Pinball](https://github.com/vpinball/vpinball) standalone (10.9, and 10.8.1).
 
 PinReady replaces the non-existent native configuration tools for VPX standalone builds (SDL3/bgfx). It guides you through setting up a virtual pinball cabinet from scratch: screens, inputs, tilt, audio, then lets you browse and launch tables from a single interface. 🕹️
 
@@ -14,7 +14,7 @@ PinReady replaces the non-existent native configuration tools for VPX standalone
 
 > ⚠️ **Scope — please read before installing**
 >
-> PinReady is designed to **support the development and adoption of VPX 10.8.1**, not to replace a stable production VPX setup. The target audience is testers and early adopters of the new 10.8.1 architecture (integrated plugins, folder-per-table layout, SDL3/bgfx backend). If you run a stable VPX 10.7.x production cabinet, PinReady is probably not for you yet.
+> PinReady is designed to **support the development and adoption of VPX 10.9**, not to replace a stable production VPX setup. The target audience is testers and early adopters of the new 10.8/10.9 architecture (integrated plugins, folder-per-table layout, SDL3/bgfx backend). If you run a stable VPX 10.7.x production cabinet, PinReady is probably not for you yet.
 
 ### 💬 Community & support
 
@@ -68,7 +68,7 @@ Questions, bug reports, beta testing, or just want to chat? Join the Discord:
 
 ### 🎯 Target
 
-- 🎰 **Visual Pinball 10.8.1** -- Uses the folder-per-table layout
+- 🎰 **Visual Pinball 10.9** -- Uses the folder-per-table layout; settings moved over from 10.8 automatically
 - 💻 **Cross-platform** -- Linux, macOS, Windows. SDL3 only, no platform-specific APIs
 - 📦 **No system dependencies** -- SDL3 and SQLite are statically linked
 
@@ -133,7 +133,7 @@ RUST_LOG=info cargo run
 
 **📋 Requirements:**
 
-- 🎰 **Visual Pinball** executable (10.8.1+) -- auto-installed or path configured in the wizard
+- 🎰 **Visual Pinball** executable (10.8.1 or 10.9) -- auto-installed or path configured in the wizard
 - 📁 **Tables directory** -- folder-per-table layout as described in VPX docs
 - 🌐 **Internet connection** -- required for auto-install and update checks (optional for manual install)
 
@@ -289,7 +289,7 @@ Axes: X = nudge left/right, Y = nudge forward/back (accelerometer), Z = plunger 
 
 ### 🧩 Table preparation
 
-Some tables need a bit of prep to behave correctly under VPX Standalone 10.8.1. Optional steps, but worth knowing:
+Some tables need a bit of prep to behave correctly under VPX Standalone 10.9. Optional steps, but worth knowing:
 
 **🔧 Patching old tables for VPX Standalone**
 
@@ -344,7 +344,7 @@ Useful when you have dozens of tables eating disk space.
 
 ## 🇫🇷 Français
 
-Configurateur et lanceur multiplateforme pour [Visual Pinball](https://github.com/vpinball/vpinball) standalone (10.8.1).
+Configurateur et lanceur multiplateforme pour [Visual Pinball](https://github.com/vpinball/vpinball) standalone (10.9, et 10.8.1).
 
 PinReady remplace les outils de configuration natifs inexistants pour les builds VPX standalone (SDL3/bgfx). Il vous guide dans la mise en place d'un flipper virtuel depuis zéro : écrans, contrôles, tilt, audio, puis permet de parcourir et lancer vos tables depuis une interface unique. 🕹️
 
@@ -352,7 +352,7 @@ PinReady remplace les outils de configuration natifs inexistants pour les builds
 
 > ⚠️ **Périmètre — à lire avant d'installer**
 >
-> PinReady est conçu pour **accompagner le développement et l'adoption de VPX 10.8.1**, pas pour remplacer une installation VPX stable en production. Le public cible, ce sont les testeurs et les early adopters de la nouvelle architecture 10.8.1 (plugins intégrés, format dossier-par-table, backend SDL3/bgfx). Si vous avez un cabinet VPX 10.7.x stable en production, PinReady n'est probablement pas encore pour vous.
+> PinReady est conçu pour **accompagner le développement et l'adoption de VPX 10.9**, pas pour remplacer une installation VPX stable en production. Le public cible, ce sont les testeurs et les early adopters de la nouvelle architecture 10.8/10.9 (plugins intégrés, format dossier-par-table, backend SDL3/bgfx). Si vous avez un cabinet VPX 10.7.x stable en production, PinReady n'est probablement pas encore pour vous.
 
 ### 💬 Communauté & support
 
@@ -406,7 +406,7 @@ Des questions, un bug à signaler, envie de tester les bêtas ou juste de discut
 
 ### 🎯 Cible
 
-- 🎰 **Visual Pinball 10.8.1** -- Utilise le format dossier-par-table
+- 🎰 **Visual Pinball 10.9** -- Utilise le format dossier-par-table ; réglages repris de 10.8 automatiquement
 - 💻 **Multiplateforme** -- Linux, macOS, Windows. SDL3 uniquement, aucune API spécifique à une plateforme
 - 📦 **Aucune dépendance système** -- SDL3 et SQLite sont liés statiquement
 
@@ -471,7 +471,7 @@ RUST_LOG=info cargo run
 
 **📋 Prérequis :**
 
-- 🎰 **Visual Pinball** exécutable (10.8.1+) -- installé automatiquement ou chemin configuré dans l'assistant
+- 🎰 **Visual Pinball** exécutable (10.8.1 ou 10.9) -- installé automatiquement ou chemin configuré dans l'assistant
 - 📁 **Répertoire de tables** -- format dossier-par-table tel que décrit dans la doc VPX
 - 🌐 **Connexion internet** -- nécessaire pour l'installation automatique et la vérification des mises à jour (optionnel pour l'installation manuelle)
 
@@ -627,7 +627,7 @@ Axes : X = nudge gauche/droite, Y = nudge avant/arrière (accéléromètre), Z =
 
 ### 🧩 Préparation des tables
 
-Certaines tables demandent un peu de préparation pour bien fonctionner sous VPX Standalone 10.8.1. Étapes optionnelles, mais bon à savoir :
+Certaines tables demandent un peu de préparation pour bien fonctionner sous VPX Standalone 10.9. Étapes optionnelles, mais bon à savoir :
 
 **🔧 Patcher les anciennes tables pour VPX Standalone**
 

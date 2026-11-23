@@ -2,11 +2,13 @@
 
 ## Project overview
 
-PinReady is a cross-platform configurator and launcher for VPinballX (Visual Pinball X standalone 10.8.1).
+PinReady is a cross-platform configurator and launcher for VPinballX (Visual Pinball X standalone 10.9, earlier 10.8.1).
 It handles screen assignment, input mapping, tilt/nudge sensitivity, audio routing, table browsing and asset management.
 It replaces the non-existent native configuration tools for VPX standalone (SDL3/bgfx builds).
 
-**Target: VPinballX 10.8.1** — uses the new folder-per-table layout.
+**Target: VPinballX 10.9** (the fork PinReady installs; 10.8.1 still read) — uses the folder-per-table layout.
+
+**Settings folder per VPX version.** VPX keeps its settings in `<data dir>/VPinballX/<major.minor>/`. `config::vpx_pref_dir()` follows the installed VPX's tag (`config::set_installed_vpx`, at start-up and after a VPX update); a newer folder is first filled from the older one (`config::migrate_settings`, the copy VPX's own `FileLocator` makes). Never hardcode `10.8`/`10.9` in paths.
 **Cross-platform** — Linux, macOS, Windows. No platform-specific APIs (no Win32, no xrandr). SDL3 only.
 
 **First run** (detected by `wizard_completed` flag in SQLite DB) → configuration wizard.
@@ -570,7 +572,7 @@ File search order: table filename → folder name → legacy global folder.
 
 ## VPinballX.ini format
 
-**Global ini location:** `~/.local/share/VPinballX/10.8/VPinballX.ini`
+**Global ini location:** `~/.local/share/VPinballX/10.9/VPinballX.ini` (10.8 for a 10.8.1 VPX, see `config::vpx_pref_dir`)
 
 VPX supports a global ini and a **per-table ini** (same name as `.vpx`, same directory).
 Per-table ini overrides global.
@@ -754,7 +756,7 @@ the actual `git tag vX.Y.Z` build.
   - Settings properties: `src/core/Settings_properties.inl`
 - **VPX file layout**: `/home/pincab/VPinballX/docs/FileLayout.md`
 - **SDL3 source**: `~/SDL/` — for API details not in headers
-- **VPX ini**: `~/.local/share/VPinballX/10.8/VPinballX.ini`
+- **VPX ini**: `~/.local/share/VPinballX/10.9/VPinballX.ini` (10.8 before)
 - **Note**: VPX docs/ folder contains outdated documentation (pre-standalone era). Always prefer source code.
 
 ---

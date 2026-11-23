@@ -2,16 +2,110 @@ use anyhow::{Context, Result};
 use ini_preserve::Ini;
 use std::path::{Path, PathBuf};
 
-/// Default VPinballX.ini location, following OS conventions:
-/// - Linux:   ~/.local/share/VPinballX/10.8/VPinballX.ini
-/// - macOS:   ~/Library/Application Support/VPinballX/10.8/VPinballX.ini
-/// - Windows: %APPDATA%\VPinballX\10.8\VPinballX.ini
-pub fn default_ini_path() -> PathBuf {
+/// The settings folder of the VPX builds PinReady installs. VPX keeps its
+/// settings per major.minor version (`<data dir>/VPinballX/10.9/`), and from
+/// 10.9 on it starts by copying the previous version's folder.
+pub const VPX_SETTINGS_VERSION: &str = "10.9";
+
+/// The settings version of the VPX in use, from its tag (`v10.8.1-6823-…` →
+/// `10.8`), set at start-up and after a VPX update.
+static INSTALLED_VERSION: std::sync::RwLock<Option<String>> = std::sync::RwLock::new(None);
+
+/// `v10.9.0-6988-556075741` (or `10.9.0`) → `10.9`.
+pub fn settings_version_of_tag(tag: &str) -> Option<String> {
+    let v = tag.trim().trim_start_matches('v');
+    let mut parts = v.split(['.', '-']);
+    let major: u32 = parts.next()?.parse().ok()?;
+    let minor: u32 = parts.next()?.parse().ok()?;
+    Some(format!("{major}.{minor}"))
+}
+
+fn vpx_base_dir() -> PathBuf {
     dirs::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("VPinballX")
-        .join("10.8")
-        .join("VPinballX.ini")
+}
+
+/// Tell PinReady which VPX it drives (its tag), so the settings go where that
+/// VPX reads them. A newer settings folder is first filled from the older
+/// one, the way VPX does it, so nothing is lost when VPX is updated.
+pub fn set_installed_vpx(tag: &str) {
+    let Some(version) = settings_version_of_tag(tag) else {
+        return;
+    };
+    if let Ok(mut v) = INSTALLED_VERSION.write() {
+        *v = Some(version.clone());
+    }
+    migrate_settings(&vpx_base_dir(), &version);
+}
+
+/// The VPX settings folder in use: the installed VPX's version when known,
+/// else the newest of 10.9 and 10.8 that exists (a VPX installed by hand),
+/// else 10.9.
+pub fn vpx_pref_dir() -> PathBuf {
+    let base = vpx_base_dir();
+    let known = INSTALLED_VERSION.read().ok().and_then(|v| v.clone());
+    let version = known.unwrap_or_else(|| {
+        if !base.join(VPX_SETTINGS_VERSION).is_dir() && base.join("10.8").is_dir() {
+            "10.8".to_string()
+        } else {
+            VPX_SETTINGS_VERSION.to_string()
+        }
+    });
+    base.join(version)
+}
+
+/// Default VPinballX.ini location, following OS conventions:
+/// - Linux:   ~/.local/share/VPinballX/<version>/VPinballX.ini
+/// - macOS:   ~/Library/Application Support/VPinballX/<version>/VPinballX.ini
+/// - Windows: %APPDATA%\VPinballX\<version>\VPinballX.ini
+pub fn default_ini_path() -> PathBuf {
+    vpx_pref_dir().join("VPinballX.ini")
+}
+
+/// When `base/<version>` does not exist yet, create it from the newest older
+/// version folder (10.8, 10.7, …), copying everything (ini, DOF config, …),
+/// like VPX's own `FileLocator` does on its first start. Returns the folder
+/// copied from.
+pub fn migrate_settings(base: &Path, version: &str) -> Option<PathBuf> {
+    let target = base.join(version);
+    if target.exists() {
+        return None;
+    }
+    let (major, minor) = version.split_once('.')?;
+    let (major, minor): (u32, u32) = (major.parse().ok()?, minor.parse().ok()?);
+    let source = (0..minor)
+        .rev()
+        .map(|m| base.join(format!("{major}.{m}")))
+        .find(|p| p.is_dir())?;
+    if let Err(e) = copy_dir(&source, &target) {
+        log::warn!(
+            "VPX settings: cannot copy {} to {}: {e}",
+            source.display(),
+            target.display()
+        );
+        return None;
+    }
+    log::info!(
+        "VPX settings: {} created from {}",
+        target.display(),
+        source.display()
+    );
+    Some(source)
+}
+
+fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(to)?;
+    for entry in std::fs::read_dir(from)? {
+        let entry = entry?;
+        let dest = to.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_dir(&entry.path(), &dest)?;
+        } else {
+            std::fs::copy(entry.path(), dest)?;
+        }
+    }
+    Ok(())
 }
 
 pub struct VpxConfig {
@@ -204,6 +298,48 @@ impl VpxConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn settings_version_from_tags() {
+        assert_eq!(
+            settings_version_of_tag("v10.9.0-6988-556075741").as_deref(),
+            Some("10.9")
+        );
+        assert_eq!(
+            settings_version_of_tag("v10.8.1-6823-1f940f946").as_deref(),
+            Some("10.8")
+        );
+        assert_eq!(settings_version_of_tag("10.9.0").as_deref(), Some("10.9"));
+        assert_eq!(settings_version_of_tag("nightly"), None);
+    }
+
+    #[test]
+    fn a_new_settings_folder_starts_from_the_previous_one() {
+        let base = tempfile::tempdir().unwrap();
+        let old = base.path().join("10.8");
+        std::fs::create_dir_all(old.join("directoutputconfig")).unwrap();
+        std::fs::write(old.join("VPinballX.ini"), "[Player]\nBGSet = 1\n").unwrap();
+        std::fs::write(old.join("directoutputconfig/directoutputconfig30.ini"), "x").unwrap();
+        assert_eq!(migrate_settings(base.path(), "10.9"), Some(old.clone()));
+        let new = base.path().join("10.9");
+        assert_eq!(
+            std::fs::read_to_string(new.join("VPinballX.ini")).unwrap(),
+            "[Player]\nBGSet = 1\n"
+        );
+        assert!(
+            new.join("directoutputconfig/directoutputconfig30.ini")
+                .is_file()
+        );
+        // done once: a second call leaves the folder alone
+        std::fs::write(new.join("VPinballX.ini"), "changed").unwrap();
+        assert_eq!(migrate_settings(base.path(), "10.9"), None);
+        assert_eq!(
+            std::fs::read_to_string(new.join("VPinballX.ini")).unwrap(),
+            "changed"
+        );
+        // nothing older: nothing to do
+        assert_eq!(migrate_settings(base.path(), "10.0"), None);
+    }
     use std::io::Write;
     use tempfile::NamedTempFile;
 

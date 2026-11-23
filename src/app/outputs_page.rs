@@ -42,24 +42,7 @@ const ASTERISK_RED_OUT: egui::Color32 = egui::Color32::from_rgb(255, 80, 80);
 const NOTICE_AMBER_OUT: egui::Color32 = egui::Color32::from_rgb(255, 200, 80);
 
 fn dof_config_dir() -> PathBuf {
-    #[cfg(target_os = "linux")]
-    {
-        let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-        PathBuf::from(home).join(".local/share/VPinballX/10.8/directoutputconfig")
-    }
-    #[cfg(target_os = "macos")]
-    {
-        let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-        PathBuf::from(home).join("Library/Application Support/VPinballX/10.8/directoutputconfig")
-    }
-    #[cfg(target_os = "windows")]
-    {
-        let appdata = std::env::var("APPDATA").unwrap_or_else(|_| {
-            let home = std::env::var("USERPROFILE").unwrap_or_else(|_| ".".into());
-            format!("{home}\\AppData\\Roaming")
-        });
-        PathBuf::from(appdata).join("VPinballX\\10.8\\directoutputconfig")
-    }
+    crate::config::vpx_pref_dir().join("directoutputconfig")
 }
 
 fn open_in_file_manager(path: &std::path::Path) {

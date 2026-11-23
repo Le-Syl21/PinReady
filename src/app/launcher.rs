@@ -2892,6 +2892,16 @@ impl App {
                         if let Some(rel) = &self.vpx_latest_release {
                             self.vpx_installed_tag = rel.tag.clone();
                             let _ = self.db.set_config("vpx_installed_tag", &rel.tag);
+                            // a VPX of another settings version (10.8 → 10.9):
+                            // move the settings over and read them from there
+                            let before = crate::config::default_ini_path();
+                            crate::config::set_installed_vpx(&rel.tag);
+                            if crate::config::default_ini_path() != before {
+                                match crate::config::VpxConfig::load(None) {
+                                    Ok(c) => self.config = c,
+                                    Err(e) => log::warn!("VPX settings reload failed: {e}"),
+                                }
+                            }
                         }
                         self.update_downloading = false;
                         self.update_progress = (0, 0);
