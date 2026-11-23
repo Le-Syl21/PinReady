@@ -342,7 +342,6 @@ impl App {
                 };
                 // the card body: the band colour behind the picture
                 let band = match (self.tile_bands, &backdrop) {
-                    _ if is_wheel => p.surface,
                     (super::tile_fit::BandFill::Color, Some(b)) => b.edge,
                     _ => Color32::BLACK,
                 };
@@ -372,9 +371,12 @@ impl App {
                         .gamma_multiply(pose.alpha * if refl { 0.28 } else { 1.0 }),
                     _ => top_tint,
                 };
-                let mut f = quad(body, body_fill, body_tint, &cam);
-                f.depth += 0.002; // behind the picture
-                faces.push(f);
+                // a wheel floats on its own: no card body behind it
+                if !is_wheel {
+                    let mut f = quad(body, body_fill, body_tint, &cam);
+                    f.depth += 0.002; // behind the picture
+                    faces.push(f);
+                }
                 if let Some(tex) = &picture {
                     let (part, uv) = picture_part(fit, tex.size_vec2(), card, pose.width);
                     if part.is_positive() {

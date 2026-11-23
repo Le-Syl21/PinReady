@@ -2018,7 +2018,19 @@ impl App {
         }
 
         if let Some(due) = self.preview_due_at {
-            if std::time::Instant::now() >= due {
+            let now = std::time::Instant::now();
+            // The jingle starts with the selected table's clip, not before
+            // it: while the clip is still opening (its first frame not yet
+            // on screen) the sound waits, at most a few seconds.
+            let clip_opening = self.video_last_idx == Some(cur)
+                && (self.video_due_at.is_some()
+                    || self
+                        .video_tile
+                        .as_ref()
+                        .is_some_and(|v| v.texture().is_none()));
+            if now >= due && clip_opening && now < due + std::time::Duration::from_secs(3) {
+                ctx.request_repaint_after(std::time::Duration::from_millis(30));
+            } else if now >= due {
                 self.preview_due_at = None;
                 if let Some(table) = self.tables.get(cur)
                     && let Some(table_dir) = table.path.parent()
@@ -2040,7 +2052,7 @@ impl App {
                     }
                 }
             } else {
-                ctx.request_repaint_after(due - std::time::Instant::now());
+                ctx.request_repaint_after(due - now);
             }
         }
     }

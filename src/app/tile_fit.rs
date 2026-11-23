@@ -76,7 +76,12 @@ impl TilePicture {
 
 /// A wheel in `area`: whole, a little inside the edges, over whatever is
 /// behind it (wheels have transparent surroundings).
-pub(super) fn paint_wheel(painter: &egui::Painter, tex: &TextureHandle, area: egui::Rect) {
+pub(super) fn paint_wheel(
+    painter: &egui::Painter,
+    tex: &TextureHandle,
+    area: egui::Rect,
+    tint: Color32,
+) {
     let size = tex.size_vec2();
     if size.x <= 0.0 || size.y <= 0.0 {
         return;
@@ -86,8 +91,14 @@ pub(super) fn paint_wheel(painter: &egui::Painter, tex: &TextureHandle, area: eg
         tex.id(),
         fit_rect(size, inner),
         egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-        Color32::WHITE,
+        tint,
     );
+}
+
+/// Where [`paint_wheel`] draws the wheel inside `area`.
+pub(super) fn wheel_rect(tex: &TextureHandle, area: egui::Rect) -> egui::Rect {
+    let inner = area.shrink(area.height().min(area.width()) * 0.06);
+    fit_rect(tex.size_vec2(), inner)
 }
 
 /// What fills the bands of [`TileFit::Bands`].

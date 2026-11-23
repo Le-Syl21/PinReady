@@ -120,6 +120,41 @@ impl App {
             let front = off.abs() < 0.5;
             let art = self.tile_art(idx);
             let (picture, backdrop) = (art.tex, art.backdrop);
+            // depth: the side tables sink into the ground colour
+            let dim = ((1.0 - depth) * 200.0).clamp(0.0, 200.0) as u8;
+            let stroke = if front {
+                egui::Stroke::new(4.0, p.accent)
+            } else {
+                egui::Stroke::new(1.0, p.border)
+            };
+            if art.wheel
+                && let Some(tex) = &picture
+            {
+                // a wheel floats on its own, no card behind it: its
+                // reflection under the wheel, the depth as a darker tint
+                let w = super::tile_fit::wheel_rect(tex, r);
+                let refl =
+                    egui::Rect::from_min_size(egui::pos2(w.left(), w.bottom() + 4.0), w.size());
+                let uv = egui::Rect::from_min_max(egui::pos2(0.0, 1.0), egui::pos2(1.0, 0.0));
+                let shade = (40.0 * depth) as u8;
+                painter.image(
+                    tex.id(),
+                    refl,
+                    uv,
+                    egui::Color32::from_rgba_unmultiplied(255, 255, 255, shade),
+                );
+                let light = 255 - dim;
+                super::tile_fit::paint_wheel(
+                    &painter,
+                    tex,
+                    r,
+                    egui::Color32::from_rgb(light, light, light),
+                );
+                if front {
+                    painter.rect_stroke(r.expand(4.0), 8.0, stroke, egui::StrokeKind::Outside);
+                }
+                continue;
+            }
             // reflection on the floor, then the card
             if let Some(tex) = &picture {
                 let refl =
@@ -135,7 +170,6 @@ impl App {
             }
             painter.rect_filled(r.expand(4.0), 8.0, p.surface);
             match &picture {
-                Some(tex) if art.wheel => super::tile_fit::paint_wheel(&painter, tex, r),
                 Some(tex) => paint_tile_picture(
                     ui,
                     tex,
@@ -155,16 +189,9 @@ impl App {
                     );
                 }
             }
-            // depth: the side tables sink into the ground colour
-            let dim = ((1.0 - depth) * 200.0).clamp(0.0, 200.0) as u8;
             if dim > 0 {
                 painter.rect_filled(r.expand(4.0), 8.0, p.bg.gamma_multiply(dim as f32 / 255.0));
             }
-            let stroke = if front {
-                egui::Stroke::new(4.0, p.accent)
-            } else {
-                egui::Stroke::new(1.0, p.border)
-            };
             painter.rect_stroke(r.expand(4.0), 8.0, stroke, egui::StrokeKind::Outside);
         }
 

@@ -762,7 +762,15 @@ impl App {
                             } else {
                                 p.surface
                             };
-                            painter.rect_filled(rect, 8.0, bg_color);
+                            // a wheel floats on its own: only the selected or
+                            // hovered tile keeps its glow behind it
+                            let floating = art.wheel
+                                && art.tex.is_some()
+                                && !is_selected
+                                && !response.hovered();
+                            if !floating {
+                                painter.rect_filled(rect, 8.0, bg_color);
+                            }
 
                             // Selection border (inside to avoid clipping by painter_at)
                             if is_selected {
@@ -772,7 +780,7 @@ impl App {
                                     egui::Stroke::new(4.0, p.accent),
                                     egui::StrokeKind::Inside,
                                 );
-                            } else {
+                            } else if !floating {
                                 painter.rect_stroke(
                                     rect,
                                     8.0,
@@ -788,7 +796,12 @@ impl App {
                             );
                             if let Some(tex) = &art.tex {
                                 if art.wheel {
-                                    super::tile_fit::paint_wheel(&painter, tex, img_area);
+                                    super::tile_fit::paint_wheel(
+                                        &painter,
+                                        tex,
+                                        img_area,
+                                        egui::Color32::WHITE,
+                                    );
                                 } else {
                                     paint_tile_picture(
                                         ui,
