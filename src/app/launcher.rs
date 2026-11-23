@@ -1492,6 +1492,10 @@ impl App {
         if self.vpx_running.load(Ordering::Relaxed) {
             return;
         }
+        // A ZeDMD takes one client: free it for the table's DMDUtil
+        if let Some(out) = self.zedmd_out.take() {
+            out.close();
+        }
         // Preview audio stops automatically when we tear down the audio
         // thread below — no explicit PreviewStop needed.
         self.preview_playing = false;
@@ -2157,6 +2161,14 @@ impl App {
             {
                 let (w, h) = (d.width.max(1) as u32, d.height.max(1) as u32);
                 self.video_dmd = VideoPlayer::open(&p, w.min(1920), h.min(1920), "video-dmd");
+            } else if dmd.is_none()
+                && self.zedmd_out.is_some()
+                && let Some(p) = find_video(dir, VideoSlot::Dmd)
+            {
+                // no DMD screen: the clip goes to the ZeDMD only, at the
+                // size of its largest panel
+                self.video_dmd =
+                    VideoPlayer::open(&p, 256, 64, "video-dmd").map(VideoPlayer::keep_frames);
             }
         }
         if let Some(v) = &mut self.video_tile {
@@ -2168,6 +2180,60 @@ impl App {
         if let Some(v) = &mut self.video_dmd {
             v.update(ctx);
             ctx.request_repaint_of(egui::ViewportId::from_hash_of(DMD_VIEWPORT));
+        }
+        self.feed_zedmd();
+    }
+
+    /// Keep the ZeDMD showing the selected table's DMD clip: connect when
+    /// one was found on the Screens page and no DMD screen exists, send each
+    /// new clip frame, clear the panel when the table has no clip. A device
+    /// that is not there is tried again every half minute.
+    fn feed_zedmd(&mut self) {
+        let wanted = self.external_dmd
+            && !self.displays.iter().any(|d| d.role == DisplayRole::Dmd)
+            && !self.vpx_running.load(Ordering::Relaxed);
+        let Some(link) = self.zedmd_link.clone().filter(|_| wanted) else {
+            if let Some(out) = self.zedmd_out.take() {
+                out.close();
+            }
+            return;
+        };
+        if self.zedmd_out.as_ref().is_some_and(|o| o.ended()) {
+            self.zedmd_out = None;
+            self.zedmd_retry_at =
+                Some(std::time::Instant::now() + std::time::Duration::from_secs(30));
+        }
+        if self.zedmd_out.is_none() {
+            if self
+                .zedmd_retry_at
+                .is_some_and(|t| std::time::Instant::now() < t)
+            {
+                return;
+            }
+            self.zedmd_retry_at = None;
+            self.zedmd_out = crate::zedmd_link::Output::open(link);
+            self.zedmd_sent = 0;
+            // the clip of the table already selected starts now
+            self.video_last_idx = None;
+            return;
+        }
+        let Some(out) = &self.zedmd_out else {
+            return;
+        };
+        match self.video_dmd.as_ref().and_then(|v| v.kept_frame()) {
+            Some((n, size, rgba)) if n != self.zedmd_sent => {
+                out.show(crate::zedmd_link::Picture {
+                    size,
+                    rgba: rgba.to_vec(),
+                });
+                self.zedmd_sent = n;
+            }
+            Some(_) => {}
+            None if self.zedmd_sent != 0 => {
+                out.clear();
+                self.zedmd_sent = 0;
+            }
+            None => {}
         }
     }
 

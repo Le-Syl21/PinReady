@@ -49,6 +49,19 @@ impl App {
             "external_dmd",
             if self.external_dmd { "true" } else { "false" },
         );
+        let _ = self.db.set_config(
+            "zedmd_link",
+            &self
+                .zedmd_link
+                .as_ref()
+                .map(crate::zedmd_link::Link::to_db)
+                .unwrap_or_default(),
+        );
+        if self.external_dmd
+            && let Some(link) = &self.zedmd_link
+        {
+            crate::zedmd_link::write_vpx_settings(&mut self.config, link);
+        }
         if let Err(e) = self.db.set_config("vpx_exe_path", &self.vpx_exe_path) {
             log::error!("Failed to save VPX exe path: {e}");
         }

@@ -178,6 +178,11 @@ pub struct VideoPlayer {
     /// second of the clip (`backdrop_due` is the next clip time).
     backdrop: Option<crate::app::tile_fit::Backdrop>,
     backdrop_due: f64,
+    /// With [`VideoPlayer::keep_frames`]: the frame shown last, and how many
+    /// were shown, for a reader that is not the GPU (a ZeDMD).
+    kept: Option<([usize; 2], Vec<u8>)>,
+    keep: bool,
+    shown: u64,
 }
 
 impl VideoPlayer {
@@ -200,7 +205,22 @@ impl VideoPlayer {
             name: name.to_string(),
             backdrop: None,
             backdrop_due: 0.0,
+            kept: None,
+            keep: false,
+            shown: 0,
         })
+    }
+
+    /// Keep a copy of each frame shown, for [`VideoPlayer::kept_frame`].
+    pub fn keep_frames(mut self) -> Self {
+        self.keep = true;
+        self
+    }
+
+    /// The frame shown last (size, RGBA) and its number, counting from 1.
+    pub fn kept_frame(&self) -> Option<(u64, [usize; 2], &[u8])> {
+        let (size, rgba) = self.kept.as_ref()?;
+        Some((self.shown, *size, rgba))
     }
 
     /// The last frame shown, once the first one arrived.
@@ -244,6 +264,10 @@ impl VideoPlayer {
         }
         if let Some(f) = due {
             let image = egui::ColorImage::from_rgba_unmultiplied(f.size, &f.rgba);
+            self.shown += 1;
+            if self.keep {
+                self.kept = Some((f.size, f.rgba));
+            }
             // a loop starts over at 0: refresh then too
             if f.pts >= self.backdrop_due || f.pts + 1.0 < self.backdrop_due - 1.0 {
                 self.backdrop_due = f.pts + 1.0;

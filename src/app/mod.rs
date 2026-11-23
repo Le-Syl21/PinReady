@@ -494,6 +494,18 @@ pub struct App {
     video_tile: Option<crate::video::VideoPlayer>,
     video_bg: Option<crate::video::VideoPlayer>,
     video_dmd: Option<crate::video::VideoPlayer>,
+    /// The ZeDMD found on the Screens page (database `zedmd_link`).
+    zedmd_link: Option<crate::zedmd_link::Link>,
+    /// The connection showing the DMD clip on it while the launcher is up.
+    zedmd_out: Option<crate::zedmd_link::Output>,
+    /// When a lost or missing ZeDMD may be tried again.
+    zedmd_retry_at: Option<std::time::Instant>,
+    /// Last DMD clip frame sent to the ZeDMD (0: none, the panel is clear).
+    zedmd_sent: u64,
+    /// A ZeDMD search running from the Screens page.
+    zedmd_search: Option<crossbeam_channel::Receiver<Option<crate::zedmd_link::Found>>>,
+    /// What the last search found (`None` inside: nothing).
+    zedmd_search_result: Option<Option<crate::zedmd_link::Found>>,
     /// On-demand clip download in flight (table index, done signal), and the
     /// tables already tried this session (no retry loop on a failure).
     video_fetch: Option<(usize, crossbeam_channel::Receiver<bool>)>,
@@ -928,6 +940,9 @@ impl App {
             Self::load_updater_config(&db);
         let tables_dir = db.get_tables_dir().unwrap_or_default();
         let external_dmd = db.get_config("external_dmd").as_deref() == Some("true");
+        let zedmd_link = db
+            .get_config("zedmd_link")
+            .and_then(|s| crate::zedmd_link::Link::from_db(&s));
         let pinscape_profile = db
             .get_config("pinscape_profile")
             .and_then(|s| s.parse().ok())
@@ -1065,6 +1080,12 @@ impl App {
             video_tile: None,
             video_bg: None,
             video_dmd: None,
+            zedmd_link,
+            zedmd_out: None,
+            zedmd_retry_at: None,
+            zedmd_sent: 0,
+            zedmd_search: None,
+            zedmd_search_result: None,
             video_fetch: None,
             video_fetch_tried: Default::default(),
             bg_screen: None,

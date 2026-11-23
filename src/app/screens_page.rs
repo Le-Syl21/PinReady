@@ -313,6 +313,9 @@ impl App {
                         ui.checkbox(&mut self.external_dmd, t!("screens_external_dmd"));
                         help_marker(ui, &t!("screens_external_dmd_hint"));
                     });
+                    if self.external_dmd {
+                        self.zedmd_search_ui(ui);
+                    }
                 } else {
                     self.external_dmd = false;
                 }
@@ -837,6 +840,73 @@ impl App {
                 value = format!("{:.0}", self.player_z)
             ));
             ui.label(t!("cabinet_eye_formula"));
+        });
+    }
+}
+
+impl App {
+    /// The ZeDMD line under the external DMD box: what is known, and a
+    /// button that looks for one on USB and on the local network.
+    fn zedmd_search_ui(&mut self, ui: &mut egui::Ui) {
+        if let Some(rx) = &self.zedmd_search {
+            match rx.try_recv() {
+                Ok(found) => {
+                    if let Some(f) = &found {
+                        self.zedmd_link = Some(f.link.clone());
+                    }
+                    self.zedmd_search_result = Some(found);
+                    self.zedmd_search = None;
+                }
+                Err(crossbeam_channel::TryRecvError::Disconnected) => {
+                    self.zedmd_search_result = Some(None);
+                    self.zedmd_search = None;
+                }
+                Err(crossbeam_channel::TryRecvError::Empty) => {
+                    ui.ctx()
+                        .request_repaint_after(std::time::Duration::from_millis(200));
+                }
+            }
+        }
+        ui.horizontal(|ui| {
+            ui.add_space(24.0);
+            let searching = self.zedmd_search.is_some();
+            if ui
+                .add_enabled(!searching, egui::Button::new(t!("screens_zedmd_search")))
+                .on_hover_text(t!("screens_zedmd_search_hint"))
+                .clicked()
+            {
+                let known = self.config.get("Plugin.DMDUtil", "ZeDMDWiFiAddr");
+                let (tx, rx) = crossbeam_channel::bounded(1);
+                let _ = std::thread::Builder::new()
+                    .name("zedmd-search".into())
+                    .spawn(move || {
+                        let _ = tx.send(crate::zedmd_link::find(known.as_deref()));
+                    });
+                self.zedmd_search = Some(rx);
+            }
+            if searching {
+                ui.spinner();
+                ui.label(t!("screens_zedmd_searching"));
+            } else if let Some(None) = &self.zedmd_search_result {
+                ui.label(t!("screens_zedmd_none"));
+            } else if let Some(link) = &self.zedmd_link {
+                let place = match link {
+                    crate::zedmd_link::Link::Usb => "USB".to_string(),
+                    crate::zedmd_link::Link::Wifi(host) => host.clone(),
+                };
+                let detail = match &self.zedmd_search_result {
+                    Some(Some(crate::zedmd_link::Found {
+                        size: Some((w, h)),
+                        firmware: Some(fw),
+                        ..
+                    })) => format!(" — {w}×{h}, firmware {fw}"),
+                    _ => String::new(),
+                };
+                ui.label(format!(
+                    "{}{detail}",
+                    t!("screens_zedmd_found", place = place)
+                ));
+            }
         });
     }
 }

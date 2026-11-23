@@ -53,6 +53,7 @@ mod wayland_caps;
 mod win_process;
 #[cfg(target_os = "linux")]
 mod x11_display;
+mod zedmd_link;
 
 use anyhow::Result;
 use std::io::Write;

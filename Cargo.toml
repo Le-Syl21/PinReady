@@ -121,6 +121,10 @@ hidapi = { version = "2.6", default-features = false, features = ["linux-static-
 # VID/PID from sysfs, so PinReady keeps zero runtime dependencies.
 serialport = { version = "4.10", default-features = false }
 
+# ZeDMD LED dot-matrix displays (USB or WiFi): shows the selected table's DMD
+# clip on the device while the launcher is up (MIT).
+zedmd = "0.1.2"
+
 # Localized SDL key labels in the wizard's input-binding page.
 # Static lookup table — feeds rust_i18n::locale() and an SDL_Scancode and
 # returns the right glyph for the user's UI language (Échap, Esc, エスケープ…).
