@@ -114,19 +114,16 @@ impl App {
             }
         }
 
-        for &(depth, fpos, r, off) in &items {
+        for &(depth, fpos, r, _) in &items {
             let idx = filtered[fpos];
             drawn.push(fpos);
-            let front = off.abs() < 0.5;
             let art = self.tile_art(idx);
             let (picture, backdrop) = (art.tex, art.backdrop);
             // depth: the side tables sink into the ground colour
             let dim = ((1.0 - depth) * 200.0).clamp(0.0, 200.0) as u8;
-            let stroke = if front {
-                egui::Stroke::new(4.0, p.accent)
-            } else {
-                egui::Stroke::new(1.0, p.border)
-            };
+            // no highlight frame: the front table is already the one put
+            // forward, a thin edge is enough
+            let stroke = egui::Stroke::new(1.0, p.border);
             if art.wheel
                 && let Some(tex) = &picture
             {
@@ -150,9 +147,6 @@ impl App {
                     r,
                     egui::Color32::from_rgb(light, light, light),
                 );
-                if front {
-                    painter.rect_stroke(r.expand(4.0), 8.0, stroke, egui::StrokeKind::Outside);
-                }
                 continue;
             }
             // reflection on the floor, then the card

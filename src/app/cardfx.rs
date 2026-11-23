@@ -314,7 +314,6 @@ impl App {
         for &(_, fpos, off, pose) in &cards {
             let idx = filtered[fpos];
             drawn.push(fpos);
-            let front = off.abs() < 0.5;
             let art = self.tile_art(idx);
             let (picture, backdrop, is_wheel) = (art.tex, art.backdrop, art.wheel);
             // a wheel sits whole on a plain card
@@ -412,19 +411,13 @@ impl App {
             for (at, galley, color) in names {
                 painter.galley(at, galley, color);
             }
-            // the outline of the selected card
+            // where the card is on screen, for clicks
             let c = card_corners(&pose, ratio, full, None);
             let pts: Vec<Pos2> = c
                 .iter()
                 .filter_map(|&v| cam.project(v).map(|(p, _)| p))
                 .collect();
             if pts.len() == 4 {
-                if front {
-                    painter.add(egui::Shape::closed_line(
-                        pts.clone(),
-                        egui::Stroke::new(3.0, p.accent),
-                    ));
-                }
                 let mut r = Rect::NOTHING;
                 for q in &pts {
                     r.extend_with(*q);
