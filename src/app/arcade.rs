@@ -25,9 +25,6 @@ const PLUNGE_S: f32 = 1.4;
 struct CabinetArt {
     backglass: Option<egui::TextureHandle>,
     playfield: Option<egui::TextureHandle>,
-    /// The backglass blurred: what an unselected playfield shows, like a lit
-    /// playfield seen through dusty glass.
-    glow: Option<egui::TextureHandle>,
     wheel: Option<egui::TextureHandle>,
 }
 
@@ -39,15 +36,13 @@ mod size {
     pub const LENGTH: f32 = 1.40;
     /// Height of the cabinet's bottom (the legs).
     pub const BOTTOM: f32 = 0.50;
-    /// Height of the top edge at the lockbar and at the back: the playfield
-    /// climbs about 6.5 degrees.
-    pub const TOP_FRONT: f32 = 0.92;
-    pub const TOP_BACK: f32 = 1.08;
+    /// Height of the top edge at the lockbar and at the back: level, so the
+    /// playfields read flat.
+    pub const TOP_FRONT: f32 = 0.98;
+    pub const TOP_BACK: f32 = 0.98;
     /// Side rails and lockbar.
     pub const RAIL: f32 = 0.035;
     pub const LOCKBAR: f32 = 0.08;
-    /// The apron at the front of the playfield.
-    pub const APRON: f32 = 0.12;
     /// Backbox: height, depth, how far it overhangs the cabinet's back.
     pub const BB_H: f32 = 0.82;
     pub const BB_D: f32 = 0.30;
@@ -112,7 +107,7 @@ fn cabinet_faces(x: f32, z: f32, light: f32, art: &CabinetArt, cam: &Camera, out
     }
     // body sides, taller at the back, dressed with the backglass's art
     // (a band of it, as cabinet side art is), darker towards the floor
-    let side_art = art.backglass.as_ref().or(art.glow.as_ref());
+    let side_art = art.backglass.as_ref();
     for s in [-1.0f32, 1.0] {
         // a side turned away from the camera is not drawn: seen from inside
         // it would paint over the playfield
@@ -214,73 +209,63 @@ fn cabinet_faces(x: f32, z: f32, light: f32, art: &CabinetArt, cam: &Camera, out
         cam,
     ));
 
-    // the playfield, between the rails, from the apron to the back
+    // the playfield fills the glass, between the rails, from the lockbar to
+    // the back (the picture slightly stretched to the real playfield's shape)
     let iw = w - RAIL;
     let t0 = LOCKBAR / LENGTH;
-    let t_apron = (LOCKBAR + APRON) / LENGTH;
     let t1 = 1.0 - 0.02 / LENGTH;
-    // the wood around the picture (always behind it), and the apron
-    let mut wood = quad(
-        [
-            top(x - iw, t1, -0.004),
-            top(x + iw, t1, -0.004),
-            top(x + iw, t0, -0.004),
-            top(x - iw, t0, -0.004),
-        ],
-        Fill::Flat,
-        lit(Color32::from_rgb(14, 12, 20), 1.0),
-        cam,
-    );
-    wood.depth += 0.5;
-    out.push(wood);
+    let pf = [
+        top(x - iw, t1, 0.0),
+        top(x + iw, t1, 0.0),
+        top(x + iw, t0, 0.0),
+        top(x - iw, t0, 0.0),
+    ];
+    out.push(match &art.playfield {
+        Some(t) => quad(pf, Fill::Tex(t.id(), full), lit(Color32::WHITE, 1.0), cam),
+        // no picture yet: dark glass
+        None => quad(
+            pf,
+            Fill::Gradient(lit(Color32::from_rgb(8, 8, 14), 1.0)),
+            lit(Color32::from_rgb(24, 22, 34), 1.0),
+            cam,
+        ),
+    });
+    // the plunger, right of the coin door, under the lockbar
+    let py = TOP_FRONT - 0.13;
+    let px = x + w - 0.12;
     out.push(quad(
         [
-            top(x - iw, t_apron, 0.002),
-            top(x + iw, t_apron, 0.002),
-            top(x + iw, t0, 0.002),
-            top(x - iw, t0, 0.002),
+            v3(px - 0.008, py + 0.008, front_z + 0.11),
+            v3(px + 0.008, py + 0.008, front_z + 0.11),
+            v3(px + 0.008, py + 0.008, front_z),
+            v3(px - 0.008, py + 0.008, front_z),
         ],
-        Fill::Gradient(lit(body, 0.5)),
-        lit(chrome, 0.35),
+        Fill::Flat,
+        lit(chrome, 1.1),
         cam,
     ));
-    let pf_len = LENGTH * (t1 - t_apron);
-    match (&art.playfield, &art.glow) {
-        (Some(t), _) => {
-            // the whole clip, kept in shape, its top at the back
-            let sz = t.size_vec2();
-            let (pw, pl) = fit(sz.x / sz.y.max(1.0), 2.0 * iw, pf_len);
-            let tb = t1;
-            let tf = t1 - pl / LENGTH;
-            out.push(quad(
-                [
-                    top(x - pw / 2.0, tb, 0.0),
-                    top(x + pw / 2.0, tb, 0.0),
-                    top(x + pw / 2.0, tf, 0.0),
-                    top(x - pw / 2.0, tf, 0.0),
-                ],
-                Fill::Tex(t.id(), full),
-                lit(Color32::WHITE, 1.0),
-                cam,
-            ));
-        }
-        (None, Some(t)) => {
-            // a lit playfield seen through dusty glass
-            let uv = super::tile_fit::fill_uv(t.size_vec2(), Vec2::new(2.0 * iw, pf_len));
-            out.push(quad(
-                [
-                    top(x - iw, t1, 0.0),
-                    top(x + iw, t1, 0.0),
-                    top(x + iw, t_apron, 0.0),
-                    top(x - iw, t_apron, 0.0),
-                ],
-                Fill::Tex(t.id(), uv),
-                lit(Color32::from_gray(200), 1.0),
-                cam,
-            ));
-        }
-        (None, None) => {}
-    }
+    out.push(quad(
+        [
+            v3(px - 0.03, py + 0.03, front_z + 0.005),
+            v3(px + 0.03, py + 0.03, front_z + 0.005),
+            v3(px + 0.03, py - 0.03, front_z + 0.005),
+            v3(px - 0.03, py - 0.03, front_z + 0.005),
+        ],
+        Fill::Gradient(lit(chrome, 0.4)),
+        lit(chrome, 0.9),
+        cam,
+    ));
+    out.push(quad(
+        [
+            v3(px - 0.022, py + 0.022, front_z + 0.12),
+            v3(px + 0.022, py + 0.022, front_z + 0.12),
+            v3(px + 0.022, py - 0.022, front_z + 0.12),
+            v3(px - 0.022, py - 0.022, front_z + 0.12),
+        ],
+        Fill::Gradient(lit(Color32::from_rgb(20, 18, 24), 1.0)),
+        lit(Color32::from_rgb(70, 66, 80), 1.0),
+        cam,
+    ));
     // side rails and lockbar, chrome, standing above the glass
     for s in [-1.0f32, 1.0] {
         let (a, b) = (x + s * w, x + s * iw);
@@ -769,17 +754,11 @@ impl App {
                     self.bg_cache.thumb(idx).cloned()
                 }
             });
-            let glow = self
-                .bg_cache
-                .backdrop(idx)
-                .map(|b| b.blur.clone())
-                .or_else(|| backglass.clone());
             let art = CabinetArt {
                 backglass,
                 // the selected one plays its clip, the others show a still
                 playfield: if idx == sel { clip.clone() } else { None }
                     .or_else(|| self.playfields.get(idx, &path, None).cloned()),
-                glow,
                 wheel: self.wheels.get(idx, &path, download.as_deref()).cloned(),
             };
             {
