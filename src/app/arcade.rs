@@ -13,7 +13,7 @@ use super::*;
 use egui::{Color32, Pos2, Rect, Vec2};
 
 /// Distance between two cabinets (metres, like everything here).
-const SPACING: f32 = 1.3;
+const SPACING: f32 = 1.1;
 /// Cabinets drawn on each side of the camera.
 const SIDE: i64 = 5;
 /// How far the selected cabinet comes forward.
@@ -31,91 +31,283 @@ struct CabinetArt {
     wheel: Option<egui::TextureHandle>,
 }
 
-/// The faces of one cabinet whose front centre stands at `x`, `z`.
+/// A pinball cabinet's measures (metres, a standard widebody machine).
+mod size {
+    /// Half the cabinet's width.
+    pub const HALF_W: f32 = 0.37;
+    /// Cabinet length, lockbar to back.
+    pub const LENGTH: f32 = 1.40;
+    /// Height of the cabinet's bottom (the legs).
+    pub const BOTTOM: f32 = 0.50;
+    /// Height of the top edge at the lockbar and at the back: the playfield
+    /// climbs about 6.5 degrees.
+    pub const TOP_FRONT: f32 = 0.92;
+    pub const TOP_BACK: f32 = 1.08;
+    /// Side rails and lockbar.
+    pub const RAIL: f32 = 0.035;
+    pub const LOCKBAR: f32 = 0.08;
+    /// The apron at the front of the playfield.
+    pub const APRON: f32 = 0.12;
+    /// Backbox: height, depth, how far it overhangs the cabinet's back.
+    pub const BB_H: f32 = 0.82;
+    pub const BB_D: f32 = 0.30;
+    pub const BB_OVER: f32 = 0.03;
+    /// The backglass's room at the top of the backbox; under it the speaker
+    /// panel with the DMD window.
+    pub const GLASS_H: f32 = 0.56;
+}
+
+/// `rect` of aspect `aspect` (width / height) fitted inside `w`×`h`: its
+/// width and height.
+fn fit(aspect: f32, w: f32, h: f32) -> (f32, f32) {
+    if aspect <= 0.0 {
+        return (w, h);
+    }
+    if w / h > aspect {
+        (h * aspect, h)
+    } else {
+        (w, w / aspect)
+    }
+}
+
+/// The faces of one cabinet whose lockbar stands at `x`, `z`.
 /// `light` 0..1 (1 = the selected one).
 fn cabinet_faces(x: f32, z: f32, light: f32, art: &CabinetArt, cam: &Camera, out: &mut Vec<Face>) {
-    let w = 0.36; // half width
+    use size::*;
+    let w = HALF_W;
     let body = Color32::from_rgb(28, 26, 40);
-    let trim = Color32::from_rgb(170, 160, 190);
+    let chrome = Color32::from_rgb(178, 176, 188);
     let k = 0.35 + 0.65 * light;
     let lit = |c: Color32, face: f32| shade(c, k * face);
-    let (front_z, back_z) = (z + 0.62, z - 0.62);
-    let (front_y, back_y) = (0.90, 1.04); // the playfield climbs to the back
-    let bottom = 0.70;
+    let (front_z, back_z) = (z, z - LENGTH);
+    // a point on the top plane, `t` = 0 at the lockbar … 1 at the back,
+    // `lift` above it
+    let top = |px: f32, t: f32, lift: f32| {
+        v3(
+            px,
+            TOP_FRONT + (TOP_BACK - TOP_FRONT) * t + lift,
+            front_z - LENGTH * t,
+        )
+    };
+    let full = Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0));
 
-    // legs
+    // legs, chrome, at the four corners
     for (lx, lz) in [
-        (-w + 0.03, front_z - 0.04),
-        (w - 0.03, front_z - 0.04),
-        (-w + 0.03, back_z + 0.04),
-        (w - 0.03, back_z + 0.04),
+        (-w + 0.04, front_z - 0.06),
+        (w - 0.04, front_z - 0.06),
+        (-w + 0.04, back_z + 0.06),
+        (w - 0.04, back_z + 0.06),
     ] {
         out.push(quad(
             [
-                v3(x + lx - 0.025, bottom, lz),
-                v3(x + lx + 0.025, bottom, lz),
-                v3(x + lx + 0.025, 0.0, lz),
-                v3(x + lx - 0.025, 0.0, lz),
+                v3(x + lx - 0.03, BOTTOM, lz),
+                v3(x + lx + 0.03, BOTTOM, lz),
+                v3(x + lx + 0.03, 0.0, lz),
+                v3(x + lx - 0.03, 0.0, lz),
             ],
-            Fill::Flat,
-            lit(trim, 0.7),
+            Fill::Gradient(lit(chrome, 0.35)),
+            lit(chrome, 0.8),
             cam,
         ));
     }
-    // body sides (the one facing the camera is the one drawn last)
+    // body sides, taller at the back; the blurred backglass as side art
     for s in [-1.0f32, 1.0] {
         let sx = x + s * w;
+        let corners = [
+            v3(sx, TOP_BACK, back_z),
+            v3(sx, TOP_FRONT, front_z),
+            v3(sx, BOTTOM, front_z),
+            v3(sx, BOTTOM, back_z),
+        ];
+        out.push(match &art.glow {
+            Some(t) => quad(
+                corners,
+                Fill::Tex(t.id(), full),
+                lit(Color32::WHITE, 0.8),
+                cam,
+            ),
+            None => quad(
+                corners,
+                Fill::Gradient(lit(body, 0.4)),
+                lit(body, 0.75),
+                cam,
+            ),
+        });
+    }
+    // side armour: the chrome strip along the top of each side
+    for s in [-1.0f32, 1.0] {
+        let sx = x + s * (w + 0.004);
         out.push(quad(
             [
-                v3(sx, back_y, back_z),
-                v3(sx, front_y, front_z),
-                v3(sx, bottom, front_z),
-                v3(sx, bottom, back_z),
+                v3(sx, TOP_BACK + 0.015, back_z),
+                v3(sx, TOP_FRONT + 0.015, front_z),
+                v3(sx, TOP_FRONT - 0.045, front_z),
+                v3(sx, TOP_BACK - 0.045, back_z),
             ],
-            Fill::Gradient(lit(body, 0.4)),
-            lit(body, 0.75),
+            Fill::Gradient(lit(chrome, 0.5)),
+            lit(chrome, 0.95),
             cam,
         ));
     }
-    // front panel, with the wheel as a decal where the coin door would be
+    // front panel with the coin door and the start button
     out.push(quad(
         [
-            v3(x - w, front_y, front_z),
-            v3(x + w, front_y, front_z),
-            v3(x + w, bottom, front_z),
-            v3(x - w, bottom, front_z),
+            v3(x - w, TOP_FRONT, front_z),
+            v3(x + w, TOP_FRONT, front_z),
+            v3(x + w, BOTTOM, front_z),
+            v3(x - w, BOTTOM, front_z),
         ],
         Fill::Flat,
         lit(body, 0.9),
         cam,
     ));
-    // playfield glass: the clip of the selected table, a dark glass otherwise
-    let pf = [
-        v3(x - w + 0.02, back_y, back_z + 0.02),
-        v3(x + w - 0.02, back_y, back_z + 0.02),
-        v3(x + w - 0.02, front_y, front_z - 0.02),
-        v3(x - w + 0.02, front_y, front_z - 0.02),
-    ];
+    let door_mid = (TOP_FRONT + BOTTOM) / 2.0 - 0.01;
+    let fz = front_z + 0.004;
+    out.push(quad(
+        [
+            v3(x - 0.14, door_mid + 0.15, fz),
+            v3(x + 0.14, door_mid + 0.15, fz),
+            v3(x + 0.14, door_mid - 0.15, fz),
+            v3(x - 0.14, door_mid - 0.15, fz),
+        ],
+        Fill::Gradient(lit(chrome, 0.25)),
+        lit(chrome, 0.55),
+        cam,
+    ));
+    for cx in [-0.06f32, 0.06] {
+        out.push(quad(
+            [
+                v3(x + cx - 0.035, door_mid + 0.09, fz + 0.002),
+                v3(x + cx + 0.035, door_mid + 0.09, fz + 0.002),
+                v3(x + cx + 0.035, door_mid + 0.03, fz + 0.002),
+                v3(x + cx - 0.035, door_mid + 0.03, fz + 0.002),
+            ],
+            Fill::Flat,
+            lit(Color32::from_rgb(200, 40, 30), 0.5 + 0.5 * light),
+            cam,
+        ));
+    }
+    out.push(quad(
+        [
+            v3(x - w + 0.06, TOP_FRONT - 0.05, fz),
+            v3(x - w + 0.11, TOP_FRONT - 0.05, fz),
+            v3(x - w + 0.11, TOP_FRONT - 0.10, fz),
+            v3(x - w + 0.06, TOP_FRONT - 0.10, fz),
+        ],
+        Fill::Flat,
+        lit(Color32::from_rgb(255, 150, 30), 0.4 + 0.6 * light),
+        cam,
+    ));
+
+    // the playfield, between the rails, from the apron to the back
+    let iw = w - RAIL;
+    let t0 = LOCKBAR / LENGTH;
+    let t_apron = (LOCKBAR + APRON) / LENGTH;
+    let t1 = 1.0 - 0.02 / LENGTH;
+    // the wood around the picture (always behind it), and the apron
+    let mut wood = quad(
+        [
+            top(x - iw, t1, -0.004),
+            top(x + iw, t1, -0.004),
+            top(x + iw, t0, -0.004),
+            top(x - iw, t0, -0.004),
+        ],
+        Fill::Flat,
+        lit(Color32::from_rgb(14, 12, 20), 1.0),
+        cam,
+    );
+    wood.depth += 0.5;
+    out.push(wood);
+    out.push(quad(
+        [
+            top(x - iw, t_apron, 0.002),
+            top(x + iw, t_apron, 0.002),
+            top(x + iw, t0, 0.002),
+            top(x - iw, t0, 0.002),
+        ],
+        Fill::Gradient(lit(body, 0.5)),
+        lit(chrome, 0.35),
+        cam,
+    ));
+    let pf_len = LENGTH * (t1 - t_apron);
     match (&art.playfield, &art.glow) {
-        (Some(t), _) | (None, Some(t)) => {
-            let uv = super::tile_fit::fill_uv(t.size_vec2(), Vec2::new(0.68, 1.24));
+        (Some(t), _) => {
+            // the whole clip, kept in shape, its top at the back
+            let sz = t.size_vec2();
+            let (pw, pl) = fit(sz.x / sz.y.max(1.0), 2.0 * iw, pf_len);
+            let tb = t1;
+            let tf = t1 - pl / LENGTH;
             out.push(quad(
-                pf,
-                Fill::Tex(t.id(), uv),
+                [
+                    top(x - pw / 2.0, tb, 0.0),
+                    top(x + pw / 2.0, tb, 0.0),
+                    top(x + pw / 2.0, tf, 0.0),
+                    top(x - pw / 2.0, tf, 0.0),
+                ],
+                Fill::Tex(t.id(), full),
                 lit(Color32::WHITE, 1.0),
                 cam,
             ));
         }
-        (None, None) => out.push(quad(
-            pf,
-            Fill::Gradient(lit(Color32::from_rgb(10, 14, 30), 1.0)),
-            lit(Color32::from_rgb(40, 50, 90), 1.0),
-            cam,
-        )),
+        (None, Some(t)) => {
+            // a lit playfield seen through dusty glass
+            let uv = super::tile_fit::fill_uv(t.size_vec2(), Vec2::new(2.0 * iw, pf_len));
+            out.push(quad(
+                [
+                    top(x - iw, t1, 0.0),
+                    top(x + iw, t1, 0.0),
+                    top(x + iw, t_apron, 0.0),
+                    top(x - iw, t_apron, 0.0),
+                ],
+                Fill::Tex(t.id(), uv),
+                lit(Color32::from_gray(200), 1.0),
+                cam,
+            ));
+        }
+        (None, None) => {}
     }
-    // backbox: sides, top, front with the backglass
-    let (bb_front, bb_back) = (back_z + 0.02, back_z - 0.24);
-    let (bb_bottom, bb_top) = (back_y, back_y + 0.80);
+    // side rails and lockbar, chrome, standing above the glass
+    for s in [-1.0f32, 1.0] {
+        let (a, b) = (x + s * w, x + s * iw);
+        out.push(quad(
+            [
+                top(a.min(b), 1.0, 0.015),
+                top(a.max(b), 1.0, 0.015),
+                top(a.max(b), 0.0, 0.015),
+                top(a.min(b), 0.0, 0.015),
+            ],
+            Fill::Flat,
+            lit(chrome, 0.85),
+            cam,
+        ));
+    }
+    out.push(quad(
+        [
+            top(x - w, t0, 0.02),
+            top(x + w, t0, 0.02),
+            top(x + w, 0.0, 0.02),
+            top(x - w, 0.0, 0.02),
+        ],
+        Fill::Gradient(lit(chrome, 0.6)),
+        lit(chrome, 1.0),
+        cam,
+    ));
+    out.push(quad(
+        [
+            v3(x - w, TOP_FRONT + 0.02, front_z + 0.002),
+            v3(x + w, TOP_FRONT + 0.02, front_z + 0.002),
+            v3(x + w, TOP_FRONT - 0.02, front_z + 0.002),
+            v3(x - w, TOP_FRONT - 0.02, front_z + 0.002),
+        ],
+        Fill::Flat,
+        lit(chrome, 0.7),
+        cam,
+    ));
+
+    // backbox: standing on the cabinet's back
+    let bb_front = back_z + BB_D - BB_OVER;
+    let bb_back = back_z - BB_OVER;
+    let (bb_bottom, bb_top) = (TOP_BACK, TOP_BACK + BB_H);
     for s in [-1.0f32, 1.0] {
         let sx = x + s * w;
         out.push(quad(
@@ -125,8 +317,8 @@ fn cabinet_faces(x: f32, z: f32, light: f32, art: &CabinetArt, cam: &Camera, out
                 v3(sx, bb_bottom, bb_front),
                 v3(sx, bb_bottom, bb_back),
             ],
-            Fill::Flat,
-            lit(body, 0.6),
+            Fill::Gradient(lit(body, 0.45)),
+            lit(body, 0.7),
             cam,
         ));
     }
@@ -141,6 +333,8 @@ fn cabinet_faces(x: f32, z: f32, light: f32, art: &CabinetArt, cam: &Camera, out
         lit(body, 1.1),
         cam,
     ));
+    // the front: a dark frame, the backglass whole at the top, the speaker
+    // panel with the DMD under it
     out.push(quad(
         [
             v3(x - w, bb_top, bb_front),
@@ -149,67 +343,195 @@ fn cabinet_faces(x: f32, z: f32, light: f32, art: &CabinetArt, cam: &Camera, out
             v3(x - w, bb_bottom, bb_front),
         ],
         Fill::Flat,
-        lit(trim, 0.5),
+        lit(Color32::from_rgb(12, 11, 18), 1.0),
         cam,
     ));
-    let glass = [
-        v3(x - w + 0.03, bb_top - 0.04, bb_front + 0.002),
-        v3(x + w - 0.03, bb_top - 0.04, bb_front + 0.002),
-        v3(x + w - 0.03, bb_bottom + 0.06, bb_front + 0.002),
-        v3(x - w + 0.03, bb_bottom + 0.06, bb_front + 0.002),
-    ];
-    match &art.backglass {
-        Some(t) => {
-            let uv = super::tile_fit::fill_uv(t.size_vec2(), Vec2::new(0.66, 0.70));
-            out.push(quad(
-                glass,
-                Fill::Tex(t.id(), uv),
-                lit(Color32::WHITE, 1.0),
-                cam,
-            ));
-        }
-        None => out.push(quad(
-            glass,
-            Fill::Flat,
-            lit(Color32::from_rgb(30, 30, 50), 1.0),
-            cam,
-        )),
-    }
-    // the wheel as a topper above the backbox, and small on the front panel
-    if let Some(t) = &art.wheel {
-        let s = t.size_vec2();
-        let aspect = if s.y > 0.0 { s.x / s.y } else { 1.0 };
-        let th = 0.30f32;
-        let tw = (th * aspect).min(2.0 * w);
-        let th = tw / aspect;
-        let full = Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0));
+    let gz = bb_front + 0.003;
+    let glass_top = bb_top - 0.03;
+    let glass_bottom = glass_top - GLASS_H;
+    if let Some(t) = &art.backglass {
+        let sz = t.size_vec2();
+        let (gw, gh) = fit(sz.x / sz.y.max(1.0), 2.0 * w - 0.06, GLASS_H);
+        let cy = glass_top - GLASS_H / 2.0;
         out.push(quad(
             [
-                v3(x - tw / 2.0, bb_top + 0.02 + th, bb_front - 0.06),
-                v3(x + tw / 2.0, bb_top + 0.02 + th, bb_front - 0.06),
-                v3(x + tw / 2.0, bb_top + 0.02, bb_front - 0.06),
-                v3(x - tw / 2.0, bb_top + 0.02, bb_front - 0.06),
+                v3(x - gw / 2.0, cy + gh / 2.0, gz),
+                v3(x + gw / 2.0, cy + gh / 2.0, gz),
+                v3(x + gw / 2.0, cy - gh / 2.0, gz),
+                v3(x - gw / 2.0, cy - gh / 2.0, gz),
             ],
             Fill::Tex(t.id(), full),
             lit(Color32::WHITE, 1.0),
             cam,
         ));
-        let dh = 0.16f32;
-        let dw = (dh * aspect).min(2.0 * w - 0.1);
-        let dh = dw / aspect;
-        let cy = (front_y + bottom) / 2.0;
+    }
+    // speaker panel: two grilles and the DMD window between them
+    let sp_mid = (glass_bottom + bb_bottom) / 2.0;
+    let sp_h = (glass_bottom - bb_bottom) - 0.05;
+    for cx in [-w + 0.09, w - 0.09] {
         out.push(quad(
             [
-                v3(x - dw / 2.0, cy + dh / 2.0, front_z + 0.003),
-                v3(x + dw / 2.0, cy + dh / 2.0, front_z + 0.003),
-                v3(x + dw / 2.0, cy - dh / 2.0, front_z + 0.003),
-                v3(x - dw / 2.0, cy - dh / 2.0, front_z + 0.003),
+                v3(x + cx - 0.05, sp_mid + sp_h / 2.0, gz),
+                v3(x + cx + 0.05, sp_mid + sp_h / 2.0, gz),
+                v3(x + cx + 0.05, sp_mid - sp_h / 2.0, gz),
+                v3(x + cx - 0.05, sp_mid - sp_h / 2.0, gz),
             ],
-            Fill::Tex(t.id(), full),
-            lit(Color32::WHITE, 0.9),
+            Fill::Flat,
+            lit(Color32::from_rgb(34, 32, 44), 1.0),
             cam,
         ));
     }
+    let (dw, dh) = (0.40f32, 0.10f32.min(sp_h));
+    out.push(quad(
+        [
+            v3(x - dw / 2.0, sp_mid + dh / 2.0, gz),
+            v3(x + dw / 2.0, sp_mid + dh / 2.0, gz),
+            v3(x + dw / 2.0, sp_mid - dh / 2.0, gz),
+            v3(x - dw / 2.0, sp_mid - dh / 2.0, gz),
+        ],
+        Fill::Gradient(lit(Color32::from_rgb(40, 14, 4), 1.0)),
+        lit(Color32::from_rgb(90, 34, 8), 0.3 + 0.7 * light),
+        cam,
+    ));
+
+    // the wheel as a topper above the backbox
+    if let Some(t) = &art.wheel {
+        let s = t.size_vec2();
+        let aspect = if s.y > 0.0 { s.x / s.y } else { 1.0 };
+        let (tw, th) = fit(aspect, 2.0 * w, 0.28);
+        let tz = (bb_front + bb_back) / 2.0 + 0.05;
+        out.push(quad(
+            [
+                v3(x - tw / 2.0, bb_top + 0.02 + th, tz),
+                v3(x + tw / 2.0, bb_top + 0.02 + th, tz),
+                v3(x + tw / 2.0, bb_top + 0.02, tz),
+                v3(x - tw / 2.0, bb_top + 0.02, tz),
+            ],
+            Fill::Tex(t.id(), full),
+            lit(Color32::WHITE, 1.0),
+            cam,
+        ));
+    }
+}
+
+/// The hall's materials, made once and kept in egui's memory: a carpeted
+/// wall that swallows the sound (a billiard hall's, warm wine red), a
+/// mahogany wainscot under it, a patterned bar carpet on the floor.
+#[derive(Clone)]
+struct HallTextures {
+    wall: egui::TextureHandle,
+    wood: egui::TextureHandle,
+    floor: egui::TextureHandle,
+}
+
+/// A cheap repeatable hash noise, 0..1.
+fn noise(x: u32, y: u32, seed: u32) -> f32 {
+    let mut h = x
+        .wrapping_mul(374_761_393)
+        .wrapping_add(y.wrapping_mul(668_265_263))
+        .wrapping_add(seed.wrapping_mul(2_147_483_647));
+    h = (h ^ (h >> 13)).wrapping_mul(1_274_126_177);
+    ((h ^ (h >> 16)) & 0xffff) as f32 / 65535.0
+}
+
+fn hall_textures(ctx: &egui::Context) -> HallTextures {
+    let id = egui::Id::unique("arcade-hall-textures");
+    if let Some(t) = ctx.data(|d| d.get_temp::<HallTextures>(id)) {
+        return t;
+    }
+    const N: usize = 128;
+    let make = |f: &dyn Fn(u32, u32) -> [u8; 3]| {
+        let mut px = Vec::with_capacity(N * N);
+        for y in 0..N as u32 {
+            for x in 0..N as u32 {
+                let [r, g, b] = f(x, y);
+                px.push(Color32::from_rgb(r, g, b));
+            }
+        }
+        egui::ColorImage::new([N, N], px)
+    };
+    let c = |v: f32| v.clamp(0.0, 255.0) as u8;
+    // carpet wall: fine fibres, a faint vertical nap
+    let wall = make(&|x, y| {
+        let n = noise(x, y, 1) * 0.6 + noise(x / 2, y / 2, 2) * 0.4;
+        let nap = noise(x, 0, 3) * 0.25;
+        let k = 0.78 + 0.32 * n + nap * 0.3;
+        [c(96.0 * k), c(24.0 * k), c(30.0 * k)]
+    });
+    // wainscot: vertical mahogany boards, grain, a dark joint every board
+    let wood = make(&|x, y| {
+        let board = x % 32;
+        let grain = ((y as f32 * 0.05 + noise(x / 3, 0, 4) * 6.0).sin() * 0.5 + 0.5) * 0.18;
+        let k = 0.82 + grain + noise(x, y, 5) * 0.08;
+        let k = if board < 2 { k * 0.45 } else { k };
+        [c(112.0 * k), c(54.0 * k), c(30.0 * k)]
+    });
+    // bar carpet: dark wine with a small gold diamond pattern
+    let floor = make(&|x, y| {
+        let (u, v) = ((x % 32) as i32 - 16, (y % 32) as i32 - 16);
+        let d = u.abs() + v.abs();
+        let n = 0.85 + noise(x, y, 6) * 0.3;
+        if (12..=13).contains(&d) {
+            [c(120.0 * n), c(86.0 * n), c(40.0 * n)]
+        } else if d < 4 {
+            [c(70.0 * n), c(40.0 * n), c(22.0 * n)]
+        } else {
+            [c(52.0 * n), c(14.0 * n), c(20.0 * n)]
+        }
+    });
+    let opts = egui::TextureOptions::LINEAR_REPEAT;
+    let t = HallTextures {
+        wall: ctx.load_texture("arcade/wall", wall, opts),
+        wood: ctx.load_texture("arcade/wood", wood, opts),
+        floor: ctx.load_texture("arcade/floor", floor, opts),
+    };
+    ctx.data_mut(|d| d.insert_temp(id, t.clone()));
+    t
+}
+
+/// A billiard lamp hanging above the cabinet whose middle is `x`, `zc`: a
+/// cord, a dark green shade, its warm opening. `light` 0..1.
+fn lamp_faces(x: f32, zc: f32, light: f32, cam: &Camera, out: &mut Vec<Face>) {
+    let shade_c = Color32::from_rgb(18, 54, 34);
+    let (y0, y1) = (2.42, 2.56);
+    out.push(quad(
+        [
+            v3(x - 0.006, 3.4, zc),
+            v3(x + 0.006, 3.4, zc),
+            v3(x + 0.006, y1, zc),
+            v3(x - 0.006, y1, zc),
+        ],
+        Fill::Flat,
+        Color32::from_rgb(20, 18, 22),
+        cam,
+    ));
+    out.push(quad(
+        [
+            v3(x - 0.12, y1, zc),
+            v3(x + 0.12, y1, zc),
+            v3(x + 0.30, y0, zc),
+            v3(x - 0.30, y0, zc),
+        ],
+        Fill::Gradient(shade(shade_c, 0.6)),
+        shade(shade_c, 1.2),
+        cam,
+    ));
+    let glow = lerp_color(
+        Color32::from_rgb(110, 70, 30),
+        Color32::from_rgb(255, 214, 150),
+        light,
+    );
+    out.push(quad(
+        [
+            v3(x - 0.30, y0, zc + 0.001),
+            v3(x + 0.30, y0, zc + 0.001),
+            v3(x + 0.27, y0 - 0.02, zc + 0.001),
+            v3(x - 0.27, y0 - 0.02, zc + 0.001),
+        ],
+        Fill::Flat,
+        glow,
+        cam,
+    ));
 }
 
 impl App {
@@ -263,56 +585,74 @@ impl App {
         }
         let e = dive * dive * (3.0 - 2.0 * dive); // smoothstep
         let cam = Camera::new(
-            v3(cam_x, 1.95, 2.9).lerp(v3(cam_x, 1.55, STEP_OUT + 1.05), e),
-            v3(cam_x, 1.0, -0.2).lerp(v3(cam_x, 0.9, STEP_OUT - 0.35), e),
+            v3(cam_x, 2.0, 3.3).lerp(v3(cam_x, 1.5, STEP_OUT + 1.25), e),
+            v3(cam_x, 1.1, -0.3).lerp(v3(cam_x, 0.95, STEP_OUT - 0.3), e),
             focal,
             egui::pos2(view.center().x, view.center().y + view.height() * 0.05),
         );
 
-        // the hall: floor and back wall
+        // the hall: a bar carpet on the floor, a mahogany wainscot and a
+        // carpeted wall above it, warm light falling from the lamps
+        let tex = hall_textures(ui.ctx());
         let mut flat = egui::Mesh::default();
         let mut textured: Vec<egui::Mesh> = Vec::new();
+        // the walk slides the patterns with the row
+        let slide = -self.carousel_pos * SPACING;
+        let uv = |w: f32, h: f32, tile: f32| {
+            Rect::from_min_size(Pos2::new(slide / tile, 0.0), Vec2::new(w / tile, h / tile))
+        };
+        let warm = Color32::from_rgb(255, 226, 190);
         let hall = [
             quad(
                 [
                     v3(-9.0, 0.0, -1.3),
                     v3(9.0, 0.0, -1.3),
-                    v3(9.0, 0.0, 2.6),
-                    v3(-9.0, 0.0, 2.6),
+                    v3(9.0, 0.0, 3.0),
+                    v3(-9.0, 0.0, 3.0),
                 ],
-                Fill::Gradient(Color32::from_rgb(34, 22, 48)),
-                Color32::from_rgb(8, 6, 14),
+                Fill::TexFade(tex.floor.id(), uv(18.0, 4.3, 0.6), shade(warm, 0.55)),
+                shade(warm, 0.35),
                 &cam,
             ),
             quad(
                 [
-                    v3(-9.0, 3.2, -1.3),
-                    v3(9.0, 3.2, -1.3),
+                    v3(-9.0, 1.15, -1.3),
+                    v3(9.0, 1.15, -1.3),
                     v3(9.0, 0.0, -1.3),
                     v3(-9.0, 0.0, -1.3),
                 ],
-                Fill::Gradient(Color32::from_rgb(22, 14, 34)),
-                Color32::from_rgb(6, 4, 10),
+                Fill::TexFade(tex.wood.id(), uv(18.0, 1.15, 0.9), shade(warm, 0.35)),
+                shade(warm, 0.6),
+                &cam,
+            ),
+            quad(
+                [
+                    v3(-9.0, 3.4, -1.3),
+                    v3(9.0, 3.4, -1.3),
+                    v3(9.0, 1.2, -1.3),
+                    v3(-9.0, 1.2, -1.3),
+                ],
+                Fill::TexFade(tex.wall.id(), uv(18.0, 2.2, 0.5), shade(warm, 0.75)),
+                shade(warm, 0.3),
+                &cam,
+            ),
+            // the rail capping the wainscot
+            quad(
+                [
+                    v3(-9.0, 1.2, -1.28),
+                    v3(9.0, 1.2, -1.28),
+                    v3(9.0, 1.15, -1.28),
+                    v3(-9.0, 1.15, -1.28),
+                ],
+                Fill::Flat,
+                Color32::from_rgb(58, 28, 16),
                 &cam,
             ),
         ];
-        painter.rect_filled(rect, 0.0, Color32::from_rgb(6, 4, 10));
+        painter.rect_filled(rect, 0.0, Color32::from_rgb(10, 6, 6));
         for f in &hall {
             add_face(&mut flat, &mut textured, &cam, f);
         }
-        // a neon line along the wall, shifting with the walk
-        let neon = [
-            v3(-9.0, 2.36, -1.29),
-            v3(9.0, 2.36, -1.29),
-            v3(9.0, 2.32, -1.29),
-            v3(-9.0, 2.32, -1.29),
-        ];
-        add_face(
-            &mut flat,
-            &mut textured,
-            &cam,
-            &quad(neon, Fill::Flat, p.accent, &cam),
-        );
         painter.add(egui::Shape::mesh(std::mem::take(&mut flat)));
         for m in textured.drain(..) {
             painter.add(egui::Shape::mesh(m));
@@ -350,7 +690,8 @@ impl App {
             drawn.push(fpos);
             let light = (1.0 - dist).clamp(0.0, 1.0);
             let x = cam_x + off * SPACING;
-            let z = STEP_OUT * light;
+            // the lockbar's place: the cabinet's middle on the row's line
+            let z = STEP_OUT * light + size::LENGTH / 2.0;
             let table = &self.tables[idx];
             let path = table.path.clone();
             let download = if allow_download {
@@ -367,27 +708,31 @@ impl App {
                     self.bg_cache.thumb(idx).cloned()
                 }
             });
+            let glow = self
+                .bg_cache
+                .backdrop(idx)
+                .map(|b| b.blur.clone())
+                .or_else(|| backglass.clone());
             let art = CabinetArt {
                 backglass,
                 playfield: if idx == sel { clip.clone() } else { None },
-                glow: self.bg_cache.backdrop(idx).map(|b| b.blur.clone()),
+                glow,
                 wheel: self.wheels.get(idx, &path, download.as_deref()).cloned(),
             };
-            if idx == sel
-                && let (Some((a, _)), Some((b, _))) = (
-                    cam.project(v3(x - 0.55, 0.0, z)),
-                    cam.project(v3(x + 0.55, 0.0, z)),
-                )
-            {
-                // a glow on the floor under the selected cabinet
+            if let (Some((a, _)), Some((b, _))) = (
+                cam.project(v3(x - 0.75, 0.0, z - size::LENGTH / 2.0)),
+                cam.project(v3(x + 0.75, 0.0, z - size::LENGTH / 2.0)),
+            ) {
+                // the lamp's pool of warm light on the carpet
                 painter.add(egui::Shape::ellipse_filled(
                     a.lerp(b, 0.5),
-                    Vec2::new((b.x - a.x) * 0.5, (b.x - a.x) * 0.06),
-                    p.accent.gamma_multiply(0.22),
+                    Vec2::new((b.x - a.x) * 0.5, (b.x - a.x) * 0.09),
+                    Color32::from_rgba_unmultiplied(255, 190, 120, (14.0 + 40.0 * light) as u8),
                 ));
             }
             let mut faces = Vec::new();
             cabinet_faces(x, z, light, &art, &cam, &mut faces);
+            lamp_faces(x, z - size::LENGTH / 2.0, light, &cam, &mut faces);
             faces.sort_by(|a, b| b.depth.total_cmp(&a.depth));
             let mut bbox = Rect::NOTHING;
             for f in &faces {
