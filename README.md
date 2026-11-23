@@ -28,6 +28,7 @@ Questions, bug reports, beta testing, or just want to chat? Join the Discord:
 
 - 📥 **Visual Pinball auto-install** -- Automatically download and install the correct Visual Pinball build for your platform (Linux/macOS/Windows, x64/aarch64/SBC)
 - 🖥️ **Screen assignment** -- Detect displays via SDL3, auto-assign roles (Playfield, Backglass, DMD, Topper) by size, configure multi-screen positioning and cabinet physical dimensions
+- 🟧 **ZeDMD** -- Find a ZeDMD on USB or on the network (`zedmd-wifi.local`, then the local network) and set up Visual Pinball's DMD plugin for it; the launcher shows the selected table's DMD clip on it
 - 🎨 **Rendering** -- Anti-aliasing, FXAA, sharpening, reflections, texture limits, sync mode, max framerate
 - 🎮 **Input mapping** -- Capture keyboard and joystick bindings for all VPX actions, auto-detect pinball controllers (Pinscape KL25Z, Pinscape Pico, DudesCab, CSD PinOne), conflict warnings
 - 📐 **Tilt & nudge** -- Configure accelerometer sensitivity with simplified or advanced controls
@@ -366,6 +367,7 @@ Des questions, un bug à signaler, envie de tester les bêtas ou juste de discut
 
 - 📥 **Installation automatique de Visual Pinball** -- Télécharge et installe automatiquement le bon build Visual Pinball pour votre plateforme (Linux/macOS/Windows, x64/aarch64/SBC)
 - 🖥️ **Affectation des écrans** -- Détection des écrans via SDL3, affectation automatique des rôles (Playfield, Backglass, DMD, Topper) par taille, configuration du positionnement multi-écran et des dimensions physiques du cabinet
+- 🟧 **ZeDMD** -- Recherche d'un ZeDMD en USB ou sur le réseau (`zedmd-wifi.local`, puis le réseau local) et réglage du plugin DMD de Visual Pinball pour lui ; le lanceur y affiche la vidéo DMD de la table choisie
 - 🎨 **Rendu** -- Anti-aliasing, FXAA, netteté, reflets, limites de texture, mode sync, framerate max
 - 🎮 **Mapping des contrôles** -- Capture des touches clavier et boutons joystick pour toutes les actions VPX, détection automatique des contrôleurs pinball (Pinscape KL25Z, Pinscape Pico, DudesCab, CSD PinOne), avertissements de conflits
 - 📐 **Tilt & nudge** -- Configuration de la sensibilité de l'accéléromètre en mode simplifié ou avancé
