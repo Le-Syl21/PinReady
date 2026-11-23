@@ -11,7 +11,12 @@
 //! backglass even when the tiles use the user's own pictures.
 //!
 //! Decoding (and the download) happens on one worker thread per cache; the
-//! UI thread uploads the result, a few textures per frame.
+//! UI thread uploads the result, a few textures per frame. The resized
+//! picture is kept on disk (`<data dir>/pinready/art/<kind>/`, JPEG, or
+//! lossless WebP when it has transparency), named after the source file, its
+//! size and its date: the next sessions read that small file instead of
+//! decoding a large PNG or a `.directb2s` again, and a changed source gets a
+//! new name. "Rebuild" empties it.
 
 use crossbeam_channel::{Receiver, Sender};
 use egui::{ColorImage, TextureHandle, TextureOptions};
@@ -74,31 +79,104 @@ pub fn find_wheel(table_dir: &Path) -> Option<PathBuf> {
         })
 }
 
-fn load(kind: ArtKind, req: &Request) -> Option<ColorImage> {
+/// Where the resized pictures of `kind` are kept between sessions.
+fn cache_dir(kind: ArtKind) -> PathBuf {
+    crate::db::default_db_path()
+        .with_file_name("art")
+        .join(kind.name())
+}
+
+/// Empty the on-disk cache of both kinds ("Rebuild").
+pub fn clear_disk_cache() {
+    let dir = cache_dir(ArtKind::Wheel);
+    if let Some(parent) = dir.parent()
+        && parent.is_dir()
+        && let Err(e) = std::fs::remove_dir_all(parent)
+    {
+        log::warn!("Art cache: cannot empty {}: {e}", parent.display());
+    }
+}
+
+/// The cache file name of a source file: a hash of its path, size and date,
+/// so an edited or replaced picture is never served from an old entry.
+fn cache_name(source: &Path) -> Option<String> {
+    use sha2::{Digest, Sha256};
+    let meta = std::fs::metadata(source).ok()?;
+    let mtime = meta
+        .modified()
+        .ok()?
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_nanos();
+    let mut h = Sha256::new();
+    h.update(source.as_os_str().as_encoded_bytes());
+    h.update(meta.len().to_le_bytes());
+    h.update(mtime.to_le_bytes());
+    let d = h.finalize();
+    Some(d[..16].iter().map(|b| format!("{b:02x}")).collect())
+}
+
+/// The source file of a table's picture: the wheel file (downloaded first
+/// when allowed), else `medias/bg.png` or the `.directb2s`.
+fn source_file(kind: ArtKind, req: &Request) -> Option<PathBuf> {
     let table_dir = req.table.parent()?;
-    let (img, max) = match kind {
-        ArtKind::Wheel => (image::open(wheel_file(table_dir, req)?).ok()?, WHEEL_SIZE),
+    match kind {
+        ArtKind::Wheel => wheel_file(table_dir, req),
         ArtKind::Backglass => {
-            let bytes =
-                crate::assets::extract_backglass_from_vpinmediadb(table_dir).or_else(|| {
-                    let b2s = req.table.with_extension("directb2s");
-                    b2s.is_file()
-                        .then(|| crate::assets::extract_backglass_from_b2s(&b2s))
-                        .flatten()
-                })?;
-            (image::load_from_memory(&bytes).ok()?, BACKGLASS_SIZE)
+            let bg = table_dir.join("medias").join("bg.png");
+            if bg.is_file() {
+                return Some(bg);
+            }
+            let b2s = req.table.with_extension("directb2s");
+            b2s.is_file().then_some(b2s)
         }
-    };
-    let img = if img.width() > max || img.height() > max {
-        img.resize(max, max, image::imageops::FilterType::Triangle)
-    } else {
-        img
-    };
+    }
+}
+
+fn load(kind: ArtKind, req: &Request) -> Option<ColorImage> {
+    let source = source_file(kind, req)?;
+    let cached = cache_name(&source).map(|n| cache_dir(kind).join(n));
+    let img = cached
+        .as_ref()
+        .and_then(|c| std::fs::read(c).ok())
+        .and_then(|b| image::load_from_memory(&b).ok())
+        .or_else(|| {
+            let img = decode_source(kind, &source)?;
+            if let Some(c) = &cached
+                && let Some(bytes) = crate::assets::encode_cached(&img)
+            {
+                let _ = std::fs::create_dir_all(cache_dir(kind));
+                if let Err(e) = std::fs::write(c, bytes) {
+                    log::warn!("Art cache: cannot write {}: {e}", c.display());
+                }
+            }
+            Some(img)
+        })?;
     let rgba = img.to_rgba8();
     Some(ColorImage::from_rgba_unmultiplied(
         [rgba.width() as usize, rgba.height() as usize],
         rgba.as_raw(),
     ))
+}
+
+/// Decode a source file and fit it in the kind's size.
+fn decode_source(kind: ArtKind, source: &Path) -> Option<image::DynamicImage> {
+    let (img, max) = match kind {
+        ArtKind::Wheel => (image::open(source).ok()?, WHEEL_SIZE),
+        ArtKind::Backglass => {
+            let bytes = if source.extension().is_some_and(|e| e == "directb2s") {
+                crate::assets::extract_backglass_from_b2s(source)?
+            } else {
+                std::fs::read(source).ok()?
+            };
+            (image::load_from_memory(&bytes).ok()?, BACKGLASS_SIZE)
+        }
+    };
+    Some(if img.width() > max || img.height() > max {
+        img.resize(max, max, image::imageops::FilterType::Triangle)
+    } else {
+        img
+    })
 }
 
 /// The table's wheel file, downloaded first when missing and allowed.
@@ -225,6 +303,18 @@ impl ArtCache {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_changed_source_gets_a_new_cache_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("wheel.png");
+        std::fs::write(&f, b"one").unwrap();
+        let a = cache_name(&f).unwrap();
+        assert_eq!(a, cache_name(&f).unwrap());
+        std::fs::write(&f, b"longer").unwrap();
+        assert_ne!(a, cache_name(&f).unwrap());
+        assert!(cache_name(&dir.path().join("none.png")).is_none());
+    }
 
     #[test]
     fn finds_the_mediadb_name_then_a_frontend_name() {

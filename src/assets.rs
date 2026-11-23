@@ -564,7 +564,7 @@ pub fn make_thumbnail(image_bytes: &[u8]) -> Option<Vec<u8>> {
 /// (a shaped launcher picture, a wheel-like logo) keeps its transparency.
 /// The decoders (`load_from_memory`) guess the format, so existing JPEG
 /// blobs keep working and a rebuild re-encodes them.
-fn encode_cached(img: &image::DynamicImage) -> Option<Vec<u8>> {
+pub fn encode_cached(img: &image::DynamicImage) -> Option<Vec<u8>> {
     if !has_transparency(img) {
         return encode_jpeg(img);
     }

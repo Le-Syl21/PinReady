@@ -1195,6 +1195,7 @@ impl App {
                         if let Err(e) = db.clear_b2s_dmd() {
                             log::error!("clear_b2s_dmd failed: {e}");
                         }
+                        super::wheels::clear_disk_cache();
                         log::info!("Rebuild: caches wiped in {:?}", started.elapsed());
                     }
                     Err(e) => log::error!("Rebuild: cannot open the database: {e}"),
