@@ -35,6 +35,7 @@ static NEXT_ACTION: Mutex<Option<AppMode>> = Mutex::new(None);
 /// then closes the window the way the Quit button does.
 static QUIT_SIGNAL: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// The context of the running eframe session, to wake it when a signal comes.
+#[cfg(unix)]
 static SIGNAL_CTX: Mutex<Option<egui::Context>> = Mutex::new(None);
 
 /// Make SIGTERM, SIGINT and SIGHUP close PinReady like the Quit button.
@@ -45,7 +46,9 @@ static SIGNAL_CTX: Mutex<Option<egui::Context>> = Mutex::new(None);
 #[cfg(unix)]
 pub fn install_quit_signal(ctx: &egui::Context) {
     use std::sync::atomic::Ordering;
-    *SIGNAL_CTX.lock().unwrap() = Some(ctx.clone());
+    if let Ok(mut slot) = SIGNAL_CTX.lock() {
+        *slot = Some(ctx.clone());
+    }
     static ONCE: std::sync::Once = std::sync::Once::new();
     ONCE.call_once(|| {
         use signal_hook::consts::{SIGHUP, SIGINT, SIGTERM};
@@ -59,7 +62,9 @@ pub fn install_quit_signal(ctx: &egui::Context) {
                             if QUIT_SIGNAL.swap(true, Ordering::SeqCst) {
                                 std::process::exit(128 + sig);
                             }
-                            if let Some(ctx) = SIGNAL_CTX.lock().unwrap().as_ref() {
+                            if let Ok(slot) = SIGNAL_CTX.lock()
+                                && let Some(ctx) = slot.as_ref()
+                            {
                                 ctx.request_repaint();
                             }
                         }
