@@ -114,6 +114,11 @@ fn cabinet_faces(x: f32, z: f32, light: f32, art: &CabinetArt, cam: &Camera, out
     // (a band of it, as cabinet side art is), darker towards the floor
     let side_art = art.backglass.as_ref().or(art.glow.as_ref());
     for s in [-1.0f32, 1.0] {
+        // a side turned away from the camera is not drawn: seen from inside
+        // it would paint over the playfield
+        if (cam.eye.x - (x + s * w)) * s <= 0.0 {
+            continue;
+        }
         let sx = x + s * w;
         let corners = [
             v3(sx, TOP_BACK, back_z),
@@ -141,6 +146,11 @@ fn cabinet_faces(x: f32, z: f32, light: f32, art: &CabinetArt, cam: &Camera, out
     }
     // side armour: the chrome strip along the top of each side
     for s in [-1.0f32, 1.0] {
+        // a side turned away from the camera is not drawn: seen from inside
+        // it would paint over the playfield
+        if (cam.eye.x - (x + s * w)) * s <= 0.0 {
+            continue;
+        }
         let sx = x + s * (w + 0.004);
         out.push(quad(
             [
@@ -329,6 +339,11 @@ fn cabinet_faces(x: f32, z: f32, light: f32, art: &CabinetArt, cam: &Camera, out
     let bb_back = back_z - BB_OVER;
     let (bb_bottom, bb_top) = (TOP_BACK, TOP_BACK + BB_H);
     for s in [-1.0f32, 1.0] {
+        // a side turned away from the camera is not drawn: seen from inside
+        // it would paint over the playfield
+        if (cam.eye.x - (x + s * w)) * s <= 0.0 {
+            continue;
+        }
         let sx = x + s * w;
         out.push(quad(
             [
@@ -761,7 +776,9 @@ impl App {
                 .or_else(|| backglass.clone());
             let art = CabinetArt {
                 backglass,
-                playfield: if idx == sel { clip.clone() } else { None },
+                // the selected one plays its clip, the others show a still
+                playfield: if idx == sel { clip.clone() } else { None }
+                    .or_else(|| self.playfields.get(idx, &path, None).cloned()),
                 glow,
                 wheel: self.wheels.get(idx, &path, download.as_deref()).cloned(),
             };

@@ -80,6 +80,44 @@ pub fn find_video(table_dir: &Path, slot: VideoSlot) -> Option<PathBuf> {
     }
 }
 
+/// The table's playfield clip: VPinMediaDB's `table.<ext>`, else a
+/// frontend's `(Playfield) <name>.<ext>`.
+pub fn playfield_video(table_dir: &Path) -> Option<PathBuf> {
+    let medias = table_dir.join("medias");
+    named_video(&medias, "table").or_else(|| labelled_video(&medias, "(playfield)"))
+}
+
+/// One picture of a clip, `at` seconds in (the first frames are often
+/// black), fitted in `max_w`×`max_h` and turned upright like the player
+/// does. `None` without video support, or when nothing decodes in a few
+/// seconds.
+pub fn still_frame(path: &Path, max_w: u32, max_h: u32, at: f64) -> Option<image::RgbaImage> {
+    let (tx, rx) = crossbeam_channel::bounded(2);
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    if !decoder::spawn(
+        path.to_path_buf(),
+        max_w,
+        max_h,
+        is_cabinet_playfield(path),
+        tx,
+        stop.clone(),
+    ) {
+        return None;
+    }
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(8);
+    let mut last: Option<Frame> = None;
+    while let Ok(f) = rx.recv_deadline(deadline) {
+        let done = f.pts >= at;
+        last = Some(f);
+        if done {
+            break;
+        }
+    }
+    stop.store(true, std::sync::atomic::Ordering::Relaxed);
+    let f = last?;
+    image::RgbaImage::from_raw(f.size[0] as u32, f.size[1] as u32, f.rgba)
+}
+
 /// Largest size with the clip's aspect ratio that fits `max_w`×`max_h`, never
 /// enlarged, even dimensions (what the scaler expects for YUV sources).
 #[cfg_attr(not(feature = "video"), allow(dead_code))]

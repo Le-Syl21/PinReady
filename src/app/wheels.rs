@@ -27,6 +27,8 @@ use std::path::{Path, PathBuf};
 const WHEEL_SIZE: u32 = 512;
 /// Largest side of a backglass texture.
 const BACKGLASS_SIZE: u32 = 1024;
+/// Largest side of a playfield still.
+const PLAYFIELD_SIZE: u32 = 768;
 /// Pictures uploaded per frame.
 const UPLOADS_PER_FRAME: usize = 8;
 
@@ -35,6 +37,8 @@ const UPLOADS_PER_FRAME: usize = 8;
 pub enum ArtKind {
     Wheel,
     Backglass,
+    /// A still of the playfield clip, for the arcade's unselected cabinets.
+    Playfield,
 }
 
 impl ArtKind {
@@ -43,6 +47,7 @@ impl ArtKind {
         match self {
             ArtKind::Wheel => WHEEL_SIZE,
             ArtKind::Backglass => BACKGLASS_SIZE,
+            ArtKind::Playfield => PLAYFIELD_SIZE,
         }
     }
 
@@ -50,6 +55,7 @@ impl ArtKind {
         match self {
             ArtKind::Wheel => "wheel",
             ArtKind::Backglass => "backglass",
+            ArtKind::Playfield => "playfield",
         }
     }
 }
@@ -139,6 +145,7 @@ fn source_file(kind: ArtKind, req: &Request) -> Option<PathBuf> {
             let b2s = req.table.with_extension("directb2s");
             b2s.is_file().then_some(b2s)
         }
+        ArtKind::Playfield => crate::video::playfield_video(table_dir),
     }
 }
 
@@ -173,6 +180,11 @@ fn decode_source(kind: ArtKind, source: &Path) -> Option<image::DynamicImage> {
     let max = kind.max_size();
     let img = match kind {
         ArtKind::Wheel => image::open(source).ok()?,
+        ArtKind::Playfield => {
+            // already fitted by the decoder
+            return crate::video::still_frame(source, max, max, 2.0)
+                .map(image::DynamicImage::ImageRgba8);
+        }
         ArtKind::Backglass => {
             let bytes = if source.extension().is_some_and(|e| e == "directb2s") {
                 crate::assets::extract_backglass_from_b2s(source)?

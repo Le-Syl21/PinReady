@@ -1086,6 +1086,7 @@ impl App {
             self.bg_cache.update(ui.ctx(), &on_screen, &near, &rel);
             self.wheels.update(ui.ctx());
             self.backglasses.update(ui.ctx());
+            self.playfields.update(ui.ctx());
         }
 
         if let Some(idx) = fav_toggle {

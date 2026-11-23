@@ -865,6 +865,7 @@ impl App {
         self.bg_cache.reset(self.scan_generation, self.tables.len());
         self.wheels.reset();
         self.backglasses.reset();
+        self.playfields.reset();
         log::info!("Listed {} tables in {}", self.tables.len(), dir);
 
         // Cancel any prior scan so the new pool is the only one writing
@@ -1513,6 +1514,7 @@ impl App {
         self.bg_cache.release(launching);
         self.wheels.reset();
         self.backglasses.reset();
+        self.playfields.reset();
         log::info!(
             "Launching: {} -Play {}",
             resolved.display(),
