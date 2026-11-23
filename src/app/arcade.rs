@@ -110,7 +110,9 @@ fn cabinet_faces(x: f32, z: f32, light: f32, art: &CabinetArt, cam: &Camera, out
             cam,
         ));
     }
-    // body sides, taller at the back; the blurred backglass as side art
+    // body sides, taller at the back, dressed with the backglass's art
+    // (a band of it, as cabinet side art is), darker towards the floor
+    let side_art = art.backglass.as_ref().or(art.glow.as_ref());
     for s in [-1.0f32, 1.0] {
         let sx = x + s * w;
         let corners = [
@@ -119,13 +121,16 @@ fn cabinet_faces(x: f32, z: f32, light: f32, art: &CabinetArt, cam: &Camera, out
             v3(sx, BOTTOM, front_z),
             v3(sx, BOTTOM, back_z),
         ];
-        out.push(match &art.glow {
-            Some(t) => quad(
-                corners,
-                Fill::Tex(t.id(), full),
-                lit(Color32::WHITE, 0.8),
-                cam,
-            ),
+        out.push(match side_art {
+            Some(t) => {
+                let uv = super::tile_fit::fill_uv(t.size_vec2(), Vec2::new(LENGTH, 0.5));
+                quad(
+                    corners,
+                    Fill::TexFade(t.id(), uv, lit(Color32::from_gray(70), 1.0)),
+                    lit(Color32::from_gray(225), 1.0),
+                    cam,
+                )
+            }
             None => quad(
                 corners,
                 Fill::Gradient(lit(body, 0.4)),
@@ -276,8 +281,8 @@ fn cabinet_faces(x: f32, z: f32, light: f32, art: &CabinetArt, cam: &Camera, out
                 top(a.max(b), 0.0, 0.015),
                 top(a.min(b), 0.0, 0.015),
             ],
-            Fill::Flat,
-            lit(chrome, 0.85),
+            Fill::Gradient(lit(chrome, 1.15)),
+            lit(chrome, 0.55),
             cam,
         ));
     }
@@ -304,6 +309,21 @@ fn cabinet_faces(x: f32, z: f32, light: f32, art: &CabinetArt, cam: &Camera, out
         cam,
     ));
 
+    // the glass over a lit playfield: one soft diagonal reflection
+    if art.playfield.is_some() {
+        let sheen = Color32::from_white_alpha((26.0 * light) as u8);
+        out.push(quad(
+            [
+                top(x - iw, 0.78, 0.01),
+                top(x - iw, 0.66, 0.01),
+                top(x + iw, 0.38, 0.01),
+                top(x + iw, 0.50, 0.01),
+            ],
+            Fill::Flat,
+            sheen,
+            cam,
+        ));
+    }
     // backbox: standing on the cabinet's back
     let bb_front = back_z + BB_D - BB_OVER;
     let bb_back = back_z - BB_OVER;
@@ -321,6 +341,20 @@ fn cabinet_faces(x: f32, z: f32, light: f32, art: &CabinetArt, cam: &Camera, out
             lit(body, 0.7),
             cam,
         ));
+        if let Some(t) = side_art {
+            let uv = super::tile_fit::fill_uv(t.size_vec2(), Vec2::new(BB_D, BB_H));
+            out.push(quad(
+                [
+                    v3(sx, bb_top - 0.03, bb_back + 0.02),
+                    v3(sx, bb_top - 0.03, bb_front - 0.02),
+                    v3(sx, bb_bottom + 0.03, bb_front - 0.02),
+                    v3(sx, bb_bottom + 0.03, bb_back + 0.02),
+                ],
+                Fill::TexFade(t.id(), uv, lit(Color32::from_gray(80), 1.0)),
+                lit(Color32::from_gray(210), 1.0),
+                cam,
+            ));
+        }
     }
     out.push(quad(
         [
@@ -422,8 +456,10 @@ struct HallTextures {
     wall: egui::TextureHandle,
     wood: egui::TextureHandle,
     floor: egui::TextureHandle,
-    /// A soft white disc fading to nothing: a lamp's light on the floor.
+    /// A soft white disc fading to nothing: a light pool, or a shadow.
     pool: egui::TextureHandle,
+    /// Clear in the middle, dark at the edges of the view.
+    vignette: egui::TextureHandle,
 }
 
 /// A cheap repeatable hash noise, 0..1.
@@ -497,12 +533,29 @@ fn hall_textures(ctx: &egui::Context) -> HallTextures {
         }
         egui::ColorImage::new([P, P], px)
     };
+    let vignette = {
+        const V: usize = 64;
+        let mut px = Vec::with_capacity(V * V);
+        for y in 0..V {
+            for x in 0..V {
+                let (u, v) = (
+                    (x as f32 + 0.5) / V as f32 * 2.0 - 1.0,
+                    (y as f32 + 0.5) / V as f32 * 2.0 - 1.0,
+                );
+                let r = (u * u * 0.8 + v * v).sqrt();
+                let a = ((r - 0.55) / 0.75).clamp(0.0, 1.0);
+                px.push(Color32::from_black_alpha((a * a * 210.0) as u8));
+            }
+        }
+        egui::ColorImage::new([V, V], px)
+    };
     let opts = egui::TextureOptions::LINEAR_REPEAT;
     let t = HallTextures {
         wall: ctx.load_texture("arcade/wall", wall, opts),
         wood: ctx.load_texture("arcade/wood", wood, opts),
         floor: ctx.load_texture("arcade/floor", floor, opts),
         pool: ctx.load_texture("arcade/pool", pool, egui::TextureOptions::LINEAR),
+        vignette: ctx.load_texture("arcade/vignette", vignette, egui::TextureOptions::LINEAR),
     };
     ctx.data_mut(|d| d.insert_temp(id, t.clone()));
     t
@@ -744,8 +797,21 @@ impl App {
                     tint(0.04 + 0.30 * light),
                     &cam,
                 );
+                // the cabinet's shadow on the carpet, where it stands
+                let shadow = quad(
+                    [
+                        v3(x - 0.62, 0.003, zc - 0.95),
+                        v3(x + 0.62, 0.003, zc - 0.95),
+                        v3(x + 0.62, 0.003, z + 0.25),
+                        v3(x - 0.62, 0.003, z + 0.25),
+                    ],
+                    Fill::Tex(tex.pool.id(), full),
+                    Color32::from_black_alpha(170),
+                    &cam,
+                );
                 add_face(&mut flat, &mut textured, &cam, &wall);
                 add_face(&mut flat, &mut textured, &cam, &floor);
+                add_face(&mut flat, &mut textured, &cam, &shadow);
                 painter.add(egui::Shape::mesh(std::mem::take(&mut flat)));
                 for m in textured.drain(..) {
                     painter.add(egui::Shape::mesh(m));
@@ -770,6 +836,13 @@ impl App {
             }
             hit.push((fpos, off, bbox.intersect(view)));
         }
+        // a vignette: the eye goes to the lit machine in the middle
+        painter.image(
+            tex.vignette.id(),
+            view,
+            Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
+            Color32::WHITE,
+        );
 
         // clicks: the nearest cabinet under the pointer
         let mut clicked: Option<(usize, f32)> = None;

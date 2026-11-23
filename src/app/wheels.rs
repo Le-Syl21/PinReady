@@ -24,9 +24,9 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 /// Largest side of a wheel texture.
-const WHEEL_SIZE: u32 = 320;
+const WHEEL_SIZE: u32 = 512;
 /// Largest side of a backglass texture.
-const BACKGLASS_SIZE: u32 = 480;
+const BACKGLASS_SIZE: u32 = 1024;
 /// Pictures uploaded per frame.
 const UPLOADS_PER_FRAME: usize = 8;
 
@@ -38,6 +38,14 @@ pub enum ArtKind {
 }
 
 impl ArtKind {
+    /// Largest side of the texture.
+    fn max_size(self) -> u32 {
+        match self {
+            ArtKind::Wheel => WHEEL_SIZE,
+            ArtKind::Backglass => BACKGLASS_SIZE,
+        }
+    }
+
     fn name(self) -> &'static str {
         match self {
             ArtKind::Wheel => "wheel",
@@ -99,7 +107,7 @@ pub fn clear_disk_cache() {
 
 /// The cache file name of a source file: a hash of its path, size and date,
 /// so an edited or replaced picture is never served from an old entry.
-fn cache_name(source: &Path) -> Option<String> {
+fn cache_name(source: &Path, max: u32) -> Option<String> {
     use sha2::{Digest, Sha256};
     let meta = std::fs::metadata(source).ok()?;
     let mtime = meta
@@ -112,6 +120,7 @@ fn cache_name(source: &Path) -> Option<String> {
     h.update(source.as_os_str().as_encoded_bytes());
     h.update(meta.len().to_le_bytes());
     h.update(mtime.to_le_bytes());
+    h.update(max.to_le_bytes());
     let d = h.finalize();
     Some(d[..16].iter().map(|b| format!("{b:02x}")).collect())
 }
@@ -135,7 +144,7 @@ fn source_file(kind: ArtKind, req: &Request) -> Option<PathBuf> {
 
 fn load(kind: ArtKind, req: &Request) -> Option<ColorImage> {
     let source = source_file(kind, req)?;
-    let cached = cache_name(&source).map(|n| cache_dir(kind).join(n));
+    let cached = cache_name(&source, kind.max_size()).map(|n| cache_dir(kind).join(n));
     let img = cached
         .as_ref()
         .and_then(|c| std::fs::read(c).ok())
@@ -161,15 +170,16 @@ fn load(kind: ArtKind, req: &Request) -> Option<ColorImage> {
 
 /// Decode a source file and fit it in the kind's size.
 fn decode_source(kind: ArtKind, source: &Path) -> Option<image::DynamicImage> {
-    let (img, max) = match kind {
-        ArtKind::Wheel => (image::open(source).ok()?, WHEEL_SIZE),
+    let max = kind.max_size();
+    let img = match kind {
+        ArtKind::Wheel => image::open(source).ok()?,
         ArtKind::Backglass => {
             let bytes = if source.extension().is_some_and(|e| e == "directb2s") {
                 crate::assets::extract_backglass_from_b2s(source)?
             } else {
                 std::fs::read(source).ok()?
             };
-            (image::load_from_memory(&bytes).ok()?, BACKGLASS_SIZE)
+            image::load_from_memory(&bytes).ok()?
         }
     };
     Some(if img.width() > max || img.height() > max {
@@ -209,7 +219,17 @@ pub struct ArtCache {
     wheels: HashMap<usize, Option<TextureHandle>>,
     ready: Vec<(usize, Option<ColorImage>)>,
     inflight: std::collections::HashSet<usize>,
+    /// Frame counter, and the frame each picture was last asked for: the
+    /// ones off screen for a while are let go, so scrolling a large
+    /// collection does not keep every texture in memory.
+    frame: u64,
+    used: HashMap<usize, u64>,
 }
+
+/// Pictures kept however long they were not asked for.
+const KEEP: usize = 96;
+/// Frames a picture stays after it was last asked for.
+const IDLE_FRAMES: u64 = 180;
 
 impl ArtCache {
     pub fn new(kind: ArtKind) -> Self {
@@ -237,6 +257,8 @@ impl ArtCache {
             wheels: HashMap::new(),
             ready: Vec::new(),
             inflight: Default::default(),
+            frame: 0,
+            used: HashMap::new(),
         }
     }
 
@@ -247,6 +269,7 @@ impl ArtCache {
         self.wheels.clear();
         self.ready.clear();
         self.inflight.clear();
+        self.used.clear();
     }
 
     /// The picture of table `idx` (its `.vpx` is `table`), asking for it the
@@ -258,6 +281,7 @@ impl ArtCache {
         table: &Path,
         download: Option<&str>,
     ) -> Option<&TextureHandle> {
+        self.used.insert(idx, self.frame);
         if !self.wheels.contains_key(&idx) && self.inflight.insert(idx) {
             let _ = self.req_tx.send(Request {
                 generation: self.generation,
@@ -277,6 +301,16 @@ impl ArtCache {
 
     /// Every frame: take what the worker finished and upload a few.
     pub fn update(&mut self, ctx: &egui::Context) {
+        self.frame += 1;
+        if self.wheels.len() > KEEP {
+            let (frame, used) = (self.frame, &self.used);
+            self.wheels.retain(|idx, _| {
+                used.get(idx)
+                    .is_some_and(|&f| frame.saturating_sub(f) < IDLE_FRAMES)
+            });
+            let wheels = &self.wheels;
+            self.used.retain(|idx, _| wheels.contains_key(idx));
+        }
         while let Ok(d) = self.res_rx.try_recv() {
             if d.generation == self.generation {
                 self.inflight.remove(&d.idx);
@@ -309,11 +343,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let f = dir.path().join("wheel.png");
         std::fs::write(&f, b"one").unwrap();
-        let a = cache_name(&f).unwrap();
-        assert_eq!(a, cache_name(&f).unwrap());
+        let a = cache_name(&f, 512).unwrap();
+        assert_eq!(a, cache_name(&f, 512).unwrap());
+        assert_ne!(a, cache_name(&f, 1024).unwrap());
         std::fs::write(&f, b"longer").unwrap();
-        assert_ne!(a, cache_name(&f).unwrap());
-        assert!(cache_name(&dir.path().join("none.png")).is_none());
+        assert_ne!(a, cache_name(&f, 512).unwrap());
+        assert!(cache_name(&dir.path().join("none.png"), 512).is_none());
     }
 
     #[test]

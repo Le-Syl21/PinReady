@@ -839,119 +839,147 @@ fn run_eframe_for_mode(mode: app::AppMode) -> Result<()> {
         app.enable_kiosk_cursor();
     }
 
-    let mut options = eframe::NativeOptions {
-        viewport,
-        ..Default::default()
+    // 4x multisampling smooths the edges of the 3D layouts (cards, carousel,
+    // arcade cabinets). A driver without a multisampled config makes the
+    // window creation fail before the app starts: then PinReady starts again
+    // without it. `PINREADY_MSAA=0` turns it off.
+    let mut msaa: u16 = match std::env::var("PINREADY_MSAA").ok().as_deref() {
+        Some("0") => 0,
+        _ => 4,
     };
-    // Glow renderer instead of wgpu — wgpu's Vulkan backend on NVIDIA
-    // Wayland has a known freeze where presents are throttled to a single
-    // initial frame regardless of present_mode hint. Glow uses EGL +
-    // glutin which has different presentation pacing.
-    options.glow_options.vsync = false;
+    let app_slot = std::rc::Rc::new(std::cell::RefCell::new(Some(app)));
+    loop {
+        let mut options = eframe::NativeOptions {
+            viewport: viewport.clone(),
+            multisampling: msaa,
+            ..Default::default()
+        };
+        // Glow renderer instead of wgpu — wgpu's Vulkan backend on NVIDIA
+        // Wayland has a known freeze where presents are throttled to a single
+        // initial frame regardless of present_mode hint. Glow uses EGL +
+        // glutin which has different presentation pacing.
+        options.glow_options.vsync = false;
 
-    eframe::run_native(
-        "PinReady",
-        options,
-        Box::new(move |cc| {
-            app::install_quit_signal(&cc.egui_ctx);
-            // Load Noto fonts for non-Latin scripts (Arabic, CJK, Devanagari, Thai, etc.)
-            let noto_fonts = noto_fonts_dl::load_fonts();
-            if !noto_fonts.is_empty() {
-                let font_count = noto_fonts.len();
-                let mut font_defs = egui::FontDefinitions::default();
-                for (name, data) in noto_fonts {
-                    font_defs
-                        .families
-                        .entry(egui::FontFamily::Proportional)
-                        .or_default()
-                        .push(name.clone());
-                    font_defs.font_data.insert(
-                        name.clone(),
-                        std::sync::Arc::new(egui::FontData::from_owned(data.clone())),
-                    );
+        let slot = app_slot.clone();
+        let result = eframe::run_native(
+            "PinReady",
+            options,
+            Box::new(move |cc| {
+                let mut app = slot
+                    .borrow_mut()
+                    .take()
+                    .ok_or("PinReady was already started")?;
+                app::install_quit_signal(&cc.egui_ctx);
+                // Load Noto fonts for non-Latin scripts (Arabic, CJK, Devanagari, Thai, etc.)
+                let noto_fonts = noto_fonts_dl::load_fonts();
+                if !noto_fonts.is_empty() {
+                    let font_count = noto_fonts.len();
+                    let mut font_defs = egui::FontDefinitions::default();
+                    for (name, data) in noto_fonts {
+                        font_defs
+                            .families
+                            .entry(egui::FontFamily::Proportional)
+                            .or_default()
+                            .push(name.clone());
+                        font_defs.font_data.insert(
+                            name.clone(),
+                            std::sync::Arc::new(egui::FontData::from_owned(data.clone())),
+                        );
+                    }
+                    cc.egui_ctx.set_fonts(font_defs);
+                    log::info!("Loaded {} Noto font(s) for non-Latin scripts", font_count);
                 }
-                cc.egui_ctx.set_fonts(font_defs);
-                log::info!("Loaded {} Noto font(s) for non-Latin scripts", font_count);
+                // Bump the UI beyond egui's default sizing. Composes with the
+                // OS-reported DPI scale (native_pixels_per_point), so HiDPI is
+                // still honored — this is an additional user-level zoom.
+                //
+                // The wizard gets twice the launcher's zoom: it is read standing
+                // beside a cabinet, on a playfield lying flat a metre away, often
+                // while holding a screwdriver. The launcher is browsed from the
+                // same distance but its cards carry their own scale.
+                //
+                // This is only the first frame's zoom: once the DPI scale is
+                // known, `App::sync_zoom` applies the user's stored choice or a
+                // default divided by that scale.
+                cc.egui_ctx
+                    .set_zoom_factor(if start_in_wizard { 2.4 } else { 1.20 });
+                app.apply_theme(&cc.egui_ctx);
+                // Register the egui-rotate plugin unconditionally. It owns
+                // per-viewport input rotation, output rotation and the
+                // software cursor. Registered even when the initial rotation
+                // is `None` — the topbar `↻` button flips rotation live and
+                // needs the plugin already on the Context to take effect.
+                // Passthrough cost is negligible with `Rotation::None`.
+                //
+                // The `SoftwareCursor` is also attached unconditionally: the
+                // plugin only activates it when a viewport is rotated, so
+                // wizard/desktop launcher run with the OS cursor until the
+                // user clicks ↻. From that click on, the cursor rotates
+                // along with the UI — the OS pointer is upright and would
+                // fight the visible axes otherwise.
+                //
+                // Kiosk cabinets keep the previous 3× lock+scale for far-
+                // viewing playfields; wizard/desktop match the OS cursor
+                // size at 1.0× so the user can be precise on small widgets
+                // (radio buttons, sliders, ini keys). The wizard cursor is
+                // not hard-locked so the user can still leave the window
+                // (open a file dialog, focus another app…) — since
+                // egui-rotate 1.1 it soft-locks instead: the edge resists
+                // casual contact but a deliberate push still exits.
+                let cursor_scale = if want_kiosk_cursor { 3.0 } else { 1.0 };
+                // The plugin owns the OS pointer grab (egui-rotate 1.1): it sends
+                // `CursorGrab` on capture/release transitions, so the old manual
+                // per-frame grab loop and its Linux opt-out are gone. Mode per
+                // platform (winit support matrix): `Confined` exists on Wayland,
+                // X11 and Windows; macOS only implements `Locked`.
+                let os_grab = if cfg!(target_os = "macos") {
+                    egui::viewport::CursorGrab::Locked
+                } else {
+                    egui::viewport::CursorGrab::Confined
+                };
+                let plugin = egui_rotate::RotationPlugin::new(rotation).with_software_cursor(
+                    egui_rotate::SoftwareCursor::new()
+                        .with_scale(cursor_scale)
+                        .with_lock(want_kiosk_cursor)
+                        .with_os_grab(Some(os_grab))
+                        // Launcher only: keyboard navigation parks the cursor
+                        // (dissolve + hover cleared) so a pointer resting on a
+                        // card can't override flipper-key selection; the joystick
+                        // path does the same via `set_dormant` in
+                        // `handle_launcher_joystick`. Any mouse use reforms it in
+                        // place. The wizard keeps the cursor visible while typing
+                        // — it's a form UI, hiding on every keystroke would be
+                        // distracting.
+                        .with_dormant_on_keys(!start_in_wizard),
+                );
+                cc.egui_ctx.add_plugin(plugin);
+                // Funnel keyboard input from the BG/DMD/Topper cover viewports to the
+                // playfield (ROOT). Under Mutter Wayland a freshly-mapped cover
+                // viewport can steal keyboard focus despite `with_active(false)`;
+                // this keeps flipper keys and launcher navigation reaching the
+                // playfield. Mouse follows the focused window; joystick is read via
+                // SDL, independent of focus. (Replaces the old eframe kiosk routing.)
+                cc.egui_ctx.add_plugin(egui_keyfunnel::KeyFunnel::new());
+                // Register egui context with pidlock so the socket listener
+                // can wake egui up on focus requests (otherwise the atomic
+                // never gets consumed while the window is unfocused).
+                pidlock::register_egui_ctx(cc.egui_ctx.clone());
+                Ok(Box::new(app))
+            }),
+        );
+        match result {
+            Err(e) if msaa > 0 && app_slot.borrow().is_some() => {
+                log::warn!(
+                    "Cannot open the window with {msaa}x multisampling ({e}), trying without"
+                );
+                msaa = 0;
             }
-            // Bump the UI beyond egui's default sizing. Composes with the
-            // OS-reported DPI scale (native_pixels_per_point), so HiDPI is
-            // still honored — this is an additional user-level zoom.
-            //
-            // The wizard gets twice the launcher's zoom: it is read standing
-            // beside a cabinet, on a playfield lying flat a metre away, often
-            // while holding a screwdriver. The launcher is browsed from the
-            // same distance but its cards carry their own scale.
-            //
-            // This is only the first frame's zoom: once the DPI scale is
-            // known, `App::sync_zoom` applies the user's stored choice or a
-            // default divided by that scale.
-            cc.egui_ctx
-                .set_zoom_factor(if start_in_wizard { 2.4 } else { 1.20 });
-            app.apply_theme(&cc.egui_ctx);
-            // Register the egui-rotate plugin unconditionally. It owns
-            // per-viewport input rotation, output rotation and the
-            // software cursor. Registered even when the initial rotation
-            // is `None` — the topbar `↻` button flips rotation live and
-            // needs the plugin already on the Context to take effect.
-            // Passthrough cost is negligible with `Rotation::None`.
-            //
-            // The `SoftwareCursor` is also attached unconditionally: the
-            // plugin only activates it when a viewport is rotated, so
-            // wizard/desktop launcher run with the OS cursor until the
-            // user clicks ↻. From that click on, the cursor rotates
-            // along with the UI — the OS pointer is upright and would
-            // fight the visible axes otherwise.
-            //
-            // Kiosk cabinets keep the previous 3× lock+scale for far-
-            // viewing playfields; wizard/desktop match the OS cursor
-            // size at 1.0× so the user can be precise on small widgets
-            // (radio buttons, sliders, ini keys). The wizard cursor is
-            // not hard-locked so the user can still leave the window
-            // (open a file dialog, focus another app…) — since
-            // egui-rotate 1.1 it soft-locks instead: the edge resists
-            // casual contact but a deliberate push still exits.
-            let cursor_scale = if want_kiosk_cursor { 3.0 } else { 1.0 };
-            // The plugin owns the OS pointer grab (egui-rotate 1.1): it sends
-            // `CursorGrab` on capture/release transitions, so the old manual
-            // per-frame grab loop and its Linux opt-out are gone. Mode per
-            // platform (winit support matrix): `Confined` exists on Wayland,
-            // X11 and Windows; macOS only implements `Locked`.
-            let os_grab = if cfg!(target_os = "macos") {
-                egui::viewport::CursorGrab::Locked
-            } else {
-                egui::viewport::CursorGrab::Confined
-            };
-            let plugin = egui_rotate::RotationPlugin::new(rotation).with_software_cursor(
-                egui_rotate::SoftwareCursor::new()
-                    .with_scale(cursor_scale)
-                    .with_lock(want_kiosk_cursor)
-                    .with_os_grab(Some(os_grab))
-                    // Launcher only: keyboard navigation parks the cursor
-                    // (dissolve + hover cleared) so a pointer resting on a
-                    // card can't override flipper-key selection; the joystick
-                    // path does the same via `set_dormant` in
-                    // `handle_launcher_joystick`. Any mouse use reforms it in
-                    // place. The wizard keeps the cursor visible while typing
-                    // — it's a form UI, hiding on every keystroke would be
-                    // distracting.
-                    .with_dormant_on_keys(!start_in_wizard),
-            );
-            cc.egui_ctx.add_plugin(plugin);
-            // Funnel keyboard input from the BG/DMD/Topper cover viewports to the
-            // playfield (ROOT). Under Mutter Wayland a freshly-mapped cover
-            // viewport can steal keyboard focus despite `with_active(false)`;
-            // this keeps flipper keys and launcher navigation reaching the
-            // playfield. Mouse follows the focused window; joystick is read via
-            // SDL, independent of focus. (Replaces the old eframe kiosk routing.)
-            cc.egui_ctx.add_plugin(egui_keyfunnel::KeyFunnel::new());
-            // Register egui context with pidlock so the socket listener
-            // can wake egui up on focus requests (otherwise the atomic
-            // never gets consumed while the window is unfocused).
-            pidlock::register_egui_ctx(cc.egui_ctx.clone());
-            Ok(Box::new(app))
-        }),
-    )
-    .map_err(|e| anyhow::anyhow!("eframe error: {e}"))?;
+            r => {
+                r.map_err(|e| anyhow::anyhow!("eframe error: {e}"))?;
+                break;
+            }
+        }
+    }
 
     Ok(())
 }
