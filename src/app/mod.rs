@@ -395,6 +395,8 @@ pub struct App {
     backglasses: wheels::ArtCache,
     /// Stills of the playfield clips (the arcade's unselected cabinets).
     playfields: wheels::ArtCache,
+    /// DMD pictures for the arcade's machines.
+    dmds: wheels::ArtCache,
     /// Arcade layout: when the dive to the playfield started (a table is
     /// launching), and the selected clip's last picture.
     arcade_plunge: Option<std::time::Instant>,
@@ -1022,6 +1024,7 @@ impl App {
             wheels: wheels::ArtCache::new(wheels::ArtKind::Wheel),
             backglasses: wheels::ArtCache::new(wheels::ArtKind::Backglass),
             playfields: wheels::ArtCache::new(wheels::ArtKind::Playfield),
+            dmds: wheels::ArtCache::new(wheels::ArtKind::Dmd),
             arcade_plunge: None,
             arcade_pf_last: None,
             wizard_furthest,

@@ -1087,6 +1087,7 @@ impl App {
             self.wheels.update(ui.ctx());
             self.backglasses.update(ui.ctx());
             self.playfields.update(ui.ctx());
+            self.dmds.update(ui.ctx());
         }
 
         if let Some(idx) = fav_toggle {

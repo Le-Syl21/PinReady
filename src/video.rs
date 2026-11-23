@@ -27,7 +27,7 @@ pub enum VideoSlot {
     Dmd,
 }
 
-fn is_video(p: &Path) -> bool {
+pub fn is_video(p: &Path) -> bool {
     p.extension()
         .and_then(|e| e.to_str())
         .is_some_and(|e| VIDEO_EXTS.contains(&e.to_ascii_lowercase().as_str()))

@@ -6,13 +6,13 @@
 //! (`bg`, `dmd`, `table`, `fss`, `wheel`, `cab`, `realdmd`, `flyer`,
 //! `audio`, `table_video`) in 1k and 4k resolutions.
 //!
-//! PinReady currently consumes only the two assets used by the
-//! launcher hover preview — wheel/dmd/table/video/etc. are skipped
-//! to keep per-table disk usage minimal:
-//!   * `1k/bg.png`    → backglass preview
-//!   * `audio.mp3`    → table jingle / call-out
+//! PinReady uses, per table, into its `medias/` folder:
+//!   * `1k/bg.png`, `audio.mp3` → backglass and jingle (fetched by the scan)
+//!   * `wheel.png`, `1k/dmd.png` → wheel and DMD pictures (when first shown)
+//!   * `1k/table.mp4`, `1k/dmd.mp4` → playfield and DMD clips (when the
+//!     table is first selected)
 //!
-//! Both files keep their factory upstream names when installed
+//! Files keep their factory upstream names when installed
 //! locally (see [`install_asset`]), so a re-sync replaces in place.
 //!
 //! Caching strategy mirrors [`crate::vpsdb`]: pull `vpinmdb.json`
@@ -178,6 +178,11 @@ impl MediaDb {
         let b = self.games.get(game_id)?.k1.as_ref()?;
         Some((b.table_video.as_deref()?, b.table_video_md5.as_deref()?))
     }
+    /// DMD picture of the 1k bucket (`dmd.png`).
+    pub fn dmd_image_url_md5(&self, game_id: &str) -> Option<(&str, &str)> {
+        let b = self.games.get(game_id)?.k1.as_ref()?;
+        Some((b.dmd.as_deref()?, b.dmd_md5.as_deref()?))
+    }
     /// DMD video of the 1k bucket (`dmd.mp4`).
     pub fn dmd_video_url_md5(&self, game_id: &str) -> Option<(&str, &str)> {
         let b = self.games.get(game_id)?.k1.as_ref()?;
@@ -205,10 +210,11 @@ impl MediaDb {
     }
 }
 
-/// Download a table's preview clips that are missing (`table.mp4`, and
-/// `dmd.mp4` when `with_dmd`) into its `medias/`, md5-checked. Blocking: call
+/// Download a table's preview clips that are missing (`table.mp4` and
+/// `dmd.mp4`) into its `medias/`, md5-checked. The DMD clip is wanted even
+/// without a DMD screen: the arcade's machines and a ZeDMD show it. Blocking: call
 /// it from a worker thread. Returns whether anything was installed.
-pub fn fetch_preview_videos(table_dir: &Path, vps_id: &str, with_dmd: bool) -> bool {
+pub fn fetch_preview_videos(table_dir: &Path, vps_id: &str) -> bool {
     let Some(mdb) = MediaDb::cached() else {
         return false;
     };
@@ -216,7 +222,7 @@ pub fn fetch_preview_videos(table_dir: &Path, vps_id: &str, with_dmd: bool) -> b
     if let Some(u) = mdb.table_video_url_md5(vps_id) {
         wanted.push(("table.mp4", u));
     }
-    if with_dmd && let Some(u) = mdb.dmd_video_url_md5(vps_id) {
+    if let Some(u) = mdb.dmd_video_url_md5(vps_id) {
         wanted.push(("dmd.mp4", u));
     }
     let mut installed = false;

@@ -866,6 +866,7 @@ impl App {
         self.wheels.reset();
         self.backglasses.reset();
         self.playfields.reset();
+        self.dmds.reset();
         log::info!("Listed {} tables in {}", self.tables.len(), dir);
 
         // Cancel any prior scan so the new pool is the only one writing
@@ -1519,6 +1520,7 @@ impl App {
         self.wheels.reset();
         self.backglasses.reset();
         self.playfields.reset();
+        self.dmds.reset();
         log::info!(
             "Launching: {} -Play {}",
             resolved.display(),
@@ -2113,11 +2115,10 @@ impl App {
                 return;
             };
             use crate::video::{VideoPlayer, VideoSlot, find_video};
-            let has_dmd = self.displays.iter().any(|d| d.role == DisplayRole::Dmd);
             // Missing clips are fetched from VPinMediaDB now, once per table
             // and session, unless turned off on the Tables page.
             let missing = find_video(dir, VideoSlot::Tile).is_none()
-                || (has_dmd && find_video(dir, VideoSlot::Dmd).is_none());
+                || find_video(dir, VideoSlot::Dmd).is_none();
             if missing
                 && self.video_fetch.is_none()
                 && !self.video_fetch_tried.contains(dir)
@@ -2130,8 +2131,7 @@ impl App {
                 let _ = std::thread::Builder::new()
                     .name("preview-video-fetch".into())
                     .spawn(move || {
-                        let _ =
-                            tx.send(crate::mediadb::fetch_preview_videos(&dir, &vps_id, has_dmd));
+                        let _ = tx.send(crate::mediadb::fetch_preview_videos(&dir, &vps_id));
                     });
                 self.video_fetch = Some((cur, rx));
             }
@@ -2162,11 +2162,12 @@ impl App {
                 let (w, h) = (d.width.max(1) as u32, d.height.max(1) as u32);
                 self.video_dmd = VideoPlayer::open(&p, w.min(1920), h.min(1920), "video-dmd");
             } else if dmd.is_none()
-                && self.zedmd_out.is_some()
+                && (self.zedmd_out.is_some()
+                    || self.launcher_layout == super::layouts::LauncherLayout::Arcade)
                 && let Some(p) = find_video(dir, VideoSlot::Dmd)
             {
-                // no DMD screen: the clip goes to the ZeDMD only, at the
-                // size of its largest panel
+                // no DMD screen: the clip goes to the ZeDMD and to the
+                // arcade's machine, at the size of a ZeDMD's largest panel
                 self.video_dmd =
                     VideoPlayer::open(&p, 256, 64, "video-dmd").map(VideoPlayer::keep_frames);
             }

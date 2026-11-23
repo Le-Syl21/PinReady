@@ -26,6 +26,9 @@ struct CabinetArt {
     backglass: Option<egui::TextureHandle>,
     playfield: Option<egui::TextureHandle>,
     wheel: Option<egui::TextureHandle>,
+    /// The DMD clip (selected machine) or picture; without one the DMD shows
+    /// the top of the backglass in orange.
+    dmd: Option<egui::TextureHandle>,
 }
 
 /// A pinball cabinet's measures (metres, a standard widebody machine).
@@ -36,10 +39,11 @@ mod size {
     pub const LENGTH: f32 = 1.40;
     /// Height of the cabinet's bottom (the legs).
     pub const BOTTOM: f32 = 0.50;
-    /// Height of the top edge at the lockbar and at the back: level, so the
-    /// playfields read flat.
-    pub const TOP_FRONT: f32 = 0.98;
-    pub const TOP_BACK: f32 = 0.98;
+    /// Height of the top edge at the lockbar and at the back. Steeper than
+    /// a real machine (16° rather than 6.5°), so the playfield faces the
+    /// camera a little.
+    pub const TOP_FRONT: f32 = 0.92;
+    pub const TOP_BACK: f32 = TOP_FRONT + LENGTH * 0.2867; // tan 16°
     /// Side rails and lockbar.
     pub const RAIL: f32 = 0.035;
     pub const LOCKBAR: f32 = 0.08;
@@ -50,6 +54,9 @@ mod size {
     /// The backglass's room at the top of the backbox; under it the speaker
     /// panel with the DMD window.
     pub const GLASS_H: f32 = 0.56;
+    /// Where the glass ends, under the backbox's front (0 at the lockbar,
+    /// 1 at the cabinet's back): the backbox stands on the slope there.
+    pub const T_END: f32 = 1.0 - (BB_D - BB_OVER) / LENGTH;
 }
 
 /// `rect` of aspect `aspect` (width / height) fitted inside `w`×`h`: its
@@ -313,8 +320,9 @@ fn cabinet_faces(
             continue;
         }
         let sx = x + s * w;
+        // the back corner at the backbox's foot, so the side stays under it
         let corners = [
-            v3(sx, TOP_BACK, back_z),
+            v3(sx, TOP_FRONT + (TOP_BACK - TOP_FRONT) * T_END, back_z),
             v3(sx, TOP_FRONT, front_z),
             v3(sx, BOTTOM, front_z),
             v3(sx, BOTTOM, back_z),
@@ -345,12 +353,14 @@ fn cabinet_faces(
             continue;
         }
         let sx = x + s * (w + 0.004);
+        // up to the backbox's front
+        let end = top(sx, T_END, 0.0);
         out.push(quad(
             [
-                v3(sx, TOP_BACK + 0.015, back_z),
+                v3(sx, end.y + 0.015, end.z),
                 v3(sx, TOP_FRONT + 0.015, front_z),
                 v3(sx, TOP_FRONT - 0.045, front_z),
-                v3(sx, TOP_BACK - 0.045, back_z),
+                v3(sx, end.y - 0.045, end.z),
             ],
             Fill::Gradient(lit(chrome, 0.5)),
             lit(chrome, 0.95),
@@ -460,7 +470,7 @@ fn cabinet_faces(
     // the back (the picture slightly stretched to the real playfield's shape)
     let iw = w - RAIL;
     let t0 = LOCKBAR / LENGTH;
-    let t1 = 1.0 - 0.02 / LENGTH;
+    let t1 = T_END - 0.02 / LENGTH;
     let pf = [
         top(x - iw, t1, 0.0),
         top(x + iw, t1, 0.0),
@@ -546,8 +556,8 @@ fn cabinet_faces(
         let (a, b) = (x + s * w, x + s * iw);
         let rail = |p0: f32, p1: f32, lift: f32| {
             [
-                top(p0.min(p1), 1.0, lift),
-                top(p0.max(p1), 1.0, lift),
+                top(p0.min(p1), T_END, lift),
+                top(p0.max(p1), T_END, lift),
                 top(p0.max(p1), 0.0, lift),
                 top(p0.min(p1), 0.0, lift),
             ]
@@ -622,7 +632,8 @@ fn cabinet_faces(
     // backbox: standing on the cabinet's back
     let bb_front = back_z + BB_D - BB_OVER;
     let bb_back = back_z - BB_OVER;
-    let (bb_bottom, bb_top) = (TOP_BACK, TOP_BACK + BB_H);
+    let bb_bottom = TOP_FRONT + (TOP_BACK - TOP_FRONT) * T_END;
+    let bb_top = bb_bottom + BB_H;
     for s in [-1.0f32, 1.0] {
         // a side turned away from the camera is not drawn: seen from inside
         // it would paint over the playfield
@@ -719,39 +730,51 @@ fn cabinet_faces(
             cam,
         ));
     }
-    let dw = 2.0 * w - 2.0 * 0.15;
-    let dh = (dw / 4.0).min(sp_h);
+    // the DMD between the grilles, its top level with theirs: a clip or
+    // picture fills that room keeping its shape, the orange title is 4:1
+    let room_w = 2.0 * w - 2.0 * 0.15;
+    let (dw, dh) = match &art.dmd {
+        Some(t) => {
+            let sz = t.size_vec2();
+            fit(sz.x / sz.y.max(1.0), room_w, sp_h)
+        }
+        None => (room_w, (room_w / 4.0).min(sp_h)),
+    };
+    let d_top = sp_mid + sp_h / 2.0;
+    let d_mid = d_top - dh / 2.0;
     out.push(quad(
         panel(
             x - dw / 2.0 - 0.01,
-            sp_mid - dh / 2.0 - 0.01,
+            d_mid - dh / 2.0 - 0.01,
             x + dw / 2.0 + 0.01,
-            sp_mid + dh / 2.0 + 0.01,
+            d_mid + dh / 2.0 + 0.01,
             gz,
         ),
         Fill::Flat,
         lit(Color32::from_rgb(4, 4, 5), 1.0),
         cam,
     ));
-    // the DMD shows the game's title (the top of its backglass) in orange
-    // plasma, seen through a mask of round dots
+    // the DMD shows the table's DMD clip or picture, whole; without one the
+    // game's title (the top of its backglass) in orange plasma. Either way
+    // seen through a mask of round dots
     let on = 0.4 + 0.6 * light;
     let dmd = panel(
         x - dw / 2.0,
-        sp_mid - dh / 2.0,
+        d_mid - dh / 2.0,
         x + dw / 2.0,
-        sp_mid + dh / 2.0,
+        d_mid + dh / 2.0,
         gz,
     );
     let plasma = Color32::from_rgb(255, 130, 40);
-    out.push(match &art.backglass {
-        Some(t) => {
+    out.push(match (&art.dmd, &art.backglass) {
+        (Some(t), _) => quad(dmd, Fill::Tex(t.id(), full), shade(Color32::WHITE, on), cam),
+        (None, Some(t)) => {
             let sz = t.size_vec2();
             let h = (sz.x / 4.0 / sz.y.max(1.0)).min(1.0);
             let uv = Rect::from_min_size(Pos2::new(0.0, 0.02), Vec2::new(1.0, h));
             quad(dmd, Fill::Tex(t.id(), uv), shade(plasma, on), cam)
         }
-        None => quad(dmd, Fill::Flat, shade(plasma, 0.25 * on), cam),
+        (None, None) => quad(dmd, Fill::Flat, shade(plasma, 0.25 * on), cam),
     });
     out.push(quad(
         dmd,
@@ -1117,6 +1140,7 @@ impl App {
                 _ => None,
             },
         };
+        let dmd_clip = self.video_dmd.as_ref().and_then(|v| v.texture().cloned());
         let allow_download = self.db.get_config("media_videos").as_deref() != Some("0");
         let mut hit: Vec<(usize, f32, Rect)> = Vec::new();
         for &(dist, fpos, off) in &cabinets {
@@ -1148,6 +1172,10 @@ impl App {
                 playfield: if idx == sel { clip.clone() } else { None }
                     .or_else(|| self.playfields.get(idx, &path, None).cloned()),
                 wheel: self.wheels.get(idx, &path, download.as_deref()).cloned(),
+                // the selected one plays its DMD clip, the others show the
+                // DMD picture
+                dmd: if idx == sel { dmd_clip.clone() } else { None }
+                    .or_else(|| self.dmds.get(idx, &path, download.as_deref()).cloned()),
             };
             {
                 // the machine is the light: its backglass throws its colour
