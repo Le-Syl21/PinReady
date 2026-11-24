@@ -2178,9 +2178,14 @@ impl App {
         if let Some(v) = &mut self.video_bg {
             v.update(ctx);
         }
+        // No `request_repaint_of(DMD_VIEWPORT)` here: the DMD cover asks for
+        // its own repaint on every launcher frame (show_logo_viewport), and
+        // without a DMD screen that viewport does not exist — egui then makes
+        // a default "egui window" for the id, which eframe opens and closes
+        // at the clip's frame rate (a flashing window stealing the focus,
+        // 0.30.0 with a ZeDMD or the arcade layout).
         if let Some(v) = &mut self.video_dmd {
             v.update(ctx);
-            ctx.request_repaint_of(egui::ViewportId::from_hash_of(DMD_VIEWPORT));
         }
         self.feed_zedmd();
     }
