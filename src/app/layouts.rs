@@ -293,7 +293,10 @@ impl App {
 
         // the wheel row
         let big = (rect.height() * 0.17).min(rect.width() * 0.26).max(48.0);
-        let row_y = rect.bottom() - big * 0.5 - 70.0;
+        // above the name strip: the selected wheel's bottom meets the top
+        // of the name
+        let info_h = super::launcher_ui::caption_height(rect);
+        let row_y = rect.bottom() - info_h - big * 0.5;
         let band = egui::Rect::from_min_max(
             egui::pos2(rect.left(), row_y - big * 0.62),
             egui::pos2(rect.right(), rect.bottom()),

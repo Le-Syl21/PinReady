@@ -262,7 +262,7 @@ pub struct TableEntry {
 }
 
 /// Wizard pages
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum WizardPage {
     Screens,
     Rendering,
@@ -2829,7 +2829,10 @@ impl eframe::App for App {
                     .stroke(egui::Stroke::NONE),
             )
             .show(ui, |ui| {
+                // One scroll position per page: a shared one left the next
+                // page scrolled to where the last one was.
                 egui::ScrollArea::vertical()
+                    .id_salt(("wizard_page_scroll", self.page))
                     .auto_shrink([false, false])
                     .scroll_bar_visibility(
                         egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded,
