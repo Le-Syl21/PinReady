@@ -254,7 +254,7 @@ impl App {
         }
 
         let (rect, _) = ui.allocate_exact_size(ui.available_size(), egui::Sense::hover());
-        let info_h = 90.0;
+        let info_h = super::launcher_ui::caption_height(rect);
         let view = Rect::from_min_max(rect.min, egui::pos2(rect.right(), rect.bottom() - info_h));
         let painter = ui.painter_at(view);
         let info_painter = ui.painter_at(rect);
@@ -440,31 +440,17 @@ impl App {
         }
 
         if let Some(t) = self.tables.get(self.selected_table) {
-            let y = rect.bottom() - info_h + 22.0;
-            info_painter.text(
-                egui::pos2(rect.center().x, y),
-                egui::Align2::CENTER_CENTER,
-                &t.name,
-                egui::FontId::proportional(28.0),
-                p.text,
-            );
-            let stars = t.user.rating_tenths as f32 / 10.0;
-            for s in 0..5 {
-                let c = egui::pos2(rect.center().x + (s as f32 - 2.0) * 26.0, y + 34.0);
-                super::launcher_ui::paint_rating_star(
-                    &info_painter,
-                    c,
-                    10.0,
-                    (stars - s as f32).clamp(0.0, 1.0),
-                    super::launcher_ui::STAR_GOLD,
-                );
-            }
-            info_painter.text(
-                egui::pos2(rect.right() - 16.0, y + 34.0),
-                egui::Align2::RIGHT_CENTER,
-                format!("{} / {n}", target as usize + 1),
-                egui::FontId::monospace(16.0),
-                p.text_faint,
+            super::launcher_ui::paint_caption(
+                &info_painter,
+                rect,
+                t,
+                target as usize + 1,
+                n,
+                &super::launcher_ui::CaptionColors {
+                    name: p.text,
+                    stars: super::launcher_ui::STAR_GOLD,
+                    place: p.text_faint,
+                },
             );
         }
 

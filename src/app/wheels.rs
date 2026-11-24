@@ -39,7 +39,8 @@ const UPLOADS_PER_FRAME: usize = 8;
 pub enum ArtKind {
     Wheel,
     Backglass,
-    /// A still of the playfield clip, for the arcade's unselected cabinets.
+    /// The playfield picture (`medias/table.png`, else a still of the
+    /// playfield clip), for the arcade's unselected cabinets.
     Playfield,
     /// The DMD picture (`medias/dmd.png`, else a still of the DMD clip), for
     /// the arcade's unselected cabinets.
@@ -152,7 +153,7 @@ fn source_file(kind: ArtKind, req: &Request) -> Option<PathBuf> {
             let b2s = req.table.with_extension("directb2s");
             b2s.is_file().then_some(b2s)
         }
-        ArtKind::Playfield => crate::video::playfield_video(table_dir),
+        ArtKind::Playfield => playfield_file(table_dir, req),
         ArtKind::Dmd => dmd_file(table_dir, req),
     }
 }
@@ -189,6 +190,16 @@ fn decode_source(kind: ArtKind, source: &Path) -> Option<image::DynamicImage> {
     let img = match kind {
         ArtKind::Wheel => image::open(source).ok()?,
         ArtKind::Dmd if !crate::video::is_video(source) => image::open(source).ok()?,
+        // VPinMediaDB's table.png lies on its side like the cabinet clip:
+        // stood up the same way (a quarter clockwise)
+        ArtKind::Playfield if !crate::video::is_video(source) => {
+            let img = image::open(source).ok()?;
+            if img.width() > img.height() {
+                img.rotate90()
+            } else {
+                img
+            }
+        }
         ArtKind::Playfield | ArtKind::Dmd => {
             // already fitted by the decoder
             return crate::video::still_frame(source, max, max, 2.0)
@@ -208,6 +219,34 @@ fn decode_source(kind: ArtKind, source: &Path) -> Option<image::DynamicImage> {
     } else {
         img
     })
+}
+
+/// The table's playfield picture: `medias/table.png`, downloaded from
+/// VPinMediaDB when missing and allowed, else its playfield clip (a still is
+/// taken). The picture comes first: the clip is only fetched when the table
+/// is selected, so a cabinet seen before that had nothing to show and stayed
+/// black once its table was left.
+fn playfield_file(table_dir: &Path, req: &Request) -> Option<PathBuf> {
+    let png = table_dir.join("medias").join("table.png");
+    if png.is_file() {
+        return Some(png);
+    }
+    let downloaded = req.download.as_deref().and_then(|vps_id| {
+        let (url, md5) = crate::mediadb::MediaDb::cached()?.table_image_url_md5(vps_id)?;
+        match crate::mediadb::fetch_asset(url, md5)
+            .and_then(|b| crate::mediadb::install_asset(table_dir, "table.png", &b))
+        {
+            Ok(p) => {
+                log::info!("Playfield picture installed: {}", p.display());
+                Some(p)
+            }
+            Err(e) => {
+                log::warn!("Playfield picture for {}: {e}", table_dir.display());
+                None
+            }
+        }
+    });
+    downloaded.or_else(|| crate::video::playfield_video(table_dir))
 }
 
 /// The table's DMD picture: `medias/dmd.png`, downloaded from VPinMediaDB

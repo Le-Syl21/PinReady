@@ -120,10 +120,20 @@ impl App {
         // held (to read the underlined letters) or a search is typed: the
         // tables get the whole screen. The Alt shortcuts work either way.
         let show_header = self.header_visible(ui.ctx());
+        // When the buttons leave the search field too little room (a rotated
+        // playfield, a narrow window), the header takes two rows: the
+        // toolbar, Rebuild, updates, Configuration and Quit on the first,
+        // sort, view and the search on the second. Decided from the previous
+        // frame's measure: the buttons are only measured once drawn.
+        let two_rows_id = egui::Id::unique("launcher_header_two_rows");
+        let two_rows: bool = ui.ctx().data(|d| d.get_temp(two_rows_id)).unwrap_or(false);
+        let rows = if two_rows { 2.0 } else { 1.0 };
         let (row_rect, _) = ui.allocate_exact_size(
-            egui::vec2(hrow_w, if show_header { row_h } else { 0.0 }),
+            egui::vec2(hrow_w, if show_header { row_h * rows } else { 0.0 }),
             egui::Sense::hover(),
         );
+        let row_rect_full = row_rect;
+        let row_rect = egui::Rect::from_min_size(row_rect.min, egui::vec2(hrow_w, row_h));
         let ctx = ui.ctx().clone();
         let p = theme::pal(&ctx);
         let header_button = |text: egui::WidgetText| {
@@ -169,12 +179,29 @@ impl App {
             self.start_rebuild();
         }
 
+        // Sort and view go on the second row with the search when there are
+        // two rows. Their width is measured either way, so that the choice
+        // of one or two rows does not depend on where they were drawn.
+        let mut second = ui.new_child(
+            egui::UiBuilder::new()
+                .max_rect(egui::Rect::from_min_size(
+                    row_rect.min + egui::vec2(0.0, row_h),
+                    egui::vec2(hrow_w, row_h),
+                ))
+                .layout(egui::Layout::left_to_right(egui::Align::Center)),
+        );
+        if !show_header || !two_rows {
+            second.set_invisible();
+        }
+        let sv: &mut egui::Ui = if two_rows { &mut second } else { &mut left };
+        let sv_start = sv.cursor().left();
+
         // Sort order: one button that goes through the choices (the S key
         // does the same). Favourites are toggled with F or the ball-launch
         // button, ratings 0 to 5 with the number keys.
         let sort_label = format!("{}: {}", t!("launcher_sort"), self.sort_mode.label());
         let m = mn.pick(&sort_label, &t!("launcher_sort", locale = "en"));
-        let r = m.tooltip(left.add(header_button(m_text(&m, &left))));
+        let r = m.tooltip(sv.add(header_button(m_text(&m, sv))));
         if r.clicked() || mn.hit(&m) {
             self.cycle_sort();
         }
@@ -182,7 +209,7 @@ impl App {
         // Layout: grid, carousel, wheels, arcade
         let view_label = format!("{}: {}", t!("launcher_view"), self.launcher_layout.label());
         let m = mn.pick(&view_label, &t!("launcher_view", locale = "en"));
-        let r = m.tooltip(left.add(header_button(m_text(&m, &left))));
+        let r = m.tooltip(sv.add(header_button(m_text(&m, sv))));
         if r.clicked() || mn.hit(&m) {
             self.launcher_layout = self.launcher_layout.next();
             self.scroll_to_selected = true;
@@ -201,6 +228,8 @@ impl App {
         // banners below the header, see `render_update_banners`.
         // A button, Alt+U without a mouse: it goes to the next table that has
         // an update, so a cabinet can find them.
+        let sv_end = sv.min_rect().right().max(sv_start);
+        let sv_w = sv_end - sv_start + sv.spacing().item_spacing.x;
         let updates = self.tables.iter().filter(|t| t.update_available).count();
         if updates > 0 {
             let m = mn.pick(&format!("↑ {updates}"), "Updates");
@@ -281,6 +310,20 @@ impl App {
             .x;
         let gap = h_size;
         let icon_w = h_size * 1.6;
+        // A field narrower than this reads badly: below it, second row.
+        let comfortable = h_size * 12.0;
+        let first_row_w = (left_end - row_rect.left()) + (row_rect.right() - right_start);
+        let buttons_w = first_row_w + if two_rows { sv_w } else { 0.0 };
+        let want_two = buttons_w + 2.0 * gap + icon_w + comfortable > hrow_w;
+        if want_two != two_rows {
+            ui.ctx().data_mut(|d| d.insert_temp(two_rows_id, want_two));
+            ui.ctx().request_repaint();
+        }
+        let (left_end, right_start, search_top) = if two_rows {
+            (sv_end, row_rect_full.right(), row_rect.top() + row_h)
+        } else {
+            (left_end, right_start, row_rect.top())
+        };
         let room = (right_start - left_end - 2.0 * gap - icon_w).max(0.0);
         let field_w = (text_w + h_size * 2.5)
             .clamp(h_size * 7.0, h_size * 30.0)
@@ -292,7 +335,7 @@ impl App {
         let mut center = ui.new_child(
             egui::UiBuilder::new()
                 .max_rect(egui::Rect::from_min_size(
-                    egui::pos2(x0, row_rect.top()),
+                    egui::pos2(x0, search_top),
                     egui::vec2(total_w, row_h),
                 ))
                 .layout(egui::Layout::left_to_right(egui::Align::Center)),
@@ -2044,6 +2087,80 @@ fn paint_star(painter: &egui::Painter, center: egui::Pos2, radius: f32, color: e
         mesh.indices.extend([0, 1 + k, 1 + (k + 1) % 10]);
     }
     painter.add(egui::Shape::mesh(mesh));
+}
+
+/// How much the selected table's name strip grows: its sizes are set for a
+/// 1080-pixel window side, and grow with the window's smaller side so the
+/// name reads from a metre away on a 4K cabinet playfield.
+pub(super) fn caption_scale(rect: egui::Rect) -> f32 {
+    (rect.width().min(rect.height()) / 1080.0).max(1.0) * 1.4
+}
+
+/// Height of the selected table's name strip at the bottom of a layout.
+pub(super) fn caption_height(rect: egui::Rect) -> f32 {
+    90.0 * caption_scale(rect)
+}
+
+/// Colours of the name strip (a layout that fades it passes faded ones).
+pub(super) struct CaptionColors {
+    pub name: egui::Color32,
+    pub stars: egui::Color32,
+    pub place: egui::Color32,
+}
+
+/// The selected table's name strip, shared by the 3D layouts: its name,
+/// the player's rating in stars and its place in the list (`place` of `n`),
+/// in the bottom `caption_height` of `rect`. A name wider than the window
+/// is set smaller to fit.
+pub(super) fn paint_caption(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    table: &TableEntry,
+    place: usize,
+    n: usize,
+    colors: &CaptionColors,
+) {
+    let s = caption_scale(rect);
+    let y = rect.bottom() - caption_height(rect) + 24.0 * s;
+    let mut size = 30.0 * s;
+    let room = rect.width() - 32.0 * s;
+    let width = painter
+        .layout_no_wrap(
+            table.name.clone(),
+            egui::FontId::proportional(size),
+            colors.name,
+        )
+        .size()
+        .x;
+    if width > room && width > 0.0 {
+        size = (size * room / width).max(10.0);
+    }
+    painter.text(
+        egui::pos2(rect.center().x, y),
+        egui::Align2::CENTER_CENTER,
+        &table.name,
+        egui::FontId::proportional(size),
+        colors.name,
+    );
+    let stars = table.user.rating_tenths as f32 / 10.0;
+    let row = y + 34.0 * s;
+    for k in 0..5 {
+        let c = egui::pos2(rect.center().x + (k as f32 - 2.0) * 28.0 * s, row);
+        paint_rating_star(
+            painter,
+            c,
+            11.0 * s,
+            (stars - k as f32).clamp(0.0, 1.0),
+            colors.stars,
+        );
+    }
+    painter.text(
+        egui::pos2(rect.right() - 16.0 * s, row),
+        egui::Align2::RIGHT_CENTER,
+        format!("{place} / {n}"),
+        egui::FontId::monospace(16.0 * s),
+        colors.place,
+    );
 }
 
 /// A rating star: black, outlined so it shows on a dark ground, with the

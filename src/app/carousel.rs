@@ -8,7 +8,7 @@
 //! `CAROUSEL_JUMP`, Start launches. A click on a side table turns it to the
 //! front, a click on the front table plays it.
 
-use super::launcher_ui::{STAR_GOLD, paint_rating_star};
+use super::launcher_ui::STAR_GOLD;
 use super::tile_fit::paint_tile_picture;
 use super::*;
 
@@ -74,7 +74,7 @@ impl App {
         if self.clip_behind() {
             self.paint_selected_behind(&painter, rect, 110);
         }
-        let info_h = 90.0;
+        let info_h = super::launcher_ui::caption_height(rect);
         let card_h = ((rect.height() - info_h) * 0.66).max(80.0);
         let ratio = self.tile_shape.ratio();
         let card_w = (card_h * ratio).min(rect.width() * 0.46);
@@ -191,31 +191,17 @@ impl App {
 
         // The front table's name, rating and place in the list
         if let Some(t) = self.tables.get(self.selected_table) {
-            let y = rect.bottom() - info_h + 18.0;
-            painter.text(
-                egui::pos2(rect.center().x, y),
-                egui::Align2::CENTER_CENTER,
-                &t.name,
-                egui::FontId::proportional(30.0),
-                p.text,
-            );
-            let stars = t.user.rating_tenths as f32 / 10.0;
-            for s in 0..5 {
-                let c = egui::pos2(rect.center().x + (s as f32 - 2.0) * 28.0, y + 36.0);
-                paint_rating_star(
-                    &painter,
-                    c,
-                    11.0,
-                    (stars - s as f32).clamp(0.0, 1.0),
-                    STAR_GOLD,
-                );
-            }
-            painter.text(
-                egui::pos2(rect.right() - 16.0, y + 36.0),
-                egui::Align2::RIGHT_CENTER,
-                format!("{} / {n}", target as usize + 1),
-                egui::FontId::monospace(16.0),
-                p.text_faint,
+            super::launcher_ui::paint_caption(
+                &painter,
+                rect,
+                t,
+                target as usize + 1,
+                n,
+                &super::launcher_ui::CaptionColors {
+                    name: p.text,
+                    stars: STAR_GOLD,
+                    place: p.text_faint,
+                },
             );
         }
 

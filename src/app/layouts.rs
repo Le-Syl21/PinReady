@@ -384,31 +384,17 @@ impl App {
         if alpha > 0.0
             && let Some(t) = self.tables.get(self.selected_table)
         {
-            let y = rect.bottom() - 46.0;
-            painter.text(
-                egui::pos2(rect.center().x, y),
-                egui::Align2::CENTER_CENTER,
-                &t.name,
-                egui::FontId::proportional(26.0),
-                fade(egui::Color32::WHITE),
-            );
-            let stars = t.user.rating_tenths as f32 / 10.0;
-            for s in 0..5 {
-                let c = egui::pos2(rect.center().x + (s as f32 - 2.0) * 24.0, y + 28.0);
-                super::launcher_ui::paint_rating_star(
-                    &painter,
-                    c,
-                    9.0,
-                    (stars - s as f32).clamp(0.0, 1.0),
-                    fade(super::launcher_ui::STAR_GOLD),
-                );
-            }
-            painter.text(
-                egui::pos2(rect.right() - 16.0, y + 28.0),
-                egui::Align2::RIGHT_CENTER,
-                format!("{} / {n}", target as usize + 1),
-                egui::FontId::monospace(14.0),
-                fade(egui::Color32::from_gray(170)),
+            super::launcher_ui::paint_caption(
+                &painter,
+                rect,
+                t,
+                target as usize + 1,
+                n,
+                &super::launcher_ui::CaptionColors {
+                    name: fade(egui::Color32::WHITE),
+                    stars: fade(super::launcher_ui::STAR_GOLD),
+                    place: fade(egui::Color32::from_gray(170)),
+                },
             );
         }
 

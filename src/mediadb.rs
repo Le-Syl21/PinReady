@@ -8,7 +8,8 @@
 //!
 //! PinReady uses, per table, into its `medias/` folder:
 //!   * `1k/bg.png`, `audio.mp3` → backglass and jingle (fetched by the scan)
-//!   * `wheel.png`, `1k/dmd.png` → wheel and DMD pictures (when first shown)
+//!   * `wheel.png`, `1k/table.png`, `1k/dmd.png` → wheel, playfield and DMD
+//!     pictures (when first shown)
 //!   * `1k/table.mp4`, `1k/dmd.mp4` → playfield and DMD clips (when the
 //!     table is first selected)
 //!
@@ -177,6 +178,12 @@ impl MediaDb {
     pub fn table_video_url_md5(&self, game_id: &str) -> Option<(&str, &str)> {
         let b = self.games.get(game_id)?.k1.as_ref()?;
         Some((b.table_video.as_deref()?, b.table_video_md5.as_deref()?))
+    }
+    /// Playfield picture of the 1k bucket (`table.png`, 1920x1080, on its
+    /// side like the playfield clip).
+    pub fn table_image_url_md5(&self, game_id: &str) -> Option<(&str, &str)> {
+        let b = self.games.get(game_id)?.k1.as_ref()?;
+        Some((b.table.as_deref()?, b.table_md5.as_deref()?))
     }
     /// DMD picture of the 1k bucket (`dmd.png`).
     pub fn dmd_image_url_md5(&self, game_id: &str) -> Option<(&str, &str)> {
