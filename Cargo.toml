@@ -22,6 +22,7 @@ inspection = ["eframe/inspection"]
 video = ["dep:ffmpeg-next", "dep:ffmpeg-sys-next"]
 
 [dependencies]
+libloading = "0.8"
 # UI
 eframe = { version = "0.37", default-features = false, features = ["accesskit", "default_fonts", "glow", "links", "wayland", "x11"] }
 # The emoji glyphs the UI uses (🔍 🌗 🌙 ↻ ℹ…) left the default fonts in

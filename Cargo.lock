@@ -3801,6 +3801,7 @@ dependencies = [
  "hidapi",
  "image",
  "ini-preserve",
+ "libloading",
  "log",
  "noto-fonts-dl",
  "objc2-core-foundation",

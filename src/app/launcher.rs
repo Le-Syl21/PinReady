@@ -1497,6 +1497,11 @@ impl App {
         if let Some(out) = self.zedmd_out.take() {
             out.close();
         }
+        // DOF hands the output devices over to the table's own DOF
+        if let Some(lights) = self.dof_attract.take() {
+            lights.stop();
+        }
+        self.dof_attract_failed = false;
         // Preview audio stops automatically when we tear down the audio
         // thread below — no explicit PreviewStop needed.
         self.preview_playing = false;
@@ -2188,6 +2193,44 @@ impl App {
             v.update(ctx);
         }
         self.feed_zedmd();
+    }
+
+    /// Keep the cabinet lights on while the launcher waits: DOF runs on the
+    /// `pinupmenu` table of the user's DOF config when the DOF plugin is
+    /// enabled, never in the configuration pages (their output tester drives
+    /// the same boards) nor while a table runs.
+    pub(super) fn feed_dof_attract(&mut self) {
+        let wanted = self.mode == super::AppMode::Launcher
+            && !self.vpx_running.load(Ordering::Relaxed)
+            && self.config.get("Plugin.DOF", "Enable").as_deref() == Some("1");
+        if !wanted {
+            if let Some(lights) = self.dof_attract.take() {
+                lights.stop();
+            }
+            return;
+        }
+        if let Some(lights) = &mut self.dof_attract {
+            if lights.ended() {
+                log::warn!("DOF lights: the helper ended (check the DOF config)");
+                self.dof_attract = None;
+                self.dof_attract_failed = true;
+            }
+            return;
+        }
+        if self.dof_attract_failed {
+            return;
+        }
+        let exe = updater::resolve_vpx_exe(std::path::Path::new(&self.vpx_exe_path));
+        let Some(lib) = crate::dof_attract::find_libdof(&exe) else {
+            self.dof_attract_failed = true;
+            return;
+        };
+        let Some(dir) = self.config.path().parent().map(|d| d.to_path_buf()) else {
+            self.dof_attract_failed = true;
+            return;
+        };
+        self.dof_attract = crate::dof_attract::Attract::start(&lib, &dir);
+        self.dof_attract_failed = self.dof_attract.is_none();
     }
 
     /// Keep the ZeDMD showing the selected table's DMD clip: connect when

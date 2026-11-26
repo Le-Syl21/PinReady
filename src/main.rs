@@ -19,6 +19,7 @@ mod config;
 mod db;
 mod display_id;
 mod display_reconcile;
+mod dof_attract;
 mod edid;
 mod headtracking_install;
 mod i18n;
@@ -216,6 +217,11 @@ fn main() -> Result<()> {
     if args.iter().any(|a| a == "--help" || a == "-h") {
         print_help();
         return Ok(());
+    }
+    // Child process of the cabinet lights (see `dof_attract`).
+    if let Some(pos) = args.iter().position(|a| a == dof_attract::CHILD_ARG) {
+        let lib = args.get(pos + 1).cloned().unwrap_or_default();
+        return dof_attract::run_child(std::path::Path::new(&lib));
     }
     if args.iter().any(|a| a == "--print-paths") {
         return run_print_paths_cli();

@@ -502,6 +502,11 @@ pub struct App {
     zedmd_out: Option<crate::zedmd_link::Output>,
     /// When a lost or missing ZeDMD may be tried again.
     zedmd_retry_at: Option<std::time::Instant>,
+    /// Cabinet lights while the launcher waits (DOF on `pinupmenu`).
+    dof_attract: Option<crate::dof_attract::Attract>,
+    /// The lights helper died (a broken DOF config): not started again until
+    /// the next table has run.
+    dof_attract_failed: bool,
     /// Last DMD clip frame sent to the ZeDMD (0: none, the panel is clear).
     zedmd_sent: u64,
     /// A ZeDMD search running from the Screens page.
@@ -1086,6 +1091,8 @@ impl App {
             zedmd_link,
             zedmd_out: None,
             zedmd_retry_at: None,
+            dof_attract: None,
+            dof_attract_failed: false,
             zedmd_sent: 0,
             zedmd_search: None,
             zedmd_search_result: None,
@@ -2275,6 +2282,7 @@ impl eframe::App for App {
         if self.mode == AppMode::Wizard && !self.wizard_size_checked {
             self.fit_wizard_window(ui.ctx());
         }
+        self.feed_dof_attract();
 
         // Two-step VPX launch: when the launcher clicks a table it stashes
         // the path in `pending_vpx_launch`; this frame asks the compositor
