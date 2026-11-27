@@ -3,9 +3,12 @@
 //! DOF is started on the ROM name `pinupmenu`, the entry the DOF Config Tool
 //! ships for front ends ("PinUP Menu"): every generated DirectOutput config
 //! carries it, so each cabinet plays the lights its owner already set up there
-//! (static and blinking toys, button lights, addressable LED effects). libdof
-//! fires those effects at `Init` and runs them on its own thread, no events
-//! needed.
+//! (static and blinking toys, button lights, addressable LED effects). The
+//! steady ones light at `Init`; the animated ones answer the events PinUP
+//! Popper sends on that table, which the launcher sends the same way:
+//! `E800`/`E801` pulsed when the selection moves back/forward, `E805`/`E804`
+//! for a page (row) back/forward, and a random `E901`-`E990` held while the
+//! selection rests on a table, released for the next one.
 //!
 //! The library is the one the installed Visual Pinball ships in its DOF plugin
 //! folder, so PinReady carries no native dependency. It runs in a child
@@ -14,10 +17,11 @@
 //! take the launcher down. The child's working directory is the folder that
 //! holds `directoutputconfig/` (libdof looks there when no base path is set);
 //! its `DirectOutput.log` lands there too.
-//! Closing its standard input makes it call `Finish`, which releases the
+//! The launcher writes one event per line on the child's standard input
+//! (`E 801 1`); closing it makes the child call `Finish`, which releases the
 //! devices for Visual Pinball.
 
-use std::io::Read;
+use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
@@ -46,8 +50,22 @@ const CTOR: [&str; 2] = ["_ZN3DOF3DOFC1Ev", "??0DOF@0@QEAA@XZ"];
 const DTOR: [&str; 2] = ["_ZN3DOF3DOFD1Ev", "??1DOF@0@QEAA@XZ"];
 const INIT: [&str; 2] = ["_ZN3DOF3DOF4InitEPKcS2_", "?Init@DOF@1@QEAAXPEBD0@Z"];
 const FINISH: [&str; 2] = ["_ZN3DOF3DOF6FinishEv", "?Finish@DOF@1@QEAAXXZ"];
+const DATA: [&str; 2] = [
+    "_ZN3DOF3DOF11DataReceiveEcii",
+    "?DataReceive@DOF@1@QEAAXDHH@Z",
+];
+
+/// Popper's events on the `pinupmenu` table.
+pub const EV_PRIOR: u16 = 800;
+pub const EV_NEXT: u16 = 801;
+pub const EV_PAGE_NEXT: u16 = 804;
+pub const EV_PAGE_PRIOR: u16 = 805;
+/// Range of the random effect held while a table is selected.
+pub const RANDOM_FIRST: u16 = 901;
+pub const RANDOM_LAST: u16 = 990;
 
 type Method0 = unsafe extern "C" fn(*mut u8);
+type DataFn = unsafe extern "C" fn(*mut u8, std::ffi::c_char, i32, i32);
 type InitFn = unsafe extern "C" fn(*mut u8, *const std::ffi::c_char, *const std::ffi::c_char);
 
 fn open(lib: &Path) -> Result<libloading::Library, libloading::Error> {
@@ -72,8 +90,18 @@ fn symbol<T: Copy>(lib: &libloading::Library, names: &[&str]) -> Option<T> {
         .find_map(|n| unsafe { lib.get::<T>(n.as_bytes()).ok().map(|s| *s) })
 }
 
-/// Child process: start DOF on [`ATTRACT_ROM`], run until standard input
-/// closes, then finish.
+/// One event line as the launcher writes it: `E 801 1`.
+fn parse_event(line: &str) -> Option<(u8, i32, i32)> {
+    let mut it = line.split_ascii_whitespace();
+    let kind = it.next()?.as_bytes();
+    let number = it.next()?.parse().ok()?;
+    let value = it.next()?.parse().ok()?;
+    (kind.len() == 1 && kind[0].is_ascii_uppercase() && it.next().is_none())
+        .then_some((kind[0], number, value))
+}
+
+/// Child process: start DOF on [`ATTRACT_ROM`], pass on the events read from
+/// standard input until it closes, then finish.
 pub fn run_child(lib_path: &Path) -> anyhow::Result<()> {
     // libdof appends to ./DirectOutput.log at each start: keep it bounded.
     let log = Path::new("DirectOutput.log");
@@ -100,8 +128,14 @@ pub fn run_child(lib_path: &Path) -> anyhow::Result<()> {
         ctor(this);
         init(this, table.as_ptr(), rom.as_ptr());
     }
-    let mut sink = Vec::new();
-    let _ = std::io::stdin().read_to_end(&mut sink);
+    let data = symbol::<DataFn>(&lib, &DATA);
+    for line in std::io::stdin().lock().lines() {
+        let Ok(line) = line else { break };
+        if let (Some(data), Some((kind, number, value))) = (data, parse_event(&line)) {
+            // SAFETY: as above, on the same object, from this one thread.
+            unsafe { data(this, kind as std::ffi::c_char, number, value) };
+        }
+    }
     unsafe {
         finish(this);
         dtor(this);
@@ -145,6 +179,20 @@ impl Attract {
         }
     }
 
+    /// Send DOF event `E<number>` with `value`. A child that is gone is
+    /// noticed by [`Self::ended`].
+    pub fn event(&mut self, number: u16, value: u8) {
+        if let Some(stdin) = self.child.stdin.as_mut() {
+            let _ = writeln!(stdin, "E {number} {value}").and_then(|()| stdin.flush());
+        }
+    }
+
+    /// Pulse `E<number>`: on, then off straight away, as Popper does.
+    pub fn pulse(&mut self, number: u16) {
+        self.event(number, 1);
+        self.event(number, 0);
+    }
+
     /// The child is gone (a broken config, a crash).
     pub fn ended(&mut self) -> bool {
         !matches!(self.child.try_wait(), Ok(None))
@@ -182,6 +230,16 @@ impl Drop for Attract {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reads_the_event_lines() {
+        assert_eq!(parse_event("E 801 1"), Some((b'E', 801, 1)));
+        assert_eq!(parse_event(" E  950 0 "), Some((b'E', 950, 0)));
+        assert_eq!(parse_event("E 801"), None);
+        assert_eq!(parse_event("e 801 1"), None);
+        assert_eq!(parse_event("E 801 1 2"), None);
+        assert_eq!(parse_event("EE 801 1"), None);
+    }
 
     #[test]
     fn finds_the_library_of_each_layout() {

@@ -507,6 +507,10 @@ pub struct App {
     /// The lights helper died (a broken DOF config): not started again until
     /// the next table has run.
     dof_attract_failed: bool,
+    /// Table the selection rests on for the DOF lights, and since when.
+    dof_rest: Option<(usize, std::time::Instant)>,
+    /// Random DOF effect held for a table (table, event number).
+    dof_random: Option<(usize, u16)>,
     /// Last DMD clip frame sent to the ZeDMD (0: none, the panel is clear).
     zedmd_sent: u64,
     /// A ZeDMD search running from the Screens page.
@@ -1093,6 +1097,8 @@ impl App {
             zedmd_retry_at: None,
             dof_attract: None,
             dof_attract_failed: false,
+            dof_rest: None,
+            dof_random: None,
             zedmd_sent: 0,
             zedmd_search: None,
             zedmd_search_result: None,

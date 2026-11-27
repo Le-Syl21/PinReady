@@ -2214,6 +2214,30 @@ impl App {
                 log::warn!("DOF lights: the helper ended (check the DOF config)");
                 self.dof_attract = None;
                 self.dof_attract_failed = true;
+                return;
+            }
+            // Once the selection has rested on a table for a moment, hold a
+            // random effect for it, releasing the previous table's one.
+            let sel = self.selected_table;
+            let since = match self.dof_rest {
+                Some((table, since)) if table == sel => since,
+                _ => {
+                    let now = std::time::Instant::now();
+                    self.dof_rest = Some((sel, now));
+                    now
+                }
+            };
+            if self.dof_random.map(|(table, _)| table) != Some(sel)
+                && since.elapsed() >= std::time::Duration::from_millis(400)
+            {
+                if let Some((_, old)) = self.dof_random.take() {
+                    lights.event(old, 0);
+                }
+                use crate::dof_attract::{RANDOM_FIRST, RANDOM_LAST};
+                let span = u32::from(RANDOM_LAST - RANDOM_FIRST + 1);
+                let pick = RANDOM_FIRST + (getrandom::u32().unwrap_or(0) % span) as u16;
+                lights.event(pick, 1);
+                self.dof_random = Some((sel, pick));
             }
             return;
         }
@@ -2231,6 +2255,8 @@ impl App {
         };
         self.dof_attract = crate::dof_attract::Attract::start(&lib, &dir);
         self.dof_attract_failed = self.dof_attract.is_none();
+        // A new DOF session holds no effect yet.
+        self.dof_random = None;
     }
 
     /// Keep the ZeDMD showing the selected table's DMD clip: connect when
@@ -2723,6 +2749,15 @@ impl App {
                 };
                 self.selected_table = visible[new_pos];
                 self.scroll_to_selected = true;
+                if let Some(lights) = &mut self.dof_attract {
+                    use crate::dof_attract::{EV_NEXT, EV_PAGE_NEXT, EV_PAGE_PRIOR, EV_PRIOR};
+                    lights.pulse(match action {
+                        LauncherAction::PrevCard => EV_PRIOR,
+                        LauncherAction::NextCard => EV_NEXT,
+                        LauncherAction::PrevRow => EV_PAGE_PRIOR,
+                        _ => EV_PAGE_NEXT,
+                    });
+                }
                 true
             }
             LauncherAction::Launch => {
